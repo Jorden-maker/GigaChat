@@ -1,0 +1,601 @@
+{
+  "name": "RAG-Агент",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rag",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "rag-webhook-0001",
+      "name": "Webhook RAG",
+      "webhookId": "rag-agent-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\nconst history = body.history || [];\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nlet historyContext = '';\nif (history.length > 0) {\n  const lines = history.slice(-10).map(m => {\n    const role = m.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (m.content || m.text || '').substring(0, 300);\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id, historyContext: historyContext}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "id": "rag-val-0001",
+      "name": "Валидация"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-valid-rag",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "looseTypeValidation": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ],
+      "id": "rag-if-valid-0001",
+      "name": "Запрос валиден?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response: $json.error}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        660,
+        520
+      ],
+      "id": "rag-err-val-0001",
+      "name": "Ответ: ошибка валидации"
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $input.first().json.message;\nconst historyContext = $input.first().json.historyContext || '';\nconst session_id = $input.first().json.session_id || 'rag-default';\nconst lower = message.toLowerCase();\n\nconst docKeywords = [\n  'документ', 'договор', 'акт', 'контракт', 'соглашени',\n  'коммерческ', 'предложени', 'кп ', 'доверенност',\n  'записк', 'протокол', 'приказ', 'заявлени',\n  'шаблон', 'бланк', 'образец', 'форм',\n  'найди в документ', 'что написано', 'что сказано',\n  'о чём документ', 'о чем документ', 'содержание документ',\n  'загруженн', 'файл', 'текст документ',\n  'пункт', 'параграф', 'раздел', 'глав',\n  'срок', 'оплат', 'условия', 'реквизит',\n  'составь', 'подготовь', 'создай документ', 'напиши документ',\n  'база знаний', 'база документ', 'найди информаци',\n  'процитируй', 'цитат', 'выдержк',\n  'регламент', 'инструкци', 'положени', 'устав',\n  'накладн', 'счёт', 'счет-фактур', 'акт выполненн'\n];\n\nlet isDoc = false;\n\nfor (const kw of docKeywords) {\n  if (lower.includes(kw)) { isDoc = true; break; }\n}\n\n// Дополнительная проверка: вопрос о содержимом\nif (!isDoc && message.length > 15) {\n  const contentIndicators = ['что написано', 'что сказано', 'о чём', 'о чем', 'найди в', 'процитируй'];\n  const contentEntities = ['документ', 'файл', 'договор', 'акт', 'контракт'];\n  const hasQuestion = contentIndicators.some(q => lower.includes(q));\n  const hasEntity = contentEntities.some(e => lower.includes(e));\n  if (hasQuestion && hasEntity) isDoc = true;\n}\n\nif (!isDoc) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'document', historyContext, session_id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "id": "rag-cls-0001",
+      "name": "Классификатор"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "general",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-general"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        300
+      ],
+      "id": "rag-switch-0001",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "assistant",
+              "content": "Ты — помощник по документам GigaChat. Главная задача — искать информацию в загруженных документах и помогать составлять новые.\n\nНо ты дружелюбный собеседник и можешь поддержать разговор на любую тему.\n\nПравила:\n1. Отвечай кратко — максимум 5-7 предложений\n2. Если здороваются — поздоровайся тепло и представься\n3. Если спрашивают что ты умеешь — объясни: поиск по документам, ответы на вопросы по содержимому, составление документов по шаблонам\n4. Если вопрос на другую тему — ответь по-дружески, в конце плавно упомяни что можешь помочь с документами. Не навязывай\n5. Если пользователь продолжает общаться не про документы — просто общайся, не повторяй напоминание каждый раз\n6. Пиши на русском языке\n7. Не используй markdown-заголовки\n8. Будь живым, не роботичным\n\nПример:\nЗапрос: Привет\nОтвет: Привет! Я помощник по документам — могу найти информацию в загруженных файлах, ответить на вопросы по содержимому или помочь составить документ. Спросите, например, «что написано в договоре с ООО Ромашка?» или «составь акт выполненных работ».\n\nПример:\nЗапрос: Что ты умеешь?\nОтвет: Я работаю с вашей базой документов. Могу найти информацию в загруженных файлах, ответить на вопросы по содержимому договоров, актов и других документов. Также могу помочь составить новый документ по образцу из базы."
+            },
+            {
+              "content": "={{ $json.historyContext }}{{ $json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        160
+      ],
+      "id": "rag-gen-general-0001",
+      "name": "Ответ GENERAL",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос. Попробуйте ещё раз.' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки.' } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        160
+      ],
+      "id": "rag-check-gen-0001",
+      "name": "Проверка ответа GEN"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1540,
+        160
+      ],
+      "id": "rag-resp-gen-0001",
+      "name": "Ответ: GENERAL"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://GIGACHAT_HOST:PORT/v1/db/vector/doc/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'Embeddings', input: $('Валидация').first().json.message }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        440
+      ],
+      "id": "rag-embed-0001",
+      "name": "Эмбеддинг вопроса",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Строим SQL-запрос для поиска похожих документов в PGVector\ntry {\n  const data = $input.first().json;\n\n  if (data.error) {\n    return [{ json: { search_sql: null, fallback: 'Ошибка получения эмбеддинга. Поиск по документам недоступен.' } }];\n  }\n\n  let vector = null;\n  if (data.data && Array.isArray(data.data) && data.data[0] && data.data[0].embedding) {\n    vector = data.data[0].embedding;\n  } else if (data.embedding && Array.isArray(data.embedding)) {\n    vector = data.embedding;\n  } else if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'number') {\n    vector = data;\n  }\n\n  if (!vector || vector.length === 0) {\n    return [{ json: { search_sql: null, fallback: 'Не удалось получить вектор вопроса. Попробуйте переформулировать.' } }];\n  }\n\n  const vectorStr = '[' + vector.join(',') + ']';\n  const sql = \"SELECT filename, chunk_index, chunk_text, 1 - (embedding <=> '\" + vectorStr + \"') AS similarity FROM documents ORDER BY embedding <=> '\" + vectorStr + \"' LIMIT 5\";\n\n  return [{ json: { search_sql: sql, vector_size: vector.length } }];\n} catch (e) {\n  return [{ json: { search_sql: null, fallback: 'Ошибка обработки эмбеддинга: ' + e.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        440
+      ],
+      "id": "rag-build-search-0001",
+      "name": "Построить поиск"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.search_sql || \"SELECT '' as chunk_text, '' as filename, 0 as similarity\" }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1540,
+        440
+      ],
+      "id": "rag-search-0001",
+      "name": "Поиск в документах",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(item => item.json);\nconst buildSearch = $('Построить поиск').first().json;\n\n// Если эмбеддинг упал — fallback\nif (buildSearch.fallback) {\n  return [{json: {has_docs: false, documents: '', fallback_message: buildSearch.fallback}}];\n}\n\n// Фильтруем: только куски с similarity > 0.3\nconst docs = items.filter(item =>\n  item && item.chunk_text && item.chunk_text.trim && item.chunk_text.trim().length > 0 &&\n  (item.similarity === undefined || item.similarity > 0.3)\n);\n\nif (docs.length === 0) {\n  return [{json: {has_docs: false, documents: '', fallback_message: 'В базе документов не найдено информации по вашему запросу. Загрузите нужные документы через страницу загрузки.'}}];\n}\n\nconst context = docs.map((d, i) => {\n  const src = d.filename ? (' [' + d.filename + ']') : '';\n  return (i + 1) + '.' + src + '\\n' + d.chunk_text;\n}).join('\\n\\n');\n\nreturn [{json: {has_docs: true, documents: context, doc_count: docs.length, filenames: [...new Set(docs.map(d => d.filename).filter(Boolean))]}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        440
+      ],
+      "id": "rag-check-docs-0001",
+      "name": "Проверка документов"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.has_docs }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "rule-has-docs"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1980,
+        440
+      ],
+      "id": "rag-docs-switch-0001",
+      "name": "Есть документы?"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "assistant",
+              "content": "Ты — помощник по документам. Тебе дан вопрос пользователя и фрагменты документов из базы знаний.\n\nПравила:\n1. Отвечай ТОЛЬКО на основе предоставленных фрагментов\n2. Если вопрос — найти информацию, процитируй и объясни найденное\n3. Если вопрос — составить документ, используй фрагменты как образец\n4. Указывай из какого файла взята информация\n5. Если фрагменты не содержат ответа — честно скажи об этом\n6. Пиши на русском языке\n7. Максимум 15 предложений\n8. НЕ придумывай информацию, которой нет во фрагментах\n\nПример:\nВопрос: Какие сроки оплаты в договоре?\nФрагменты: [договор.pdf] Оплата производится в течение 10 рабочих дней...\nОтвет: Согласно договору (файл: договор.pdf), оплата производится в течение 10 рабочих дней с момента подписания акта.\n\nНЕПРАВИЛЬНО:\nДавайте детально проанализируем представленные фрагменты документов и рассмотрим все аспекты..."
+            },
+            {
+              "content": "=Запрос: {{ $('Валидация').first().json.message }}\n\nНайденные фрагменты ({{ $('Проверка документов').first().json.doc_count }} шт., файлы: {{ $('Проверка документов').first().json.filenames ? $('Проверка документов').first().json.filenames.join(', ') : 'неизвестно' }}):\n\n{{ $('Проверка документов').first().json.documents }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        2200,
+        360
+      ],
+      "id": "rag-gen-doc-0001",
+      "name": "Генерация ответа",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос к документам. Попробуйте переформулировать.' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка генерации ответа.' } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        360
+      ],
+      "id": "rag-check-doc-0001",
+      "name": "Проверка ответа DOC"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2640,
+        360
+      ],
+      "id": "rag-resp-doc-0001",
+      "name": "Ответ: DOC"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response: $('Проверка документов').first().json.fallback_message}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2200,
+        560
+      ],
+      "id": "rag-resp-fallback-0001",
+      "name": "Ответ: нет документов"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook RAG": {
+      "main": [
+        [
+          {
+            "node": "Валидация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация": {
+      "main": [
+        [
+          {
+            "node": "Запрос валиден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Запрос валиден?": {
+      "main": [
+        [
+          {
+            "node": "Классификатор",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка валидации",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Классификатор": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Ответ GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Эмбеддинг вопроса",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ответ GENERAL": {
+      "main": [
+        [
+          {
+            "node": "Проверка ответа GEN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка ответа GEN": {
+      "main": [
+        [
+          {
+            "node": "Ответ: GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Эмбеддинг вопроса": {
+      "main": [
+        [
+          {
+            "node": "Построить поиск",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Построить поиск": {
+      "main": [
+        [
+          {
+            "node": "Поиск в документах",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Поиск в документах": {
+      "main": [
+        [
+          {
+            "node": "Проверка документов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка документов": {
+      "main": [
+        [
+          {
+            "node": "Есть документы?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Есть документы?": {
+      "main": [
+        [
+          {
+            "node": "Генерация ответа",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: нет документов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Генерация ответа": {
+      "main": [
+        [
+          {
+            "node": "Проверка ответа DOC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка ответа DOC": {
+      "main": [
+        [
+          {
+            "node": "Ответ: DOC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "rag-agent-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ad16de428774283a74f2bef15a9b31f771c3828cae096d3c33aab7bd18058813"
+  },
+  "id": "rag-agent-001",
+  "tags": []
+}

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Загрузка документов в базу знаний</title>
+    <style>
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #2a2a2a;
+            --bg-input: #333333;
+            --border: #444444;
+            --text-primary: #e0e0e0;
+            --text-secondary: #999999;
+            --accent: #6ec1e4;
+            --accent-hover: #5ab0d4;
+            --success: #4caf50;
+            --success-bg: #1a2e1a;
+            --error-bg: #3a2020;
+            --error-border: #cc4444;
+            --error-text: #ff8888;
+            --warning-bg: #3a3520;
+            --warning-border: #cc9944;
+            --warning-text: #ffcc88;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: Segoe UI, Tahoma, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-home { position:fixed; top:16px; left:16px; padding:8px 16px; background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-secondary); text-decoration:none; font-size:13px; border-radius:8px; transition:all .2s; z-index:10; }
+        .btn-home:hover { border-color:var(--accent); color:var(--accent); }
+        .btn-home .arrow { margin-right:6px; }
+
+        .container {
+            width: 100%;
+            max-width: 750px;
+            padding: 0 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-family: Consolas, monospace;
+            font-size: 22px;
+            color: var(--accent);
+            letter-spacing: 2px;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .status-line {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 6px; font-size: 11px; color: var(--text-secondary);
+        }
+        .status-line .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #4caf50; animation: pulse 2s infinite;
+        }
+        .status-line .dot.offline { background: #cc4444; animation: none; }
+        .status-line .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .upload-area {
+            border: 2px dashed #555;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--bg-secondary);
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover { border-color: var(--accent); background: #2a2a35; }
+        .upload-area.dragging { border-color: var(--accent); background: #2a2a40; }
+
+        .upload-area .icon { font-size: 48px; margin-bottom: 12px; }
+        .upload-area .text { color: var(--text-secondary); font-size: 14px; }
+        .upload-area .filename { color: var(--accent); font-size: 15px; margin-top: 8px; font-weight: 600; }
+        .upload-area .filesize { color: var(--text-secondary); font-size: 12px; margin-top: 4px; }
+
+        #fileInput { display: none; }
+
+        .btn-row { display: flex; gap: 10px; margin-bottom: 20px; }
+
+        #sendBtn {
+            flex: 1;
+            padding: 14px;
+            background: var(--accent);
+            color: #111;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        #sendBtn:hover { background: var(--accent-hover); }
+        #sendBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .loading {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading .timer {
+            font-family: Consolas, monospace;
+            color: var(--accent);
+            font-size: 16px;
+            margin-top: 8px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-input);
+            border-radius: 3px;
+            margin-top: 12px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar .fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 3px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+
+        #result {
+            display: none;
+            padding: 20px;
+            border-radius: 12px;
+            line-height: 1.7;
+            font-size: 14.5px;
+            white-space: pre-wrap;
+        }
+
+        #result.success { background: var(--success-bg); border: 1px solid var(--success); color: #a5d6a7; }
+        #result.error { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); }
+        #result.warning { background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning-text); }
+
+        .history {
+            margin-top: 20px;
+            padding: 15px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            display: none;
+        }
+
+        .history h3 {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 13px;
+            border-bottom: 1px solid #333;
+        }
+
+        .history-item:last-child { border-bottom: none; }
+        .history-item .name { color: var(--text-primary); }
+        .history-item .info { color: var(--text-secondary); }
+
+        .reset-btn {
+            text-align: center;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .reset-btn button {
+            background: none;
+            border: 1px solid #444;
+            color: #888;
+            padding: 8px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .reset-btn button:hover { border-color: #666; color: #bbb; }
+    </style>
+</head>
+<body>
+    <a class="btn-home" href="../GigaChat-Platform.html"><span class="arrow">&#8592;</span>GigaChat</a>
+    <div class="container">
+        <header>
+            <h1>Загрузка документов</h1>
+            <p>Загрузите документ в базу знаний для поиска по смыслу</p>
+            <div class="status-line">
+                <span class="dot checking" id="statusDot"></span>
+                <span id="statusText">проверка...</span>
+            </div>
+        </header>
+
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+            <div class="icon">📂</div>
+            <div class="text">Нажмите или перетащите файл сюда</div>
+            <div class="text" style="margin-top:6px; font-size:12px; color:#666">PDF, Word, изображения (макс. 50 МБ)</div>
+            <div class="filename" id="fileName"></div>
+            <div class="filesize" id="fileSize"></div>
+        </div>
+
+        <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp" onchange="fileSelected(this)">
+
+        <div class="btn-row">
+            <button id="sendBtn" onclick="sendFile()" disabled>Загрузить в базу знаний</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div>Обрабатываю документ: OCR → нарезка → эмбеддинг → сохранение</div>
+            <div class="timer" id="timer">0 сек</div>
+            <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+        </div>
+
+        <div id="result"></div>
+
+        <div class="reset-btn" id="resetBtn">
+            <button onclick="resetForm()">Загрузить другой документ</button>
+        </div>
+
+        <div class="history" id="history">
+            <h3>Загруженные документы:</h3>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // ПОМЕНЯЙ НА РЕАЛЬНЫЙ АДРЕС N8N В ОФИСЕ
+        // ============================================
+        var WEBHOOK_URL = 'http://localhost:5678/webhook/upload-doc';
+
+        var FETCH_TIMEOUT_MS = 300000;  // 5 минут (большие документы)
+        var selectedFile = null;
+        var isProcessing = false;
+        var timerInterval = null;
+        var startTime = 0;
+        var ALLOWED_EXTENSIONS = ['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','rtf','odt','jpg','jpeg','png','tiff','tif','bmp','webp'];
+
+        // Элементы
+        var uploadArea = document.getElementById('uploadArea');
+        var sendBtn = document.getElementById('sendBtn');
+        var loading = document.getElementById('loading');
+        var result = document.getElementById('result');
+        var resetBtnDiv = document.getElementById('resetBtn');
+        var progressBar = document.getElementById('progressBar');
+        var progressFill = document.getElementById('progressFill');
+
+        // История загрузок (localStorage)
+        var uploadHistory = [];
+        try {
+            var saved = localStorage.getItem('doc_upload_history');
+            if (saved) uploadHistory = JSON.parse(saved);
+        } catch(e) {}
+        renderHistory();
+
+        // Проверка сервера
+        var statusDot = document.getElementById('statusDot');
+        var statusText = document.getElementById('statusText');
+        function checkServer() {
+            statusDot.className = 'dot checking'; statusText.textContent = 'проверка...';
+            var controller = new AbortController();
+            var timeout = setTimeout(function() { controller.abort(); }, 5000);
+            fetch(WEBHOOK_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body:'{"message":"ping"}', signal: controller.signal })
+                .then(function(res) {
+                    clearTimeout(timeout);
+                    if (res.ok || res.status > 0) { statusDot.className = 'dot'; statusText.textContent = 'Онлайн'; }
+                    else { statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн'; }
+                })
+                .catch(function() {
+                    clearTimeout(timeout);
+                    statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
+                });
+        }
+        checkServer();
+        setInterval(checkServer, 30000);
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragging');
+        });
+        uploadArea.addEventListener('dragleave', function() {
+            uploadArea.classList.remove('dragging');
+        });
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragging');
+            if (e.dataTransfer.files.length > 0) {
+                var file = e.dataTransfer.files[0];
+                var ext = (file.name || '').split('.').pop().toLowerCase();
+                if (ALLOWED_EXTENSIONS.indexOf(ext) === -1) {
+                    alert('Неподдерживаемый формат: .' + ext);
+                    return;
+                }
+                selectedFile = file;
+                showFileInfo(selectedFile);
+            }
+        });
+
+        function fileSelected(input) {
+            if (input.files.length > 0) {
+                selectedFile = input.files[0];
+                showFileInfo(selectedFile);
+            }
+        }
+
+        function showFileInfo(file) {
+            document.getElementById('fileName').textContent = file.name;
+            var sizeMB = (file.size / 1024 / 1024).toFixed(2);
+            document.getElementById('fileSize').textContent = sizeMB + ' МБ';
+            sendBtn.disabled = false;
+
+            if (file.size > 50 * 1024 * 1024) {
+                document.getElementById('fileSize').textContent = sizeMB + ' МБ — слишком большой (макс. 50 МБ)';
+                document.getElementById('fileSize').style.color = '#ff8888';
+                sendBtn.disabled = true;
+            } else {
+                document.getElementById('fileSize').style.color = '';
+            }
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            var timerEl = document.getElementById('timer');
+            timerInterval = setInterval(function() {
+                var elapsed = Math.floor((Date.now() - startTime) / 1000);
+                var min = Math.floor(elapsed / 60);
+                var sec = elapsed % 60;
+                timerEl.textContent = min > 0 ? (min + ' мин ' + sec + ' сек') : (sec + ' сек');
+
+                // Анимация прогресса (приблизительная)
+                var pct = Math.min(95, (elapsed / 120) * 100);
+                progressFill.style.width = pct + '%';
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            progressFill.style.width = '100%';
+        }
+
+        async function sendFile() {
+            if (!selectedFile || isProcessing) return;
+            isProcessing = true;
+            sendBtn.disabled = true;
+            loading.style.display = 'block';
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+            result.style.display = 'none';
+            resetBtnDiv.style.display = 'none';
+            startTimer();
+
+            try {
+                var controller = new AbortController();
+                var timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
+
+                var formData = new FormData();
+                formData.append('file', selectedFile);
+
+                var res = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                stopTimer();
+                loading.style.display = 'none';
+
+                if (!res.ok) {
+                    throw new Error('Сервер вернул ошибку: ' + res.status);
+                }
+
+                var data = await res.json();
+                var responseText = data.response || JSON.stringify(data);
+
+                // Определяем тип ответа
+                if (responseText.indexOf('ошибк') !== -1 || responseText.indexOf('Ошибк') !== -1) {
+                    result.className = 'warning';
+                } else {
+                    result.className = 'success';
+                    // Добавляем в историю
+                    var elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    uploadHistory.unshift({
+                        name: selectedFile.name,
+                        size: (selectedFile.size / 1024 / 1024).toFixed(1) + ' МБ',
+                        time: elapsed + ' сек',
+                        date: new Date().toLocaleString('ru-RU')
+                    });
+                    if (uploadHistory.length > 20) uploadHistory = uploadHistory.slice(0, 20);
+                    try { localStorage.setItem('doc_upload_history', JSON.stringify(uploadHistory)); } catch(e) {}
+                    renderHistory();
+                }
+
+                result.textContent = responseText;
+                result.style.display = 'block';
+
+            } catch(e) {
+                stopTimer();
+                loading.style.display = 'none';
+                result.className = 'error';
+                if (e.name === 'AbortError') {
+                    result.textContent = 'Сервер не ответил за 5 минут. Возможно, документ слишком большой.';
+                } else {
+                    result.textContent = 'Ошибка: ' + e.message;
+                }
+                result.style.display = 'block';
+            }
+
+            isProcessing = false;
+            resetBtnDiv.style.display = 'block';
+        }
+
+        function resetForm() {
+            selectedFile = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileName').textContent = '';
+            document.getElementById('fileSize').textContent = '';
+            sendBtn.disabled = true;
+            result.style.display = 'none';
+            resetBtnDiv.style.display = 'none';
+            progressBar.style.display = 'none';
+        }
+
+        function renderHistory() {
+            var historyDiv = document.getElementById('history');
+            var listDiv = document.getElementById('historyList');
+            if (uploadHistory.length === 0) {
+                historyDiv.style.display = 'none';
+                return;
+            }
+            historyDiv.style.display = 'block';
+            listDiv.innerHTML = '';
+            for (var i = 0; i < uploadHistory.length; i++) {
+                var item = uploadHistory[i];
+                var div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = '<span class="name">' + escapeHtml(item.name) + '</span>' +
+                    '<span class="info">' + escapeHtml(item.size) + ' · ' + escapeHtml(item.time) + ' · ' + escapeHtml(item.date) + '</span>';
+                listDiv.appendChild(div);
+            }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,564 @@
+{
+  "name": "Математический агент",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "math",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "math-0001-0001-0001-000000000001",
+      "name": "Webhook Math",
+      "webhookId": "math-agent-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'math-default').trim();\nconst history = body.history || [];\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nlet historyContext = '';\nif (history.length > 0) {\n  const lines = history.map(m => {\n    const role = m.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (m.content || m.text || '').substring(0, 300);\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id, historyContext: historyContext}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "id": "math-0002-0002-0002-000000000002",
+      "name": "Валидация"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-valid-math",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "looseTypeValidation": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ],
+      "id": "math-0003-0003-0003-000000000003",
+      "name": "Запрос валиден?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response: $json.error, code: '', raw_result: ''}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        660,
+        520
+      ],
+      "id": "math-0004-0004-0004-000000000004",
+      "name": "Ответ: ошибка валидации"
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $input.first().json.message;\nconst historyContext = $input.first().json.historyContext || '';\nconst session_id = $input.first().json.session_id || 'math-default';\nconst lower = message.toLowerCase();\n\nconst mathKeywords = [\n  'посчитай', 'вычисли', 'вычислить', 'рассчитай', 'рассчитать',\n  'реши', 'решить', 'решение', 'уравнен', 'неравенств',\n  'формул', 'процент', 'корень', 'степен', 'логарифм',\n  'сумм', 'разност', 'произведен', 'делен', 'остаток от',\n  'площад', 'объём', 'объем', 'периметр', 'окружност',\n  'треугольник', 'квадрат', 'куб', 'прямоугольник', 'цилиндр', 'сфер',\n  'интеграл', 'производн', 'предел', 'синус', 'косинус', 'тангенс',\n  'матриц', 'вектор', 'определител', 'детерминант',\n  'график', 'функци', 'парабол',\n  'статистик', 'среднее', 'медиан', 'дисперс', 'отклонен',\n  'вероятност', 'комбинатор', 'факториал', 'перестанов', 'сочетан',\n  'npv', 'irr', 'roi', 'аннуитет', 'ипотек', 'кредит', 'депозит',\n  'инвестиц', 'маржа', 'наценк', 'скидк', 'ндс', 'налог',\n  'зарплат', 'рентабельн', 'прибыл', 'выручк', 'себестоимост',\n  'сколько будет', 'чему равн', 'найди', 'найти',\n  'sqrt', 'calculate', 'solve', 'equation', 'math',\n  'конвертируй', 'переведи в'\n];\n\nconst hasMathExpression = /\\d+\\s*[+\\-*/^%=]\\s*\\d+/.test(message);\nconst hasNumbers = /\\d{2,}/.test(message) || /\\d+[.,]\\d+/.test(message);\n\nlet isMath = hasMathExpression;\n\nif (!isMath) {\n  for (const kw of mathKeywords) {\n    if (lower.includes(kw)) { isMath = true; break; }\n  }\n}\n\nif (!isMath && hasNumbers && message.length > 20) {\n  const taskIndicators = ['сколько', 'какой', 'какая', 'какое', 'найди', 'найти',\n    'определи', 'определить', 'если', 'при', 'дано', 'равно', 'равна'];\n  for (const kw of taskIndicators) {\n    if (lower.includes(kw)) { isMath = true; break; }\n  }\n}\n\nif (!isMath && /^[\\d\\s+\\-*/^().,]+$/.test(message.trim())) {\n  isMath = true;\n}\n\nif (!isMath) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'math', historyContext, session_id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "id": "math-cls-0001",
+      "name": "Классификатор"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "general",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-general"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        300
+      ],
+      "id": "math-switch-0001",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "assistant",
+              "content": "Ты — математический помощник GigaChat. Главная задача — решать задачи и вычисления.\n\nНо ты дружелюбный собеседник и можешь поддержать разговор на любую тему.\n\nПравила:\n1. Отвечай кратко — максимум 5-7 предложений\n2. Если здороваются — поздоровайся тепло и представься\n3. Если спрашивают что ты умеешь — объясни про математику и вычисления\n4. Если вопрос на другую тему — ответь по-дружески, в конце плавно упомяни что можешь помочь с расчётами. Не навязывай\n5. Если пользователь продолжает общаться не про математику — просто общайся, не повторяй напоминание каждый раз\n6. Пиши на русском языке\n7. Не используй markdown-заголовки\n8. Будь живым, не роботичным\n\nПример:\nЗапрос: Привет\nОтвет: Привет! Я математический помощник — решаю задачи, считаю формулы, проценты, уравнения. Задавайте задачу — посчитаю точно. А если просто поболтать — тоже можно.\n\nПример:\nЗапрос: Какая сегодня погода?\nОтвет: К сожалению, я не подключён к сервисам погоды. Зато могу посчитать что угодно — от процентов по кредиту до площади вашей комнаты!\n\nПример:\nЗапрос: Расскажи анекдот\nОтвет: Математик ставит два стакана на тумбочку перед сном — один с водой, один пустой. С водой — если захочет пить. Пустой — если не захочет. Если нужно что-то посчитать — обращайтесь!\n\nПример:\nЗапрос: Как дела?\nОтвет: Отлично, спасибо! Готов к вычислениям. Есть задача или просто заглянули?"
+            },
+            {
+              "content": "={{ $json.historyContext }}{{ $json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        160
+      ],
+      "id": "math-gen-0001",
+      "name": "Ответ GENERAL",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос. Попробуйте ещё раз.', code: '', raw_result: '' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim(), code: '', raw_result: '' } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки.', code: '', raw_result: '' } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        160
+      ],
+      "id": "math-gen-0002",
+      "name": "Проверка ответа GEN"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1540,
+        160
+      ],
+      "id": "math-gen-0003",
+      "name": "Ответ: GENERAL"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "assistant",
+              "content": "Ты — генератор Python-кода. Получив задачу, напиши Python-код для решения.\n\nКРИТИЧЕСКИ ВАЖНО:\n- Пиши ТОЛЬКО код. Ни одного слова пояснений\n- Первая строка ответа = первая строка кода\n- Последняя строка ОБЯЗАТЕЛЬНО: print(результат)\n- НЕ оборачивай в ```python``` или ```\n- НЕ пиши 'Вот решение', 'Конечно', 'Давайте' — сразу код\n\nРАЗРЕШЕНО: math, statistics, decimal, fractions\nЗАПРЕЩЕНО: os, sys, subprocess, open(), exec(), eval(), requests, socket\n\nПример 1:\nЗадача: 15% от 250000\nresult = 250000 * 0.15\nprint(result)\n\nПример 2:\nЗадача: Площадь круга радиусом 5\nimport math\narea = math.pi * 5 ** 2\nprint(round(area, 4))\n\nПример 3:\nЗадача: NPV: вложение 1000000, доход 300000/год, 5 лет, ставка 12%\ninvestment = 1000000\ncash_flow = 300000\nrate = 0.12\nnpv = -investment\nfor t in range(1, 6):\n    npv += cash_flow / (1 + rate) ** t\nprint(round(npv, 2))\n\nПример 4:\nЗадача: x^2 - 5x + 6 = 0\nimport math\na, b, c = 1, -5, 6\nd = b**2 - 4*a*c\nx1 = (-b + math.sqrt(d)) / (2*a)\nx2 = (-b - math.sqrt(d)) / (2*a)\nprint(f'x1 = {x1}')\nprint(f'x2 = {x2}')\n\nПример 5:\nЗадача: Среднее и медиана: 10, 20, 30, 40, 50\nimport statistics\ndata = [10, 20, 30, 40, 50]\nprint(f'Среднее: {statistics.mean(data)}')\nprint(f'Медиана: {statistics.median(data)}')\n\nПример 6:\nЗадача: 2 + 2\nprint(2 + 2)\n\nНЕПРАВИЛЬНО (так НЕ делай):\nКонечно! Вот решение вашей задачи:\n```python\nprint(2 + 2)\n```\nОтвет: 4\n\nПРАВИЛЬНО:\nprint(2 + 2)\n\nТеперь напиши код:"
+            },
+            {
+              "content": "={{ $('Валидация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        440
+      ],
+      "id": "math-0005-0005-0005-000000000005",
+      "name": "Генерация кода",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json;\n\n  if (raw.error) {\n    return [{ json: { success: 0, code: '', error: 'GigaChat недоступен. Попробуйте позже.' } }];\n  }\n\n  let code = raw.output[0].content[0].text;\n\n  // Убираем markdown-обёртки\n  code = code.replace(/```python\\s*/gi, '').replace(/```\\s*/g, '').trim();\n\n  // Убираем текст до первого import или первой переменной\n  const lines = code.split('\\n');\n  let startIdx = 0;\n  for (let i = 0; i < lines.length; i++) {\n    const line = lines[i].trim();\n    if (line.startsWith('import ') || line.startsWith('from ') ||\n        line.match(/^[a-zA-Z_]/) || line.startsWith('#') ||\n        line.startsWith('print(')) {\n      startIdx = i;\n      break;\n    }\n  }\n  code = lines.slice(startIdx).join('\\n').trim();\n\n  if (!code || code.length < 5) {\n    return [{ json: { success: 0, code: '', error: 'GigaChat не смог сгенерировать код.' } }];\n  }\n\n  // ПРОВЕРКА БЕЗОПАСНОСТИ\n  const dangerous = [\n    'import os', 'import sys', 'import subprocess', 'import shutil',\n    'import pathlib', 'import socket', 'import http', 'import requests',\n    'import urllib', 'import ftplib', 'import smtplib', 'import pickle',\n    'open(', 'exec(', 'eval(', '__import__', 'compile(',\n    'globals(', 'locals(', 'getattr(', 'setattr(', 'delattr(',\n    'os.', 'sys.', 'subprocess.', 'shutil.', 'pathlib.',\n    'socket.', 'http.', 'requests.', 'input('\n  ];\n\n  const codeLower = code.toLowerCase();\n  for (const d of dangerous) {\n    if (codeLower.includes(d.toLowerCase())) {\n      return [{ json: { success: 0, code: code, error: 'Код содержит запрещённую операцию: ' + d } }];\n    }\n  }\n\n  if (!code.includes('print(') && !code.includes('print (')) {\n    code += '\\nprint(result)';\n  }\n\n  return [{ json: { success: 1, code: code, error: '' } }];\n\n} catch (e) {\n  return [{ json: { success: 0, code: '', error: 'Ошибка обработки ответа GigaChat: ' + e.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        440
+      ],
+      "id": "math-0006-0006-0006-000000000006",
+      "name": "Проверка кода"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-code-ok",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "looseTypeValidation": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        440
+      ],
+      "id": "math-0007-0007-0007-000000000007",
+      "name": "Код безопасен?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const code = $json.code;\n\ntry {\n  let jsCode = code;\n\n  jsCode = jsCode.replace(/^import .*$/gm, '');\n  jsCode = jsCode.replace(/^from .* import .*$/gm, '');\n\n  jsCode = jsCode.replace(/math\\.pi/g, 'Math.PI');\n  jsCode = jsCode.replace(/math\\.e\\b/g, 'Math.E');\n  jsCode = jsCode.replace(/math\\.sqrt\\(/g, 'Math.sqrt(');\n  jsCode = jsCode.replace(/math\\.pow\\(/g, 'Math.pow(');\n  jsCode = jsCode.replace(/math\\.log\\(/g, 'Math.log(');\n  jsCode = jsCode.replace(/math\\.log10\\(/g, 'Math.log10(');\n  jsCode = jsCode.replace(/math\\.log2\\(/g, 'Math.log2(');\n  jsCode = jsCode.replace(/math\\.sin\\(/g, 'Math.sin(');\n  jsCode = jsCode.replace(/math\\.cos\\(/g, 'Math.cos(');\n  jsCode = jsCode.replace(/math\\.tan\\(/g, 'Math.tan(');\n  jsCode = jsCode.replace(/math\\.asin\\(/g, 'Math.asin(');\n  jsCode = jsCode.replace(/math\\.acos\\(/g, 'Math.acos(');\n  jsCode = jsCode.replace(/math\\.atan\\(/g, 'Math.atan(');\n  jsCode = jsCode.replace(/math\\.ceil\\(/g, 'Math.ceil(');\n  jsCode = jsCode.replace(/math\\.floor\\(/g, 'Math.floor(');\n  jsCode = jsCode.replace(/math\\.abs\\(/g, 'Math.abs(');\n  jsCode = jsCode.replace(/abs\\(/g, 'Math.abs(');\n  jsCode = jsCode.replace(/math\\.factorial\\((\\w+)\\)/g, '(function f(n){let r=1;for(let i=2;i<=n;i++)r*=i;return r})($1)');\n  jsCode = jsCode.replace(/math\\.radians\\(([^)]+)\\)/g, '(($1) * Math.PI / 180)');\n  jsCode = jsCode.replace(/math\\.degrees\\(([^)]+)\\)/g, '(($1) * 180 / Math.PI)');\n\n  jsCode = jsCode.replace(/f'([^']*)'/g, function(match, content) {\n    return '`' + content.replace(/\\{([^}]+)\\}/g, '${$1}') + '`';\n  });\n  jsCode = jsCode.replace(/f\"([^\"]*)\"/g, function(match, content) {\n    return '`' + content.replace(/\\{([^}]+)\\}/g, '${$1}') + '`';\n  });\n\n  const outputs = [];\n  const fakePrint = function() {\n    const args = Array.from(arguments);\n    outputs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));\n  };\n  jsCode = jsCode.replace(/\\bprint\\s*\\(/g, 'fakePrint(');\n\n  jsCode = jsCode.replace(/\\bTrue\\b/g, 'true');\n  jsCode = jsCode.replace(/\\bFalse\\b/g, 'false');\n  jsCode = jsCode.replace(/\\bNone\\b/g, 'null');\n  jsCode = jsCode.replace(/\\belif\\b/g, 'else if');\n  jsCode = jsCode.replace(/len\\(([^)]+)\\)/g, '$1.length');\n\n  jsCode = jsCode.replace(/for\\s+(\\w+)\\s+in\\s+range\\(([^,]+),\\s*([^)]+)\\)/g,\n    'for (let $1 = $2; $1 < $3; $1++)');\n  jsCode = jsCode.replace(/for\\s+(\\w+)\\s+in\\s+range\\(([^)]+)\\)/g,\n    'for (let $1 = 0; $1 < $2; $1++)');\n\n  jsCode = jsCode.replace(/statistics\\.mean\\(([^)]+)\\)/g, '(($1).reduce((a,b)=>a+b,0)/($1).length)');\n  jsCode = jsCode.replace(/statistics\\.median\\(([^)]+)\\)/g, '(function(arr){const s=[...arr].sort((a,b)=>a-b);const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2})($1)');\n  jsCode = jsCode.replace(/statistics\\.stdev\\(([^)]+)\\)/g, '(function(arr){const m=arr.reduce((a,b)=>a+b,0)/arr.length;return Math.sqrt(arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1))})($1)');\n  jsCode = jsCode.replace(/statistics\\.variance\\(([^)]+)\\)/g, '(function(arr){const m=arr.reduce((a,b)=>a+b,0)/arr.length;return arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1)})($1)');\n  jsCode = jsCode.replace(/sum\\(([^)]+)\\)/g, '($1).reduce((a,b)=>a+b,0)');\n  jsCode = jsCode.replace(/max\\(([^)]+)\\)/g, 'Math.max(...$1)');\n  jsCode = jsCode.replace(/min\\(([^)]+)\\)/g, 'Math.min(...$1)');\n\n  const finalLines = jsCode.split('\\n');\n  let processed = [];\n  let indentStack = [0];\n\n  for (let i = 0; i < finalLines.length; i++) {\n    let line = finalLines[i];\n    const trimmed = line.trim();\n    if (!trimmed) continue;\n\n    const indent = line.search(/\\S/);\n    if (indent < 0) continue;\n\n    while (indentStack.length > 1 && indent < indentStack[indentStack.length - 1]) {\n      indentStack.pop();\n      processed.push(' '.repeat(indentStack[indentStack.length - 1]) + '}');\n    }\n\n    if (trimmed.endsWith(':')) {\n      line = line.replace(/:$/, ' {');\n    }\n\n    processed.push(line);\n\n    if (line.trim().endsWith('{')) {\n      indentStack.push(indent + 4);\n    }\n  }\n\n  while (indentStack.length > 1) {\n    indentStack.pop();\n    processed.push('}');\n  }\n\n  jsCode = processed.join('\\n');\n\n  const fn = new Function('fakePrint', 'Math', jsCode);\n  fn(fakePrint, Math);\n\n  const result = outputs.join('\\n');\n\n  if (!result || result.trim().length === 0) {\n    return [{ json: { computed: false, result: '', code: code, error: 'Код выполнился, но не вернул результат.' } }];\n  }\n\n  return [{ json: { computed: true, result: result, code: code, error: '' } }];\n\n} catch (e) {\n  return [{ json: { computed: false, result: '', code: code, error: 'Ошибка вычисления: ' + e.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        340
+      ],
+      "id": "math-0008-0008-0008-000000000008",
+      "name": "Выполнить код"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "assistant",
+              "content": "Ты — математический помощник. Объясни результат вычисления простым языком.\n\nПравила:\n1. Первая строка: 'Ответ: [результат]'\n2. Затем 2-3 предложения как решалось\n3. Укажи единицы измерения если уместно\n4. НЕ пиши код\n5. НЕ повторяй условие задачи\n6. Пиши на русском\n7. Максимум 5 предложений\n\nПример 1:\nЗадача: 15% от 250000\nРезультат: 37500.0\nОтвет: Ответ: 37 500. Умножаем 250 000 на 0.15 и получаем 37 500.\n\nПример 2:\nЗадача: x^2 - 5x + 6 = 0\nРезультат: x1 = 3.0, x2 = 2.0\nОтвет: Ответ: x1 = 3, x2 = 2. Дискриминант D = 25 - 24 = 1. Корни: (5+1)/2 = 3 и (5-1)/2 = 2.\n\nПример 3:\nЗадача: Среднее: 10, 20, 30\nРезультат: Среднее: 20.0\nОтвет: Ответ: среднее арифметическое равно 20. Сумма (10+20+30=60) делится на количество (3).\n\nНЕПРАВИЛЬНО (так НЕ делай):\nДавайте разберём эту задачу подробно. Для начала вспомним формулу... Итак, подставляя значения, мы получаем... Таким образом, после всех вычислений, ответ составляет...\n\nТеперь объясни:"
+            },
+            {
+              "content": "={{ $('Валидация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}\n\nКод:\n{{ $json.code }}\n\nРезультат: {{ $json.result }}\n{{ $json.error ? 'Ошибка: ' + $json.error : '' }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        2000,
+        340
+      ],
+      "id": "math-0009-0009-0009-000000000009",
+      "name": "Объяснение результата",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    const prev = $('Выполнить код').first().json;\n    if (prev.computed && prev.result) {\n      return [{ json: { response_text: 'Результат: ' + prev.result } }];\n    }\n    return [{ json: { response_text: 'Не удалось обработать задачу.' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response_text: text.trim() } }];\n} catch(e) {\n  const prev = $('Выполнить код').first().json;\n  if (prev.computed && prev.result) {\n    return [{ json: { response_text: 'Результат: ' + prev.result } }];\n  }\n  return [{ json: { response_text: 'Ошибка обработки.' } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        340
+      ],
+      "id": "math-0010-0010-0010-000000000010",
+      "name": "Проверка ответа"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.response_text, code: $('Выполнить код').first().json.code || '', raw_result: $('Выполнить код').first().json.result || '' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2440,
+        340
+      ],
+      "id": "math-0011-0011-0011-000000000011",
+      "name": "Ответ: результат"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.error || 'Код не прошёл проверку безопасности.', code: $json.code || '', raw_result: '' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1760,
+        560
+      ],
+      "id": "math-0012-0012-0012-000000000012",
+      "name": "Ответ: код опасен"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Math": {
+      "main": [
+        [
+          {
+            "node": "Валидация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация": {
+      "main": [
+        [
+          {
+            "node": "Запрос валиден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Запрос валиден?": {
+      "main": [
+        [
+          {
+            "node": "Классификатор",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка валидации",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Классификатор": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Ответ GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Генерация кода",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ответ GENERAL": {
+      "main": [
+        [
+          {
+            "node": "Проверка ответа GEN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка ответа GEN": {
+      "main": [
+        [
+          {
+            "node": "Ответ: GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Генерация кода": {
+      "main": [
+        [
+          {
+            "node": "Проверка кода",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка кода": {
+      "main": [
+        [
+          {
+            "node": "Код безопасен?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Код безопасен?": {
+      "main": [
+        [
+          {
+            "node": "Выполнить код",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: код опасен",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Выполнить код": {
+      "main": [
+        [
+          {
+            "node": "Объяснение результата",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Объяснение результата": {
+      "main": [
+        [
+          {
+            "node": "Проверка ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка ответа": {
+      "main": [
+        [
+          {
+            "node": "Ответ: результат",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "math-agent-v2-general",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ad16de428774283a74f2bef15a9b31f771c3828cae096d3c33aab7bd18058813"
+  },
+  "id": "math-agent-001",
+  "tags": []
+}

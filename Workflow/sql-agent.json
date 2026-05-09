@@ -1,0 +1,507 @@
+{
+  "name": "SQL-Агент",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sql",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "sql-webhook-0001",
+      "name": "Webhook SQL",
+      "webhookId": "sql-agent-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'sql-default').trim();\nconst history = body.history || [];\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nlet historyContext = '';\nif (history.length > 0) {\n  const lines = history.slice(-10).map(m => {\n    const role = m.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (m.content || m.text || '').substring(0, 300);\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id, historyContext: historyContext}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "id": "sql-val-0001",
+      "name": "Валидация"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-valid-sql",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "looseTypeValidation": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ],
+      "id": "sql-if-valid-0001",
+      "name": "Запрос валиден?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response: $json.error}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        660,
+        520
+      ],
+      "id": "sql-err-val-0001",
+      "name": "Ответ: ошибка валидации"
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $input.first().json.message;\nconst historyContext = $input.first().json.historyContext || '';\nconst session_id = $input.first().json.session_id || 'sql-default';\nconst lower = message.toLowerCase();\n\nconst sqlKeywords = [\n  'покажи', 'выведи', 'список', 'найди клиент', 'найди заказ',\n  'клиент', 'заказ', 'заказы', 'выручк', 'revenue',\n  'таблиц', 'запрос', 'база данных', 'бд', 'базу',\n  'select', 'insert', 'update', 'delete', 'sql',\n  'добавь', 'удали', 'измени', 'обнови',\n  'сколько клиентов', 'сколько заказов', 'сколько записей',\n  'статус', 'pending', 'delivered', 'cancelled',\n  'город', 'москва', 'питер', 'петербург',\n  'email', 'выручка', 'сумма заказ', 'средн',\n  'группир', 'сортир', 'отсортируй', 'отфильтруй', 'фильтр',\n  'топ ', 'top ', 'первые', 'последние',\n  'join', 'объедин', 'связ',\n  'аналитик', 'статистик', 'отчёт', 'отчет',\n  'за период', 'за месяц', 'за год', 'за неделю',\n  'больше чем', 'меньше чем', 'равно',\n  'максимальн', 'минимальн', 'итого'\n];\n\nlet isSQL = false;\n\nfor (const kw of sqlKeywords) {\n  if (lower.includes(kw)) { isSQL = true; break; }\n}\n\n// Если упоминаются данные и есть вопросительный характер\nif (!isSQL && message.length > 15) {\n  const dataIndicators = ['сколько', 'какие', 'кто', 'где', 'когда', 'чей', 'чья'];\n  const dataEntities = ['клиент', 'заказ', 'товар', 'продукт', 'запис', 'строк'];\n  const hasQuestion = dataIndicators.some(q => lower.includes(q));\n  const hasEntity = dataEntities.some(e => lower.includes(e));\n  if (hasQuestion && hasEntity) isSQL = true;\n}\n\nif (!isSQL) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'sql', historyContext, session_id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "id": "sql-cls-0001",
+      "name": "Классификатор"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "general",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-general"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        300
+      ],
+      "id": "sql-switch-0001",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "assistant",
+              "content": "Ты — SQL-помощник GigaChat. Главная задача — помогать работать с базой данных PostgreSQL: искать данные, составлять запросы, анализировать.\n\nНо ты дружелюбный собеседник и можешь поддержать разговор на любую тему.\n\nПравила:\n1. Отвечай кратко — максимум 5-7 предложений\n2. Если здороваются — поздоровайся тепло и представься\n3. Если спрашивают что ты умеешь — объясни: работа с БД, SQL-запросы, аналитика данных\n4. Если вопрос на другую тему — ответь по-дружески, в конце плавно упомяни что можешь помочь с данными. Не навязывай\n5. Если пользователь продолжает общаться не про данные — просто общайся, не повторяй напоминание каждый раз\n6. Пиши на русском языке\n7. Не используй markdown-заголовки\n8. Будь живым, не роботичным\n\nПример:\nЗапрос: Привет\nОтвет: Привет! Я SQL-помощник — помогаю искать и анализировать данные в базе. Спросите, например, «покажи всех клиентов из Москвы» или «сколько заказов за последний месяц». А если просто поболтать — тоже можно.\n\nПример:\nЗапрос: Как дела?\nОтвет: Отлично, спасибо! Готов копаться в данных. Есть вопрос к базе или просто заглянули?\n\nПример:\nЗапрос: Что ты умеешь?\nОтвет: Я умею работать с вашей базой данных PostgreSQL. Могу найти клиентов, посчитать выручку, показать заказы по статусам, сделать аналитику. Просто опишите что нужно — я составлю SQL-запрос, выполню его и объясню результат."
+            },
+            {
+              "content": "={{ $json.historyContext }}{{ $json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        160
+      ],
+      "id": "sql-gen-general-0001",
+      "name": "Ответ GENERAL",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос. Попробуйте ещё раз.' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки.' } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        160
+      ],
+      "id": "sql-check-gen-0001",
+      "name": "Проверка ответа GEN"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1540,
+        160
+      ],
+      "id": "sql-resp-gen-0001",
+      "name": "Ответ: GENERAL"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "assistant",
+              "content": "Ты — SQL-генератор для PostgreSQL. Напиши SQL-запрос по описанию пользователя.\n\nСхема базы данных:\nТаблица clients: id (SERIAL PK), name (VARCHAR), city (VARCHAR), email (VARCHAR), revenue (DECIMAL), created_at (DATE)\nТаблица orders: id (SERIAL PK), client_id (INTEGER FK -> clients.id), product (VARCHAR), amount (DECIMAL), status (VARCHAR: delivered/pending/cancelled), order_date (DATE)\n\nКРИТИЧЕСКИ ВАЖНО:\n- Пиши ТОЛЬКО SQL-код\n- Первый символ ответа = первый символ запроса (SELECT, INSERT и т.д.)\n- НЕ оборачивай в ``` или ```sql\n- НЕ пиши пояснений, комментариев, слов 'Вот запрос'\n- Если пользователь не указал количество — добавь LIMIT 50\n- Учитывай историю диалога для понимания местоимений (их, эти, те же)\n\nПример 1:\nЗадача: Покажи всех клиентов из Москвы\nSELECT * FROM clients WHERE city = 'Москва' LIMIT 50;\n\nПример 2:\nЗадача: Сколько заказов со статусом pending?\nSELECT COUNT(*) AS total FROM orders WHERE status = 'pending';\n\nПример 3:\nЗадача: Топ-5 клиентов по выручке\nSELECT name, revenue FROM clients ORDER BY revenue DESC LIMIT 5;\n\nПример 4:\nЗадача: Добавь клиента ООО Ромашка из Москвы\nINSERT INTO clients (name, city) VALUES ('ООО Ромашка', 'Москва');\n\nПример 5:\nЗадача: Заказы клиента Иванов с суммами\nSELECT c.name, o.product, o.amount, o.status FROM clients c JOIN orders o ON o.client_id = c.id WHERE c.name ILIKE '%Иванов%' LIMIT 50;\n\nНЕПРАВИЛЬНО (так НЕ делай):\nВот SQL-запрос для получения данных:\n```sql\nSELECT * FROM clients;\n```\n\nТеперь напиши SQL:"
+            },
+            {
+              "content": "={{ $('Валидация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        440
+      ],
+      "id": "sql-gen-sql-0001",
+      "name": "Генерация SQL",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json;\n\n  if (raw.error) {\n    return [{json: {query: \"SELECT 'GigaChat недоступен. Попробуйте позже.' as error_message;\"}}];\n  }\n\n  let sql = raw.output[0].content[0].text;\n\n  // Убираем markdown\n  sql = sql.replace(/```sql\\s*/gi, '').replace(/```\\s*/g, '').trim();\n\n  // Находим начало SQL\n  const match = sql.match(/\\b(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP|TRUNCATE)\\b/i);\n  if (match && match.index > 0) {\n    sql = sql.substring(match.index);\n  }\n\n  // Чистим хвост\n  sql = sql.replace(/;\\s*$/, ';');\n  if (!sql.endsWith(';')) sql += ';';\n\n  // Блокируем опасные\n  const firstWord = sql.trim().split(/\\s+/)[0].toUpperCase();\n  if (['DROP', 'TRUNCATE', 'ALTER'].includes(firstWord)) {\n    return [{json: {query: \"SELECT '\" + firstWord + \" заблокирована в целях безопасности' as error_message;\"}}];\n  }\n\n  // Авто-LIMIT\n  if (/^\\s*SELECT/i.test(sql) && !/\\bLIMIT\\b/i.test(sql)) {\n    sql = sql.replace(/;\\s*$/, '') + ' LIMIT 50;';\n  }\n\n  return [{json: {query: sql}}];\n\n} catch(e) {\n  return [{json: {query: \"SELECT 'Не удалось сгенерировать SQL. Переформулируйте вопрос.' as error_message;\"}}];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        440
+      ],
+      "id": "sql-clean-0001",
+      "name": "Очистка SQL"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1540,
+        440
+      ],
+      "id": "sql-exec-0001",
+      "name": "Выполнить SQL",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "assistant",
+              "content": "Ты — помощник по данным. Пользователь задал вопрос, ниже результат из базы.\n\nПравила:\n1. Если данные есть — перескажи простым языком\n2. Если много строк — оформи коротким списком\n3. Если пустой массив или нет данных — скажи что ничего не найдено\n4. Если есть error или error_message — скажи что запрос не удался, объясни просто\n5. В конце — итог одним предложением\n6. Максимум 10 предложений\n7. НЕ придумывай данные\n8. Пиши на русском\n\nПример:\nВопрос: Покажи клиентов из Москвы\nДанные: [{\"name\":\"ООО Ромашка\",\"city\":\"Москва\"},{\"name\":\"ИП Иванов\",\"city\":\"Москва\"}]\nОтвет: В Москве найдено 2 клиента: ООО Ромашка и ИП Иванов.\n\nНЕПРАВИЛЬНО:\nДавайте рассмотрим результаты запроса к базе данных. Как мы можем видеть из представленных данных..."
+            },
+            {
+              "content": "=Вопрос: {{ $('Валидация').first().json.message }}\n\nДанные из базы: {{ JSON.stringify($input.all().map(item => item.json)) }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1760,
+        440
+      ],
+      "id": "sql-format-0001",
+      "name": "Форматирование",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос к базе данных. Попробуйте переформулировать.' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки ответа.' } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        440
+      ],
+      "id": "sql-check-sql-0001",
+      "name": "Проверка ответа SQL"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2200,
+        440
+      ],
+      "id": "sql-resp-sql-0001",
+      "name": "Ответ: SQL"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook SQL": {
+      "main": [
+        [
+          {
+            "node": "Валидация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация": {
+      "main": [
+        [
+          {
+            "node": "Запрос валиден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Запрос валиден?": {
+      "main": [
+        [
+          {
+            "node": "Классификатор",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка валидации",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Классификатор": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Ответ GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Генерация SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ответ GENERAL": {
+      "main": [
+        [
+          {
+            "node": "Проверка ответа GEN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка ответа GEN": {
+      "main": [
+        [
+          {
+            "node": "Ответ: GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Генерация SQL": {
+      "main": [
+        [
+          {
+            "node": "Очистка SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Очистка SQL": {
+      "main": [
+        [
+          {
+            "node": "Выполнить SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Выполнить SQL": {
+      "main": [
+        [
+          {
+            "node": "Форматирование",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Форматирование": {
+      "main": [
+        [
+          {
+            "node": "Проверка ответа SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка ответа SQL": {
+      "main": [
+        [
+          {
+            "node": "Ответ: SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "sql-agent-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ad16de428774283a74f2bef15a9b31f771c3828cae096d3c33aab7bd18058813"
+  },
+  "id": "sql-agent-001",
+  "tags": []
+}

@@ -1,0 +1,398 @@
+{
+  "name": "Промпт-Инженер",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "prompt-engineer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "pe-webhook",
+      "name": "Webhook Prompt",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "prompt-engineer-hook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n\nif (!body || !body.message || body.message.trim().length < 2) {\n  return [{ json: { valid: 0, error: 'Введите сообщение' } }];\n}\n\nif (body.message.length > 10000) {\n  return [{ json: { valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)' } }];\n}\n\nconst history = body.history || [];\nlet historyContext = '';\nif (history.length > 0) {\n  const lines = history.map(m => {\n    const role = m.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (m.text || m.content || '').substring(0, 300);\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\n\nreturn [{ json: { valid: 1, message: body.message.trim(), historyContext: historyContext } }];"
+      },
+      "id": "pe-validation",
+      "name": "Валидация",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "pe-cond-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "looseTypeValidation": true
+        }
+      },
+      "id": "pe-if-valid",
+      "name": "Запрос валиден?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $input.first().json.message;\nconst historyContext = $input.first().json.historyContext || '';\nconst lower = message.toLowerCase();\n\nconst promptKeywords = [\n  'промпт', 'prompt', 'системн', 'создай', 'напиши', 'сгенерируй',\n  'адаптируй', 'адаптировать', 'переделай', 'переделать', 'перепиши под',\n  'переписать под', 'измени под', 'изменить под', 'подстрой', 'подстроить',\n  'улучши', 'улучшить', 'доработай', 'доработать', 'оптимизируй',\n  'оптимизировать', 'исправь промпт', 'усиль', 'усилить', 'сделай лучше',\n  'что не так с промптом', 'проанализируй промпт',\n  'инструкци', 'для модели', 'для нейросет', 'для ии', 'для ai',\n  'для gigachat', 'для гигачат', 'для бота', 'для чат-бота',\n  'роль ассистент', 'ты —', 'you are'\n];\n\nconst hasExistingPrompt = (\n  (message.includes('```') || message.includes('Ты —') || message.includes('Ты -') || message.includes('You are')) &&\n  message.length > 100\n);\n\nlet isPromptTask = hasExistingPrompt;\nif (!isPromptTask) {\n  for (const kw of promptKeywords) {\n    if (lower.includes(kw)) { isPromptTask = true; break; }\n  }\n}\n\nif (!isPromptTask && message.length > 50) {\n  const taskIndicators = ['нужен', 'нужно', 'хочу', 'сделай', 'помоги написать', 'составь', 'разработай'];\n  for (const kw of taskIndicators) {\n    if (lower.includes(kw)) { isPromptTask = true; break; }\n  }\n}\n\nif (!isPromptTask) {\n  return [{ json: { message, mode: 'general', modeLabel: 'Общение', historyContext } }];\n}\n\nconst adaptKeywords = ['адаптируй', 'адаптировать', 'переделай', 'переделать', 'перепиши под', 'переписать под', 'измени под', 'изменить под', 'подстрой', 'подстроить'];\nconst improveKeywords = ['улучши', 'улучшить', 'доработай', 'доработать', 'оптимизируй', 'оптимизировать', 'исправь промпт', 'усиль', 'усилить', 'сделай лучше', 'что не так с промптом', 'проанализируй промпт'];\n\nlet mode = 'create';\nlet modeLabel = 'Создание нового промпта';\n\nfor (const kw of adaptKeywords) {\n  if (lower.includes(kw)) { mode = 'adapt'; modeLabel = 'Адаптация промпта'; break; }\n}\n\nif (mode === 'create') {\n  for (const kw of improveKeywords) {\n    if (lower.includes(kw)) { mode = 'improve'; modeLabel = 'Улучшение промпта'; break; }\n  }\n}\n\nif (mode === 'create' && hasExistingPrompt) {\n  mode = 'improve';\n  modeLabel = 'Улучшение промпта';\n}\n\nreturn [{ json: { message, mode, modeLabel, historyContext } }];"
+      },
+      "id": "pe-classifier",
+      "name": "Классификатор",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "general",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-general"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "pe-switch",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "assistant",
+              "content": "Ты — промпт-инженер, специалист по написанию системных промптов для GigaChat.\n\nГлавная задача — помогать с промптами. Но ты дружелюбный собеседник и можешь поддержать разговор на любую тему.\n\nПравила:\n1. Отвечай кратко — максимум 5-7 предложений\n2. Если здороваются — поздоровайся тепло и представься\n3. Если спрашивают что ты умеешь — объясни про промпты для GigaChat\n4. Если вопрос на другую тему — ответь по-дружески, в конце плавно упомяни промпты\n5. Если пользователь продолжает общаться не про промпты — просто общайся\n6. Пиши на русском языке\n7. Не используй markdown-заголовки в общении\n8. Будь живым, не роботичным\n\nПример:\nЗапрос: Привет\nОтвет: Привет! Я промпт-инженер — помогаю создавать системные промпты для GigaChat. Если есть задача — описывайте, напишу промпт с учётом особенностей модели. А если просто поболтать — тоже можно.\n\nПример:\nЗапрос: Какая сегодня погода?\nОтвет: К сожалению, я не подключён к сервисам погоды, так что не подскажу. Зато могу написать промпт для бота-метеоролога, если нужно!\n\nПример:\nЗапрос: Как дела?\nОтвет: Отлично, спасибо! Готов к работе. Есть задача для промпта или просто заглянули?"
+            },
+            {
+              "content": "={{ $json.historyContext }}{{ $json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "pe-general",
+      "name": "Ответ GENERAL",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        160
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос. Попробуйте ещё раз.', prompt: '' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim(), prompt: '' } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки.', prompt: '' } }];\n}"
+      },
+      "id": "pe-general-safety",
+      "name": "Проверка ответа GEN",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "pe-respond-general",
+      "name": "Ответ: GENERAL",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1540,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "assistant",
+              "content": "Ты — промпт-инженер. Ты сам работаешь на GigaChat и пишешь системные промпты для GigaChat.\n\nТЫ ЗНАЕШЬ ОСОБЕННОСТИ GIGACHAT:\n- Контекст ограничен (~4000-8000 токенов)\n- Модель склонна к многословным ответам — промпт должен это пресекать\n- Сложные цепочки рассуждений ломаются — разбивай на простые шаги\n- Без примеров модель выдаёт не тот формат — ВСЕГДА добавляй 2-3 примера\n- Абстрактные указания не работают — нужны точные правила\n- Модель может игнорировать длинные промпты — держи компактным\n\nПРАВИЛА НАПИСАНИЯ ПРОМПТОВ:\n1. РОЛЬ — первая строка: 'Ты — [роль].' Одно предложение\n2. ЗАДАЧА — что делать, в 1-2 предложениях\n3. СТРОГИЕ ПРАВИЛА — пронумерованный список\n4. ФОРМАТ — точно опиши структуру ответа\n5. ПРИМЕРЫ — ОБЯЗАТЕЛЬНО 2-3 пары 'Запрос → Ответ'\n6. АНТИПРИМЕРЫ — 1 пример НЕПРАВИЛЬНОГО ответа\n7. ДЛИНА — всегда ограничивай: 'максимум N предложений'\n\nРЕЖИМЫ:\n- create: Создай промпт с нуля, добавь примеры и комментарии\n- improve: Укажи проблемы старого промпта, выдай улучшенную версию\n- adapt: Сохрани работающее, переделай под новую задачу\n\nФОРМАТ ОТВЕТА:\n## Промпт\n```\n[готовый промпт]\n```\n\n## Почему так\n[3-5 пунктов]\n\n## Предупреждения\n[что может пойти не так]\n\nСразу начинай с '## Промпт'. Без вступлений."
+            },
+            {
+              "content": "={{ $json.historyContext }}Режим: {{ $json.modeLabel }}\n\nЗапрос пользователя:\n{{ $json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "pe-generate",
+      "name": "Генерация промпта",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        440
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json;\n\n  if (raw.error) {\n    return [{ json: { response: 'GigaChat недоступен. Попробуйте позже.', prompt: '' } }];\n  }\n\n  const generatedText = raw.output[0].content[0].text;\n\n  let extractedPrompt = '';\n  const codeMatch = generatedText.match(/```[\\s\\S]*?\\n([\\s\\S]*?)```/);\n  if (codeMatch) {\n    extractedPrompt = codeMatch[1].trim();\n  }\n\n  return [{ json: { response: generatedText, prompt: extractedPrompt } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки ответа GigaChat: ' + e.message, prompt: '' } }];\n}"
+      },
+      "id": "pe-extract",
+      "name": "Извлечь промпт",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "pe-respond-ok",
+      "name": "Ответ: результат",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1540,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.error, prompt: '' }) }}",
+        "options": {}
+      },
+      "id": "pe-respond-err",
+      "name": "Ответ: ошибка",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        660,
+        520
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Prompt": {
+      "main": [
+        [
+          {
+            "node": "Валидация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация": {
+      "main": [
+        [
+          {
+            "node": "Запрос валиден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Запрос валиден?": {
+      "main": [
+        [
+          {
+            "node": "Классификатор",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Классификатор": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Ответ GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Генерация промпта",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ответ GENERAL": {
+      "main": [
+        [
+          {
+            "node": "Проверка ответа GEN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка ответа GEN": {
+      "main": [
+        [
+          {
+            "node": "Ответ: GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Генерация промпта": {
+      "main": [
+        [
+          {
+            "node": "Извлечь промпт",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Извлечь промпт": {
+      "main": [
+        [
+          {
+            "node": "Ответ: результат",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "prompt-engineer-v4-general",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ad16de428774283a74f2bef15a9b31f771c3828cae096d3c33aab7bd18058813"
+  },
+  "id": "prompt-engineer-001",
+  "tags": []
+}

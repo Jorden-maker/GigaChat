@@ -1,0 +1,353 @@
+{
+  "name": "OCR + Поиск ФИО",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ocr",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Webhook OCR",
+      "webhookId": "cbb6a21a-2c6d-4e05-a8bd-6ad5681d94cc"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Проверяем, что файл загружен (binary data есть)\nconst item = $input.first();\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  return [{ json: { valid: false, error: 'Файл не загружен. Прикрепите документ или изображение.' } }];\n}\n\nconst key = Object.keys(binary)[0];\nconst info = binary[key];\n\nreturn [{\n  json: {\n    valid: true,\n    binaryKey: key,\n    fileName: info.fileName || 'unknown',\n    mimeType: info.mimeType || 'unknown'\n  },\n  binary: binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Валидация файла"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-valid-001",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        500,
+        0
+      ],
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Проверка файла"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/v1/file/text/",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "file"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        -100
+      ],
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "OCR Распознавание",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Извлекаем текст из ответа OCR.\n// Разные OCR-движки возвращают текст в разных полях.\ntry {\n  const data = $input.first().json;\n\n  // Если OCR вернул ошибку (onError: continueRegularOutput)\n  if (data.error) {\n    const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));\n    return [{ json: { has_text: false, error: 'OCR ошибка: ' + msg } }];\n  }\n\n  let text = '';\n\n  // Пробуем типичные форматы ответа OCR\n  if (typeof data === 'string') {\n    text = data;\n  } else if (data.text && typeof data.text === 'string') {\n    text = data.text;\n  } else if (data.result && typeof data.result === 'string') {\n    text = data.result;\n  } else if (data.result && data.result.text) {\n    text = data.result.text;\n  } else if (data.content && typeof data.content === 'string') {\n    text = data.content;\n  } else if (data.data && typeof data.data === 'string') {\n    text = data.data;\n  } else if (data.output && typeof data.output === 'string') {\n    text = data.output;\n  } else {\n    // Последний шанс — весь ответ как строка\n    text = JSON.stringify(data);\n  }\n\n  text = text.trim();\n\n  if (!text || text === '{}' || text === '[]' || text === 'null' || text.length < 3) {\n    return [{ json: { has_text: false, error: 'OCR не смог распознать текст в документе. Попробуйте другой файл или более чёткий скан.' } }];\n  }\n\n  // Ограничиваем длину текста (GigaChat имеет лимит контекста)\n  if (text.length > 15000) {\n    text = text.substring(0, 15000) + '\\n[...текст обрезан — слишком длинный документ]';\n  }\n\n  return [{ json: { has_text: true, ocr_text: text } }];\n\n} catch (e) {\n  return [{ json: { has_text: false, error: 'Ошибка обработки ответа OCR: ' + e.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        -100
+      ],
+      "id": "a1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Извлечь текст"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-text-001",
+              "leftValue": "={{ $json.has_text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1240,
+        -100
+      ],
+      "id": "a1b2c3d4-0006-4000-8000-000000000006",
+      "name": "Проверка текста"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "developer",
+              "content": "Ты — ассистент для извлечения имён людей из текста документов.\n\nЗадача: найди ВСЕ упоминания людей в тексте в любой комбинации:\n- ФИО (Иванов Иван Иванович)\n- Фамилия + Имя (Иванов Иван)\n- Фамилия + Отчество (Иванов Иванович)\n- Имя + Отчество (Иван Иванович)\n- Только Фамилия (Иванов)\n- Только Имя (Иван)\n- Только Отчество (Иванович)\n- Фамилия с инициалами (Иванов И.И., Петрова А.С.)\n\nПравила:\n1. Отвечай ТОЛЬКО списком, каждое с новой строки\n2. БЕЗ нумерации, БЕЗ пояснений, БЕЗ лишних слов\n3. Записывай ровно так, как написано в тексте\n4. Ищи по контексту — должности, обращения, подписи указывают на людей\n5. НЕ путай с названиями компаний, городов, улиц\n6. НЕ придумывай имена которых нет в тексте\n7. Если ничего не найдено, ответь РОВНО одним словом: НЕ НАЙДЕНО\n\nПример 1:\nТекст: 'Договор подписан Ивановым Иваном Ивановичем и Петровой А.С.'\nОтвет:\nИванов Иван Иванович\nПетрова А.С.\n\nПример 2:\nТекст: 'Директор Сидоров, бухгалтер Мария Петровна, позвоните Алексею'\nОтвет:\nСидоров\nМария Петровна\nАлексей\n\nПример 3:\nТекст: 'Накладная №1234 от 01.01.2024 на сумму 50 000 руб.'\nОтвет:\nНЕ НАЙДЕНО\n\nАнтипример:\nТекст: 'ООО Александров, г. Иванов, ул. Петрова 5'\nОтвет:\nНЕ НАЙДЕНО\n(это названия компании, города и улицы — НЕ люди)"
+            },
+            {
+              "content": "={{ $json.ocr_text }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1500,
+        -200
+      ],
+      "id": "a1b2c3d4-0007-4000-8000-000000000007",
+      "name": "Найти ФИО",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Безопасно извлекаем ответ GigaChat\ntry {\n  const raw = $input.first().json;\n\n  // Проверяем, не было ли ошибки GigaChat\n  if (raw.error) {\n    return [{ json: { response_text: 'Ошибка анализа документа. GigaChat недоступен. Попробуйте ещё раз.' } }];\n  }\n\n  const text = raw.output[0].content[0].text;\n\n  if (!text || text.trim().length === 0) {\n    return [{ json: { response_text: 'GigaChat вернул пустой ответ. Попробуйте загрузить файл ещё раз.' } }];\n  }\n\n  return [{ json: { response_text: text.trim() } }];\n\n} catch (e) {\n  return [{ json: { response_text: 'Ошибка при обработке ответа GigaChat. Попробуйте загрузить файл ещё раз.' } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        -200
+      ],
+      "id": "a1b2c3d4-0008-4000-8000-000000000008",
+      "name": "Проверка ответа"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.response_text }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2020,
+        -200
+      ],
+      "id": "a1b2c3d4-0009-4000-8000-000000000009",
+      "name": "Ответ"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.error }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        760,
+        160
+      ],
+      "id": "a1b2c3d4-0010-4000-8000-000000000010",
+      "name": "Ответ: нет файла"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.error }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1500,
+        60
+      ],
+      "id": "a1b2c3d4-0011-4000-8000-000000000011",
+      "name": "Ответ: OCR не распознал"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook OCR": {
+      "main": [
+        [
+          {
+            "node": "Валидация файла",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация файла": {
+      "main": [
+        [
+          {
+            "node": "Проверка файла",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка файла": {
+      "main": [
+        [
+          {
+            "node": "OCR Распознавание",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: нет файла",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR Распознавание": {
+      "main": [
+        [
+          {
+            "node": "Извлечь текст",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Извлечь текст": {
+      "main": [
+        [
+          {
+            "node": "Проверка текста",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка текста": {
+      "main": [
+        [
+          {
+            "node": "Найти ФИО",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: OCR не распознал",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Найти ФИО": {
+      "main": [
+        [
+          {
+            "node": "Проверка ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка ответа": {
+      "main": [
+        [
+          {
+            "node": "Ответ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fixed-001",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ad16de428774283a74f2bef15a9b31f771c3828cae096d3c33aab7bd18058813"
+  },
+  "id": "RTDi5qRs5ZDPQkyf",
+  "tags": []
+}

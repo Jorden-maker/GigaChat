@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Поиск ФИО в документах</title>
+    <style>
+        :root {
+            --bg-primary: #1e1e1e; --bg-secondary: #2a2a2a;
+            --bg-input: #333333; --border: #444444;
+            --text-primary: #e0e0e0; --text-secondary: #999999;
+            --accent: #6ec1e4; --accent-hover: #5ab0d4;
+            --success: #4caf50;
+            --error-bg: #3a2020; --error-border: #cc4444; --error-text: #ff8888;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Segoe UI, Tahoma, sans-serif;
+            background: var(--bg-primary); color: var(--text-primary);
+            height: 100vh; display: flex;
+            align-items: center; justify-content: center;
+        }
+        .btn-home { position:fixed; top:16px; left:16px; padding:8px 16px; background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-secondary); text-decoration:none; font-size:13px; border-radius:8px; transition:all .2s; z-index:10; }
+        .btn-home:hover { border-color:var(--accent); color:var(--accent); }
+        .btn-home .arrow { margin-right:6px; }
+        .container { width: 100%; max-width: 700px; padding: 0 20px; }
+        header { text-align: center; margin-bottom: 30px; }
+        header h1 { font-family: Consolas, monospace; font-size: 24px; color: var(--accent); letter-spacing: 2px; }
+        header p { color: var(--text-secondary); font-size: 14px; margin-top: 8px; }
+        .status-line {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 6px; font-size: 11px; color: var(--text-secondary);
+        }
+        .status-line .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #4caf50; animation: pulse 2s infinite;
+        }
+        .status-line .dot.offline { background: #cc4444; animation: none; }
+        .status-line .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .upload-area {
+            border: 2px dashed #555; border-radius: 12px;
+            padding: 40px; text-align: center; cursor: pointer;
+            transition: all 0.2s; background: var(--bg-secondary); margin-bottom: 20px;
+        }
+        .upload-area:hover { border-color: var(--accent); background: #2a2a35; }
+        .upload-area.dragging { border-color: var(--accent); background: #2a2a40; }
+        .upload-area .icon { font-size: 48px; margin-bottom: 12px; }
+        .upload-area .text { color: var(--text-secondary); font-size: 14px; }
+        .upload-area .formats { color: #666; font-size: 11px; margin-top: 6px; }
+        .upload-area .filename { color: var(--accent); font-size: 15px; margin-top: 8px; font-weight: 600; }
+        .upload-area .filesize { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
+        #fileInput { display: none; }
+        #sendBtn {
+            width: 100%; padding: 14px; background: var(--accent);
+            color: #111; border: none; border-radius: 10px;
+            cursor: pointer; font-size: 16px; font-weight: 600;
+            transition: background 0.2s; margin-bottom: 20px;
+        }
+        #sendBtn:hover { background: var(--accent-hover); }
+        #sendBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .loading {
+            text-align: center; color: var(--text-secondary);
+            font-size: 14px; padding: 20px; display: none;
+        }
+        .loading .dots span {
+            display: inline-block; width: 6px; height: 6px;
+            border-radius: 50%; background: var(--text-secondary);
+            animation: blink 1.4s infinite; margin: 0 2px;
+        }
+        .loading .dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading .dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+        .loading .timer { margin-top: 6px; font-size: 12px; color: #666; }
+        #result {
+            display: none; padding: 20px; border-radius: 12px;
+            line-height: 1.7; font-size: 14.5px; white-space: pre-wrap;
+        }
+        #result.success { background: #1a2e1a; border: 1px solid var(--success); color: #a5d6a7; }
+        #result.error { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); }
+        #result b { color: var(--text-primary); }
+        .reset-btn {
+            text-align: center; margin-top: 15px; display: none;
+            gap: 10px; justify-content: center;
+        }
+        .reset-btn button {
+            background: none; border: 1px solid #444; color: #888;
+            padding: 8px 24px; border-radius: 6px; cursor: pointer; font-size: 13px;
+        }
+        .reset-btn button:hover { border-color: #666; color: #bbb; }
+    </style>
+</head>
+<body>
+    <a class="btn-home" href="../GigaChat-Platform.html"><span class="arrow">&#8592;</span>GigaChat</a>
+    <div class="container">
+        <header>
+            <h1>Поиск ФИО в документах</h1>
+            <p>Загрузите документ или фотографию для распознавания</p>
+            <div class="status-line">
+                <span class="dot checking" id="statusDot"></span>
+                <span id="statusText">проверка...</span>
+            </div>
+        </header>
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+            <div class="icon">📄</div>
+            <div class="text">Нажмите или перетащите файл сюда</div>
+            <div class="formats">PDF, Word, изображения (JPG, PNG, TIFF, BMP, WEBP, HEIC)</div>
+            <div class="filename" id="fileName"></div>
+            <div class="filesize" id="fileSize"></div>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.rtf,.odt,.txt,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.gif,.webp,.heic,.heif" onchange="fileSelected(this)">
+        <button id="sendBtn" onclick="sendFile()" disabled>Распознать и найти ФИО</button>
+        <div class="loading" id="loading">
+            Распознаю документ и ищу ФИО
+            <span class="dots"><span>.</span><span>.</span><span>.</span></span>
+            <div class="timer" id="timer"></div>
+        </div>
+        <div id="result"></div>
+        <div class="reset-btn" id="resetBtn">
+            <button onclick="resetForm()">Загрузить другой файл</button>
+            <button onclick="copyResult()">Копировать результат</button>
+        </div>
+    </div>
+    <script>
+        var WEBHOOK_URL = 'http://localhost:5678/webhook/ocr';
+        var FETCH_TIMEOUT_MS = 180000;
+        var MAX_RETRIES = 1;
+        var RETRY_DELAY_MS = 3000;
+        var MAX_FILE_SIZE_MB = 50;
+        var selectedFile = null;
+        var isProcessing = false;
+        var uploadArea = document.getElementById('uploadArea');
+        var sendBtn = document.getElementById('sendBtn');
+        var loading = document.getElementById('loading');
+        var result = document.getElementById('result');
+        var resetBtnDiv = document.getElementById('resetBtn');
+        var timerEl = document.getElementById('timer');
+        var timerInterval = null;
+        var ALLOWED_EXTENSIONS = [
+            'pdf','doc','docx','rtf','odt','txt',
+            'png','jpg','jpeg','tiff','tif','bmp','gif','webp','heic','heif'
+        ];
+        function checkServerStatus() {
+            var dot = document.getElementById('statusDot');
+            var text = document.getElementById('statusText');
+            dot.className = 'dot checking'; text.textContent = 'проверка...';
+            var controller = new AbortController();
+            var timeout = setTimeout(function() { controller.abort(); }, 5000);
+            fetch(WEBHOOK_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body:'{"message":"ping"}', signal: controller.signal })
+                .then(function(res) {
+                    clearTimeout(timeout);
+                    if (res.ok || res.status > 0) { dot.className = 'dot'; text.textContent = 'Онлайн'; }
+                    else { dot.className = 'dot offline'; text.textContent = 'Офлайн'; }
+                })
+                .catch(function() {
+                    clearTimeout(timeout);
+                    dot.className = 'dot offline'; text.textContent = 'Офлайн';
+                });
+        }
+        function getExtension(fn) { return (fn||'').split('.').pop().toLowerCase(); }
+        function isAllowedFile(fn) { return ALLOWED_EXTENSIONS.indexOf(getExtension(fn)) !== -1; }
+        function formatFileSize(b) {
+            if (b < 1024) return b + ' Б';
+            if (b < 1048576) return (b/1024).toFixed(1) + ' КБ';
+            return (b/1048576).toFixed(1) + ' МБ';
+        }
+        uploadArea.addEventListener('dragover', function(e) { e.preventDefault(); uploadArea.classList.add('dragging'); });
+        uploadArea.addEventListener('dragleave', function() { uploadArea.classList.remove('dragging'); });
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault(); uploadArea.classList.remove('dragging');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
+        function fileSelected(input) { if (input.files.length > 0) handleFile(input.files[0]); }
+        function handleFile(file) {
+            if (!isAllowedFile(file.name)) {
+                alert('Неподдерживаемый формат: .' + getExtension(file.name)); return;
+            }
+            if (file.size > MAX_FILE_SIZE_MB * 1048576) {
+                alert('Файл слишком большой: ' + formatFileSize(file.size) + '\nМаксимум: ' + MAX_FILE_SIZE_MB + ' МБ'); return;
+            }
+            selectedFile = file;
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            sendBtn.disabled = false;
+        }
+        async function fetchWithRetry(url, options, retries) {
+            for (var attempt = 0; attempt <= retries; attempt++) {
+                var controller = new AbortController();
+                var tid = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
+                try {
+                    var res = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
+                    clearTimeout(tid); return res;
+                } catch (e) {
+                    clearTimeout(tid);
+                    if (e.name === 'AbortError') {
+                        if (attempt < retries) { await new Promise(function(r){setTimeout(r,RETRY_DELAY_MS);}); continue; }
+                        throw new Error('Сервер не ответил за ' + (FETCH_TIMEOUT_MS/1000) + ' сек.');
+                    }
+                    if (attempt < retries) { await new Promise(function(r){setTimeout(r,RETRY_DELAY_MS);}); continue; }
+                    throw e;
+                }
+            }
+        }
+        async function sendFile() {
+            if (!selectedFile || isProcessing) return;
+            isProcessing = true;
+            sendBtn.disabled = true; loading.style.display = 'block';
+            result.style.display = 'none'; resetBtnDiv.style.display = 'none';
+            var startTime = Date.now(); timerEl.textContent = '';
+            timerInterval = setInterval(function() {
+                timerEl.textContent = Math.floor((Date.now()-startTime)/1000) + ' сек.';
+            }, 1000);
+            try {
+                var formData = new FormData();
+                formData.append('file', selectedFile);
+                var res = await fetchWithRetry(WEBHOOK_URL, { method: 'POST', body: formData }, MAX_RETRIES);
+                clearInterval(timerInterval); loading.style.display = 'none';
+                if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
+                var data = await res.json();
+                var responseText = data.response || data.output || 'Пустой ответ';
+                result.className = 'success';
+                result.innerHTML = formatResponse(responseText);
+                result.style.display = 'block';
+                document.getElementById('statusDot').className = 'dot';
+                document.getElementById('statusText').textContent = 'Онлайн';
+            } catch(e) {
+                clearInterval(timerInterval); loading.style.display = 'none';
+                result.className = 'error';
+                result.textContent = 'Ошибка: ' + e.message;
+                result.style.display = 'block';
+                document.getElementById('statusDot').className = 'dot offline';
+                document.getElementById('statusText').textContent = 'Офлайн';
+            }
+            isProcessing = false;
+            resetBtnDiv.style.display = 'flex';
+        }
+        function resetForm() {
+            selectedFile = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileName').textContent = '';
+            document.getElementById('fileSize').textContent = '';
+            sendBtn.disabled = true; result.style.display = 'none';
+            resetBtnDiv.style.display = 'none';
+            if (timerInterval) clearInterval(timerInterval);
+        }
+        function copyResult() {
+            var text = result.innerText || result.textContent;
+            if (!text) return;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(function() { alert('Скопировано'); });
+            } else {
+                var ta = document.createElement('textarea'); ta.value = text;
+                document.body.appendChild(ta); ta.select();
+                document.execCommand('copy'); document.body.removeChild(ta);
+                alert('Скопировано');
+            }
+        }
+        function formatResponse(text) {
+            if (!text) return '';
+            var html = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+            html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
+            html = html.replace(/^- (.+)$/gm, '  • $1');
+            html = html.replace(/^---$/gm, '<hr style="border-color:#444;margin:10px 0">');
+            return html;
+        }
+        checkServerStatus();
+        setInterval(checkServerStatus, 30000);
+    </script>
+</body>
+</html>
