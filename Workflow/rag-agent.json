@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\nconst history = body.history || [];\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nlet historyContext = '';\nif (history.length > 0) {\n  const lines = history.slice(-10).map(m => {\n    const role = m.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (m.content || m.text || '').substring(0, 300);\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id, historyContext: historyContext}}];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\nconst history = body.history || [];\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nlet historyContext = '';\nif (history.length > 0) {\n  const lines = history.slice(-10).map(m => {\n    const role = m.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (m.content || m.text || '').substring(0, 300);\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id, historyContext: historyContext}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -205,16 +205,14 @@
       "parameters": {
         "method": "POST",
         "url": "http://GIGACHAT_HOST:PORT/v1/db/vector/doc/",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer YOUR_API_KEY"
             }
           ]
         },
@@ -233,6 +231,12 @@
       ],
       "id": "rag-embed-0001",
       "name": "Эмбеддинг вопроса",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "GigaChat Embeddings"
+        }
+      },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },
