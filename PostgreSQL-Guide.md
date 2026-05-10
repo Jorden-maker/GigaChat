@@ -335,6 +335,7 @@ CREATE TABLE IF NOT EXISTS chat_memory (
     session_id VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL,
     content TEXT NOT NULL,
+    extras JSONB,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -351,7 +352,14 @@ ON chat_memory (session_id, created_at);
 | session_id | VARCHAR(255) | ID сессии чата |
 | role | VARCHAR(20) | Роль: user или assistant |
 | content | TEXT | Текст сообщения |
+| extras | JSONB | Доп. данные ответа (NULL для chat/rag/sql; для math: `{code, raw_result}`; для prompt-engineer: `{prompt}`) |
 | created_at | TIMESTAMP | Дата и время сообщения |
+
+**Если БД уже создана без `extras`** — выполни миграцию:
+
+```sql
+ALTER TABLE chat_memory ADD COLUMN IF NOT EXISTS extras JSONB;
+```
 
 ### Таблица chat_summaries — сжатые резюме диалогов (для Чат-Агента)
 
@@ -425,6 +433,7 @@ CREATE TABLE IF NOT EXISTS chat_memory (
     session_id VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL,
     content TEXT NOT NULL,
+    extras JSONB,
     created_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_chat_memory_session

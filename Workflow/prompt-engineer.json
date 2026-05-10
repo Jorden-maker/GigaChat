@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body;\n\n// Health-check: отдаём pong без вызова LLM\nif (body && body.message && body.message.trim() === 'ping') {\n  return [{ json: { valid: 0, error: 'pong' } }];\n}\n\nif (!body || !body.message || body.message.trim().length < 2) {\n  return [{ json: { valid: 0, error: 'Введите сообщение' } }];\n}\n\nif (body.message.length > 10000) {\n  return [{ json: { valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)' } }];\n}\n\nconst history = body.history || [];\nlet historyContext = '';\nif (history.length > 0) {\n  const lines = history.map(m => {\n    const role = m.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (m.text || m.content || '').substring(0, 300);\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\n\nreturn [{ json: { valid: 1, message: body.message.trim(), historyContext: historyContext } }];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'pe-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{ json: { valid: 0, error: 'pong' } }];\n}\n\nif (!message || message.length < 2) {\n  return [{ json: { valid: 0, error: 'Введите сообщение' } }];\n}\n\nif (message.length > 10000) {\n  return [{ json: { valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)' } }];\n}\n\nreturn [{ json: { valid: 1, message: message, session_id: session_id } }];"
       },
       "id": "pe-validation",
       "name": "Валидация",
@@ -67,7 +67,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const message = $input.first().json.message;\nconst historyContext = $input.first().json.historyContext || '';\nconst lower = message.toLowerCase();\n\nconst promptKeywords = [\n  'промпт', 'prompt', 'системн', 'создай', 'напиши', 'сгенерируй',\n  'адаптируй', 'адаптировать', 'переделай', 'переделать', 'перепиши под',\n  'переписать под', 'измени под', 'изменить под', 'подстрой', 'подстроить',\n  'улучши', 'улучшить', 'доработай', 'доработать', 'оптимизируй',\n  'оптимизировать', 'исправь промпт', 'усиль', 'усилить', 'сделай лучше',\n  'что не так с промптом', 'проанализируй промпт',\n  'инструкци', 'для модели', 'для нейросет', 'для ии', 'для ai',\n  'для gigachat', 'для гигачат', 'для бота', 'для чат-бота',\n  'роль ассистент', 'ты —', 'you are'\n];\n\nconst hasExistingPrompt = (\n  (message.includes('```') || message.includes('Ты —') || message.includes('Ты -') || message.includes('You are')) &&\n  message.length > 100\n);\n\nlet isPromptTask = hasExistingPrompt;\nif (!isPromptTask) {\n  for (const kw of promptKeywords) {\n    if (lower.includes(kw)) { isPromptTask = true; break; }\n  }\n}\n\nif (!isPromptTask && message.length > 50) {\n  const taskIndicators = ['нужен', 'нужно', 'хочу', 'сделай', 'помоги написать', 'составь', 'разработай'];\n  for (const kw of taskIndicators) {\n    if (lower.includes(kw)) { isPromptTask = true; break; }\n  }\n}\n\nif (!isPromptTask) {\n  return [{ json: { message, mode: 'general', modeLabel: 'Общение', historyContext } }];\n}\n\nconst adaptKeywords = ['адаптируй', 'адаптировать', 'переделай', 'переделать', 'перепиши под', 'переписать под', 'измени под', 'изменить под', 'подстрой', 'подстроить'];\nconst improveKeywords = ['улучши', 'улучшить', 'доработай', 'доработать', 'оптимизируй', 'оптимизировать', 'исправь промпт', 'усиль', 'усилить', 'сделай лучше', 'что не так с промптом', 'проанализируй промпт'];\n\nlet mode = 'create';\nlet modeLabel = 'Создание нового промпта';\n\nfor (const kw of adaptKeywords) {\n  if (lower.includes(kw)) { mode = 'adapt'; modeLabel = 'Адаптация промпта'; break; }\n}\n\nif (mode === 'create') {\n  for (const kw of improveKeywords) {\n    if (lower.includes(kw)) { mode = 'improve'; modeLabel = 'Улучшение промпта'; break; }\n  }\n}\n\nif (mode === 'create' && hasExistingPrompt) {\n  mode = 'improve';\n  modeLabel = 'Улучшение промпта';\n}\n\nreturn [{ json: { message, mode, modeLabel, historyContext } }];"
+        "jsCode": "const message = $('Агрегация').first().json.message;\nconst historyContext = $('Агрегация').first().json.historyContext || '';\nconst lower = message.toLowerCase();\n\nconst promptKeywords = [\n  'промпт', 'prompt', 'системн', 'создай', 'напиши', 'сгенерируй',\n  'адаптируй', 'адаптировать', 'переделай', 'переделать', 'перепиши под',\n  'переписать под', 'измени под', 'изменить под', 'подстрой', 'подстроить',\n  'улучши', 'улучшить', 'доработай', 'доработать', 'оптимизируй',\n  'оптимизировать', 'исправь промпт', 'усиль', 'усилить', 'сделай лучше',\n  'что не так с промптом', 'проанализируй промпт',\n  'инструкци', 'для модели', 'для нейросет', 'для ии', 'для ai',\n  'для gigachat', 'для гигачат', 'для бота', 'для чат-бота',\n  'роль ассистент', 'ты —', 'you are'\n];\n\nconst hasExistingPrompt = (\n  (message.includes('```') || message.includes('Ты —') || message.includes('Ты -') || message.includes('You are')) &&\n  message.length > 100\n);\n\nlet isPromptTask = hasExistingPrompt;\nif (!isPromptTask) {\n  for (const kw of promptKeywords) {\n    if (lower.includes(kw)) { isPromptTask = true; break; }\n  }\n}\n\nif (!isPromptTask && message.length > 50) {\n  const taskIndicators = ['нужен', 'нужно', 'хочу', 'сделай', 'помоги написать', 'составь', 'разработай'];\n  for (const kw of taskIndicators) {\n    if (lower.includes(kw)) { isPromptTask = true; break; }\n  }\n}\n\nif (!isPromptTask) {\n  return [{ json: { message, mode: 'general', modeLabel: 'Общение', historyContext } }];\n}\n\nconst adaptKeywords = ['адаптируй', 'адаптировать', 'переделай', 'переделать', 'перепиши под', 'переписать под', 'измени под', 'изменить под', 'подстрой', 'подстроить'];\nconst improveKeywords = ['улучши', 'улучшить', 'доработай', 'доработать', 'оптимизируй', 'оптимизировать', 'исправь промпт', 'усиль', 'усилить', 'сделай лучше', 'что не так с промптом', 'проанализируй промпт'];\n\nlet mode = 'create';\nlet modeLabel = 'Создание нового промпта';\n\nfor (const kw of adaptKeywords) {\n  if (lower.includes(kw)) { mode = 'adapt'; modeLabel = 'Адаптация промпта'; break; }\n}\n\nif (mode === 'create') {\n  for (const kw of improveKeywords) {\n    if (lower.includes(kw)) { mode = 'improve'; modeLabel = 'Улучшение промпта'; break; }\n  }\n}\n\nif (mode === 'create' && hasExistingPrompt) {\n  mode = 'improve';\n  modeLabel = 'Улучшение промпта';\n}\n\nreturn [{ json: { message, mode, modeLabel, historyContext } }];"
       },
       "id": "pe-classifier",
       "name": "Классификатор",
@@ -174,7 +174,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
+        "responseBody": "={{ JSON.stringify($('Проверка ответа GEN').first().json) }}",
         "options": {}
       },
       "id": "pe-respond-general",
@@ -182,7 +182,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1540,
+        1760,
         160
       ]
     },
@@ -241,7 +241,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
+        "responseBody": "={{ JSON.stringify($('Извлечь промпт').first().json) }}",
         "options": {}
       },
       "id": "pe-respond-ok",
@@ -249,7 +249,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1540,
+        1760,
         440
       ]
     },
@@ -267,6 +267,111 @@
         660,
         520
       ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT role, content FROM chat_memory WHERE session_id = '{{ $('Валидация').first().json.session_id }}' ORDER BY created_at DESC LIMIT 30",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        300
+      ],
+      "id": "pe-load-history-0001",
+      "name": "Загрузить историю",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const historyRows = $input.all().reverse();\nlet historyContext = '';\nif (historyRows.length > 0) {\n  const lines = historyRows.map(item => {\n    const role = item.json.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (item.json.content || '');\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\nconst v = $('Валидация').first().json;\nreturn [{json: {message: v.message, session_id: v.session_id, historyContext: historyContext}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "id": "pe-aggregate-0001",
+      "name": "Агрегация"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $json.session_id }}', 'user', '{{ ($json.message || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1100,
+        300
+      ],
+      "id": "pe-save-question-0001",
+      "name": "Сохранить вопрос",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1540,
+        160
+      ],
+      "id": "pe-save-resp-gen-0001",
+      "name": "Сохранить ответ GEN",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content, extras) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}', '{{ JSON.stringify({prompt: $json.prompt || ''}).replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1540,
+        440
+      ],
+      "id": "pe-save-resp-task-0001",
+      "name": "Сохранить ответ TASK",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -296,7 +401,7 @@
       "main": [
         [
           {
-            "node": "Классификатор",
+            "node": "Загрузить историю",
             "type": "main",
             "index": 0
           }
@@ -354,7 +459,7 @@
       "main": [
         [
           {
-            "node": "Ответ: GENERAL",
+            "node": "Сохранить ответ GEN",
             "type": "main",
             "index": 0
           }
@@ -373,6 +478,61 @@
       ]
     },
     "Извлечь промпт": {
+      "main": [
+        [
+          {
+            "node": "Сохранить ответ TASK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Загрузить историю": {
+      "main": [
+        [
+          {
+            "node": "Агрегация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Агрегация": {
+      "main": [
+        [
+          {
+            "node": "Сохранить вопрос",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить вопрос": {
+      "main": [
+        [
+          {
+            "node": "Классификатор",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ GEN": {
+      "main": [
+        [
+          {
+            "node": "Ответ: GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ TASK": {
       "main": [
         [
           {

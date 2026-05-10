@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'sql-default').trim();\nconst history = body.history || [];\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nlet historyContext = '';\nif (history.length > 0) {\n  const lines = history.slice(-10).map(m => {\n    const role = m.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (m.content || m.text || '').substring(0, 300);\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id, historyContext: historyContext}}];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'sql-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -82,7 +82,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const message = $input.first().json.message;\nconst historyContext = $input.first().json.historyContext || '';\nconst session_id = $input.first().json.session_id || 'sql-default';\nconst lower = message.toLowerCase();\n\nconst sqlKeywords = [\n  'покажи', 'выведи', 'список', 'найди клиент', 'найди заказ',\n  'клиент', 'заказ', 'заказы', 'выручк', 'revenue',\n  'таблиц', 'запрос', 'база данных', 'бд', 'базу',\n  'select', 'insert', 'update', 'delete', 'sql',\n  'добавь', 'удали', 'измени', 'обнови',\n  'сколько клиентов', 'сколько заказов', 'сколько записей',\n  'статус', 'pending', 'delivered', 'cancelled',\n  'город', 'москва', 'питер', 'петербург',\n  'email', 'выручка', 'сумма заказ', 'средн',\n  'группир', 'сортир', 'отсортируй', 'отфильтруй', 'фильтр',\n  'топ ', 'top ', 'первые', 'последние',\n  'join', 'объедин', 'связ',\n  'аналитик', 'статистик', 'отчёт', 'отчет',\n  'за период', 'за месяц', 'за год', 'за неделю',\n  'больше чем', 'меньше чем', 'равно',\n  'максимальн', 'минимальн', 'итого'\n];\n\nlet isSQL = false;\n\nfor (const kw of sqlKeywords) {\n  if (lower.includes(kw)) { isSQL = true; break; }\n}\n\n// Если упоминаются данные и есть вопросительный характер\nif (!isSQL && message.length > 15) {\n  const dataIndicators = ['сколько', 'какие', 'кто', 'где', 'когда', 'чей', 'чья'];\n  const dataEntities = ['клиент', 'заказ', 'товар', 'продукт', 'запис', 'строк'];\n  const hasQuestion = dataIndicators.some(q => lower.includes(q));\n  const hasEntity = dataEntities.some(e => lower.includes(e));\n  if (hasQuestion && hasEntity) isSQL = true;\n}\n\nif (!isSQL) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'sql', historyContext, session_id } }];"
+        "jsCode": "const message = $('Агрегация').first().json.message;\nconst historyContext = $('Агрегация').first().json.historyContext || '';\nconst session_id = $('Агрегация').first().json.session_id || 'sql-default';\nconst lower = message.toLowerCase();\n\nconst sqlKeywords = [\n  'покажи', 'выведи', 'список', 'найди клиент', 'найди заказ',\n  'клиент', 'заказ', 'заказы', 'выручк', 'revenue',\n  'таблиц', 'запрос', 'база данных', 'бд', 'базу',\n  'select', 'insert', 'update', 'delete', 'sql',\n  'добавь', 'удали', 'измени', 'обнови',\n  'сколько клиентов', 'сколько заказов', 'сколько записей',\n  'статус', 'pending', 'delivered', 'cancelled',\n  'город', 'москва', 'питер', 'петербург',\n  'email', 'выручка', 'сумма заказ', 'средн',\n  'группир', 'сортир', 'отсортируй', 'отфильтруй', 'фильтр',\n  'топ ', 'top ', 'первые', 'последние',\n  'join', 'объедин', 'связ',\n  'аналитик', 'статистик', 'отчёт', 'отчет',\n  'за период', 'за месяц', 'за год', 'за неделю',\n  'больше чем', 'меньше чем', 'равно',\n  'максимальн', 'минимальн', 'итого'\n];\n\nlet isSQL = false;\n\nfor (const kw of sqlKeywords) {\n  if (lower.includes(kw)) { isSQL = true; break; }\n}\n\n// Если упоминаются данные и есть вопросительный характер\nif (!isSQL && message.length > 15) {\n  const dataIndicators = ['сколько', 'какие', 'кто', 'где', 'когда', 'чей', 'чья'];\n  const dataEntities = ['клиент', 'заказ', 'товар', 'продукт', 'запис', 'строк'];\n  const hasQuestion = dataIndicators.some(q => lower.includes(q));\n  const hasEntity = dataEntities.some(e => lower.includes(e));\n  if (hasQuestion && hasEntity) isSQL = true;\n}\n\nif (!isSQL) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'sql', historyContext, session_id } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -189,13 +189,13 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
+        "responseBody": "={{ JSON.stringify($('Проверка ответа GEN').first().json) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1540,
+        1760,
         160
       ],
       "id": "sql-resp-gen-0001",
@@ -215,7 +215,7 @@
               "content": "Ты — SQL-генератор для PostgreSQL. Напиши SQL-запрос по описанию пользователя.\n\nСхема базы данных:\nТаблица clients: id (SERIAL PK), name (VARCHAR), city (VARCHAR), email (VARCHAR), revenue (DECIMAL), created_at (DATE)\nТаблица orders: id (SERIAL PK), client_id (INTEGER FK -> clients.id), product (VARCHAR), amount (DECIMAL), status (VARCHAR: delivered/pending/cancelled), order_date (DATE)\n\nКРИТИЧЕСКИ ВАЖНО:\n- Пиши ТОЛЬКО SQL-код\n- Первый символ ответа = первый символ запроса (SELECT, INSERT и т.д.)\n- НЕ оборачивай в ``` или ```sql\n- НЕ пиши пояснений, комментариев, слов 'Вот запрос'\n- Если пользователь не указал количество — добавь LIMIT 50\n- Учитывай историю диалога для понимания местоимений (их, эти, те же)\n\nПример 1:\nЗадача: Покажи всех клиентов из Москвы\nSELECT * FROM clients WHERE city = 'Москва' LIMIT 50;\n\nПример 2:\nЗадача: Сколько заказов со статусом pending?\nSELECT COUNT(*) AS total FROM orders WHERE status = 'pending';\n\nПример 3:\nЗадача: Топ-5 клиентов по выручке\nSELECT name, revenue FROM clients ORDER BY revenue DESC LIMIT 5;\n\nПример 4:\nЗадача: Добавь клиента ООО Ромашка из Москвы\nINSERT INTO clients (name, city) VALUES ('ООО Ромашка', 'Москва');\n\nПример 5:\nЗадача: Заказы клиента Иванов с суммами\nSELECT c.name, o.product, o.amount, o.status FROM clients c JOIN orders o ON o.client_id = c.id WHERE c.name ILIKE '%Иванов%' LIMIT 50;\n\nНЕПРАВИЛЬНО (так НЕ делай):\nВот SQL-запрос для получения данных:\n```sql\nSELECT * FROM clients;\n```\n\nТеперь напиши SQL:"
             },
             {
-              "content": "={{ $('Валидация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}"
+              "content": "={{ $('Агрегация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}"
             }
           ]
         },
@@ -331,17 +331,122 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
+        "responseBody": "={{ JSON.stringify($('Проверка ответа SQL').first().json) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2200,
+        2420,
         440
       ],
       "id": "sql-resp-sql-0001",
       "name": "Ответ: SQL"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT role, content FROM chat_memory WHERE session_id = '{{ $('Валидация').first().json.session_id }}' ORDER BY created_at DESC LIMIT 30",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        300
+      ],
+      "id": "sql-load-history-0001",
+      "name": "Загрузить историю",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const historyRows = $input.all().reverse();\nlet historyContext = '';\nif (historyRows.length > 0) {\n  const lines = historyRows.map(item => {\n    const role = item.json.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (item.json.content || '');\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\nconst v = $('Валидация').first().json;\nreturn [{json: {message: v.message, session_id: v.session_id, historyContext: historyContext}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "id": "sql-aggregate-0001",
+      "name": "Агрегация"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $json.session_id }}', 'user', '{{ ($json.message || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1100,
+        300
+      ],
+      "id": "sql-save-question-0001",
+      "name": "Сохранить вопрос",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1540,
+        160
+      ],
+      "id": "sql-save-resp-gen-0001",
+      "name": "Сохранить ответ GEN",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2200,
+        440
+      ],
+      "id": "sql-save-resp-sql-0001",
+      "name": "Сохранить ответ SQL",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
@@ -372,7 +477,7 @@
       "main": [
         [
           {
-            "node": "Классификатор",
+            "node": "Загрузить историю",
             "type": "main",
             "index": 0
           }
@@ -430,7 +535,7 @@
       "main": [
         [
           {
-            "node": "Ответ: GENERAL",
+            "node": "Сохранить ответ GEN",
             "type": "main",
             "index": 0
           }
@@ -482,6 +587,61 @@
       ]
     },
     "Проверка ответа SQL": {
+      "main": [
+        [
+          {
+            "node": "Сохранить ответ SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Загрузить историю": {
+      "main": [
+        [
+          {
+            "node": "Агрегация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Агрегация": {
+      "main": [
+        [
+          {
+            "node": "Сохранить вопрос",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить вопрос": {
+      "main": [
+        [
+          {
+            "node": "Классификатор",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ GEN": {
+      "main": [
+        [
+          {
+            "node": "Ответ: GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ SQL": {
       "main": [
         [
           {

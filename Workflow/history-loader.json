@@ -83,7 +83,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT role, content, created_at FROM chat_memory WHERE session_id = '{{ $json.session_id }}' ORDER BY created_at ASC LIMIT {{ $json.limit }}",
+        "query": "SELECT role, content, extras, created_at FROM chat_memory WHERE session_id = '{{ $json.session_id }}' ORDER BY created_at ASC LIMIT {{ $json.limit }}",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -105,7 +105,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\nif (items.length > 0 && items[0].json.error) {\n  return [{json: {messages: [], count: 0, error: 'Ошибка загрузки истории'}}];\n}\n\nconst messages = items\n  .map(item => ({\n    role: item.json.role,\n    content: item.json.content || ''\n  }))\n  .filter(m => m.role && m.content);\n\nreturn [{json: {messages: messages, count: messages.length}}];"
+        "jsCode": "const items = $input.all();\n\nif (items.length > 0 && items[0].json.error) {\n  return [{json: {messages: [], count: 0, error: 'Ошибка загрузки истории'}}];\n}\n\nconst messages = items\n  .map(item => ({\n    role: item.json.role,\n    content: item.json.content || '',\n    extras: item.json.extras || null\n  }))\n  .filter(m => m.role && m.content);\n\nreturn [{json: {messages: messages, count: messages.length}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
