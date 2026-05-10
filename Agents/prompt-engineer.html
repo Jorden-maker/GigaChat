@@ -150,7 +150,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
   <div class="chat-container" id="chatContainer">
     <div class="welcome" id="welcome">
       <h2>Промпт-Инженер</h2>
-      <p>Опишите задачу — получите готовый промпт. Вставьте существующий промпт — получите улучшенную версию с оценкой качества.</p>
+      <p>Опишите задачу — получите готовый промпт. Вставьте существующий промпт со словом «улучши» — получите усиленную версию.</p>
       <div class="welcome-modes">
         <div class="mode-card">
           <h4>✨ Создать</h4>
@@ -178,17 +178,18 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 
 <script>
 const WEBHOOK_URL = GigaChat.webhookUrl('prompt-engineer');
-const STORAGE_KEYS = { sessions:'pe_sessions', histories:'pe_histories', active:'pe_active', counter:'pe_counter' };
+const HISTORY_URL = GigaChat.webhookUrl('history');
+const STORAGE_KEYS = { sessions:'pe_sessions', active:'pe_active', counter:'pe_counter' };
 
 let sessions = [];
-let histories = {};
+let displayMessages = [];
 let activeSessionId = null;
 let sessionCounter = 0;
 let isProcessing = false;
 let serverOnline = false;
 const WELCOME_HTML = `<div class="welcome">
   <h2>Промпт-Инженер</h2>
-  <p>Опишите задачу — получите готовый промпт. Вставьте существующий промпт — получите улучшенную версию с оценкой качества.</p>
+  <p>Опишите задачу — получите готовый промпт. Вставьте существующий промпт со словом «улучши» — получите усиленную версию.</p>
   <div class="welcome-modes">
     <div class="mode-card"><h4>✨ Создать</h4><p>Опишите задачу, и я создам структурированный промпт с ролью, контекстом и примерами</p></div>
     <div class="mode-card"><h4>🔧 Улучшить</h4><p>Вставьте промпт со словом «улучши» — я найду слабые места и усилю его</p></div>
@@ -199,12 +200,11 @@ const WELCOME_HTML = `<div class="welcome">
 // --- Init ---
 function init() {
   loadSessions();
-  // Проверяем что activeSessionId реально существует в списке сессий
   if (activeSessionId && !sessions.find(s => s.id === activeSessionId)) {
     activeSessionId = null;
   }
   if (sessions.length > 0) {
-    if (activeSessionId && histories[activeSessionId]) switchToSession(activeSessionId);
+    if (activeSessionId) switchToSession(activeSessionId);
     else switchToSession(sessions[0].id);
   } else {
     activeSessionId = null;
@@ -220,47 +220,76 @@ function init() {
 function loadSessions() {
   try {
     sessions = JSON.parse(localStorage.getItem(STORAGE_KEYS.sessions) || '[]');
-    histories = JSON.parse(localStorage.getItem(STORAGE_KEYS.histories) || '{}');
     sessionCounter = parseInt(localStorage.getItem(STORAGE_KEYS.counter) || '0');
     activeSessionId = localStorage.getItem(STORAGE_KEYS.active) || null;
-  } catch(e) { sessions=[]; histories={}; sessionCounter=0; activeSessionId=null; }
+    // История теперь на сервере — старый локальный кеш не нужен
+    try { localStorage.removeItem('pe_histories'); } catch (e) {}
+  } catch(e) { sessions=[]; sessionCounter=0; activeSessionId=null; }
 }
 function saveSessions() {
   localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(sessions));
-  localStorage.setItem(STORAGE_KEYS.histories, JSON.stringify(histories));
   localStorage.setItem(STORAGE_KEYS.counter, String(sessionCounter));
   localStorage.setItem(STORAGE_KEYS.active, activeSessionId || '');
 }
-function loadActive() { return localStorage.getItem(STORAGE_KEYS.active); }
-function saveActive(id) { localStorage.setItem(STORAGE_KEYS.active, id); }
 
 function createNewSession() {
   sessionCounter++;
   const s = { id:'pe_'+Date.now(), name:'Промпт-'+sessionCounter, created:new Date().toISOString() };
   sessions.unshift(s);
-  histories[s.id] = [];
   saveSessions();
-  switchToSession(s.id);
+  switchToSession(s.id, { skipHistoryLoad: true });
 }
 
-function switchToSession(id) {
+async function switchToSession(id, opts) {
+  opts = opts || {};
   activeSessionId = id;
-  saveActive(id);
+  displayMessages = [];
+  saveSessions();
   renderSessionList();
-  renderChat();
   document.getElementById('userInput').disabled = false;
   document.getElementById('btnSend').disabled = false;
   document.getElementById('userInput').focus();
+  if (opts.skipHistoryLoad) {
+    renderChat();
+    return;
+  }
+  await loadHistoryForActive(id);
+}
+
+async function loadHistoryForActive(targetSessionId) {
+  const container = document.getElementById('chatContainer');
+  container.innerHTML = '<div class="welcome"><p style="color:var(--text-muted);">Загружаю историю...</p></div>';
+  try {
+    const res = await fetch(HISTORY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ session_id: targetSessionId })
+    });
+    if (activeSessionId !== targetSessionId) return;
+    if (!res.ok) throw new Error('Сервер ответил ' + res.status);
+    const data = await res.json();
+    if (activeSessionId !== targetSessionId) return;
+    displayMessages = (data.messages || []).map(m => ({
+      role: m.role,
+      content: m.content,
+      extras: m.extras || null
+    }));
+    renderChat();
+  } catch (e) {
+    if (activeSessionId !== targetSessionId) return;
+    displayMessages = [];
+    container.innerHTML = `<div class="welcome"><p style="color:var(--text-muted);">Не удалось загрузить историю: ${escapeHtml(e.message)}</p></div>`;
+  }
 }
 
 function deleteSession(id, e) {
   e.stopPropagation();
   sessions = sessions.filter(s => s.id !== id);
-  delete histories[id];
   if (activeSessionId === id) {
     if (sessions.length > 0) { switchToSession(sessions[0].id); }
     else {
       activeSessionId = null;
+      displayMessages = [];
       document.getElementById('chatContainer').innerHTML = '<div class="welcome"><h2>Промпт-Инженер</h2><p>Создайте новую сессию для начала работы</p></div>';
       document.getElementById('userInput').disabled = true;
       document.getElementById('btnSend').disabled = true;
@@ -283,26 +312,26 @@ function renderSessionList() {
 // --- Chat ---
 function renderChat() {
   const container = document.getElementById('chatContainer');
-  const msgs = histories[activeSessionId] || [];
-  if (msgs.length === 0) {
+  if (displayMessages.length === 0) {
     container.innerHTML = WELCOME_HTML;
     return;
   }
   let html = '';
-  for (const m of msgs) {
+  for (const m of displayMessages) {
+    const text = m.content || m.text || '';
     if (m.role === 'user') {
-      html += `<div class="message"><div class="msg-avatar user">👤</div><div class="msg-content"><div class="role">Вы</div><div class="text">${escapeHtml(m.text)}</div></div></div>`;
+      html += `<div class="message"><div class="msg-avatar user">👤</div><div class="msg-content"><div class="role">Вы</div><div class="text">${escapeHtml(text)}</div></div></div>`;
     } else {
+      const extras = m.extras || {};
+      const prompt = extras.prompt || m.prompt || '';
+      const elapsed = extras.elapsed || m.elapsed || '';
       html += `<div class="message"><div class="msg-avatar bot">🧠</div><div class="msg-content"><div class="role">Промпт-Инженер</div>`;
-      html += `<div class="text">${formatResponse(m.text)}</div>`;
-      if (m.prompt) {
-        html += `<div class="prompt-block"><div class="prompt-block-header"><span>Готовый промпт</span><button class="btn-copy" onclick="copyPrompt(this)">Копировать</button></div><pre>${escapeHtml(m.prompt)}</pre></div>`;
+      html += `<div class="text">${formatResponse(text)}</div>`;
+      if (prompt) {
+        html += `<div class="prompt-block"><div class="prompt-block-header"><span>Готовый промпт</span><button class="btn-copy" onclick="copyPrompt(this)">Копировать</button></div><pre>${escapeHtml(prompt)}</pre></div>`;
       }
-      if (m.evaluation) {
-        html += `<div class="eval-block"><div class="eval-block-title">📊 Оценка качества</div><pre>${escapeHtml(m.evaluation)}</pre></div>`;
-      }
-      if (m.elapsed) {
-        html += `<div class="timer">⏱ ${m.elapsed} сек</div>`;
+      if (elapsed) {
+        html += `<div class="timer">⏱ ${elapsed} сек</div>`;
       }
       html += `</div></div>`;
     }
@@ -348,13 +377,9 @@ async function sendMessage() {
   input.value = '';
   input.style.height = 'auto';
 
-  // Add user message
-  if (!histories[sendSessionId]) histories[sendSessionId] = [];
-  const history = histories[sendSessionId].slice(-20);
-  histories[sendSessionId].push({ role:'user', text });
+  displayMessages.push({ role:'user', content: text });
   renderChat();
 
-  // Timer
   const startTime = Date.now();
   let timerInterval;
   const addLoadingMsg = () => {
@@ -372,36 +397,35 @@ async function sendMessage() {
     const data = await fetchWithRetry(WEBHOOK_URL, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ message: text, history: history })
+      body: JSON.stringify({ message: text, session_id: sendSessionId })
     });
     const elapsed = ((Date.now()-startTime)/1000).toFixed(1);
     clearInterval(timerInterval);
     const loading = document.getElementById('loading');
     if (loading) loading.remove();
 
-    histories[sendSessionId].push({
-      role:'bot',
-      text: data.response || 'Ответ получен',
-      prompt: data.prompt || '',
-      evaluation: data.evaluation || '',
-      elapsed
-    });
-
+    if (activeSessionId === sendSessionId) {
+      displayMessages.push({
+        role:'assistant',
+        content: data.response || 'Ответ получен',
+        extras: { prompt: data.prompt || '', elapsed }
+      });
+      renderChat();
+    }
   } catch(err) {
     clearInterval(timerInterval);
     const loading = document.getElementById('loading');
     if (loading) loading.remove();
-    histories[sendSessionId].push({
-      role:'bot',
-      text: 'Ошибка: ' + err.message,
-      prompt: '',
-      evaluation: '',
-      elapsed: ((Date.now()-startTime)/1000).toFixed(1)
-    });
+    if (activeSessionId === sendSessionId) {
+      displayMessages.push({
+        role:'assistant',
+        content: 'Ошибка: ' + err.message,
+        extras: { prompt: '', elapsed: ((Date.now()-startTime)/1000).toFixed(1) }
+      });
+      renderChat();
+    }
   }
 
-  saveSessions();
-  if (activeSessionId === sendSessionId) renderChat();
   isProcessing = false;
   document.getElementById('btnSend').disabled = false;
   input.focus();
@@ -429,17 +453,19 @@ async function checkServerStatus() {
 // --- Export ---
 function exportChat() {
   if (!activeSessionId) { alert('Нет активной сессии'); return; }
-  const msgs = histories[activeSessionId] || [];
-  if (msgs.length === 0) { alert('Нет сообщений для экспорта'); return; }
+  if (displayMessages.length === 0) { alert('Нет сообщений для экспорта'); return; }
   let text = 'Промпт-Инженер — GigaChat\nЭкспорт: ' + new Date().toLocaleString('ru-RU') + '\n' + '='.repeat(50) + '\n\n';
-  for (const m of msgs) {
+  for (const m of displayMessages) {
+    const content = m.content || m.text || '';
+    const extras = m.extras || {};
+    const prompt = extras.prompt || m.prompt || '';
+    const elapsed = extras.elapsed || m.elapsed || '';
     if (m.role === 'user') {
-      text += '👤 Вы:\n' + m.text + '\n\n';
+      text += '👤 Вы:\n' + content + '\n\n';
     } else {
-      text += '🧠 Промпт-Инженер:\n' + m.text + '\n';
-      if (m.prompt) text += '\n--- ПРОМПТ ---\n' + m.prompt + '\n--- /ПРОМПТ ---\n';
-      if (m.evaluation) text += '\n📊 Оценка:\n' + m.evaluation + '\n';
-      if (m.elapsed) text += '\n⏱ ' + m.elapsed + ' сек\n';
+      text += '🧠 Промпт-Инженер:\n' + content + '\n';
+      if (prompt) text += '\n--- ПРОМПТ ---\n' + prompt + '\n--- /ПРОМПТ ---\n';
+      if (elapsed) text += '\n⏱ ' + elapsed + ' сек\n';
       text += '\n';
     }
     text += '-'.repeat(40) + '\n\n';

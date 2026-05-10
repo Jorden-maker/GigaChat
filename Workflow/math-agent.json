@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'math-default').trim();\nconst history = body.history || [];\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nlet historyContext = '';\nif (history.length > 0) {\n  const lines = history.map(m => {\n    const role = m.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (m.content || m.text || '').substring(0, 300);\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id, historyContext: historyContext}}];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'math-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -82,7 +82,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const message = $input.first().json.message;\nconst historyContext = $input.first().json.historyContext || '';\nconst session_id = $input.first().json.session_id || 'math-default';\nconst lower = message.toLowerCase();\n\nconst mathKeywords = [\n  'посчитай', 'вычисли', 'вычислить', 'рассчитай', 'рассчитать',\n  'реши', 'решить', 'решение', 'уравнен', 'неравенств',\n  'формул', 'процент', 'корень', 'степен', 'логарифм',\n  'сумм', 'разност', 'произведен', 'делен', 'остаток от',\n  'площад', 'объём', 'объем', 'периметр', 'окружност',\n  'треугольник', 'квадрат', 'куб', 'прямоугольник', 'цилиндр', 'сфер',\n  'интеграл', 'производн', 'предел', 'синус', 'косинус', 'тангенс',\n  'матриц', 'вектор', 'определител', 'детерминант',\n  'график', 'функци', 'парабол',\n  'статистик', 'среднее', 'медиан', 'дисперс', 'отклонен',\n  'вероятност', 'комбинатор', 'факториал', 'перестанов', 'сочетан',\n  'npv', 'irr', 'roi', 'аннуитет', 'ипотек', 'кредит', 'депозит',\n  'инвестиц', 'маржа', 'наценк', 'скидк', 'ндс', 'налог',\n  'зарплат', 'рентабельн', 'прибыл', 'выручк', 'себестоимост',\n  'сколько будет', 'чему равн', 'найди', 'найти',\n  'sqrt', 'calculate', 'solve', 'equation', 'math',\n  'конвертируй', 'переведи в'\n];\n\nconst hasMathExpression = /\\d+\\s*[+\\-*/^%=]\\s*\\d+/.test(message);\nconst hasNumbers = /\\d{2,}/.test(message) || /\\d+[.,]\\d+/.test(message);\n\nlet isMath = hasMathExpression;\n\nif (!isMath) {\n  for (const kw of mathKeywords) {\n    if (lower.includes(kw)) { isMath = true; break; }\n  }\n}\n\nif (!isMath && hasNumbers && message.length > 20) {\n  const taskIndicators = ['сколько', 'какой', 'какая', 'какое', 'найди', 'найти',\n    'определи', 'определить', 'если', 'при', 'дано', 'равно', 'равна'];\n  for (const kw of taskIndicators) {\n    if (lower.includes(kw)) { isMath = true; break; }\n  }\n}\n\nif (!isMath && /^[\\d\\s+\\-*/^().,]+$/.test(message.trim())) {\n  isMath = true;\n}\n\nif (!isMath) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'math', historyContext, session_id } }];"
+        "jsCode": "const message = $('Агрегация').first().json.message;\nconst historyContext = $('Агрегация').first().json.historyContext || '';\nconst session_id = $('Агрегация').first().json.session_id || 'math-default';\nconst lower = message.toLowerCase();\n\nconst mathKeywords = [\n  'посчитай', 'вычисли', 'вычислить', 'рассчитай', 'рассчитать',\n  'реши', 'решить', 'решение', 'уравнен', 'неравенств',\n  'формул', 'процент', 'корень', 'степен', 'логарифм',\n  'сумм', 'разност', 'произведен', 'делен', 'остаток от',\n  'площад', 'объём', 'объем', 'периметр', 'окружност',\n  'треугольник', 'квадрат', 'куб', 'прямоугольник', 'цилиндр', 'сфер',\n  'интеграл', 'производн', 'предел', 'синус', 'косинус', 'тангенс',\n  'матриц', 'вектор', 'определител', 'детерминант',\n  'график', 'функци', 'парабол',\n  'статистик', 'среднее', 'медиан', 'дисперс', 'отклонен',\n  'вероятност', 'комбинатор', 'факториал', 'перестанов', 'сочетан',\n  'npv', 'irr', 'roi', 'аннуитет', 'ипотек', 'кредит', 'депозит',\n  'инвестиц', 'маржа', 'наценк', 'скидк', 'ндс', 'налог',\n  'зарплат', 'рентабельн', 'прибыл', 'выручк', 'себестоимост',\n  'сколько будет', 'чему равн', 'найди', 'найти',\n  'sqrt', 'calculate', 'solve', 'equation', 'math',\n  'конвертируй', 'переведи в'\n];\n\nconst hasMathExpression = /\\d+\\s*[+\\-*/^%=]\\s*\\d+/.test(message);\nconst hasNumbers = /\\d{2,}/.test(message) || /\\d+[.,]\\d+/.test(message);\n\nlet isMath = hasMathExpression;\n\nif (!isMath) {\n  for (const kw of mathKeywords) {\n    if (lower.includes(kw)) { isMath = true; break; }\n  }\n}\n\nif (!isMath && hasNumbers && message.length > 20) {\n  const taskIndicators = ['сколько', 'какой', 'какая', 'какое', 'найди', 'найти',\n    'определи', 'определить', 'если', 'при', 'дано', 'равно', 'равна'];\n  for (const kw of taskIndicators) {\n    if (lower.includes(kw)) { isMath = true; break; }\n  }\n}\n\nif (!isMath && /^[\\d\\s+\\-*/^().,]+$/.test(message.trim())) {\n  isMath = true;\n}\n\nif (!isMath) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'math', historyContext, session_id } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -189,13 +189,13 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
+        "responseBody": "={{ JSON.stringify($('Проверка ответа GEN').first().json) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1540,
+        1760,
         160
       ],
       "id": "math-gen-0003",
@@ -215,7 +215,7 @@
               "content": "Ты — генератор Python-кода. Получив задачу, напиши Python-код для решения.\n\nКРИТИЧЕСКИ ВАЖНО:\n- Пиши ТОЛЬКО код. Ни одного слова пояснений\n- Первая строка ответа = первая строка кода\n- Последняя строка ОБЯЗАТЕЛЬНО: print(результат)\n- НЕ оборачивай в ```python``` или ```\n- НЕ пиши 'Вот решение', 'Конечно', 'Давайте' — сразу код\n\nРАЗРЕШЕНО: math, statistics, decimal, fractions\nЗАПРЕЩЕНО: os, sys, subprocess, open(), exec(), eval(), requests, socket\n\nПример 1:\nЗадача: 15% от 250000\nresult = 250000 * 0.15\nprint(result)\n\nПример 2:\nЗадача: Площадь круга радиусом 5\nimport math\narea = math.pi * 5 ** 2\nprint(round(area, 4))\n\nПример 3:\nЗадача: NPV: вложение 1000000, доход 300000/год, 5 лет, ставка 12%\ninvestment = 1000000\ncash_flow = 300000\nrate = 0.12\nnpv = -investment\nfor t in range(1, 6):\n    npv += cash_flow / (1 + rate) ** t\nprint(round(npv, 2))\n\nПример 4:\nЗадача: x^2 - 5x + 6 = 0\nimport math\na, b, c = 1, -5, 6\nd = b**2 - 4*a*c\nx1 = (-b + math.sqrt(d)) / (2*a)\nx2 = (-b - math.sqrt(d)) / (2*a)\nprint(f'x1 = {x1}')\nprint(f'x2 = {x2}')\n\nПример 5:\nЗадача: Среднее и медиана: 10, 20, 30, 40, 50\nimport statistics\ndata = [10, 20, 30, 40, 50]\nprint(f'Среднее: {statistics.mean(data)}')\nprint(f'Медиана: {statistics.median(data)}')\n\nПример 6:\nЗадача: 2 + 2\nprint(2 + 2)\n\nНЕПРАВИЛЬНО (так НЕ делай):\nКонечно! Вот решение вашей задачи:\n```python\nprint(2 + 2)\n```\nОтвет: 4\n\nПРАВИЛЬНО:\nprint(2 + 2)\n\nТеперь напиши код:"
             },
             {
-              "content": "={{ $('Валидация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}"
+              "content": "={{ $('Агрегация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}"
             }
           ]
         },
@@ -314,7 +314,7 @@
               "content": "Ты — математический помощник. Объясни результат вычисления простым языком.\n\nПравила:\n1. Первая строка: 'Ответ: [результат]'\n2. Затем 2-3 предложения как решалось\n3. Укажи единицы измерения если уместно\n4. НЕ пиши код\n5. НЕ повторяй условие задачи\n6. Пиши на русском\n7. Максимум 5 предложений\n\nПример 1:\nЗадача: 15% от 250000\nРезультат: 37500.0\nОтвет: Ответ: 37 500. Умножаем 250 000 на 0.15 и получаем 37 500.\n\nПример 2:\nЗадача: x^2 - 5x + 6 = 0\nРезультат: x1 = 3.0, x2 = 2.0\nОтвет: Ответ: x1 = 3, x2 = 2. Дискриминант D = 25 - 24 = 1. Корни: (5+1)/2 = 3 и (5-1)/2 = 2.\n\nПример 3:\nЗадача: Среднее: 10, 20, 30\nРезультат: Среднее: 20.0\nОтвет: Ответ: среднее арифметическое равно 20. Сумма (10+20+30=60) делится на количество (3).\n\nНЕПРАВИЛЬНО (так НЕ делай):\nДавайте разберём эту задачу подробно. Для начала вспомним формулу... Итак, подставляя значения, мы получаем... Таким образом, после всех вычислений, ответ составляет...\n\nТеперь объясни:"
             },
             {
-              "content": "={{ $('Валидация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}\n\nКод:\n{{ $json.code }}\n\nРезультат: {{ $json.result }}\n{{ $json.error ? 'Ошибка: ' + $json.error : '' }}"
+              "content": "={{ $('Агрегация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}\n\nКод:\n{{ $json.code }}\n\nРезультат: {{ $json.result }}\n{{ $json.error ? 'Ошибка: ' + $json.error : '' }}"
             }
           ]
         },
@@ -355,7 +355,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ response: $json.response_text, code: $('Выполнить код').first().json.code || '', raw_result: $('Выполнить код').first().json.result || '' }) }}",
+        "responseBody": "={{ JSON.stringify({ response: $('Проверка ответа').first().json.response_text, code: $('Выполнить код').first().json.code || '', raw_result: $('Выполнить код').first().json.result || '' }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -370,7 +370,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ response: $json.error || 'Код не прошёл проверку безопасности.', code: $json.code || '', raw_result: '' }) }}",
+        "responseBody": "={{ JSON.stringify({ response: $('Проверка кода').first().json.error || 'Код не прошёл проверку безопасности.', code: $('Проверка кода').first().json.code || '', raw_result: '' }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -381,6 +381,134 @@
       ],
       "id": "math-0012-0012-0012-000000000012",
       "name": "Ответ: код опасен"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT role, content FROM chat_memory WHERE session_id = '{{ $('Валидация').first().json.session_id }}' ORDER BY created_at DESC LIMIT 30",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        300
+      ],
+      "id": "math-load-history-0001",
+      "name": "Загрузить историю",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const historyRows = $input.all().reverse();\nlet historyContext = '';\nif (historyRows.length > 0) {\n  const lines = historyRows.map(item => {\n    const role = item.json.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (item.json.content || '');\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\nconst v = $('Валидация').first().json;\nreturn [{json: {message: v.message, session_id: v.session_id, historyContext: historyContext}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "id": "math-aggregate-0001",
+      "name": "Агрегация"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $json.session_id }}', 'user', '{{ ($json.message || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1100,
+        300
+      ],
+      "id": "math-save-question-0001",
+      "name": "Сохранить вопрос",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1540,
+        160
+      ],
+      "id": "math-save-resp-gen-0001",
+      "name": "Сохранить ответ GEN",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content, extras) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response_text || '').replaceAll(\"'\", \"''\") }}', '{{ JSON.stringify({code: $('Выполнить код').first().json.code || '', raw_result: $('Выполнить код').first().json.result || ''}).replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2440,
+        340
+      ],
+      "id": "math-save-resp-math-0001",
+      "name": "Сохранить ответ MATH",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content, extras) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.error || 'Код не прошёл проверку безопасности.').replaceAll(\"'\", \"''\") }}', '{{ JSON.stringify({code: $json.code || '', raw_result: ''}).replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1760,
+        560
+      ],
+      "id": "math-save-resp-unsafe-0001",
+      "name": "Сохранить ответ UNSAFE",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
@@ -411,7 +539,7 @@
       "main": [
         [
           {
-            "node": "Классификатор",
+            "node": "Загрузить историю",
             "type": "main",
             "index": 0
           }
@@ -469,7 +597,7 @@
       "main": [
         [
           {
-            "node": "Ответ: GENERAL",
+            "node": "Сохранить ответ GEN",
             "type": "main",
             "index": 0
           }
@@ -509,7 +637,7 @@
         ],
         [
           {
-            "node": "Ответ: код опасен",
+            "node": "Сохранить ответ UNSAFE",
             "type": "main",
             "index": 0
           }
@@ -542,7 +670,73 @@
       "main": [
         [
           {
+            "node": "Сохранить ответ MATH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Загрузить историю": {
+      "main": [
+        [
+          {
+            "node": "Агрегация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Агрегация": {
+      "main": [
+        [
+          {
+            "node": "Сохранить вопрос",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить вопрос": {
+      "main": [
+        [
+          {
+            "node": "Классификатор",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ GEN": {
+      "main": [
+        [
+          {
+            "node": "Ответ: GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ MATH": {
+      "main": [
+        [
+          {
             "node": "Ответ: результат",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ UNSAFE": {
+      "main": [
+        [
+          {
+            "node": "Ответ: код опасен",
             "type": "main",
             "index": 0
           }

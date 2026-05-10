@@ -152,6 +152,7 @@
     </div>
     <script>
         var WEBHOOK_URL = GigaChat.webhookUrl('rag');
+        var HISTORY_URL = GigaChat.webhookUrl('history');
         var FETCH_TIMEOUT_MS = 120000;
         var MAX_RETRIES = 2;
         var RETRY_DELAY_MS = 3000;
@@ -163,7 +164,7 @@
         var statusDot = document.getElementById('statusDot');
         var statusText = document.getElementById('statusText');
         var sessions = [];
-        var chatHistories = {};
+        var displayMessages = [];
         var activeSessionId = null;
         var sessionCounter = 0;
         var isProcessing = false;
@@ -171,7 +172,6 @@
         function saveSessions() {
             try {
                 localStorage.setItem('rag_sessions', JSON.stringify(sessions));
-                localStorage.setItem('rag_histories', JSON.stringify(chatHistories));
                 localStorage.setItem('rag_active', activeSessionId || '');
                 localStorage.setItem('rag_counter', sessionCounter);
             } catch (e) {}
@@ -179,13 +179,13 @@
         function loadSessions() {
             try {
                 var s = localStorage.getItem('rag_sessions');
-                var h = localStorage.getItem('rag_histories');
                 var a = localStorage.getItem('rag_active');
                 var c = localStorage.getItem('rag_counter');
                 if (s) sessions = JSON.parse(s);
-                if (h) chatHistories = JSON.parse(h);
                 if (a) activeSessionId = a || null;
                 if (c) sessionCounter = parseInt(c, 10) || 0;
+                // История теперь на сервере — старый локальный кеш не нужен
+                try { localStorage.removeItem('rag_histories'); } catch (e) {}
             } catch (e) {}
         }
         function checkServerStatus() {
@@ -195,25 +195,51 @@
             sessionCounter++;
             var id = 'rag_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             sessions.push({ id: id, name: 'Документ-' + sessionCounter });
-            chatHistories[id] = [];
-            switchToSession(id);
+            switchToSession(id, { skipHistoryLoad: true });
+        }
+        async function switchToSession(id, opts) {
+            opts = opts || {};
+            activeSessionId = id;
+            displayMessages = [];
             renderSessionList();
             saveSessions();
             input.disabled = false; btn.disabled = false; input.focus();
+            if (opts.skipHistoryLoad) {
+                renderChat();
+                return;
+            }
+            await loadHistoryForActive(id);
         }
-        function switchToSession(id) {
-            activeSessionId = id;
-            renderChat(); renderSessionList(); saveSessions();
-            input.disabled = false; btn.disabled = false; input.focus();
+        async function loadHistoryForActive(targetSessionId) {
+            chat.innerHTML = '<div class="empty-chat">Загружаю историю...</div>';
+            try {
+                var res = await fetch(HISTORY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                    body: JSON.stringify({ session_id: targetSessionId })
+                });
+                if (activeSessionId !== targetSessionId) return;
+                if (!res.ok) throw new Error('Сервер ответил ' + res.status);
+                var data = await res.json();
+                if (activeSessionId !== targetSessionId) return;
+                displayMessages = (data.messages || []).map(function (m) {
+                    return { role: m.role, content: m.content, extras: m.extras };
+                });
+                renderChat();
+            } catch (e) {
+                if (activeSessionId !== targetSessionId) return;
+                displayMessages = [];
+                chat.innerHTML = '<div class="empty-chat">Не удалось загрузить историю: ' + escapeHtml(e.message) + '</div>';
+            }
         }
         function deleteSession(id, event) {
             event.stopPropagation();
             sessions = sessions.filter(function(s) { return s.id !== id; });
-            delete chatHistories[id];
             if (activeSessionId === id) {
                 if (sessions.length > 0) { switchToSession(sessions[sessions.length - 1].id); }
                 else {
                     activeSessionId = null;
+                    displayMessages = [];
                     chat.innerHTML = '<div class="empty-chat">Создайте новую сессию для начала работы</div>';
                     input.disabled = true; btn.disabled = true;
                 }
@@ -233,14 +259,13 @@
             sessionList.innerHTML = html;
         }
         function renderChat() {
-            if (!activeSessionId || !chatHistories[activeSessionId]) {
+            if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) {
                 chat.innerHTML = '<div class="empty-chat">Создайте новую сессию для начала работы</div>'; return;
             }
-            var messages = chatHistories[activeSessionId];
-            if (messages.length === 0) { chat.innerHTML = ''; return; }
+            if (displayMessages.length === 0) { chat.innerHTML = ''; return; }
             var html = '';
-            for (var i = 0; i < messages.length; i++) {
-                var m = messages[i];
+            for (var i = 0; i < displayMessages.length; i++) {
+                var m = displayMessages[i];
                 if (m.role === 'user') html += '<div class="msg user">' + escapeHtml(m.content) + '</div>';
                 else html += '<div class="msg bot">' + formatResponse(m.content) + '</div>';
             }
@@ -256,9 +281,8 @@
             if (!text || isProcessing) return;
             isProcessing = true;
             var sendSessionId = activeSessionId;
-            var history = (chatHistories[sendSessionId] || []).slice(-20);
-            chatHistories[sendSessionId].push({ role: 'user', content: text });
-            renderChat(); saveSessions();
+            displayMessages.push({ role: 'user', content: text });
+            renderChat();
             input.value = ''; input.disabled = true; btn.disabled = true;
 
             var loadingId = 'loading-' + Date.now();
@@ -275,7 +299,7 @@
                 var res = await fetchWithRetry(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json; charset=utf-8' },
-                    body: JSON.stringify({ message: text, session_id: sendSessionId, history: history })
+                    body: JSON.stringify({ message: text, session_id: sendSessionId })
                 }, MAX_RETRIES);
                 clearInterval(timerInterval);
                 var loading = document.getElementById(loadingId);
@@ -283,17 +307,19 @@
                 if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
                 var data = await res.json();
                 var responseText = data.response || data.output || 'Пустой ответ от сервера';
-                chatHistories[sendSessionId].push({ role: 'assistant', content: responseText });
-                if (activeSessionId === sendSessionId) renderChat();
-                saveSessions();
+                if (activeSessionId === sendSessionId) {
+                    displayMessages.push({ role: 'assistant', content: responseText });
+                    renderChat();
+                }
                 statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
             } catch (e) {
                 clearInterval(timerInterval);
                 var loading = document.getElementById(loadingId);
                 if (loading) loading.remove();
-                chatHistories[sendSessionId].push({ role: 'assistant', content: 'Ошибка: ' + e.message });
-                if (activeSessionId === sendSessionId) renderChat();
-                saveSessions();
+                if (activeSessionId === sendSessionId) {
+                    displayMessages.push({ role: 'assistant', content: 'Ошибка: ' + e.message });
+                    renderChat();
+                }
                 statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
             }
             isProcessing = false;
@@ -301,18 +327,17 @@
             if (activeSessionId === sendSessionId) chat.scrollTop = chat.scrollHeight;
         }
         function exportChat() {
-            if (!activeSessionId || !chatHistories[activeSessionId] || chatHistories[activeSessionId].length === 0) {
+            if (!activeSessionId || displayMessages.length === 0) {
                 alert('Нечего экспортировать.'); return;
             }
-            var messages = chatHistories[activeSessionId];
             var sessionName = '';
             for (var i = 0; i < sessions.length; i++) {
                 if (sessions[i].id === activeSessionId) { sessionName = sessions[i].name; break; }
             }
             var lines = ['=== ' + sessionName + ' ===', 'Экспорт: ' + new Date().toLocaleString('ru-RU'), ''];
-            for (var j = 0; j < messages.length; j++) {
-                lines.push('[' + (messages[j].role === 'user' ? 'Вы' : 'RAG-Агент') + ']');
-                lines.push(messages[j].content); lines.push('');
+            for (var j = 0; j < displayMessages.length; j++) {
+                lines.push('[' + (displayMessages[j].role === 'user' ? 'Вы' : 'RAG-Агент') + ']');
+                lines.push(displayMessages[j].content); lines.push('');
             }
             var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
             var a = document.createElement('a');
@@ -328,7 +353,7 @@
         if (activeSessionId && !sessions.find(function(s){ return s.id === activeSessionId; })) { activeSessionId = null; }
         if (sessions.length > 0) {
             renderSessionList();
-            if (activeSessionId && chatHistories[activeSessionId]) { renderChat(); input.disabled = false; btn.disabled = false; }
+            if (activeSessionId) { switchToSession(activeSessionId); }
             else { switchToSession(sessions[sessions.length - 1].id); }
         }
         checkServerStatus();

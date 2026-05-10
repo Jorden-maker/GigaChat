@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\nconst history = body.history || [];\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nlet historyContext = '';\nif (history.length > 0) {\n  const lines = history.slice(-10).map(m => {\n    const role = m.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (m.content || m.text || '').substring(0, 300);\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id, historyContext: historyContext}}];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -82,7 +82,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const message = $input.first().json.message;\nconst historyContext = $input.first().json.historyContext || '';\nconst session_id = $input.first().json.session_id || 'rag-default';\nconst lower = message.toLowerCase();\n\nconst docKeywords = [\n  'документ', 'договор', 'акт', 'контракт', 'соглашени',\n  'коммерческ', 'предложени', 'кп ', 'доверенност',\n  'записк', 'протокол', 'приказ', 'заявлени',\n  'шаблон', 'бланк', 'образец', 'форм',\n  'найди в документ', 'что написано', 'что сказано',\n  'о чём документ', 'о чем документ', 'содержание документ',\n  'загруженн', 'файл', 'текст документ',\n  'пункт', 'параграф', 'раздел', 'глав',\n  'срок', 'оплат', 'условия', 'реквизит',\n  'составь', 'подготовь', 'создай документ', 'напиши документ',\n  'база знаний', 'база документ', 'найди информаци',\n  'процитируй', 'цитат', 'выдержк',\n  'регламент', 'инструкци', 'положени', 'устав',\n  'накладн', 'счёт', 'счет-фактур', 'акт выполненн'\n];\n\nlet isDoc = false;\n\nfor (const kw of docKeywords) {\n  if (lower.includes(kw)) { isDoc = true; break; }\n}\n\n// Дополнительная проверка: вопрос о содержимом\nif (!isDoc && message.length > 15) {\n  const contentIndicators = ['что написано', 'что сказано', 'о чём', 'о чем', 'найди в', 'процитируй'];\n  const contentEntities = ['документ', 'файл', 'договор', 'акт', 'контракт'];\n  const hasQuestion = contentIndicators.some(q => lower.includes(q));\n  const hasEntity = contentEntities.some(e => lower.includes(e));\n  if (hasQuestion && hasEntity) isDoc = true;\n}\n\nif (!isDoc) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'document', historyContext, session_id } }];"
+        "jsCode": "const message = $('Агрегация').first().json.message;\nconst historyContext = $('Агрегация').first().json.historyContext || '';\nconst session_id = $('Агрегация').first().json.session_id || 'rag-default';\nconst lower = message.toLowerCase();\n\nconst docKeywords = [\n  'документ', 'договор', 'акт', 'контракт', 'соглашени',\n  'коммерческ', 'предложени', 'кп ', 'доверенност',\n  'записк', 'протокол', 'приказ', 'заявлени',\n  'шаблон', 'бланк', 'образец', 'форм',\n  'найди в документ', 'что написано', 'что сказано',\n  'о чём документ', 'о чем документ', 'содержание документ',\n  'загруженн', 'файл', 'текст документ',\n  'пункт', 'параграф', 'раздел', 'глав',\n  'срок', 'оплат', 'условия', 'реквизит',\n  'составь', 'подготовь', 'создай документ', 'напиши документ',\n  'база знаний', 'база документ', 'найди информаци',\n  'процитируй', 'цитат', 'выдержк',\n  'регламент', 'инструкци', 'положени', 'устав',\n  'накладн', 'счёт', 'счет-фактур', 'акт выполненн'\n];\n\nlet isDoc = false;\n\nfor (const kw of docKeywords) {\n  if (lower.includes(kw)) { isDoc = true; break; }\n}\n\n// Дополнительная проверка: вопрос о содержимом\nif (!isDoc && message.length > 15) {\n  const contentIndicators = ['что написано', 'что сказано', 'о чём', 'о чем', 'найди в', 'процитируй'];\n  const contentEntities = ['документ', 'файл', 'договор', 'акт', 'контракт'];\n  const hasQuestion = contentIndicators.some(q => lower.includes(q));\n  const hasEntity = contentEntities.some(e => lower.includes(e));\n  if (hasQuestion && hasEntity) isDoc = true;\n}\n\nif (!isDoc) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'document', historyContext, session_id } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -189,13 +189,13 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
+        "responseBody": "={{ JSON.stringify($('Проверка ответа GEN').first().json) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1540,
+        1760,
         160
       ],
       "id": "rag-resp-gen-0001",
@@ -377,13 +377,13 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
+        "responseBody": "={{ JSON.stringify($('Проверка ответа DOC').first().json) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2640,
+        2860,
         360
       ],
       "id": "rag-resp-doc-0001",
@@ -403,6 +403,134 @@
       ],
       "id": "rag-resp-fallback-0001",
       "name": "Ответ: нет документов"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT role, content FROM chat_memory WHERE session_id = '{{ $('Валидация').first().json.session_id }}' ORDER BY created_at DESC LIMIT 30",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        300
+      ],
+      "id": "rag-load-history-0001",
+      "name": "Загрузить историю",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const historyRows = $input.all().reverse();\nlet historyContext = '';\nif (historyRows.length > 0) {\n  const lines = historyRows.map(item => {\n    const role = item.json.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (item.json.content || '');\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\nconst v = $('Валидация').first().json;\nreturn [{json: {message: v.message, session_id: v.session_id, historyContext: historyContext}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "id": "rag-aggregate-0001",
+      "name": "Агрегация"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $json.session_id }}', 'user', '{{ ($json.message || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1100,
+        300
+      ],
+      "id": "rag-save-question-0001",
+      "name": "Сохранить вопрос",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1540,
+        160
+      ],
+      "id": "rag-save-resp-gen-0001",
+      "name": "Сохранить ответ GEN",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2640,
+        360
+      ],
+      "id": "rag-save-resp-doc-0001",
+      "name": "Сохранить ответ DOC",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($('Проверка документов').first().json.fallback_message || '').replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2200,
+        560
+      ],
+      "id": "rag-save-resp-nodocs-0001",
+      "name": "Сохранить ответ NO-DOCS",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
@@ -433,7 +561,7 @@
       "main": [
         [
           {
-            "node": "Классификатор",
+            "node": "Загрузить историю",
             "type": "main",
             "index": 0
           }
@@ -491,7 +619,7 @@
       "main": [
         [
           {
-            "node": "Ответ: GENERAL",
+            "node": "Сохранить ответ GEN",
             "type": "main",
             "index": 0
           }
@@ -553,7 +681,7 @@
         ],
         [
           {
-            "node": "Ответ: нет документов",
+            "node": "Сохранить ответ NO-DOCS",
             "type": "main",
             "index": 0
           }
@@ -575,7 +703,73 @@
       "main": [
         [
           {
+            "node": "Сохранить ответ DOC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Загрузить историю": {
+      "main": [
+        [
+          {
+            "node": "Агрегация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Агрегация": {
+      "main": [
+        [
+          {
+            "node": "Сохранить вопрос",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить вопрос": {
+      "main": [
+        [
+          {
+            "node": "Классификатор",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ GEN": {
+      "main": [
+        [
+          {
+            "node": "Ответ: GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ DOC": {
+      "main": [
+        [
+          {
             "node": "Ответ: DOC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ NO-DOCS": {
+      "main": [
+        [
+          {
+            "node": "Ответ: нет документов",
             "type": "main",
             "index": 0
           }
