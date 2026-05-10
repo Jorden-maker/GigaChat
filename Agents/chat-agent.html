@@ -157,6 +157,7 @@
     </div>
     <script>
         var WEBHOOK_URL = GigaChat.webhookUrl('chat');
+        var HISTORY_URL = GigaChat.webhookUrl('history');
         var FETCH_TIMEOUT_MS = 120000;
         var MAX_RETRIES = 2;
         var RETRY_DELAY_MS = 3000;
@@ -199,19 +200,42 @@
             sessionCounter++;
             var id = 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             sessions.push({ id: id, name: 'Чат-' + sessionCounter });
-            displayMessages = [];
-            switchToSession(id);
-            renderSessionList();
-            saveSessions();
-            input.disabled = false; btn.disabled = false; input.focus();
+            switchToSession(id, { skipHistoryLoad: true });
         }
-        function switchToSession(id) {
+        async function switchToSession(id, opts) {
+            opts = opts || {};
             activeSessionId = id;
             displayMessages = [];
-            renderChat();
             renderSessionList();
             saveSessions();
             input.disabled = false; btn.disabled = false; input.focus();
+            if (opts.skipHistoryLoad) {
+                renderChat();
+                return;
+            }
+            await loadHistoryForActive(id);
+        }
+        async function loadHistoryForActive(targetSessionId) {
+            chat.innerHTML = '<div class="history-loading">Загружаю историю...</div>';
+            try {
+                var res = await fetch(HISTORY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                    body: JSON.stringify({ session_id: targetSessionId })
+                });
+                if (activeSessionId !== targetSessionId) return;
+                if (!res.ok) throw new Error('Сервер ответил ' + res.status);
+                var data = await res.json();
+                if (activeSessionId !== targetSessionId) return;
+                displayMessages = (data.messages || []).map(function (m) {
+                    return { role: m.role, content: m.content };
+                });
+                renderChat();
+            } catch (e) {
+                if (activeSessionId !== targetSessionId) return;
+                displayMessages = [];
+                chat.innerHTML = '<div class="empty-chat"><span>Не удалось загрузить историю: ' + escapeHtml(e.message) + '</span><span class="memory-note">Можно продолжить общение — новые сообщения сохранятся</span></div>';
+            }
         }
         function deleteSession(id, event) {
             event.stopPropagation();
