@@ -1,0 +1,205 @@
+{
+  "name": "History Loader",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "history",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "history-webhook-0001",
+      "name": "Webhook History",
+      "webhookId": "history-loader-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst session_id = (body.session_id || '').trim();\nconst message = (body.message || '').trim();\nconst limit = Math.min(parseInt(body.limit, 10) || 200, 500);\n\n// Health-check: отдаём pong без обращения к БД\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!session_id) {\n  return [{json: {valid: 0, error: 'session_id обязательно'}}];\n}\n\n// Простая защита от SQL-инъекции: разрешаем только безопасные символы\nif (!/^[a-zA-Z0-9_-]+$/.test(session_id)) {\n  return [{json: {valid: 0, error: 'session_id содержит недопустимые символы'}}];\n}\n\nreturn [{json: {valid: 1, session_id: session_id, limit: limit}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "id": "history-val-0001",
+      "name": "Валидация"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-valid-history",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "looseTypeValidation": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ],
+      "id": "history-if-valid-0001",
+      "name": "Запрос валиден?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({error: $json.error, messages: []}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        660,
+        520
+      ],
+      "id": "history-err-0001",
+      "name": "Ответ: ошибка"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT role, content, created_at FROM chat_memory WHERE session_id = '{{ $json.session_id }}' ORDER BY created_at ASC LIMIT {{ $json.limit }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        300
+      ],
+      "id": "history-load-0001",
+      "name": "Загрузить историю",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nif (items.length > 0 && items[0].json.error) {\n  return [{json: {messages: [], count: 0, error: 'Ошибка загрузки истории'}}];\n}\n\nconst messages = items\n  .map(item => ({\n    role: item.json.role,\n    content: item.json.content || ''\n  }))\n  .filter(m => m.role && m.content);\n\nreturn [{json: {messages: messages, count: messages.length}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "id": "history-format-0001",
+      "name": "Форматирование"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1100,
+        300
+      ],
+      "id": "history-resp-0001",
+      "name": "Ответ"
+    }
+  ],
+  "connections": {
+    "Webhook History": {
+      "main": [
+        [
+          {
+            "node": "Валидация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация": {
+      "main": [
+        [
+          {
+            "node": "Запрос валиден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Запрос валиден?": {
+      "main": [
+        [
+          {
+            "node": "Загрузить историю",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Загрузить историю": {
+      "main": [
+        [
+          {
+            "node": "Форматирование",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Форматирование": {
+      "main": [
+        [
+          {
+            "node": "Ответ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "pinData": {},
+  "versionId": "1"
+}
