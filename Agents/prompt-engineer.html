@@ -113,6 +113,8 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 .btn-send:hover { background:var(--accent-hover); transform:scale(1.02); }
 .btn-send:disabled { background:var(--bg-tertiary); color:var(--text-muted); cursor:not-allowed; transform:none; }
 </style>
+<script src="_config.js"></script>
+<script src="_shared.js"></script>
 </head>
 <body>
 
@@ -175,7 +177,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 </div>
 
 <script>
-const WEBHOOK_URL = 'http://localhost:5678/webhook/prompt-engineer';
+const WEBHOOK_URL = GigaChat.webhookUrl('prompt-engineer');
 const STORAGE_KEYS = { sessions:'pe_sessions', histories:'pe_histories', active:'pe_active', counter:'pe_counter' };
 
 let sessions = [];
@@ -319,11 +321,7 @@ function formatResponse(text) {
   return clean;
 }
 
-function escapeHtml(t) {
-  const d = document.createElement('div');
-  d.textContent = t;
-  return d.innerHTML;
-}
+const escapeHtml = GigaChat.escapeHtml;
 
 function copyPrompt(btn) {
   const pre = btn.closest('.prompt-block').querySelector('pre');
@@ -409,45 +407,23 @@ async function sendMessage() {
   input.focus();
 }
 
-async function fetchWithRetry(url, options, retries=2) {
-  for (let i = 0; i <= retries; i++) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000);
-    try {
-      const resp = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timeout);
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => 'Unknown error');
-        throw new Error(`Сервер ответил ${resp.status}: ${errText}`);
-      }
-      return await resp.json();
-    } catch(e) {
-      clearTimeout(timeout);
-      if (i === retries) throw e;
-      await new Promise(r => setTimeout(r, 3000));
-    }
+async function fetchWithRetry(url, options, retries = 2) {
+  const resp = await GigaChat.fetchWithRetry(url, options, { retries });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => 'Unknown error');
+    throw new Error(`Сервер ответил ${resp.status}: ${errText}`);
   }
+  return await resp.json();
 }
 
 // --- Server status ---
 async function checkServerStatus() {
-  document.getElementById('statusDot').className = 'status-dot checking';
-  document.getElementById('statusText').textContent = 'проверка...';
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-  try {
-    const resp = await fetch(WEBHOOK_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{"message":"ping"}', signal:controller.signal });
-    clearTimeout(timeout);
-    setStatus(resp.ok || resp.status > 0);
-  } catch(e) {
-    clearTimeout(timeout);
-    setStatus(false);
-  }
-}
-function setStatus(online) {
-  serverOnline = online;
-  document.getElementById('statusDot').className = 'status-dot' + (online ? ' online' : ' offline');
-  document.getElementById('statusText').textContent = online ? 'Онлайн' : 'Офлайн';
+  serverOnline = await GigaChat.checkServerStatus(
+    WEBHOOK_URL,
+    document.getElementById('statusDot'),
+    document.getElementById('statusText'),
+    { dotClass: 'status-dot' }
+  );
 }
 
 // --- Export ---

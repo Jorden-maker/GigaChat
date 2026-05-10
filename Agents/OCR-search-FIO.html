@@ -88,6 +88,8 @@
         }
         .reset-btn button:hover { border-color: #666; color: #bbb; }
     </style>
+    <script src="_config.js"></script>
+    <script src="_shared.js"></script>
 </head>
 <body>
     <a class="btn-home" href="../GigaChat-Platform.html"><span class="arrow">&#8592;</span>GigaChat</a>
@@ -121,7 +123,7 @@
         </div>
     </div>
     <script>
-        var WEBHOOK_URL = 'http://localhost:5678/webhook/ocr';
+        var WEBHOOK_URL = GigaChat.webhookUrl('ocr');
         var FETCH_TIMEOUT_MS = 180000;
         var MAX_RETRIES = 1;
         var RETRY_DELAY_MS = 3000;
@@ -140,21 +142,7 @@
             'png','jpg','jpeg','tiff','tif','bmp','gif','webp','heic','heif'
         ];
         function checkServerStatus() {
-            var dot = document.getElementById('statusDot');
-            var text = document.getElementById('statusText');
-            dot.className = 'dot checking'; text.textContent = 'проверка...';
-            var controller = new AbortController();
-            var timeout = setTimeout(function() { controller.abort(); }, 5000);
-            fetch(WEBHOOK_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body:'{"message":"ping"}', signal: controller.signal })
-                .then(function(res) {
-                    clearTimeout(timeout);
-                    if (res.ok || res.status > 0) { dot.className = 'dot'; text.textContent = 'Онлайн'; }
-                    else { dot.className = 'dot offline'; text.textContent = 'Офлайн'; }
-                })
-                .catch(function() {
-                    clearTimeout(timeout);
-                    dot.className = 'dot offline'; text.textContent = 'Офлайн';
-                });
+            return GigaChat.checkServerStatus(WEBHOOK_URL, document.getElementById('statusDot'), document.getElementById('statusText'));
         }
         function getExtension(fn) { return (fn||'').split('.').pop().toLowerCase(); }
         function isAllowedFile(fn) { return ALLOWED_EXTENSIONS.indexOf(getExtension(fn)) !== -1; }
@@ -182,23 +170,8 @@
             document.getElementById('fileSize').textContent = formatFileSize(file.size);
             sendBtn.disabled = false;
         }
-        async function fetchWithRetry(url, options, retries) {
-            for (var attempt = 0; attempt <= retries; attempt++) {
-                var controller = new AbortController();
-                var tid = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
-                try {
-                    var res = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
-                    clearTimeout(tid); return res;
-                } catch (e) {
-                    clearTimeout(tid);
-                    if (e.name === 'AbortError') {
-                        if (attempt < retries) { await new Promise(function(r){setTimeout(r,RETRY_DELAY_MS);}); continue; }
-                        throw new Error('Сервер не ответил за ' + (FETCH_TIMEOUT_MS/1000) + ' сек.');
-                    }
-                    if (attempt < retries) { await new Promise(function(r){setTimeout(r,RETRY_DELAY_MS);}); continue; }
-                    throw e;
-                }
-            }
+        function fetchWithRetry(url, options, retries) {
+            return GigaChat.fetchWithRetry(url, options, { timeout: FETCH_TIMEOUT_MS, retries: retries, retryDelay: RETRY_DELAY_MS });
         }
         async function sendFile() {
             if (!selectedFile || isProcessing) return;

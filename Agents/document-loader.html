@@ -204,6 +204,8 @@
 
         .reset-btn button:hover { border-color: #666; color: #bbb; }
     </style>
+    <script src="_config.js"></script>
+    <script src="_shared.js"></script>
 </head>
 <body>
     <a class="btn-home" href="../GigaChat-Platform.html"><span class="arrow">&#8592;</span>GigaChat</a>
@@ -250,10 +252,7 @@
     </div>
 
     <script>
-        // ============================================
-        // ПОМЕНЯЙ НА РЕАЛЬНЫЙ АДРЕС N8N В ОФИСЕ
-        // ============================================
-        var WEBHOOK_URL = 'http://localhost:5678/webhook/upload-doc';
+        var WEBHOOK_URL = GigaChat.webhookUrl('upload-doc');
 
         var FETCH_TIMEOUT_MS = 300000;  // 5 минут (большие документы)
         var selectedFile = null;
@@ -283,19 +282,7 @@
         var statusDot = document.getElementById('statusDot');
         var statusText = document.getElementById('statusText');
         function checkServer() {
-            statusDot.className = 'dot checking'; statusText.textContent = 'проверка...';
-            var controller = new AbortController();
-            var timeout = setTimeout(function() { controller.abort(); }, 5000);
-            fetch(WEBHOOK_URL, { method: 'POST', headers:{'Content-Type':'application/json'}, body:'{"message":"ping"}', signal: controller.signal })
-                .then(function(res) {
-                    clearTimeout(timeout);
-                    if (res.ok || res.status > 0) { statusDot.className = 'dot'; statusText.textContent = 'Онлайн'; }
-                    else { statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн'; }
-                })
-                .catch(function() {
-                    clearTimeout(timeout);
-                    statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
-                });
+            return GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
         }
         checkServer();
         setInterval(checkServer, 30000);

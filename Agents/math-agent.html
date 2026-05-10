@@ -274,6 +274,8 @@
             height: 100%; color: #445566; font-size: 14px;
         }
     </style>
+    <script src="_config.js"></script>
+    <script src="_shared.js"></script>
 </head>
 <body>
     <div class="sidebar">
@@ -308,10 +310,7 @@
         </div>
     </div>
     <script>
-        // ============================================
-        // ПОМЕНЯЙ НА РЕАЛЬНЫЙ АДРЕС N8N В ОФИСЕ
-        // ============================================
-        var WEBHOOK_URL = 'http://localhost:5678/webhook/math';
+        var WEBHOOK_URL = GigaChat.webhookUrl('math');
         var FETCH_TIMEOUT_MS = 120000;
         var MAX_RETRIES = 2;
         var RETRY_DELAY_MS = 3000;
@@ -349,24 +348,7 @@
             } catch (e) {}
         }
         function checkServerStatus() {
-            statusDot.className = 'dot checking';
-            statusText.textContent = 'проверка...';
-            var controller = new AbortController();
-            var timeout = setTimeout(function() { controller.abort(); }, 5000);
-            fetch(WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: '{"message":"ping"}',
-                signal: controller.signal
-            }).then(function(res) {
-                clearTimeout(timeout);
-                if (res.ok || res.status > 0) { statusDot.className = 'dot online'; statusText.textContent = 'Онлайн'; }
-                else { statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн'; }
-            }).catch(function() {
-                clearTimeout(timeout);
-                statusDot.className = 'dot offline';
-                statusText.textContent = 'Офлайн';
-            });
+            return GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
         }
         function createNewSession() {
             sessionCounter++;
@@ -428,24 +410,8 @@
             chat.innerHTML = html;
             chat.scrollTop = chat.scrollHeight;
         }
-        async function fetchWithRetry(url, options, retries) {
-            for (var attempt = 0; attempt <= retries; attempt++) {
-                var controller = new AbortController();
-                var timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
-                try {
-                    var res = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
-                    clearTimeout(timeoutId);
-                    return res;
-                } catch (e) {
-                    clearTimeout(timeoutId);
-                    if (e.name === 'AbortError') {
-                        if (attempt < retries) { await new Promise(function(r) { setTimeout(r, RETRY_DELAY_MS); }); continue; }
-                        throw new Error('Сервер не ответил за ' + (FETCH_TIMEOUT_MS / 1000) + ' сек.');
-                    }
-                    if (attempt < retries) { await new Promise(function(r) { setTimeout(r, RETRY_DELAY_MS); }); continue; }
-                    throw e;
-                }
-            }
+        function fetchWithRetry(url, options, retries) {
+            return GigaChat.fetchWithRetry(url, options, { timeout: FETCH_TIMEOUT_MS, retries: retries, retryDelay: RETRY_DELAY_MS });
         }
         async function sendMsg() {
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) return;
@@ -555,11 +521,7 @@
                 setTimeout(function() { btn.textContent = 'Копировать'; }, 2000);
             });
         }
-        function escapeHtml(text) {
-            if (!text) return '';
-            var div = document.createElement('div');
-            div.textContent = text; return div.innerHTML;
-        }
+        var escapeHtml = GigaChat.escapeHtml;
         function formatText(text) {
             if (!text) return '';
             var html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
