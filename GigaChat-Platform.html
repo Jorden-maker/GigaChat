@@ -377,6 +377,8 @@
             .header h1 { font-size: 26px; }
         }
     </style>
+    <script src="Agents/_config.js"></script>
+    <script src="Agents/_shared.js"></script>
 </head>
 <body>
 
@@ -479,19 +481,14 @@
 </div>
 
 <script>
-    // ============================================
-    // ПОМЕНЯЙ НА РЕАЛЬНЫЙ АДРЕС N8N В ОФИСЕ
-    // ============================================
-    var N8N_BASE = 'http://localhost:5678';
-
     var AGENTS = [
-        { id: 'sql',    webhook: N8N_BASE + '/webhook/sql' },
-        { id: 'rag',    webhook: N8N_BASE + '/webhook/rag' },
-        { id: 'math',   webhook: N8N_BASE + '/webhook/math' },
-        { id: 'prompt', webhook: N8N_BASE + '/webhook/prompt-engineer' },
-        { id: 'chat',   webhook: N8N_BASE + '/webhook/chat' },
-        { id: 'ocr',    webhook: N8N_BASE + '/webhook/ocr' },
-        { id: 'docs',   webhook: N8N_BASE + '/webhook/upload-doc' }
+        { id: 'sql',    webhook: GigaChat.webhookUrl('sql') },
+        { id: 'rag',    webhook: GigaChat.webhookUrl('rag') },
+        { id: 'math',   webhook: GigaChat.webhookUrl('math') },
+        { id: 'prompt', webhook: GigaChat.webhookUrl('prompt-engineer') },
+        { id: 'chat',   webhook: GigaChat.webhookUrl('chat') },
+        { id: 'ocr',    webhook: GigaChat.webhookUrl('ocr') },
+        { id: 'docs',   webhook: GigaChat.webhookUrl('upload-doc') }
     ];
 
     document.getElementById('currentYear').textContent = new Date().getFullYear();

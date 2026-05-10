@@ -131,6 +131,8 @@
         #send:disabled { opacity: 0.4; cursor: not-allowed; }
         .empty-chat { display: flex; align-items: center; justify-content: center; height: 100%; color: #446655; font-size: 14px; }
     </style>
+    <script src="_config.js"></script>
+    <script src="_shared.js"></script>
 </head>
 <body>
     <div class="sidebar">
@@ -156,10 +158,7 @@
         </div>
     </div>
     <script>
-        // ============================================
-        // ПОМЕНЯЙ НА РЕАЛЬНЫЙ АДРЕС N8N В ОФИСЕ
-        // ============================================
-        var WEBHOOK_URL = 'http://localhost:5678/webhook/sql';
+        var WEBHOOK_URL = GigaChat.webhookUrl('sql');
         var FETCH_TIMEOUT_MS = 120000;
         var MAX_RETRIES = 2;
         var RETRY_DELAY_MS = 3000;
@@ -197,23 +196,7 @@
             } catch (e) {}
         }
         function checkServerStatus() {
-            statusDot.className = 'dot checking';
-            statusText.textContent = 'проверка...';
-            var controller = new AbortController();
-            var timeout = setTimeout(function() { controller.abort(); }, 5000);
-            fetch(WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: '{"message":"ping"}',
-                signal: controller.signal
-            }).then(function(res) {
-                clearTimeout(timeout);
-                if (res.ok || res.status > 0) { statusDot.className = 'dot online'; statusText.textContent = 'Онлайн'; }
-                else { statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн'; }
-            }).catch(function() {
-                clearTimeout(timeout);
-                statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
-            });
+            return GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
         }
         function createNewSession() {
             sessionCounter++;
@@ -271,20 +254,8 @@
             chat.innerHTML = html;
             chat.scrollTop = chat.scrollHeight;
         }
-        async function fetchWithRetry(url, options, retries) {
-            for (var attempt = 0; attempt <= retries; attempt++) {
-                var controller = new AbortController();
-                var timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
-                try {
-                    var res = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
-                    clearTimeout(timeoutId); return res;
-                } catch (e) {
-                    clearTimeout(timeoutId);
-                    if (attempt < retries) { await new Promise(function(r) { setTimeout(r, RETRY_DELAY_MS); }); continue; }
-                    if (e.name === 'AbortError') throw new Error('Сервер не ответил за ' + (FETCH_TIMEOUT_MS / 1000) + ' сек.');
-                    throw e;
-                }
-            }
+        function fetchWithRetry(url, options, retries) {
+            return GigaChat.fetchWithRetry(url, options, { timeout: FETCH_TIMEOUT_MS, retries: retries, retryDelay: RETRY_DELAY_MS });
         }
         async function sendMsg() {
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) return;
@@ -356,37 +327,9 @@
             a.download = sessionName + '_' + new Date().toISOString().slice(0, 10) + '.txt';
             a.click(); URL.revokeObjectURL(a.href);
         }
-        function escapeHtml(text) {
-            var div = document.createElement('div');
-            div.textContent = text; return div.innerHTML;
-        }
+        var escapeHtml = GigaChat.escapeHtml;
         function formatResponse(text) {
-            if (!text) return '';
-            var html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(m, l, c) { return '<pre><code>' + c.trim() + '</code></pre>'; });
-            html = html.replace(/((\.+\|)\n(\|[-:\| ]+\|)\n((\.+\|\n?)+))/g, function(match) {
-                var rows = match.trim().split('\n');
-                var table = '<table>';
-                for (var i = 0; i < rows.length; i++) {
-                    if (i === 1) continue;
-                    var cells = rows[i].split('|').filter(function(c) { return c.trim() !== ''; });
-                    var tag = i === 0 ? 'th' : 'td';
-                    table += '<tr>';
-                    for (var j = 0; j < cells.length; j++) table += '<' + tag + '>' + cells[j].trim() + '</' + tag + '>';
-                    table += '</tr>';
-                }
-                return table + '</table>';
-            });
-            html = html.replace(/^#### (.+)$/gm, '<b style="font-size:14px;color:#10b981">$1</b>');
-            html = html.replace(/^### (.+)$/gm, '<b style="font-size:15px;color:#10b981">$1</b>');
-            html = html.replace(/^## (.+)$/gm, '<b style="font-size:16px;color:#10b981">$1</b>');
-            html = html.replace(/^# (.+)$/gm, '<b style="font-size:18px;color:#10b981">$1</b>');
-            html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-            html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
-            html = html.replace(/`(.+?)`/g, '<code>$1</code>');
-            html = html.replace(/^- (.+)$/gm, '  \u2022 $1');
-            html = html.replace(/^---$/gm, '<hr>');
-            return html;
+            return GigaChat.formatMarkdownTable(GigaChat.formatMarkdown(text, '#10b981'));
         }
         loadSessions();
         if (activeSessionId && !sessions.find(function(s){ return s.id === activeSessionId; })) { activeSessionId = null; }
