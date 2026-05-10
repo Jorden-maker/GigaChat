@@ -118,8 +118,6 @@
       "parameters": {
         "method": "POST",
         "url": "http://GIGACHAT_HOST:PORT/v1/db/vector/doc/",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -139,12 +137,6 @@
       "position": [1760, -200],
       "id": "dl-0008-0008-0008-000000000008",
       "name": "Эмбеддинг",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
-          "name": "GigaChat Embeddings"
-        }
-      },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },

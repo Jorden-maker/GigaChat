@@ -205,8 +205,6 @@
       "parameters": {
         "method": "POST",
         "url": "http://GIGACHAT_HOST:PORT/v1/db/vector/doc/",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -231,12 +229,6 @@
       ],
       "id": "rag-embed-0001",
       "name": "Эмбеддинг вопроса",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
-          "name": "GigaChat Embeddings"
-        }
-      },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },
