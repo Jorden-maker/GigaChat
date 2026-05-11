@@ -229,7 +229,7 @@
             } catch (e) {
                 if (activeSessionId !== targetSessionId) return;
                 displayMessages = [];
-                chat.innerHTML = '<div class="empty-chat">Не удалось загрузить историю: ' + escapeHtml(e.message) + '</div>';
+                chat.innerHTML = '<div class="empty-chat">Не удалось загрузить историю.</div>';
             }
         }
         function deleteSession(id, event) {
