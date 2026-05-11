@@ -75,13 +75,16 @@
             100% { transform: translate(2%, -3%) rotate(-2deg) scale(0.97); }
         }
 
-        .bg-grid {
+        .bg-dots {
             position: fixed; inset: 0; z-index: 0;
-            background-image:
-                linear-gradient(rgba(77,159,255,0.025) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(77,159,255,0.025) 1px, transparent 1px);
-            background-size: 60px 60px;
             pointer-events: none;
+            background-image:
+                /* Ближний слой — крупные яркие точки */
+                radial-gradient(circle, rgba(77,159,255,0.22) 1.5px, transparent 2px),
+                /* Дальний слой — мелкие тусклые точки */
+                radial-gradient(circle, rgba(110,193,228,0.10) 1px, transparent 1.5px);
+            background-size: 60px 60px, 30px 30px;
+            background-position: 0 0, 15px 15px;
         }
 
         .bg-noise {
@@ -383,7 +386,7 @@
 <body>
 
 <div class="bg-layers"></div>
-<div class="bg-grid"></div>
+<div class="bg-dots"></div>
 <div class="bg-noise"></div>
 
 <div class="container">
