@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Поток — GigaChat</title>
+    <script>
+        (function () {
+            var t = localStorage.getItem('giga_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <style>
+        :root {
+            --bg-primary: #1a1410;
+            --bg-secondary: #241a14;
+            --bg-input: #2d2218;
+            --bg-user: #3a2c1c;
+            --bg-bot: #1f1812;
+            --border: #4a3a2a;
+            --text-primary: #e8d8b8;
+            --text-secondary: #a89572;
+            --accent: #d4af37;
+            --accent-hover: #b8941f;
+            --sidebar-width: 220px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Segoe UI, Tahoma, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+        .btn-home { display:block; padding:10px 16px; background:#100c08; border-bottom:1px solid var(--border); color:#776; text-decoration:none; font-size:13px; transition:color .2s; }
+        .btn-home:hover { color: var(--accent); }
+        .btn-home .arrow { margin-right:6px; }
+        .sidebar {
+            width: var(--sidebar-width); height: 100vh;
+            background: #15100c; border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; flex-shrink: 0;
+        }
+        .sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
+        .sidebar-header h3 { font-size: 13px; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
+        .sidebar-add { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+        .sidebar-add button {
+            width: 100%; padding: 8px;
+            background: var(--bg-secondary); border: 1px dashed var(--border);
+            color: var(--text-secondary); border-radius: 6px;
+            cursor: pointer; font-size: 13px;
+        }
+        .sidebar-add button:hover { border-color: var(--accent); color: var(--accent); }
+        .session-list { flex: 1; overflow-y: auto; padding: 8px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        .session-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px; margin: 2px 0; border-radius: 8px;
+            cursor: pointer; font-size: 13px; color: var(--text-secondary); transition: background 0.15s;
+        }
+        .session-item:hover { background: var(--bg-secondary); }
+        .session-item.active { background: var(--bg-secondary); color: var(--accent); border: 1px solid var(--border); }
+        .session-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .session-item .close { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #776; font-size: 14px; flex-shrink: 0; margin-left: 6px; }
+        .session-item .close:hover { background: #3a2a1a; color: #ff6666; }
+        .main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 20px; flex-shrink: 0; border-bottom: 1px solid var(--border);
+        }
+        .header-left { display:flex; align-items:center; gap:12px; }
+        .header-right { display:flex; align-items:center; gap:12px; }
+        header h1 {
+            font-family: Consolas, monospace; font-size: 20px; font-weight: 600;
+            background: linear-gradient(135deg, var(--accent), #f5d76e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 2px;
+        }
+        header .status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-secondary); letter-spacing: 0.5px; }
+        header .status .dot { width: 6px; height: 6px; border-radius: 50%; background: #f0ad4e; animation: pulse 1s infinite; }
+        header .status .dot.online { background: #4caf50; box-shadow: 0 0 8px rgba(76,175,80,0.5); animation: pulse 2s infinite; }
+        header .status .dot.offline { background: #cc4444; box-shadow: 0 0 8px rgba(204,68,68,0.4); animation: none; }
+        header .status .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
+        .btn-export { padding:6px 16px; background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-secondary); border-radius:6px; cursor:pointer; font-size:12px; transition:all .2s; }
+        .btn-export:hover { background:rgba(212,175,55,0.15); color:var(--accent); border-color:var(--accent); }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        #chat { flex: 1; overflow-y: auto; padding: 20px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        #chat::-webkit-scrollbar { width: 5px; }
+        #chat::-webkit-scrollbar-track { background: transparent; }
+        #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        .msg { margin: 10px 0; padding: 14px 18px; border-radius: 12px; max-width: 85%; line-height: 1.6; font-size: 14.5px; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .user { background: var(--bg-user); margin-left: auto; border: 1px solid var(--border); color: var(--text-primary); }
+        .bot { background: var(--bg-bot); border: 1px solid var(--border); color: var(--text-primary); }
+        .bot .agent-badge {
+            display: inline-block; margin-bottom: 6px;
+            padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
+            background: rgba(212,175,55,0.15); color: var(--accent);
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .bot b { color: var(--text-primary); }
+        .bot i { color: var(--text-secondary); }
+        .bot code { background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; }
+        .bot pre { background: var(--bg-secondary); padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; white-space: pre; }
+        .bot hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+        .loading { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 13px; padding: 14px 18px; font-style: italic; }
+        .loading .dots span { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--text-secondary); animation: blink 1.4s infinite; }
+        .loading .dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading .dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+        .timer { font-family: Consolas, monospace; font-size: 11px; color: var(--text-secondary); margin-left: 8px; }
+        .bottom-area { padding: 0 20px 20px; flex-shrink: 0; }
+        .agent-hint {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px; margin-bottom: 8px;
+            background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px;
+            font-size: 12px; color: var(--text-secondary);
+        }
+        .agent-hint .arrow { color: var(--accent); }
+        .agent-hint select {
+            background: transparent; border: none;
+            color: var(--accent); font-weight: 600; cursor: pointer;
+            font-size: 12px; padding: 2px 4px;
+        }
+        .agent-hint select:focus { outline: 1px solid var(--accent); border-radius: 4px; }
+        .agent-hint .change-hint { color: var(--text-secondary); margin-left: auto; font-style: italic; opacity: 0.7; }
+        #input-area { display: flex; gap: 10px; align-items: flex-end; }
+        #msg {
+            flex: 1; padding: 14px 18px; border-radius: 10px; border: 1px solid var(--border);
+            background: var(--bg-input); color: var(--text-primary);
+            font-family: Segoe UI, Tahoma, sans-serif; font-size: 15px; outline: none;
+            transition: border-color 0.2s;
+            resize: none; min-height: 48px; max-height: 150px; line-height: 1.5;
+            overflow-y: auto;
+        }
+        #msg:focus { border-color: var(--accent); }
+        #msg:disabled { opacity: 0.4; }
+        #msg::placeholder { color: var(--text-secondary); opacity: 0.5; }
+        #send {
+            padding: 14px 24px; background: var(--accent); color: #1a1410; border: none; border-radius: 10px;
+            cursor: pointer; font-size: 14px; font-weight: 700;
+            letter-spacing: 0.5px; transition: background 0.2s; align-self: flex-end; flex-shrink: 0;
+        }
+        #send:hover { background: var(--accent-hover); }
+        #send:disabled { opacity: 0.4; cursor: not-allowed; }
+        .empty-chat { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: 14px; gap: 8px; padding: 20px; text-align: center; }
+        .empty-chat .hint { font-size: 12px; opacity: 0.7; max-width: 400px; line-height: 1.5; }
+        .history-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: 14px; font-style: italic; }
+
+        /* ============ КНОПКА ТЕМЫ ============ */
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 50%;
+            width: 36px; height: 36px;
+            cursor: pointer; padding: 0;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.25s ease;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        .theme-toggle:hover { border-color: var(--accent); color: var(--accent); transform: scale(1.08); }
+        .theme-toggle svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+        .theme-toggle .theme-icon-sun { display: inline-flex; }
+        .theme-toggle .theme-icon-moon { display: none; }
+
+        /* ============ СВЕТЛАЯ ТЕМА ============ */
+        :root[data-theme="light"] {
+            --bg-primary: #faf6ee;
+            --bg-secondary: #f5efe1;
+            --bg-input: #ffffff;
+            --bg-user: rgba(212, 175, 55, 0.12);
+            --bg-bot: #ffffff;
+            --border: #e2dcc8;
+            --text-primary: #2d2416;
+            --text-secondary: #8a7754;
+        }
+        :root[data-theme="light"] body { background: var(--bg-primary); color: var(--text-primary); }
+        :root[data-theme="light"] .btn-home { background: #f0e8d4; color: var(--text-secondary); border-bottom-color: var(--border); }
+        :root[data-theme="light"] .btn-home:hover { color: var(--accent); }
+        :root[data-theme="light"] .sidebar { background: #f0e8d4; border-right-color: var(--border); }
+        :root[data-theme="light"] .sidebar-header, :root[data-theme="light"] .sidebar-add { border-bottom-color: var(--border); }
+        :root[data-theme="light"] .sidebar-add button { background: #ffffff; border-color: var(--border); color: var(--text-secondary); }
+        :root[data-theme="light"] .sidebar-add button:hover { border-color: var(--accent); color: var(--accent); }
+        :root[data-theme="light"] .session-item:hover { background: #ffffff; }
+        :root[data-theme="light"] .session-item.active { background: #ffffff; color: var(--accent); border-color: var(--accent); }
+        :root[data-theme="light"] .session-item .close { color: #b8a576; }
+        :root[data-theme="light"] .session-item .close:hover { background: #f5efe1; color: #dc2626; }
+        :root[data-theme="light"] header { border-bottom-color: var(--border); }
+        :root[data-theme="light"] header h1 { background: linear-gradient(135deg, #2d2416 0%, var(--accent) 50%, #f5d76e 100%); -webkit-background-clip: text; background-clip: text; }
+        :root[data-theme="light"] .btn-export { background: #ffffff; border-color: var(--border); color: var(--text-secondary); }
+        :root[data-theme="light"] .btn-export:hover { background: rgba(212,175,55,0.10); border-color: var(--accent); color: var(--accent); }
+        :root[data-theme="light"] #chat::-webkit-scrollbar-thumb { background: var(--border); }
+        :root[data-theme="light"] .msg.user { background: var(--bg-user); color: var(--text-primary); border-color: rgba(212,175,55,0.35); }
+        :root[data-theme="light"] .msg.bot { background: var(--bg-bot); color: var(--text-primary); border-color: var(--border); }
+        :root[data-theme="light"] .bot .agent-badge { background: rgba(212,175,55,0.18); color: #8a6914; }
+        :root[data-theme="light"] .bot code, :root[data-theme="light"] .bot pre { background: #fdf6e3; color: #2d2416; }
+        :root[data-theme="light"] .agent-hint { background: #ffffff; border-color: var(--border); }
+        :root[data-theme="light"] .loading { color: var(--text-secondary); }
+        :root[data-theme="light"] #msg { background: var(--bg-input); color: var(--text-primary); border-color: var(--border); }
+        :root[data-theme="light"] .empty-chat { color: #b8a576; }
+        :root[data-theme="light"] .theme-toggle { border-color: rgba(212, 175, 55, 0.35); color: #8a7754; }
+        :root[data-theme="light"] .theme-toggle:hover { border-color: rgba(212, 175, 55, 0.7); color: #2d2416; box-shadow: 0 0 16px rgba(212, 175, 55, 0.25); }
+        :root[data-theme="light"] .theme-toggle .theme-icon-sun { display: none; }
+        :root[data-theme="light"] .theme-toggle .theme-icon-moon { display: inline-flex; }
+    </style>
+    <script src="_config.js"></script>
+    <script src="_shared.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <a class="btn-home" href="../GigaChat-Platform.html"><span class="arrow">&#8592;</span>GigaChat</a>
+        <div class="sidebar-header"><h3>Сессии</h3></div>
+        <div class="sidebar-add"><button onclick="createNewSession()">+ Новая сессия</button></div>
+        <div class="session-list" id="sessionList"></div>
+    </div>
+    <div class="main">
+        <header>
+            <div class="header-left"><h1>Поток — GigaChat</h1></div>
+            <div class="header-right">
+                <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
+                <button class="btn-export" onclick="exportChat()">Экспорт</button>
+                <button class="theme-toggle" onclick="GigaChat.toggleTheme()" title="Сменить тему" aria-label="Сменить тему">
+                    <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
+                    <svg class="theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </header>
+        <div id="chat">
+            <div class="empty-chat">
+                <span>Создайте новую сессию для начала работы</span>
+                <span class="hint">Поток автоматически направит запрос нужному агенту. Если выбор неверен — измените его в выпадающем списке перед отправкой.</span>
+            </div>
+        </div>
+        <div class="bottom-area">
+            <div class="agent-hint" id="agentHint" style="display:none;">
+                <span class="arrow">→</span>
+                <span>Отправлю в:</span>
+                <select id="targetAgent">
+                    <option value="sql">Агент по базе данных</option>
+                    <option value="rag">Агент по документам</option>
+                    <option value="math">Математический агент</option>
+                    <option value="prompt-engineer">Агент по промпт-инженерингу</option>
+                    <option value="chat">Чат-Агент</option>
+                </select>
+                <span class="change-hint">можно изменить</span>
+            </div>
+            <div id="input-area">
+                <textarea id="msg" rows="1" placeholder="Спросите что угодно..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}" oninput="onInput();" disabled></textarea>
+                <button id="send" onclick="sendMsg()" disabled>Отправить</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        var HISTORY_URL = GigaChat.webhookUrl('history');
+        var ROUTER_URL = GigaChat.webhookUrl('router');
+        var FETCH_TIMEOUT_MS = 120000;
+        var MAX_RETRIES = 2;
+        var RETRY_DELAY_MS = 3000;
+
+        var chat = document.getElementById('chat');
+        var input = document.getElementById('msg');
+        var btn = document.getElementById('send');
+        var sessionList = document.getElementById('sessionList');
+        var statusDot = document.getElementById('statusDot');
+        var statusText = document.getElementById('statusText');
+        var agentHint = document.getElementById('agentHint');
+        var targetAgent = document.getElementById('targetAgent');
+
+        var sessions = [];
+        var activeSessionId = null;
+        var sessionCounter = 0;
+        var isProcessing = false;
+        var displayMessages = [];
+
+        // Лейблы агентов для бейджей в ответе
+        var AGENT_LABELS = {
+            sql: 'Агент по базе данных',
+            rag: 'Агент по документам',
+            math: 'Математический агент',
+            'prompt-engineer': 'Агент по промпт-инженерингу',
+            chat: 'Чат-Агент'
+        };
+
+        // ============ KEYWORD-КЛАССИФИКАТОР ============
+        var KEYWORDS = {
+            sql: [
+                'покажи', 'выведи', 'список', 'найди клиент', 'найди заказ',
+                'клиент', 'заказ', 'заказы', 'выручк', 'revenue',
+                'таблиц', 'запрос к ', 'база данных', ' бд ', 'базу',
+                'select', 'insert', 'update', 'delete', 'sql',
+                'добавь клиент', 'удали клиент', 'добавь заказ',
+                'сколько клиентов', 'сколько заказов', 'сколько записей',
+                'статус', 'pending', 'delivered', 'cancelled',
+                'москва', 'питер', 'петербург', 'казань', 'сочи',
+                'email', 'выручка', 'сумма заказ', 'средний чек',
+                'группир', 'сортир', 'отсортируй', 'отфильтруй',
+                'топ ', ' top ', 'первые ', 'последние ',
+                'join', 'объедин',
+                'аналитик', 'статистик', 'отчёт', 'отчет',
+                'за период', 'за месяц', 'за год', 'за неделю', 'за квартал',
+                'максимальн', 'минимальн', 'итого', 'продаж'
+            ],
+            rag: [
+                'документ', 'договор', 'акт ', 'контракт', 'соглашени',
+                'коммерческ предложен', 'кп ', 'доверенност',
+                'записк', 'протокол', 'приказ', 'заявлени',
+                'шаблон', 'бланк', 'образец',
+                'найди в документ', 'что написано', 'что сказано',
+                'о чём документ', 'о чем документ', 'содержание документ',
+                'загруженн', 'файл ', 'текст документ',
+                'пункт договор', 'параграф', 'раздел договор',
+                'срок оплат', 'условия оплат', 'реквизит',
+                'составь документ', 'подготовь документ', 'создай документ', 'напиши документ',
+                'база знаний', 'найди информаци',
+                'процитируй', 'цитат', 'выдержк',
+                'регламент', 'инструкци', 'положени', 'устав',
+                'накладн', 'счёт-фактур', 'счет-фактур', 'акт выполненн'
+            ],
+            math: [
+                'посчитай', 'вычисли', 'вычислить', 'рассчитай', 'рассчитать',
+                'реши уравнен', 'решить уравнен', 'уравнен', 'неравенств',
+                'формул', 'процент', 'корень из', 'степень', 'логарифм',
+                'площад', 'объём', 'объем', 'периметр', 'окружност',
+                'треугольник', 'квадрат', 'куб ', 'прямоугольник', 'цилиндр', 'сфер',
+                'интеграл', 'производн', 'предел ', 'синус', 'косинус', 'тангенс',
+                'матриц', 'вектор', 'определител', 'детерминант',
+                'график функц', 'функци y', 'парабол',
+                'среднее значен', 'медиан', 'дисперс', 'отклонен',
+                'вероятност', 'комбинатор', 'факториал', 'перестанов', 'сочетан',
+                'npv', 'irr', 'roi', 'аннуитет', 'ипотек', 'кредит', 'депозит',
+                'инвестиц', 'маржа', 'наценк', 'скидк', 'ндс ', 'налог',
+                'зарплат', 'рентабельн', 'прибыл',
+                'sqrt', 'calculate', 'solve', 'equation',
+                'конвертируй', 'переведи в '
+            ],
+            'prompt-engineer': [
+                'промпт', 'prompt', 'системн промпт', 'системный промпт',
+                'создай промпт', 'напиши промпт', 'сгенерируй промпт',
+                'адаптируй промпт', 'переделай промпт', 'перепиши промпт',
+                'улучши промпт', 'доработай промпт', 'оптимизируй промпт',
+                'усиль промпт', 'исправь промпт', 'проанализируй промпт',
+                'инструкци для модел', 'для нейросет', 'для llm', 'для ии', 'для ai',
+                'для gigachat', 'для гигачат', 'для бота', 'для чат-бота',
+                'роль ассистент'
+            ]
+        };
+
+        function classify(message) {
+            var lower = message.toLowerCase();
+
+            // Очки за каждое совпадение
+            var scores = { sql: 0, rag: 0, math: 0, 'prompt-engineer': 0 };
+            for (var agent in KEYWORDS) {
+                var list = KEYWORDS[agent];
+                for (var i = 0; i < list.length; i++) {
+                    if (lower.indexOf(list[i]) !== -1) scores[agent]++;
+                }
+            }
+
+            // Спец-эвристики для math
+            if (/^[\d\s+\-*/^().,=]+$/.test(message.trim())) scores.math += 5;
+            if (/\d+\s*[+\-*/^%=]\s*\d+/.test(message)) scores.math += 2;
+
+            // Победитель — наивысший балл. При ничье приоритет: sql > rag > math > prompt-engineer
+            var priority = ['sql', 'rag', 'math', 'prompt-engineer'];
+            var bestScore = 0;
+            var bestAgent = null;
+            for (var k = 0; k < priority.length; k++) {
+                if (scores[priority[k]] > bestScore) {
+                    bestScore = scores[priority[k]];
+                    bestAgent = priority[k];
+                }
+            }
+
+            // Если ни один не сработал — направляем в общий чат
+            return bestAgent || 'chat';
+        }
+
+        function onInput() {
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+            var text = input.value.trim();
+            if (text.length >= 2) {
+                var suggested = classify(text);
+                targetAgent.value = suggested;
+                agentHint.style.display = 'flex';
+            } else {
+                agentHint.style.display = 'none';
+            }
+        }
+
+        // ============ СЕССИИ ============
+        function saveSessions() {
+            try {
+                localStorage.setItem('router_sessions', JSON.stringify(sessions));
+                localStorage.setItem('router_active', activeSessionId || '');
+                localStorage.setItem('router_counter', sessionCounter);
+            } catch (e) {}
+        }
+        function loadSessions() {
+            try {
+                var s = localStorage.getItem('router_sessions');
+                var a = localStorage.getItem('router_active');
+                var c = localStorage.getItem('router_counter');
+                if (s) sessions = JSON.parse(s);
+                if (a) activeSessionId = a || null;
+                if (c) sessionCounter = parseInt(c, 10) || 0;
+            } catch (e) {}
+        }
+        function checkServerStatus() {
+            return GigaChat.checkServerStatus(ROUTER_URL, statusDot, statusText);
+        }
+        function createNewSession() {
+            sessionCounter++;
+            var id = 'router_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            sessions.push({ id: id, name: 'Поток-' + sessionCounter });
+            switchToSession(id, { skipHistoryLoad: true });
+        }
+        async function switchToSession(id, opts) {
+            opts = opts || {};
+            activeSessionId = id;
+            displayMessages = [];
+            renderSessionList();
+            saveSessions();
+            input.disabled = false; btn.disabled = false; input.focus();
+            if (opts.skipHistoryLoad) {
+                renderChat();
+                return;
+            }
+            await loadHistoryForActive(id);
+        }
+        async function loadHistoryForActive(targetSessionId) {
+            chat.innerHTML = '<div class="history-loading">Загружаю историю...</div>';
+            try {
+                var res = await fetch(HISTORY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                    body: JSON.stringify({ session_id: targetSessionId })
+                });
+                if (activeSessionId !== targetSessionId) return;
+                if (!res.ok) throw new Error('Сервер ответил ' + res.status);
+                var data = await res.json();
+                if (activeSessionId !== targetSessionId) return;
+                displayMessages = (data.messages || []).map(function (m) {
+                    return { role: m.role, content: m.content, extras: m.extras || null };
+                });
+                renderChat();
+            } catch (e) {
+                if (activeSessionId !== targetSessionId) return;
+                displayMessages = [];
+                chat.innerHTML = '<div class="empty-chat"><span>Не удалось загрузить историю.</span></div>';
+            }
+        }
+        function deleteSession(id, event) {
+            event.stopPropagation();
+            sessions = sessions.filter(function (s) { return s.id !== id; });
+            if (activeSessionId === id) {
+                if (sessions.length > 0) { switchToSession(sessions[sessions.length - 1].id); }
+                else {
+                    activeSessionId = null;
+                    displayMessages = [];
+                    chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">Поток автоматически направит запрос нужному агенту.</span></div>';
+                    input.disabled = true; btn.disabled = true;
+                    agentHint.style.display = 'none';
+                }
+            }
+            renderSessionList(); saveSessions();
+        }
+        function renderSessionList() {
+            var html = '';
+            for (var i = 0; i < sessions.length; i++) {
+                var s = sessions[i];
+                var isActive = s.id === activeSessionId ? ' active' : '';
+                html += '<div class="session-item' + isActive + '" onclick="switchToSession(\'' + s.id + '\')">';
+                html += '<span class="name">' + escapeHtml(s.name) + '</span>';
+                html += '<span class="close" onclick="deleteSession(\'' + s.id + '\', event)">&#215;</span>';
+                html += '</div>';
+            }
+            sessionList.innerHTML = html;
+        }
+        function renderChat() {
+            if (!activeSessionId || !sessions.find(function (s) { return s.id === activeSessionId; })) {
+                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">Поток автоматически направит запрос нужному агенту.</span></div>';
+                return;
+            }
+            if (displayMessages.length === 0) { chat.innerHTML = ''; return; }
+            var html = '';
+            for (var i = 0; i < displayMessages.length; i++) {
+                var m = displayMessages[i];
+                if (m.role === 'user') {
+                    html += '<div class="msg user">' + escapeHtml(m.content) + '</div>';
+                } else {
+                    var badge = m.agent ? '<div class="agent-badge">' + escapeHtml(AGENT_LABELS[m.agent] || m.agent) + '</div>' : '';
+                    html += '<div class="msg bot">' + badge + formatResponse(m.content) + '</div>';
+                }
+            }
+            chat.innerHTML = html;
+            chat.scrollTop = chat.scrollHeight;
+        }
+        function fetchWithRetry(url, options, retries) {
+            return GigaChat.fetchWithRetry(url, options, { timeout: FETCH_TIMEOUT_MS, retries: retries, retryDelay: RETRY_DELAY_MS });
+        }
+        async function sendMsg() {
+            if (!activeSessionId || !sessions.find(function (s) { return s.id === activeSessionId; })) return;
+            var text = input.value.trim();
+            if (!text || isProcessing) return;
+            isProcessing = true;
+            var sendSessionId = activeSessionId;
+            var agent = targetAgent.value;
+            var agentUrl = GigaChat.webhookUrl(agent);
+
+            displayMessages.push({ role: 'user', content: text });
+            renderChat();
+            input.value = ''; input.style.height = 'auto';
+            input.disabled = true; btn.disabled = true;
+            agentHint.style.display = 'none';
+
+            var loadingId = 'loading-' + Date.now();
+            var startTime = Date.now();
+            chat.innerHTML += '<div class="loading" id="' + loadingId + '">' + escapeHtml(AGENT_LABELS[agent] || agent) + ' обрабатывает <span class="dots"><span>.</span><span>.</span><span>.</span></span><span class="timer" id="timer-' + loadingId + '">0 сек</span></div>';
+            chat.scrollTop = chat.scrollHeight;
+
+            var timerInterval = setInterval(function () {
+                var el = document.getElementById('timer-' + loadingId);
+                if (el) { var sec = Math.floor((Date.now() - startTime) / 1000); el.textContent = sec + ' сек'; }
+            }, 1000);
+
+            try {
+                var res = await fetchWithRetry(agentUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                    body: JSON.stringify({ message: text, session_id: sendSessionId })
+                }, MAX_RETRIES);
+                clearInterval(timerInterval);
+                var loading = document.getElementById(loadingId);
+                if (loading) loading.remove();
+                if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
+                var data = await res.json();
+                var responseText = data.response || data.output || 'Пустой ответ от сервера';
+                if (activeSessionId === sendSessionId) {
+                    displayMessages.push({ role: 'assistant', content: responseText, agent: agent });
+                    renderChat();
+                }
+                statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
+            } catch (e) {
+                clearInterval(timerInterval);
+                var loading = document.getElementById(loadingId);
+                if (loading) loading.remove();
+                if (activeSessionId === sendSessionId) {
+                    displayMessages.push({ role: 'assistant', content: 'Ошибка: ' + e.message, agent: agent });
+                    renderChat();
+                }
+                statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
+            }
+            isProcessing = false;
+            input.disabled = false; btn.disabled = false; input.focus();
+            if (activeSessionId === sendSessionId) chat.scrollTop = chat.scrollHeight;
+        }
+        function exportChat() {
+            if (!activeSessionId || displayMessages.length === 0) {
+                alert('Нечего экспортировать.'); return;
+            }
+            var sessionName = '';
+            for (var i = 0; i < sessions.length; i++) {
+                if (sessions[i].id === activeSessionId) { sessionName = sessions[i].name; break; }
+            }
+            var lines = ['=== ' + sessionName + ' ===', 'Экспорт: ' + new Date().toLocaleString('ru-RU'), ''];
+            for (var j = 0; j < displayMessages.length; j++) {
+                var m = displayMessages[j];
+                if (m.role === 'user') {
+                    lines.push('[Вы]'); lines.push(m.content); lines.push('');
+                } else {
+                    var who = m.agent ? AGENT_LABELS[m.agent] || m.agent : 'Агент';
+                    lines.push('[' + who + ']'); lines.push(m.content); lines.push('');
+                }
+            }
+            var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = sessionName + '_' + new Date().toISOString().slice(0, 10) + '.txt';
+            a.click(); URL.revokeObjectURL(a.href);
+        }
+        var escapeHtml = GigaChat.escapeHtml;
+        function formatResponse(text) {
+            return GigaChat.formatMarkdownTable(GigaChat.formatMarkdown(text, '#d4af37'));
+        }
+        loadSessions();
+        if (activeSessionId && !sessions.find(function (s) { return s.id === activeSessionId; })) { activeSessionId = null; }
+        if (sessions.length > 0) {
+            renderSessionList();
+            if (activeSessionId) { switchToSession(activeSessionId); }
+            else { switchToSession(sessions[sessions.length - 1].id); }
+        }
+        checkServerStatus();
+        setInterval(checkServerStatus, 30000);
+    </script>
+</body>
+</html>
