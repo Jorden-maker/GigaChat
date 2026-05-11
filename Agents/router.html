@@ -118,11 +118,31 @@
         }
         .agent-hint .arrow { color: var(--accent); }
         .agent-hint select {
-            background: transparent; border: none;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
             color: var(--accent); font-weight: 600; cursor: pointer;
-            font-size: 12px; padding: 2px 4px;
+            font-size: 12px; padding: 5px 28px 5px 10px;
+            border-radius: 6px;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 12px;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
-        .agent-hint select:focus { outline: 1px solid var(--accent); border-radius: 4px; }
+        .agent-hint select:hover { border-color: var(--accent); }
+        .agent-hint select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212,175,55,0.2); }
+        .agent-hint select option {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        .agent-hint select option:checked {
+            background: var(--accent);
+            color: #1a1410;
+        }
         .agent-hint .change-hint { color: var(--text-secondary); margin-left: auto; font-style: italic; opacity: 0.7; }
         #input-area { display: flex; gap: 10px; align-items: flex-end; }
         #msg {
@@ -132,7 +152,13 @@
             transition: border-color 0.2s;
             resize: none; min-height: 48px; max-height: 150px; line-height: 1.5;
             overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
         }
+        #msg::-webkit-scrollbar { width: 6px; }
+        #msg::-webkit-scrollbar-track { background: transparent; }
+        #msg::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        #msg::-webkit-scrollbar-thumb:hover { background: var(--accent); }
         #msg:focus { border-color: var(--accent); }
         #msg:disabled { opacity: 0.4; }
         #msg::placeholder { color: var(--text-secondary); opacity: 0.5; }
