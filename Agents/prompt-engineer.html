@@ -278,7 +278,7 @@ async function loadHistoryForActive(targetSessionId) {
   } catch (e) {
     if (activeSessionId !== targetSessionId) return;
     displayMessages = [];
-    container.innerHTML = `<div class="welcome"><p style="color:var(--text-muted);">Не удалось загрузить историю: ${escapeHtml(e.message)}</p></div>`;
+    container.innerHTML = `<div class="welcome"><p style="color:var(--text-muted);">Не удалось загрузить историю.</p></div>`;
   }
 }
 
