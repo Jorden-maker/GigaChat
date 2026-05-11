@@ -271,7 +271,7 @@
         function createNewSession() {
             sessionCounter++;
             var id = 'sql_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            sessions.push({ id: id, name: 'SQL-' + sessionCounter });
+            sessions.push({ id: id, name: 'База-' + sessionCounter });
             switchToSession(id, { skipHistoryLoad: true });
         }
         async function switchToSession(id, opts) {
