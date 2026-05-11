@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Промпт-Инженер — GigaChat</title>
+<title>Агент по промпт-инженерингу — GigaChat</title>
 <style>
 :root {
   --bg-primary: #0f0f1a;
@@ -134,7 +134,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
     <div class="header-left">
       <div class="header-icon">🧠</div>
       <div class="header-info">
-        <h1>Промпт-Инженер — GigaChat</h1>
+        <h1>Агент по промпт-инженерингу — GigaChat</h1>
         <p>Создание и улучшение промптов</p>
       </div>
     </div>
@@ -149,7 +149,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 
   <div class="chat-container" id="chatContainer">
     <div class="welcome" id="welcome">
-      <h2>Промпт-Инженер</h2>
+      <h2>Агент по промпт-инженерингу</h2>
       <p>Опишите задачу — получите готовый промпт. Вставьте существующий промпт со словом «улучши» — получите усиленную версию.</p>
       <div class="welcome-modes">
         <div class="mode-card">
@@ -188,7 +188,7 @@ let sessionCounter = 0;
 let isProcessing = false;
 let serverOnline = false;
 const WELCOME_HTML = `<div class="welcome">
-  <h2>Промпт-Инженер</h2>
+  <h2>Агент по промпт-инженерингу</h2>
   <p>Опишите задачу — получите готовый промпт. Вставьте существующий промпт со словом «улучши» — получите усиленную версию.</p>
   <div class="welcome-modes">
     <div class="mode-card"><h4>✨ Создать</h4><p>Опишите задачу, и я создам структурированный промпт с ролью, контекстом и примерами</p></div>
@@ -290,7 +290,7 @@ function deleteSession(id, e) {
     else {
       activeSessionId = null;
       displayMessages = [];
-      document.getElementById('chatContainer').innerHTML = '<div class="welcome"><h2>Промпт-Инженер</h2><p>Создайте новую сессию для начала работы</p></div>';
+      document.getElementById('chatContainer').innerHTML = '<div class="welcome"><h2>Агент по промпт-инженерингу</h2><p>Создайте новую сессию для начала работы</p></div>';
       document.getElementById('userInput').disabled = true;
       document.getElementById('btnSend').disabled = true;
     }
@@ -325,7 +325,7 @@ function renderChat() {
       const extras = m.extras || {};
       const prompt = extras.prompt || m.prompt || '';
       const elapsed = extras.elapsed || m.elapsed || '';
-      html += `<div class="message"><div class="msg-avatar bot">🧠</div><div class="msg-content"><div class="role">Промпт-Инженер</div>`;
+      html += `<div class="message"><div class="msg-avatar bot">🧠</div><div class="msg-content"><div class="role">Агент по промпт-инженерингу</div>`;
       html += `<div class="text">${formatResponse(text)}</div>`;
       if (prompt) {
         html += `<div class="prompt-block"><div class="prompt-block-header"><span>Готовый промпт</span><button class="btn-copy" onclick="copyPrompt(this)">Копировать</button></div><pre>${escapeHtml(prompt)}</pre></div>`;
@@ -384,7 +384,7 @@ async function sendMessage() {
   let timerInterval;
   const addLoadingMsg = () => {
     const container = document.getElementById('chatContainer');
-    container.innerHTML += `<div class="message" id="loading"><div class="msg-avatar bot">🧠</div><div class="msg-content"><div class="role">Промпт-Инженер</div><div class="text" style="color:var(--text-muted);">Генерирую промпт... <span id="timerDisplay">0</span> сек</div></div></div>`;
+    container.innerHTML += `<div class="message" id="loading"><div class="msg-avatar bot">🧠</div><div class="msg-content"><div class="role">Агент по промпт-инженерингу</div><div class="text" style="color:var(--text-muted);">Генерирую промпт... <span id="timerDisplay">0</span> сек</div></div></div>`;
     container.scrollTop = container.scrollHeight;
     timerInterval = setInterval(() => {
       const el = document.getElementById('timerDisplay');
@@ -454,7 +454,7 @@ async function checkServerStatus() {
 function exportChat() {
   if (!activeSessionId) { alert('Нет активной сессии'); return; }
   if (displayMessages.length === 0) { alert('Нет сообщений для экспорта'); return; }
-  let text = 'Промпт-Инженер — GigaChat\nЭкспорт: ' + new Date().toLocaleString('ru-RU') + '\n' + '='.repeat(50) + '\n\n';
+  let text = 'Агент по промпт-инженерингу — GigaChat\nЭкспорт: ' + new Date().toLocaleString('ru-RU') + '\n' + '='.repeat(50) + '\n\n';
   for (const m of displayMessages) {
     const content = m.content || m.text || '';
     const extras = m.extras || {};
@@ -463,7 +463,7 @@ function exportChat() {
     if (m.role === 'user') {
       text += '👤 Вы:\n' + content + '\n\n';
     } else {
-      text += '🧠 Промпт-Инженер:\n' + content + '\n';
+      text += '🧠 Агент по промпт-инженерингу:\n' + content + '\n';
       if (prompt) text += '\n--- ПРОМПТ ---\n' + prompt + '\n--- /ПРОМПТ ---\n';
       if (elapsed) text += '\n⏱ ' + elapsed + ' сек\n';
       text += '\n';
