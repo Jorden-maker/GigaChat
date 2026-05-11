@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GigaChat — Панель управления</title>
+    <script>
+        // Применяем тему ДО рендера, чтобы не моргало
+        (function () {
+            var t = localStorage.getItem('giga_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
     <style>
         :root {
             --bg-primary: #0a0a0f;
@@ -379,6 +386,100 @@
             .cards-grid { grid-template-columns: 1fr; }
             .header h1 { font-size: 26px; }
         }
+
+        /* ================== LIGHT THEME ================== */
+        :root[data-theme="light"] {
+            --bg-primary: #faf6ee;       /* кремовый фон */
+            --bg-secondary: #f5efe1;     /* чуть теплее */
+            --bg-card: #ffffff;          /* белые карточки */
+            --bg-card-hover: #fffbf2;    /* hover — тёплый белый */
+            --border: #e8dcc1;           /* мягкий золотистый */
+            --border-hover: #d4af37;     /* классическое золото */
+            --text-primary: #2d2416;     /* тёмно-коричневый */
+            --text-secondary: #8a7754;   /* тёплый серо-коричневый */
+            --text-muted: #b8a576;       /* светлая охра */
+        }
+
+        /* Светлая тема — мягкие золотисто-кремовые блики на фоне */
+        :root[data-theme="light"] .bg-layers::before {
+            background:
+                radial-gradient(ellipse 600px 600px at 20% 20%, rgba(212,175,55,0.13), transparent 70%),
+                radial-gradient(ellipse 500px 500px at 80% 30%, rgba(245,215,110,0.10), transparent 70%),
+                radial-gradient(ellipse 700px 700px at 60% 80%, rgba(232,180,120,0.09), transparent 70%),
+                radial-gradient(ellipse 400px 400px at 10% 70%, rgba(255,200,150,0.07), transparent 70%),
+                radial-gradient(ellipse 500px 500px at 90% 90%, rgba(220,170,90,0.08), transparent 70%);
+        }
+        :root[data-theme="light"] .bg-layers::after {
+            background:
+                radial-gradient(ellipse 550px 550px at 70% 15%, rgba(212,175,55,0.09), transparent 65%),
+                radial-gradient(ellipse 450px 450px at 30% 60%, rgba(245,215,110,0.08), transparent 65%),
+                radial-gradient(ellipse 600px 600px at 50% 50%, rgba(232,180,120,0.06), transparent 60%);
+        }
+        :root[data-theme="light"] .bg-dots {
+            background-image:
+                radial-gradient(circle, rgba(184,148,31,0.22) 1.5px, transparent 2px),
+                radial-gradient(circle, rgba(212,175,55,0.10) 1px, transparent 1.5px);
+        }
+
+        /* Логотип и заголовок — золотой градиент */
+        :root[data-theme="light"] .logo-icon {
+            background: linear-gradient(135deg, #d4af37, #f5d76e);
+            box-shadow: 0 0 30px rgba(212,175,55,0.35);
+        }
+        @keyframes logoPulseLight {
+            0%, 100% { box-shadow: 0 0 30px rgba(212,175,55,0.35); }
+            50% { box-shadow: 0 0 55px rgba(245,215,110,0.55); }
+        }
+        :root[data-theme="light"] .logo-icon {
+            animation: logoPulseLight 3s ease-in-out infinite;
+        }
+        :root[data-theme="light"] .header h1 {
+            background: linear-gradient(135deg, #2d2416 0%, #d4af37 50%, #f5d76e 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        :root[data-theme="light"] .header-line {
+            background: linear-gradient(90deg, transparent, #d4af37, transparent);
+        }
+
+        /* Карточки в светлой теме — белые с золотистой обводкой при наведении */
+        :root[data-theme="light"] .card { background: var(--bg-card); }
+        :root[data-theme="light"] .card:hover {
+            background: var(--bg-card-hover);
+            border-color: #d4af37;
+            box-shadow: 0 8px 30px rgba(212,175,55,0.18);
+        }
+        :root[data-theme="light"] .footer { border-top-color: rgba(212,175,55,0.2); }
+        :root[data-theme="light"] .footer a { color: #b8941f; }
+
+        /* Кнопка переключения темы */
+        .theme-toggle {
+            position: fixed;
+            top: 20px; right: 30px;
+            z-index: 10;
+            width: 44px; height: 44px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+        }
+        .theme-toggle:hover {
+            border-color: var(--border-hover);
+            transform: scale(1.08);
+        }
+        :root[data-theme="light"] .theme-toggle:hover {
+            box-shadow: 0 0 18px rgba(212,175,55,0.35);
+        }
+        /* Иконка-индикатор: показываем ту, на которую переключимся */
+        .theme-toggle .theme-icon-sun { display: inline; }
+        .theme-toggle .theme-icon-moon { display: none; }
+        :root[data-theme="light"] .theme-toggle .theme-icon-sun { display: none; }
+        :root[data-theme="light"] .theme-toggle .theme-icon-moon { display: inline; }
     </style>
     <script src="Agents/_config.js"></script>
     <script src="Agents/_shared.js"></script>
@@ -388,6 +489,11 @@
 <div class="bg-layers"></div>
 <div class="bg-dots"></div>
 <div class="bg-noise"></div>
+
+<button class="theme-toggle" onclick="toggleTheme()" title="Сменить тему">
+    <span class="theme-icon-sun">☀️</span>
+    <span class="theme-icon-moon">🌙</span>
+</button>
 
 <div class="container">
 
@@ -495,6 +601,13 @@
     ];
 
     document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+    function toggleTheme() {
+        var current = document.documentElement.getAttribute('data-theme') || 'light';
+        var next = current === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('giga_theme', next);
+    }
 
     function checkAgent(agent) {
         var dot = document.getElementById('status-' + agent.id);
