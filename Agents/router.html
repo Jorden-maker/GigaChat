@@ -117,32 +117,55 @@
             font-size: 12px; color: var(--text-secondary);
         }
         .agent-hint .arrow { color: var(--accent); }
-        .agent-hint select {
+        /* Кастомный dropdown — выглядит одинаково на всех ОС */
+        .custom-select { position: relative; display: inline-block; }
+        .custom-select-trigger {
             background-color: var(--bg-input);
             border: 1px solid var(--border);
             color: var(--accent); font-weight: 600; cursor: pointer;
-            font-size: 12px; padding: 5px 28px 5px 10px;
+            font-size: 12px; padding: 5px 10px;
             border-radius: 6px;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
-            background-repeat: no-repeat;
-            background-position: right 8px center;
-            background-size: 12px;
+            display: flex; align-items: center; gap: 8px;
             transition: border-color 0.2s, box-shadow 0.2s;
+            font-family: inherit;
         }
-        .agent-hint select:hover { border-color: var(--accent); }
-        .agent-hint select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212,175,55,0.2); }
-        .agent-hint select option {
+        .custom-select-trigger:hover { border-color: var(--accent); }
+        .custom-select.open .custom-select-trigger { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212,175,55,0.2); }
+        .custom-select-arrow {
+            width: 12px; height: 12px;
+            stroke: var(--accent); fill: none;
+            stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        .custom-select.open .custom-select-arrow { transform: rotate(180deg); }
+        .custom-select-panel {
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 0;
+            min-width: 100%;
             background: var(--bg-input);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 4px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            display: none;
+            z-index: 100;
+            white-space: nowrap;
+        }
+        .custom-select.open .custom-select-panel { display: block; }
+        .custom-select-option {
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
             color: var(--text-primary);
-            font-weight: 500;
+            transition: background 0.15s, color 0.15s;
         }
-        .agent-hint select option:checked {
-            background: var(--accent);
-            color: #1a1410;
-        }
+        .custom-select-option:hover { background: rgba(212,175,55,0.12); color: var(--accent); }
+        .custom-select-option.selected { background: var(--accent); color: #1a1410; }
+        :root[data-theme="light"] .custom-select-panel { box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+        :root[data-theme="light"] .custom-select-option.selected { background: var(--accent); color: #ffffff; }
         .agent-hint .change-hint { color: var(--text-secondary); margin-left: auto; font-style: italic; opacity: 0.7; }
         #input-area { display: flex; gap: 10px; align-items: flex-end; }
         #msg {
@@ -262,13 +285,19 @@
             <div class="agent-hint" id="agentHint" style="display:none;">
                 <span class="arrow">→</span>
                 <span>Отправлю в:</span>
-                <select id="targetAgent">
-                    <option value="sql">Агент по базе данных</option>
-                    <option value="rag">Агент по документам</option>
-                    <option value="math">Математический агент</option>
-                    <option value="prompt-engineer">Агент по промпт-инженерингу</option>
-                    <option value="chat">Чат-Агент</option>
-                </select>
+                <div class="custom-select" id="targetAgentSelect">
+                    <button class="custom-select-trigger" type="button" onclick="toggleAgentDropdown(event)" aria-haspopup="listbox">
+                        <span class="custom-select-label">Чат-Агент</span>
+                        <svg class="custom-select-arrow" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="custom-select-panel" role="listbox">
+                        <div class="custom-select-option" data-value="sql" onclick="setTargetAgent('sql')" role="option">Агент по базе данных</div>
+                        <div class="custom-select-option" data-value="rag" onclick="setTargetAgent('rag')" role="option">Агент по документам</div>
+                        <div class="custom-select-option" data-value="math" onclick="setTargetAgent('math')" role="option">Математический агент</div>
+                        <div class="custom-select-option" data-value="prompt-engineer" onclick="setTargetAgent('prompt-engineer')" role="option">Агент по промпт-инженерингу</div>
+                        <div class="custom-select-option selected" data-value="chat" onclick="setTargetAgent('chat')" role="option">Чат-Агент</div>
+                    </div>
+                </div>
                 <span class="change-hint">можно изменить</span>
             </div>
             <div id="input-area">
@@ -291,13 +320,13 @@
         var statusDot = document.getElementById('statusDot');
         var statusText = document.getElementById('statusText');
         var agentHint = document.getElementById('agentHint');
-        var targetAgent = document.getElementById('targetAgent');
 
         var sessions = [];
         var activeSessionId = null;
         var sessionCounter = 0;
         var isProcessing = false;
         var displayMessages = [];
+        var currentAgent = 'chat'; // выбранный агент для отправки
 
         // Лейблы агентов для бейджей в ответе
         var AGENT_LABELS = {
@@ -409,12 +438,36 @@
             var text = input.value.trim();
             if (text.length >= 2) {
                 var suggested = classify(text);
-                targetAgent.value = suggested;
+                setTargetAgent(suggested);
                 agentHint.style.display = 'flex';
             } else {
                 agentHint.style.display = 'none';
             }
         }
+
+        // ============ КАСТОМНЫЙ DROPDOWN ============
+        function toggleAgentDropdown(e) {
+            e.stopPropagation();
+            document.getElementById('targetAgentSelect').classList.toggle('open');
+        }
+        function setTargetAgent(value) {
+            currentAgent = value;
+            var label = AGENT_LABELS[value] || value;
+            var labelEl = document.querySelector('#targetAgentSelect .custom-select-label');
+            if (labelEl) labelEl.textContent = label;
+            document.querySelectorAll('#targetAgentSelect .custom-select-option').forEach(function (el) {
+                if (el.dataset.value === value) el.classList.add('selected');
+                else el.classList.remove('selected');
+            });
+            document.getElementById('targetAgentSelect').classList.remove('open');
+        }
+        // Закрытие выпадашки при клике вне её
+        document.addEventListener('click', function (e) {
+            var sel = document.getElementById('targetAgentSelect');
+            if (sel && !sel.contains(e.target)) {
+                sel.classList.remove('open');
+            }
+        });
 
         // ============ СЕССИИ ============
         function saveSessions() {
@@ -533,7 +586,7 @@
             if (!text || isProcessing) return;
             isProcessing = true;
             var sendSessionId = activeSessionId;
-            var agent = targetAgent.value;
+            var agent = currentAgent;
             var agentUrl = GigaChat.webhookUrl(agent);
 
             displayMessages.push({ role: 'user', content: text });
