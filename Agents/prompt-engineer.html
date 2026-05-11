@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Агент по промпт-инженерингу — GigaChat</title>
+<script>
+    (function () {
+        var t = localStorage.getItem('giga_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+</script>
 <style>
 :root {
   --bg-primary: #0f0f1a;
@@ -112,6 +118,79 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 .btn-send { padding:12px 20px; background:var(--accent); color:#fff; border:none; border-radius:10px; cursor:pointer; font-size:14px; font-weight:500; transition:all .2s; align-self:flex-end; flex-shrink:0; white-space:nowrap; }
 .btn-send:hover { background:var(--accent-hover); transform:scale(1.02); }
 .btn-send:disabled { background:var(--bg-tertiary); color:var(--text-muted); cursor:not-allowed; transform:none; }
+
+/* ============ КНОПКА ТЕМЫ ============ */
+.theme-toggle {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 50%;
+    width: 36px; height: 36px;
+    cursor: pointer; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s ease;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+.theme-toggle:hover { border-color: rgba(255, 255, 255, 0.4); color: var(--text-primary); transform: scale(1.08); }
+.theme-toggle svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.theme-toggle .theme-icon-sun { display: inline-flex; }
+.theme-toggle .theme-icon-moon { display: none; }
+
+/* ============ СВЕТЛАЯ ТЕМА ============ */
+:root[data-theme="light"] {
+    --bg-primary: #faf6ee;
+    --bg-secondary: #f5efe1;
+    --bg-tertiary: #f0e8d4;
+    --accent-light: rgba(124, 58, 237, 0.10);
+    --text-primary: #2d2416;
+    --text-secondary: #6b5a3c;
+    --text-muted: #b8a576;
+    --border: #e2dcc8;
+    --code-bg: #fdf6e3;
+    --eval-bg: #fff8e4;
+}
+:root[data-theme="light"] body { background: var(--bg-primary); color: var(--text-primary); }
+:root[data-theme="light"] .btn-home { background: #f0e8d4; color: var(--text-muted); border-bottom-color: var(--border); }
+:root[data-theme="light"] .btn-home:hover { color: var(--accent); }
+:root[data-theme="light"] .sidebar { background: var(--bg-secondary); border-right-color: var(--border); }
+:root[data-theme="light"] .sidebar-header { border-bottom-color: var(--border); }
+:root[data-theme="light"] .sidebar-header h2 { color: var(--text-secondary); }
+:root[data-theme="light"] .session-item:hover { background: #ffffff; }
+:root[data-theme="light"] .session-item.active { background: var(--accent-light); border-color: var(--accent); }
+:root[data-theme="light"] .session-item span { color: var(--text-secondary); }
+:root[data-theme="light"] .session-item.active span { color: var(--text-primary); }
+:root[data-theme="light"] .session-delete { color: var(--text-muted); }
+:root[data-theme="light"] .session-delete:hover { color: var(--error); background: rgba(239,68,68,0.08); }
+:root[data-theme="light"] .header { background: var(--bg-secondary); border-bottom-color: var(--border); }
+:root[data-theme="light"] .header-info p { color: var(--text-secondary); }
+:root[data-theme="light"] .status-badge { color: var(--text-secondary); }
+:root[data-theme="light"] .btn-export { background: #ffffff; border-color: var(--border); color: var(--text-secondary); }
+:root[data-theme="light"] .btn-export:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+:root[data-theme="light"] .chat-container::-webkit-scrollbar-thumb { background: var(--border); }
+:root[data-theme="light"] .welcome h2 { color: var(--text-primary); }
+:root[data-theme="light"] .welcome p { color: var(--text-secondary); }
+:root[data-theme="light"] .mode-card { background: #ffffff; border-color: var(--border); }
+:root[data-theme="light"] .mode-card p { color: var(--text-secondary); }
+:root[data-theme="light"] .msg-avatar.user { background: var(--bg-tertiary); }
+:root[data-theme="light"] .msg-content .role { color: var(--text-muted); }
+:root[data-theme="light"] .msg-content .text { color: var(--text-primary); }
+:root[data-theme="light"] .prompt-block { background: var(--code-bg); border-color: var(--border); }
+:root[data-theme="light"] .prompt-block-header { background: var(--bg-tertiary); border-bottom-color: var(--border); }
+:root[data-theme="light"] .prompt-block-header span { color: var(--text-secondary); }
+:root[data-theme="light"] .prompt-block pre { color: #2d2416; }
+:root[data-theme="light"] .btn-copy { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+:root[data-theme="light"] .btn-copy:hover { background: var(--accent); color: #ffffff; }
+:root[data-theme="light"] .eval-block { background: var(--eval-bg); border-color: var(--border); }
+:root[data-theme="light"] .eval-block pre { color: var(--text-secondary); }
+:root[data-theme="light"] .timer { color: var(--text-muted); }
+:root[data-theme="light"] .input-area { background: var(--bg-secondary); border-top-color: var(--border); }
+:root[data-theme="light"] .input-wrapper textarea { background: #ffffff; border-color: var(--border); color: var(--text-primary); }
+:root[data-theme="light"] .input-wrapper textarea::placeholder { color: var(--text-muted); }
+:root[data-theme="light"] .btn-send:disabled { background: var(--bg-tertiary); color: var(--text-muted); }
+:root[data-theme="light"] .theme-toggle { border-color: rgba(212, 175, 55, 0.35); color: #8a7754; }
+:root[data-theme="light"] .theme-toggle:hover { border-color: rgba(212, 175, 55, 0.7); color: #2d2416; box-shadow: 0 0 16px rgba(212, 175, 55, 0.25); }
+:root[data-theme="light"] .theme-toggle .theme-icon-sun { display: none; }
+:root[data-theme="light"] .theme-toggle .theme-icon-moon { display: inline-flex; }
 </style>
 <script src="_config.js"></script>
 <script src="_shared.js"></script>
@@ -144,6 +223,10 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
         <span id="statusText">Проверка...</span>
       </div>
       <button class="btn-export" onclick="exportChat()">Экспорт</button>
+      <button class="theme-toggle" onclick="GigaChat.toggleTheme()" title="Сменить тему" aria-label="Сменить тему">
+        <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
+        <svg class="theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
     </div>
   </div>
 

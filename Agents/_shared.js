@@ -112,6 +112,15 @@
     });
   }
 
+  // Переключение темы: меняет атрибут data-theme на <html> и сохраняет выбор.
+  // Раннее применение темы делается inline-скриптом в <head> каждой страницы.
+  function toggleTheme() {
+    var current = document.documentElement.getAttribute('data-theme') || 'light';
+    var next = current === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('giga_theme', next); } catch (e) {}
+  }
+
   global.GigaChat = {
     config: cfg,
     webhookUrl: webhookUrl,
@@ -120,6 +129,7 @@
     checkServerStatus: checkServerStatus,
     formatMarkdown: formatMarkdown,
     formatMarkdownTable: formatMarkdownTable,
+    toggleTheme: toggleTheme,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,
     RETRY_DELAY_MS: RETRY_DELAY_MS

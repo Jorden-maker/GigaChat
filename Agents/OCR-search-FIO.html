@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Поиск ФИО в документах</title>
+    <script>
+        (function () {
+            var t = localStorage.getItem('giga_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
     <style>
         :root {
             --bg-primary: #1e1e1e; --bg-secondary: #2a2a2a;
@@ -87,12 +93,69 @@
             padding: 8px 24px; border-radius: 6px; cursor: pointer; font-size: 13px;
         }
         .reset-btn button:hover { border-color: #666; color: #bbb; }
+
+        /* ============ КНОПКА ТЕМЫ ============ */
+        .theme-toggle {
+            position: fixed;
+            top: 16px; right: 16px;
+            z-index: 10;
+            width: 40px; height: 40px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 50%;
+            cursor: pointer; padding: 0;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.25s ease;
+            color: var(--text-secondary);
+        }
+        .theme-toggle:hover { border-color: rgba(255, 255, 255, 0.4); color: var(--text-primary); transform: scale(1.08); }
+        .theme-toggle svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+        .theme-toggle .theme-icon-sun { display: inline-flex; }
+        .theme-toggle .theme-icon-moon { display: none; }
+
+        /* ============ СВЕТЛАЯ ТЕМА ============ */
+        :root[data-theme="light"] {
+            --bg-primary: #faf6ee;
+            --bg-secondary: #ffffff;
+            --bg-input: #fffbf2;
+            --border: #e2dcc8;
+            --text-primary: #2d2416;
+            --text-secondary: #8a7754;
+            --error-bg: #fef2f2;
+            --error-border: #fca5a5;
+            --error-text: #b91c1c;
+        }
+        :root[data-theme="light"] body { background: var(--bg-primary); color: var(--text-primary); }
+        :root[data-theme="light"] .upload-area { background: #ffffff; border-color: #d4b96f; }
+        :root[data-theme="light"] .upload-area:hover { border-color: var(--accent); background: #fffbf2; }
+        :root[data-theme="light"] .upload-area.dragging { border-color: var(--accent); background: #f5efe1; }
+        :root[data-theme="light"] .upload-area .text { color: var(--text-secondary); }
+        :root[data-theme="light"] .upload-area .formats { color: #b8a576; }
+        :root[data-theme="light"] .upload-area .filesize { color: var(--text-secondary); }
+        :root[data-theme="light"] #sendBtn { color: #1a1a1a; }
+        :root[data-theme="light"] .loading { color: var(--text-secondary); }
+        :root[data-theme="light"] .loading .timer { color: #b8a576; }
+        :root[data-theme="light"] #result.success { background: #ecfdf5; border-color: var(--success); color: #065f46; }
+        :root[data-theme="light"] #result.error { background: var(--error-bg); border-color: var(--error-border); color: var(--error-text); }
+        :root[data-theme="light"] #result b { color: var(--text-primary); }
+        :root[data-theme="light"] .reset-btn button { border-color: var(--border); color: var(--text-secondary); background: #ffffff; }
+        :root[data-theme="light"] .reset-btn button:hover { border-color: var(--accent); color: var(--accent); }
+        :root[data-theme="light"] header p { color: var(--text-secondary); }
+        :root[data-theme="light"] .status-line { color: var(--text-secondary); }
+        :root[data-theme="light"] .theme-toggle { border-color: rgba(212, 175, 55, 0.35); color: #8a7754; }
+        :root[data-theme="light"] .theme-toggle:hover { border-color: rgba(212, 175, 55, 0.7); color: #2d2416; box-shadow: 0 0 16px rgba(212, 175, 55, 0.25); }
+        :root[data-theme="light"] .theme-toggle .theme-icon-sun { display: none; }
+        :root[data-theme="light"] .theme-toggle .theme-icon-moon { display: inline-flex; }
     </style>
     <script src="_config.js"></script>
     <script src="_shared.js"></script>
 </head>
 <body>
     <a class="btn-home" href="../GigaChat-Platform.html"><span class="arrow">&#8592;</span>GigaChat</a>
+    <button class="theme-toggle" onclick="GigaChat.toggleTheme()" title="Сменить тему" aria-label="Сменить тему">
+        <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
+        <svg class="theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
     <div class="container">
         <header>
             <h1>Поиск ФИО в документах</h1>
