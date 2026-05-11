@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>RAG-Агент — GigaChat</title>
+    <title>Агент по документам — GigaChat</title>
     <style>
         :root {
             --bg-primary: #140f1e;
@@ -136,7 +136,7 @@
     </div>
     <div class="main">
         <header>
-            <div class="header-left"><h1>RAG-Агент — GigaChat</h1></div>
+            <div class="header-left"><h1>Агент по документам — GigaChat</h1></div>
             <div class="header-right">
                 <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
                 <button class="btn-export" onclick="exportChat()">Экспорт</button>
@@ -336,7 +336,7 @@
             }
             var lines = ['=== ' + sessionName + ' ===', 'Экспорт: ' + new Date().toLocaleString('ru-RU'), ''];
             for (var j = 0; j < displayMessages.length; j++) {
-                lines.push('[' + (displayMessages[j].role === 'user' ? 'Вы' : 'RAG-Агент') + ']');
+                lines.push('[' + (displayMessages[j].role === 'user' ? 'Вы' : 'Агент по документам') + ']');
                 lines.push(displayMessages[j].content); lines.push('');
             }
             var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
