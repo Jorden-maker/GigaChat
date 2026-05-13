@@ -25,7 +25,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        280,
         300
       ],
       "id": "sql-val-0001",
@@ -59,7 +59,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        440,
+        560,
         300
       ],
       "id": "sql-if-valid-0001",
@@ -74,7 +74,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        660,
+        840,
         520
       ],
       "id": "sql-err-val-0001",
@@ -87,8 +87,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        660,
-        300
+        1680,
+        80
       ],
       "id": "sql-cls-0001",
       "name": "Классификатор"
@@ -128,8 +128,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        880,
-        300
+        1960,
+        80
       ],
       "id": "sql-switch-0001",
       "name": "Switch"
@@ -160,8 +160,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1100,
-        160
+        2240,
+        -140
       ],
       "id": "sql-gen-general-0001",
       "name": "Ответ GENERAL",
@@ -180,8 +180,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        160
+        2520,
+        -140
       ],
       "id": "sql-check-gen-0001",
       "name": "Проверка ответа GEN"
@@ -195,8 +195,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1760,
-        160
+        3080,
+        -140
       ],
       "id": "sql-resp-gen-0001",
       "name": "Ответ: GENERAL"
@@ -227,8 +227,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1100,
-        440
+        2240,
+        300
       ],
       "id": "sql-gen-sql-0001",
       "name": "Генерация SQL",
@@ -247,8 +247,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        440
+        2520,
+        300
       ],
       "id": "sql-clean-0001",
       "name": "Очистка SQL"
@@ -262,8 +262,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1540,
-        440
+        2800,
+        300
       ],
       "id": "sql-exec-0001",
       "name": "Выполнить SQL",
@@ -302,8 +302,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1760,
-        440
+        3080,
+        300
       ],
       "id": "sql-format-0001",
       "name": "Форматирование",
@@ -322,8 +322,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1980,
-        440
+        3360,
+        300
       ],
       "id": "sql-check-sql-0001",
       "name": "Проверка ответа SQL"
@@ -337,8 +337,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2420,
-        440
+        3920,
+        300
       ],
       "id": "sql-resp-sql-0001",
       "name": "Ответ: SQL"
@@ -352,8 +352,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        660,
-        300
+        840,
+        80
       ],
       "id": "sql-load-history-0001",
       "name": "Загрузить историю",
@@ -373,8 +373,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
-        300
+        1120,
+        80
       ],
       "id": "sql-aggregate-0001",
       "name": "Агрегация"
@@ -388,8 +388,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1100,
-        300
+        1400,
+        80
       ],
       "id": "sql-save-question-0001",
       "name": "Сохранить вопрос",
@@ -411,8 +411,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1540,
-        160
+        2800,
+        -140
       ],
       "id": "sql-save-resp-gen-0001",
       "name": "Сохранить ответ GEN",
@@ -434,8 +434,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2200,
-        440
+        3640,
+        300
       ],
       "id": "sql-save-resp-sql-0001",
       "name": "Сохранить ответ SQL",

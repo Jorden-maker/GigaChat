@@ -12,7 +12,7 @@
       "typeVersion": 2.1,
       "position": [
         0,
-        0
+        300
       ],
       "id": "a1b2c3d4-0001-4000-8000-000000000001",
       "name": "Webhook OCR",
@@ -25,8 +25,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        260,
-        0
+        280,
+        300
       ],
       "id": "a1b2c3d4-0002-4000-8000-000000000002",
       "name": "Валидация файла"
@@ -56,8 +56,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        500,
-        0
+        560,
+        300
       ],
       "id": "a1b2c3d4-0003-4000-8000-000000000003",
       "name": "Проверка файла"
@@ -84,8 +84,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        760,
-        -100
+        840,
+        80
       ],
       "id": "a1b2c3d4-0004-4000-8000-000000000004",
       "name": "OCR Распознавание",
@@ -99,8 +99,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1000,
-        -100
+        1120,
+        80
       ],
       "id": "a1b2c3d4-0005-4000-8000-000000000005",
       "name": "Извлечь текст"
@@ -130,8 +130,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1240,
-        -100
+        1400,
+        80
       ],
       "id": "a1b2c3d4-0006-4000-8000-000000000006",
       "name": "Проверка текста"
@@ -162,8 +162,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1500,
-        -200
+        1680,
+        -140
       ],
       "id": "a1b2c3d4-0007-4000-8000-000000000007",
       "name": "Найти ФИО",
@@ -182,8 +182,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1760,
-        -200
+        1960,
+        -140
       ],
       "id": "a1b2c3d4-0008-4000-8000-000000000008",
       "name": "Проверка ответа"
@@ -197,8 +197,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2020,
-        -200
+        2240,
+        -140
       ],
       "id": "a1b2c3d4-0009-4000-8000-000000000009",
       "name": "Ответ"
@@ -212,8 +212,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        760,
-        160
+        840,
+        520
       ],
       "id": "a1b2c3d4-0010-4000-8000-000000000010",
       "name": "Ответ: нет файла"
@@ -227,8 +227,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1500,
-        60
+        1680,
+        300
       ],
       "id": "a1b2c3d4-0011-4000-8000-000000000011",
       "name": "Ответ: OCR не распознал"

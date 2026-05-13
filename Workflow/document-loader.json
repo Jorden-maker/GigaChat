@@ -10,7 +10,10 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [0, 0],
+      "position": [
+        0,
+        300
+      ],
       "id": "dl-0001-0001-0001-000000000001",
       "name": "Webhook Upload",
       "webhookId": "a1b2c3d4-upload-doc-webhook-001"
@@ -21,20 +24,29 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [260, 0],
+      "position": [
+        280,
+        300
+      ],
       "id": "dl-0002-0002-0002-000000000002",
       "name": "Валидация файла"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
           "conditions": [
             {
               "id": "cond-valid-dl",
               "leftValue": "={{ $json.valid }}",
               "rightValue": "",
-              "operator": { "type": "boolean", "operation": "true" }
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -43,7 +55,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [500, 0],
+      "position": [
+        560,
+        300
+      ],
       "id": "dl-0003-0003-0003-000000000003",
       "name": "Файл есть?"
     },
@@ -62,11 +77,16 @@
             }
           ]
         },
-        "options": { "timeout": 120000 }
+        "options": {
+          "timeout": 120000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [760, -100],
+      "position": [
+        840,
+        80
+      ],
       "id": "dl-0004-0004-0004-000000000004",
       "name": "OCR Распознавание",
       "alwaysOutputData": true,
@@ -78,20 +98,29 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, -100],
+      "position": [
+        1120,
+        80
+      ],
       "id": "dl-0005-0005-0005-000000000005",
       "name": "Извлечь текст"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
           "conditions": [
             {
               "id": "cond-text-dl",
               "leftValue": "={{ $json.has_text }}",
               "rightValue": "",
-              "operator": { "type": "boolean", "operation": "true" }
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -100,7 +129,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1240, -100],
+      "position": [
+        1400,
+        80
+      ],
       "id": "dl-0006-0006-0006-000000000006",
       "name": "Текст есть?"
     },
@@ -110,14 +142,17 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1500, -200],
+      "position": [
+        1680,
+        -140
+      ],
       "id": "dl-0007-0007-0007-000000000007",
       "name": "Нарезка на куски"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://GIGACHAT_HOST:PORT/v1/db/vector/doc/",
+        "url": "http://EMBED_HOST:8001/embed",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -129,12 +164,17 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'Embeddings', input: $json.chunk_text }) }}",
-        "options": { "timeout": 60000 }
+        "jsonBody": "={{ JSON.stringify({ input: $json.chunk_text, type: 'passage' }) }}",
+        "options": {
+          "timeout": 60000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1760, -200],
+      "position": [
+        1960,
+        -140
+      ],
       "id": "dl-0008-0008-0008-000000000008",
       "name": "Эмбеддинг",
       "alwaysOutputData": true,
@@ -146,7 +186,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2020, -200],
+      "position": [
+        2240,
+        -140
+      ],
       "id": "dl-0009-0009-0009-000000000009",
       "name": "Подготовка SQL"
     },
@@ -158,7 +201,10 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2280, -200],
+      "position": [
+        2520,
+        -140
+      ],
       "id": "dl-0010-0010-0010-000000000010",
       "name": "Записать в PGVector",
       "credentials": {
@@ -176,7 +222,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2540, -200],
+      "position": [
+        2800,
+        -140
+      ],
       "id": "dl-0011-0011-0011-000000000011",
       "name": "Агрегация результатов"
     },
@@ -188,7 +237,10 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [2800, -200],
+      "position": [
+        3080,
+        -140
+      ],
       "id": "dl-0012-0012-0012-000000000012",
       "name": "Ответ: Успех"
     },
@@ -200,7 +252,10 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [760, 160],
+      "position": [
+        840,
+        520
+      ],
       "id": "dl-0013-0013-0013-000000000013",
       "name": "Ответ: Нет файла"
     },
@@ -212,7 +267,10 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1500, 60],
+      "position": [
+        1680,
+        300
+      ],
       "id": "dl-0014-0014-0014-000000000014",
       "name": "Ответ: OCR ошибка"
     }
@@ -222,83 +280,135 @@
     "Webhook Upload": {
       "main": [
         [
-          { "node": "Валидация файла", "type": "main", "index": 0 }
+          {
+            "node": "Валидация файла",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Валидация файла": {
       "main": [
         [
-          { "node": "Файл есть?", "type": "main", "index": 0 }
+          {
+            "node": "Файл есть?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Файл есть?": {
       "main": [
         [
-          { "node": "OCR Распознавание", "type": "main", "index": 0 }
+          {
+            "node": "OCR Распознавание",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Ответ: Нет файла", "type": "main", "index": 0 }
+          {
+            "node": "Ответ: Нет файла",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "OCR Распознавание": {
       "main": [
         [
-          { "node": "Извлечь текст", "type": "main", "index": 0 }
+          {
+            "node": "Извлечь текст",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Извлечь текст": {
       "main": [
         [
-          { "node": "Текст есть?", "type": "main", "index": 0 }
+          {
+            "node": "Текст есть?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Текст есть?": {
       "main": [
         [
-          { "node": "Нарезка на куски", "type": "main", "index": 0 }
+          {
+            "node": "Нарезка на куски",
+            "type": "main",
+            "index": 0
+          }
         ],
         [
-          { "node": "Ответ: OCR ошибка", "type": "main", "index": 0 }
+          {
+            "node": "Ответ: OCR ошибка",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Нарезка на куски": {
       "main": [
         [
-          { "node": "Эмбеддинг", "type": "main", "index": 0 }
+          {
+            "node": "Эмбеддинг",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Эмбеддинг": {
       "main": [
         [
-          { "node": "Подготовка SQL", "type": "main", "index": 0 }
+          {
+            "node": "Подготовка SQL",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Подготовка SQL": {
       "main": [
         [
-          { "node": "Записать в PGVector", "type": "main", "index": 0 }
+          {
+            "node": "Записать в PGVector",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Записать в PGVector": {
       "main": [
         [
-          { "node": "Агрегация результатов", "type": "main", "index": 0 }
+          {
+            "node": "Агрегация результатов",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Агрегация результатов": {
       "main": [
         [
-          { "node": "Ответ: Успех", "type": "main", "index": 0 }
+          {
+            "node": "Ответ: Успех",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     }

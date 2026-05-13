@@ -25,7 +25,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        280,
         300
       ],
       "id": "history-val-0001",
@@ -59,7 +59,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        440,
+        560,
         300
       ],
       "id": "history-if-valid-0001",
@@ -74,7 +74,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        660,
+        840,
         520
       ],
       "id": "history-err-0001",
@@ -89,8 +89,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        660,
-        300
+        840,
+        80
       ],
       "id": "history-load-0001",
       "name": "Загрузить историю",
@@ -110,8 +110,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
-        300
+        1120,
+        80
       ],
       "id": "history-format-0001",
       "name": "Форматирование"
@@ -125,8 +125,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1100,
-        300
+        1400,
+        80
       ],
       "id": "history-resp-0001",
       "name": "Ответ"

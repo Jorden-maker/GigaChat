@@ -76,26 +76,7 @@
     });
   }
 
-  // Markdown → HTML (заголовки, code, **bold**, *italic*, списки, ---).
-  // accentColor — цвет заголовков, чтобы агент сохранял свой стиль.
-  function formatMarkdown(text, accentColor) {
-    if (!text) return '';
-    accentColor = accentColor || '#7c3aed';
-    var html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function (m, l, c) { return '<pre><code>' + c.trim() + '</code></pre>'; });
-    html = html.replace(/^#### (.+)$/gm, '<b style="font-size:14px;color:' + accentColor + '">$1</b>');
-    html = html.replace(/^### (.+)$/gm, '<b style="font-size:15px;color:' + accentColor + '">$1</b>');
-    html = html.replace(/^## (.+)$/gm, '<b style="font-size:16px;color:' + accentColor + '">$1</b>');
-    html = html.replace(/^# (.+)$/gm, '<b style="font-size:18px;color:' + accentColor + '">$1</b>');
-    html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-    html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
-    html = html.replace(/`(.+?)`/g, '<code>$1</code>');
-    html = html.replace(/^- (.+)$/gm, '  • $1');
-    html = html.replace(/^---$/gm, '<hr>');
-    return html;
-  }
-
-  // Markdown-таблица → HTML <table>. Исправлена сломанная регулярка из sql-agent.
+  // Markdown-таблица → HTML <table>. Должна работать ДО конвертации \n в <br>.
   function formatMarkdownTable(text) {
     return text.replace(/((.+\|)\n(\|[-:\| ]+\|)\n((.+\|\n?)+))/g, function (match) {
       var rows = match.trim().split('\n');
@@ -110,6 +91,50 @@
       }
       return table + '</table>';
     });
+  }
+
+  // Markdown → HTML (заголовки, code, **bold**, *italic*, списки, ---, таблицы, переносы строк).
+  // accentColor — цвет заголовков, чтобы агент сохранял свой стиль.
+  function formatMarkdown(text, accentColor) {
+    if (!text) return '';
+    accentColor = accentColor || '#7c3aed';
+    var html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // 1) Защищаем блоки кода плейсхолдерами, чтобы \n внутри них не превращались в <br>.
+    var codeBlocks = [];
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function (m, l, c) {
+      var idx = codeBlocks.length;
+      codeBlocks.push('<pre><code>' + c.trim() + '</code></pre>');
+      return 'CB' + idx + '';
+    });
+
+    // 2) Markdown-таблицы → HTML (до конвертации \n в <br>, регулярка зависит от \n).
+    html = formatMarkdownTable(html);
+
+    // 3) Заголовки, жирный, курсив, инлайн-код, списки, hr.
+    html = html.replace(/^#### (.+)$/gm, '<b style="font-size:14px;color:' + accentColor + '">$1</b>');
+    html = html.replace(/^### (.+)$/gm, '<b style="font-size:15px;color:' + accentColor + '">$1</b>');
+    html = html.replace(/^## (.+)$/gm, '<b style="font-size:16px;color:' + accentColor + '">$1</b>');
+    html = html.replace(/^# (.+)$/gm, '<b style="font-size:18px;color:' + accentColor + '">$1</b>');
+    html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
+    html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+    html = html.replace(/^- (.+)$/gm, '  • $1');
+    html = html.replace(/^---$/gm, '<hr>');
+
+    // 4) Переносы строк \n → <br>.
+    html = html.replace(/\n/g, '<br>');
+
+    // 5) Убираем лишние <br> вокруг блочных элементов (таблицы, hr).
+    html = html.replace(/(<\/?(?:table|thead|tbody|tr|th|td)>)\s*<br>/g, '$1');
+    html = html.replace(/<br>\s*(<\/?(?:table|thead|tbody|tr|th|td)>)/g, '$1');
+    html = html.replace(/<hr><br>/g, '<hr>');
+
+    // 6) Восстанавливаем блоки кода (их \n браузер сам сохранит внутри <pre>).
+    html = html.replace(/CB(\d+)/g, function (m, i) {
+      return codeBlocks[parseInt(i, 10)];
+    });
+    return html;
   }
 
   // Переключение темы: меняет атрибут data-theme на <html> и сохраняет выбор.

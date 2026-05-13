@@ -25,7 +25,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        280,
         300
       ],
       "id": "math-0002-0002-0002-000000000002",
@@ -59,7 +59,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        440,
+        560,
         300
       ],
       "id": "math-0003-0003-0003-000000000003",
@@ -74,7 +74,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        660,
+        840,
         520
       ],
       "id": "math-0004-0004-0004-000000000004",
@@ -87,8 +87,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        660,
-        300
+        1680,
+        80
       ],
       "id": "math-cls-0001",
       "name": "Классификатор"
@@ -128,8 +128,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        880,
-        300
+        1960,
+        80
       ],
       "id": "math-switch-0001",
       "name": "Switch"
@@ -160,8 +160,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1100,
-        160
+        2240,
+        -140
       ],
       "id": "math-gen-0001",
       "name": "Ответ GENERAL",
@@ -180,8 +180,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        160
+        2520,
+        -140
       ],
       "id": "math-gen-0002",
       "name": "Проверка ответа GEN"
@@ -195,8 +195,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1760,
-        160
+        3080,
+        -140
       ],
       "id": "math-gen-0003",
       "name": "Ответ: GENERAL"
@@ -227,8 +227,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1100,
-        440
+        2240,
+        300
       ],
       "id": "math-0005-0005-0005-000000000005",
       "name": "Генерация кода",
@@ -247,8 +247,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        440
+        2520,
+        300
       ],
       "id": "math-0006-0006-0006-000000000006",
       "name": "Проверка кода"
@@ -281,8 +281,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1540,
-        440
+        2800,
+        300
       ],
       "id": "math-0007-0007-0007-000000000007",
       "name": "Код безопасен?"
@@ -294,8 +294,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1760,
-        340
+        3080,
+        80
       ],
       "id": "math-0008-0008-0008-000000000008",
       "name": "Выполнить код"
@@ -326,8 +326,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        2000,
-        340
+        3360,
+        80
       ],
       "id": "math-0009-0009-0009-000000000009",
       "name": "Объяснение результата",
@@ -346,8 +346,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2220,
-        340
+        3640,
+        80
       ],
       "id": "math-0010-0010-0010-000000000010",
       "name": "Проверка ответа"
@@ -361,8 +361,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2440,
-        340
+        4200,
+        80
       ],
       "id": "math-0011-0011-0011-000000000011",
       "name": "Ответ: результат"
@@ -376,8 +376,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1760,
-        560
+        3360,
+        520
       ],
       "id": "math-0012-0012-0012-000000000012",
       "name": "Ответ: код опасен"
@@ -391,8 +391,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        660,
-        300
+        840,
+        80
       ],
       "id": "math-load-history-0001",
       "name": "Загрузить историю",
@@ -412,8 +412,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
-        300
+        1120,
+        80
       ],
       "id": "math-aggregate-0001",
       "name": "Агрегация"
@@ -427,8 +427,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1100,
-        300
+        1400,
+        80
       ],
       "id": "math-save-question-0001",
       "name": "Сохранить вопрос",
@@ -450,8 +450,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1540,
-        160
+        2800,
+        -140
       ],
       "id": "math-save-resp-gen-0001",
       "name": "Сохранить ответ GEN",
@@ -473,8 +473,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2440,
-        340
+        3920,
+        80
       ],
       "id": "math-save-resp-math-0001",
       "name": "Сохранить ответ MATH",
@@ -496,8 +496,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1760,
-        560
+        3080,
+        520
       ],
       "id": "math-save-resp-unsafe-0001",
       "name": "Сохранить ответ UNSAFE",

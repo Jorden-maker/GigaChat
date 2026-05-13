@@ -27,7 +27,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        280,
         300
       ]
     },
@@ -61,7 +61,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        440,
+        560,
         300
       ]
     },
@@ -74,8 +74,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        660,
-        300
+        1680,
+        80
       ]
     },
     {
@@ -115,8 +115,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        880,
-        300
+        1960,
+        80
       ]
     },
     {
@@ -147,8 +147,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1100,
-        160
+        2240,
+        -140
       ],
       "credentials": {
         "openAiApi": {
@@ -167,8 +167,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        160
+        2520,
+        -140
       ]
     },
     {
@@ -182,8 +182,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1760,
-        160
+        3080,
+        -140
       ]
     },
     {
@@ -214,8 +214,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1100,
-        440
+        2240,
+        300
       ],
       "credentials": {
         "openAiApi": {
@@ -234,8 +234,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        440
+        2520,
+        300
       ]
     },
     {
@@ -249,8 +249,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1760,
-        440
+        3080,
+        300
       ]
     },
     {
@@ -264,7 +264,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        660,
+        840,
         520
       ]
     },
@@ -277,8 +277,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        660,
-        300
+        840,
+        80
       ],
       "id": "pe-load-history-0001",
       "name": "Загрузить историю",
@@ -298,8 +298,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
-        300
+        1120,
+        80
       ],
       "id": "pe-aggregate-0001",
       "name": "Агрегация"
@@ -313,8 +313,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1100,
-        300
+        1400,
+        80
       ],
       "id": "pe-save-question-0001",
       "name": "Сохранить вопрос",
@@ -336,8 +336,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1540,
-        160
+        2800,
+        -140
       ],
       "id": "pe-save-resp-gen-0001",
       "name": "Сохранить ответ GEN",
@@ -359,8 +359,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1540,
-        440
+        2800,
+        300
       ],
       "id": "pe-save-resp-task-0001",
       "name": "Сохранить ответ TASK",

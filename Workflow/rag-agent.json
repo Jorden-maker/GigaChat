@@ -25,7 +25,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        280,
         300
       ],
       "id": "rag-val-0001",
@@ -59,7 +59,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        440,
+        560,
         300
       ],
       "id": "rag-if-valid-0001",
@@ -74,7 +74,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        660,
+        840,
         520
       ],
       "id": "rag-err-val-0001",
@@ -87,8 +87,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        660,
-        300
+        1680,
+        80
       ],
       "id": "rag-cls-0001",
       "name": "Классификатор"
@@ -128,8 +128,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        880,
-        300
+        1960,
+        80
       ],
       "id": "rag-switch-0001",
       "name": "Switch"
@@ -160,8 +160,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1100,
-        160
+        2240,
+        -140
       ],
       "id": "rag-gen-general-0001",
       "name": "Ответ GENERAL",
@@ -180,8 +180,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        160
+        2520,
+        -140
       ],
       "id": "rag-check-gen-0001",
       "name": "Проверка ответа GEN"
@@ -195,8 +195,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1760,
-        160
+        3080,
+        -140
       ],
       "id": "rag-resp-gen-0001",
       "name": "Ответ: GENERAL"
@@ -204,7 +204,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://GIGACHAT_HOST:PORT/v1/db/vector/doc/",
+        "url": "http://EMBED_HOST:8001/embed",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -216,7 +216,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'Embeddings', input: $('Валидация').first().json.message }) }}",
+        "jsonBody": "={{ JSON.stringify({ input: $('Валидация').first().json.message, type: 'query' }) }}",
         "options": {
           "timeout": 60000
         }
@@ -224,8 +224,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1100,
-        440
+        2240,
+        300
       ],
       "id": "rag-embed-0001",
       "name": "Эмбеддинг вопроса",
@@ -239,8 +239,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        440
+        2520,
+        300
       ],
       "id": "rag-build-search-0001",
       "name": "Построить поиск"
@@ -254,8 +254,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1540,
-        440
+        2800,
+        300
       ],
       "id": "rag-search-0001",
       "name": "Поиск в документах",
@@ -275,8 +275,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1760,
-        440
+        3080,
+        300
       ],
       "id": "rag-check-docs-0001",
       "name": "Проверка документов"
@@ -316,8 +316,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        1980,
-        440
+        3360,
+        300
       ],
       "id": "rag-docs-switch-0001",
       "name": "Есть документы?"
@@ -348,8 +348,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        2200,
-        360
+        3640,
+        80
       ],
       "id": "rag-gen-doc-0001",
       "name": "Генерация ответа",
@@ -368,8 +368,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2420,
-        360
+        3920,
+        80
       ],
       "id": "rag-check-doc-0001",
       "name": "Проверка ответа DOC"
@@ -383,8 +383,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2860,
-        360
+        4480,
+        80
       ],
       "id": "rag-resp-doc-0001",
       "name": "Ответ: DOC"
@@ -398,8 +398,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2200,
-        560
+        3920,
+        520
       ],
       "id": "rag-resp-fallback-0001",
       "name": "Ответ: нет документов"
@@ -413,8 +413,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        660,
-        300
+        840,
+        80
       ],
       "id": "rag-load-history-0001",
       "name": "Загрузить историю",
@@ -434,8 +434,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
-        300
+        1120,
+        80
       ],
       "id": "rag-aggregate-0001",
       "name": "Агрегация"
@@ -449,8 +449,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1100,
-        300
+        1400,
+        80
       ],
       "id": "rag-save-question-0001",
       "name": "Сохранить вопрос",
@@ -472,8 +472,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1540,
-        160
+        2800,
+        -140
       ],
       "id": "rag-save-resp-gen-0001",
       "name": "Сохранить ответ GEN",
@@ -495,8 +495,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2640,
-        360
+        4200,
+        80
       ],
       "id": "rag-save-resp-doc-0001",
       "name": "Сохранить ответ DOC",
@@ -518,8 +518,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2200,
-        560
+        3640,
+        520
       ],
       "id": "rag-save-resp-nodocs-0001",
       "name": "Сохранить ответ NO-DOCS",
