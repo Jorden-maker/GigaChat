@@ -6,6 +6,14 @@
 #   - workflow с таким именем нет               -> создаётся (POST)
 # Дубликатов не будет. Привязанные в UI credentials сохраняются при обновлении.
 #
+# Префикс: все workflow получают одинаковый префикс в имени (например [GigaChat]),
+# чтобы визуально группироваться в списке n8n. Если префикс пустая строка ""
+# — префиксование отключено.
+#
+# Если ранее workflow был импортирован без префикса (старая версия скрипта),
+# при следующем запуске он будет переименован с добавлением префикса
+# (без создания дубля).
+#
 # КОГДА запускать: после любого изменения .json в папке Workflow/,
 #                  чтобы синхронизировать n8n с локальными файлами.
 #
@@ -15,7 +23,7 @@
 #   - API-ключ из n8n: Settings -> API -> Create an API key
 #
 # Использование:
-#   1. Поправь три переменные ниже под свою среду.
+#   1. Поправь переменные в блоке "НАСТРОЙКИ" ниже под свою среду.
 #   2. Из PowerShell:  .\import-workflows.ps1
 # =============================================================================
 
@@ -23,6 +31,7 @@
 $folder = "C:\Users\Lenovo\Desktop\GigaChat\Workflow"   # путь к папке с .json
 $n8n    = "http://localhost:5678"                       # URL n8n БЕЗ слеша на конце
 $apiKey = ""                                            # вставь сюда API-ключ из n8n
+$prefix = "[GigaChat] "                                 # префикс имени, "" чтобы отключить
 # -------------------
 
 if ([string]::IsNullOrWhiteSpace($apiKey)) {
@@ -63,6 +72,9 @@ foreach ($wf in $list.data) {
     $existing[$wf.name] = $wf.id
 }
 Write-Host "    Найдено workflow в n8n: $($existing.Count)"
+if ($prefix) {
+    Write-Host "    Префикс имени: `"$prefix`""
+}
 Write-Host ""
 
 Write-Host "==> Синхронизация $($jsonFiles.Count) .json файлов с n8n" -ForegroundColor Cyan
@@ -71,6 +83,7 @@ Write-Host ""
 $allowed = @('name', 'nodes', 'connections', 'settings')
 $created = 0
 $updated = 0
+$renamed = 0
 $failed = 0
 
 foreach ($file in $jsonFiles) {
@@ -91,23 +104,47 @@ foreach ($file in $jsonFiles) {
             $clean['settings'] = @{}
         }
 
-        $name = $clean['name']
+        # Имя из JSON. Чистим возможный старый префикс, потом добавляем актуальный.
+        # Так script идемпотентен: повторный запуск не приведёт к "[GigaChat] [GigaChat] ...".
+        $baseName = [string]$clean['name']
+        if ($prefix -and $baseName.StartsWith($prefix)) {
+            $baseName = $baseName.Substring($prefix.Length)
+        }
+        $desiredName = if ($prefix) { $prefix + $baseName } else { $baseName }
+        $clean['name'] = $desiredName
+
         $body = $clean | ConvertTo-Json -Depth 100 -Compress
         # Кириллицу — в UTF-8 байты явно, иначе Invoke-RestMethod может побить
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
 
-        if ($existing.ContainsKey($name)) {
-            # Обновление существующего workflow через PUT
-            $id = $existing[$name]
+        # Решение «создавать или обновлять»:
+        # 1) Сначала ищем по «желаемому» имени (с префиксом).
+        # 2) Если не нашли — ищем по голому имени (без префикса) — это случай миграции
+        #    со старой версии скрипта без префикса. Найденный workflow PUT-ится
+        #    с новым именем (с префиксом).
+        $targetId = $null
+        $isRename = $false
+        if ($existing.ContainsKey($desiredName)) {
+            $targetId = $existing[$desiredName]
+        } elseif ($prefix -and $existing.ContainsKey($baseName)) {
+            $targetId = $existing[$baseName]
+            $isRename = $true
+        }
+
+        if ($targetId) {
             $response = Invoke-RestMethod -Method PUT `
-                -Uri "$n8n/api/v1/workflows/$id" `
+                -Uri "$n8n/api/v1/workflows/$targetId" `
                 -Headers $headers `
                 -ContentType "application/json; charset=utf-8" `
                 -Body $bytes
-            Write-Host "  UPDATED -> id: $($response.id), name: $($response.name)" -ForegroundColor Yellow
-            $updated++
+            if ($isRename) {
+                Write-Host "  RENAMED -> id: $($response.id), name: $($response.name)" -ForegroundColor Magenta
+                $renamed++
+            } else {
+                Write-Host "  UPDATED -> id: $($response.id), name: $($response.name)" -ForegroundColor Yellow
+                $updated++
+            }
         } else {
-            # Создание нового workflow через POST
             $response = Invoke-RestMethod -Method POST `
                 -Uri "$n8n/api/v1/workflows" `
                 -Headers $headers `
@@ -134,13 +171,17 @@ foreach ($file in $jsonFiles) {
 Write-Host ""
 Write-Host "=============================================================" -ForegroundColor Green
 Write-Host " ИТОГ:" -ForegroundColor Green
-Write-Host "   создано:    $created" -ForegroundColor Green
-Write-Host "   обновлено:  $updated" -ForegroundColor Yellow
-Write-Host "   ошибок:     $failed" -ForegroundColor $(if ($failed) { 'Red' } else { 'DarkGray' })
+Write-Host "   создано:           $created" -ForegroundColor Green
+Write-Host "   обновлено:         $updated" -ForegroundColor Yellow
+if ($renamed -gt 0) {
+    Write-Host "   переименовано:     $renamed   (старый workflow без префикса дополнен префиксом)" -ForegroundColor Magenta
+}
+Write-Host "   ошибок:            $failed" -ForegroundColor $(if ($failed) { 'Red' } else { 'DarkGray' })
 Write-Host "=============================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host " ЧТО ДАЛЬШЕ:"
 Write-Host " 1. Обнови страницу n8n (F5)."
 Write-Host " 2. Для НОВЫХ workflow привяжи credentials в узлах и активируй."
-Write-Host "    Для ОБНОВЛЁННЫХ — credentials остались, ничего делать не надо."
+Write-Host "    Для ОБНОВЛЁННЫХ / ПЕРЕИМЕНОВАННЫХ — credentials остались,"
+Write-Host "    ничего делать не надо."
 Write-Host "=============================================================" -ForegroundColor Green
