@@ -273,6 +273,8 @@
 
         .card-docs::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
         .card-docs:hover { box-shadow: 0 8px 40px rgba(245,158,11,0.12); }
+        .card-extract::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .card-extract:hover { box-shadow: 0 8px 40px rgba(245,158,11,0.12); }
 
         .card-icon {
             width: 48px; height: 48px;
@@ -300,6 +302,7 @@
         .card-ocr .card-icon { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.15)); color: #f59e0b; }
         .card-chat .card-icon { background: linear-gradient(135deg, rgba(14,165,233,0.15), rgba(56,189,248,0.15)); color: #0ea5e9; }
         .card-docs .card-icon { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.15)); color: #f59e0b; }
+        .card-extract .card-icon { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.15)); color: #f59e0b; }
 
         .card-title {
             font-size: 17px;
@@ -316,6 +319,7 @@
         .card-ocr .card-title { color: #f59e0b; }
         .card-chat .card-title { color: #0ea5e9; }
         .card-docs .card-title { color: #f59e0b; }
+        .card-extract .card-title { color: #f59e0b; }
 
         .card-desc {
             font-size: 13px;
@@ -342,6 +346,7 @@
         .card-ocr .card-tag { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
         .card-chat .card-tag { background: rgba(14,165,233,0.1); color: #0ea5e9; border: 1px solid rgba(14,165,233,0.2); }
         .card-docs .card-tag { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+        .card-extract .card-tag { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
 
         .card-arrow {
             position: absolute;
@@ -630,6 +635,15 @@
             <span class="card-tag">База данных</span>
         </a>
 
+        <a class="card card-extract" href="Agents/text-extractor.html" id="card-extract">
+            <div class="card-status checking" id="status-extract"></div>
+            <span class="card-arrow">&#8594;</span>
+            <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="8" y1="9" x2="10" y2="9"/></svg></div>
+            <div class="card-title">Извлечение текста</div>
+            <div class="card-desc">PDF, изображения, Word, Excel, CSV — в чистый текст с форматированием</div>
+            <span class="card-tag">Извлечение</span>
+        </a>
+
     </div>
 
     <div class="footer">
@@ -647,7 +661,8 @@
         { id: 'prompt', webhook: GigaChat.webhookUrl('prompt-engineer') },
         { id: 'chat',   webhook: GigaChat.webhookUrl('chat') },
         { id: 'ocr',    webhook: GigaChat.webhookUrl('ocr') },
-        { id: 'docs',   webhook: GigaChat.webhookUrl('upload-doc') }
+        { id: 'docs',   webhook: GigaChat.webhookUrl('upload-doc') },
+        { id: 'extract', webhook: GigaChat.webhookUrl('extract-text') }
     ];
 
     document.getElementById('currentYear').textContent = new Date().getFullYear();

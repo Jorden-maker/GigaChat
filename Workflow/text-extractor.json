@@ -1,0 +1,305 @@
+{
+  "name": "Извлечение текста. Поток",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "extract-text",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 300],
+      "id": "te-0001-webhook",
+      "name": "Webhook Extract",
+      "webhookId": "extract-text-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Определяем тип файла, валидируем размер.\n// Маршруты:\n//   ocr     — image/* | pdf | doc | docx | rtf | odt   (через OCR-сервис)\n//   text    — text/plain, .txt, .md, .log              (читаем как есть)\n//   table   — .xlsx, .xls, .csv                         (Spreadsheet File node)\nconst item = $input.first();\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  return [{ json: { valid: false, error: 'Файл не загружен. Прикрепите файл.', route: 'error' } }];\n}\n\nconst key = Object.keys(binary)[0];\nconst info = binary[key];\nconst fileName = info.fileName || 'unknown';\nconst mimeType = (info.mimeType || '').toLowerCase();\nconst fileSize = info.fileSize || 0;\n\nif (fileSize > 50 * 1024 * 1024) {\n  return [{ json: { valid: false, error: 'Файл слишком большой (макс. 50 МБ).', route: 'error' } }];\n}\n\nconst ext = (fileName.split('.').pop() || '').toLowerCase();\n\nlet route = 'ocr';\nif (mimeType.startsWith('text/plain') || ['txt','md','log'].includes(ext)) {\n  route = 'text';\n} else if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || ['xlsx','xls','csv'].includes(ext)) {\n  route = 'table';\n} else if (mimeType.startsWith('image/') || mimeType.includes('pdf') || mimeType.includes('msword') || mimeType.includes('wordprocessing') || mimeType.includes('officedocument.wordprocessing') || ['pdf','doc','docx','rtf','odt','jpg','jpeg','png','tiff','tif','bmp','webp','gif','heic'].includes(ext)) {\n  route = 'ocr';\n} else {\n  // По умолчанию пытаемся OCR — он покрывает большинство типовых документов.\n  route = 'ocr';\n}\n\nreturn [{\n  json: {\n    valid: true,\n    binaryKey: key,\n    fileName: fileName,\n    mimeType: mimeType,\n    fileSize: fileSize,\n    extension: ext,\n    route: route\n  },\n  binary: binary\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 300],
+      "id": "te-0002-validate",
+      "name": "Валидация и тип"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-valid-te",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [560, 300],
+      "id": "te-0003-if-valid",
+      "name": "Файл валиден?"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "ocr",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-ocr"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-text"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "table",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-table"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [840, 80],
+      "id": "te-0004-route",
+      "name": "Маршрут"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/v1/file/text/",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "file"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, -140],
+      "id": "te-0005-ocr",
+      "name": "OCR Распознавание",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Извлекаем текст из ответа OCR (тот же парсер форматов что в document-loader).\ntry {\n  const data = $input.first().json;\n  if (data.error) {\n    const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));\n    return [{ json: { ok: false, error: 'OCR ошибка: ' + msg } }];\n  }\n  let text = '';\n  if (typeof data === 'string') text = data;\n  else if (data.text && typeof data.text === 'string') text = data.text;\n  else if (data.result && typeof data.result === 'string') text = data.result;\n  else if (data.result && data.result.text) text = data.result.text;\n  else if (data.content && typeof data.content === 'string') text = data.content;\n  else if (data.data && typeof data.data === 'string') text = data.data;\n  else if (data.output && typeof data.output === 'string') text = data.output;\n  else text = JSON.stringify(data);\n\n  if (!text || text.trim().length < 1) {\n    return [{ json: { ok: false, error: 'OCR не смог распознать текст. Попробуйте другой файл.' } }];\n  }\n\n  const meta = $('Валидация и тип').first().json;\n  return [{ json: {\n    ok: true,\n    text: text,\n    fileName: meta.fileName,\n    mimeType: meta.mimeType,\n    source: 'ocr'\n  } }];\n} catch (e) {\n  return [{ json: { ok: false, error: 'Ошибка обработки OCR: ' + e.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1400, -140],
+      "id": "te-0006-ocr-extract",
+      "name": "Текст из OCR"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Декодируем текстовый файл (txt/md/log) в строку.\n// Подхватываем UTF-8, UTF-8 BOM, UTF-16 LE/BE, CP1251 (грубый детект).\ntry {\n  const meta = $('Валидация и тип').first().json;\n  const item = $input.first();\n  const binary = item.binary && item.binary[meta.binaryKey];\n  if (!binary) {\n    return [{ json: { ok: false, error: 'Не удалось получить содержимое файла.' } }];\n  }\n  const buf = Buffer.from(binary.data, 'base64');\n\n  function decodeUtf8(b) {\n    // если есть UTF-8 BOM — пропускаем 3 байта\n    if (b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return b.slice(3).toString('utf8');\n    return b.toString('utf8');\n  }\n  function decodeUtf16le(b) {\n    if (b[0] === 0xFF && b[1] === 0xFE) return b.slice(2).toString('utf16le');\n    return b.toString('utf16le');\n  }\n  function countReplacement(s) {\n    let n = 0;\n    for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 0xFFFD) n++;\n    return n;\n  }\n  // Простой детект CP1251: преобразуем сами\n  const CP1251_TO_UNICODE = (function () {\n    const map = new Array(256);\n    for (let i = 0; i < 128; i++) map[i] = i;\n    const high = '\\u0402\\u0403\\u201A\\u0453\\u201E\\u2026\\u2020\\u2021\\u20AC\\u2030\\u0409\\u2039\\u040A\\u040C\\u040B\\u040F'\n      + '\\u0452\\u2018\\u2019\\u201C\\u201D\\u2022\\u2013\\u2014?\\u2122\\u0459\\u203A\\u045A\\u045C\\u045B\\u045F'\n      + '\\u00A0\\u040E\\u045E\\u0408\\u00A4\\u0490\\u00A6\\u00A7\\u0401\\u00A9\\u0404\\u00AB\\u00AC\\u00AD\\u00AE\\u0407'\n      + '\\u00B0\\u00B1\\u0406\\u0456\\u0491\\u00B5\\u00B6\\u00B7\\u0451\\u2116\\u0454\\u00BB\\u0458\\u0405\\u0455\\u0457';\n    for (let i = 0; i < high.length; i++) map[128 + i] = high.charCodeAt(i);\n    // 0xC0..0xFF -> 0x0410..0x044F\n    for (let i = 0; i < 64; i++) map[0xC0 + i] = 0x0410 + i;\n    return map;\n  })();\n  function decodeCp1251(b) {\n    let s = '';\n    for (let i = 0; i < b.length; i++) s += String.fromCharCode(CP1251_TO_UNICODE[b[i]]);\n    return s;\n  }\n\n  let text;\n  // UTF-16 LE BOM\n  if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) {\n    text = decodeUtf16le(buf);\n  } else {\n    // Попытка 1 — UTF-8 (с BOM или без)\n    const asUtf8 = decodeUtf8(buf);\n    const bad = countReplacement(asUtf8);\n    if (bad === 0) {\n      text = asUtf8;\n    } else {\n      // Много битых символов — пробуем CP1251\n      const asCp = decodeCp1251(buf);\n      text = (countReplacement(asCp) < bad) ? asCp : asUtf8;\n    }\n  }\n\n  if (!text || text.length < 1) {\n    return [{ json: { ok: false, error: 'Файл пустой.' } }];\n  }\n\n  return [{ json: {\n    ok: true,\n    text: text,\n    fileName: meta.fileName,\n    mimeType: meta.mimeType,\n    source: 'text'\n  } }];\n} catch (e) {\n  return [{ json: { ok: false, error: 'Ошибка чтения текстового файла: ' + e.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 200],
+      "id": "te-0007-text-read",
+      "name": "Прочитать текст"
+    },
+    {
+      "parameters": {
+        "operation": "fromFile",
+        "binaryPropertyName": "file",
+        "options": {
+          "sheetName": "",
+          "headerRow": false,
+          "rawData": true
+        }
+      },
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 2,
+      "position": [1120, 520],
+      "id": "te-0008-spreadsheet",
+      "name": "Парсинг таблицы",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Превращаем результат Spreadsheet File node в текст с выровненными колонками.\n// На входе $input.all() — массив строк (каждая строка — объект колонка→значение).\ntry {\n  const meta = $('Валидация и тип').first().json;\n  const rows = $input.all().map(r => r.json);\n\n  if (rows.length === 0) {\n    return [{ json: { ok: false, error: 'В таблице нет данных.' } }];\n  }\n\n  // Собираем имена колонок (в порядке появления)\n  const colOrder = [];\n  const colSeen = new Set();\n  for (const r of rows) {\n    for (const k of Object.keys(r)) {\n      if (!colSeen.has(k)) { colSeen.add(k); colOrder.push(k); }\n    }\n  }\n\n  // Преобразуем все значения в строки\n  const stringRows = rows.map(r => colOrder.map(c => {\n    const v = r[c];\n    if (v === null || v === undefined) return '';\n    if (typeof v === 'object') return JSON.stringify(v);\n    return String(v);\n  }));\n\n  // Ширины колонок\n  const widths = colOrder.map((c, i) => {\n    let w = String(c).length;\n    for (const row of stringRows) {\n      const v = row[i];\n      if (v.length > w) w = v.length;\n    }\n    return Math.min(w, 60);  // ограничиваем чтоб таблица не разбегалась\n  });\n\n  function pad(s, w) {\n    s = (s.length > w) ? s.slice(0, w - 1) + '…' : s;\n    return s + ' '.repeat(Math.max(0, w - s.length));\n  }\n\n  const headerLine = colOrder.map((c, i) => pad(String(c), widths[i])).join('  ');\n  const sepLine = widths.map(w => '-'.repeat(w)).join('  ');\n  const dataLines = stringRows.map(row => row.map((v, i) => pad(v, widths[i])).join('  '));\n\n  const text = [headerLine, sepLine, ...dataLines].join('\\n');\n\n  return [{ json: {\n    ok: true,\n    text: text,\n    fileName: meta.fileName,\n    mimeType: meta.mimeType,\n    source: 'table',\n    rowCount: rows.length,\n    colCount: colOrder.length\n  } }];\n} catch (e) {\n  return [{ json: { ok: false, error: 'Ошибка обработки таблицы: ' + e.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1400, 520],
+      "id": "te-0009-table-format",
+      "name": "Форматировать таблицу"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Унифицированный финальный ответ для всех веток.\nconst data = $input.first().json;\nif (!data.ok) {\n  return [{ json: { response: data.error || 'Не удалось извлечь текст.', success: false } }];\n}\nreturn [{ json: {\n  response: data.text,\n  success: true,\n  fileName: data.fileName,\n  mimeType: data.mimeType,\n  source: data.source,\n  rowCount: data.rowCount,\n  colCount: data.colCount,\n  length: (data.text || '').length\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 200],
+      "id": "te-0010-finalize",
+      "name": "Финализация"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1960, 200],
+      "id": "te-0011-respond-ok",
+      "name": "Ответ: успех"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.error || 'Файл не загружен.', success: false }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [840, 520],
+      "id": "te-0012-respond-err",
+      "name": "Ответ: ошибка"
+    }
+  ],
+  "connections": {
+    "Webhook Extract": {
+      "main": [
+        [{ "node": "Валидация и тип", "type": "main", "index": 0 }]
+      ]
+    },
+    "Валидация и тип": {
+      "main": [
+        [{ "node": "Файл валиден?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Файл валиден?": {
+      "main": [
+        [{ "node": "Маршрут", "type": "main", "index": 0 }],
+        [{ "node": "Ответ: ошибка", "type": "main", "index": 0 }]
+      ]
+    },
+    "Маршрут": {
+      "main": [
+        [{ "node": "OCR Распознавание", "type": "main", "index": 0 }],
+        [{ "node": "Прочитать текст", "type": "main", "index": 0 }],
+        [{ "node": "Парсинг таблицы", "type": "main", "index": 0 }]
+      ]
+    },
+    "OCR Распознавание": {
+      "main": [
+        [{ "node": "Текст из OCR", "type": "main", "index": 0 }]
+      ]
+    },
+    "Текст из OCR": {
+      "main": [
+        [{ "node": "Финализация", "type": "main", "index": 0 }]
+      ]
+    },
+    "Прочитать текст": {
+      "main": [
+        [{ "node": "Финализация", "type": "main", "index": 0 }]
+      ]
+    },
+    "Парсинг таблицы": {
+      "main": [
+        [{ "node": "Форматировать таблицу", "type": "main", "index": 0 }]
+      ]
+    },
+    "Форматировать таблицу": {
+      "main": [
+        [{ "node": "Финализация", "type": "main", "index": 0 }]
+      ]
+    },
+    "Финализация": {
+      "main": [
+        [{ "node": "Ответ: успех", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {}
+}
