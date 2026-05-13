@@ -41,12 +41,14 @@
 Если на домашнем ПК ещё нет проекта — скачай ZIP с GitHub:
 - Открой https://github.com/Jorden-maker/GigaChat
 - Зелёная кнопка `Code` → `Download ZIP`
-- Распакуй
+- Распакуй ZIP
+- **Переименуй распакованную папку** из `GigaChat-main` в просто `GigaChat` (это имя по умолчанию от GitHub при ZIP-загрузке, поправь сразу — будет короче пути).
+- Положи `GigaChat` на рабочий стол.
 
 Далее PowerShell:
 
 ```powershell
-cd <путь-к-распакованной-папке>\GigaChat\embedding-server
+cd C:\Users\<твоё_имя>\Desktop\GigaChat\embedding-server
 
 # Один раз разрешить запуск скриптов
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
@@ -103,8 +105,6 @@ python server.py
 
 ---
 
----
-
 ## 1. Что нужно перед началом
 
 - **Сама модель Multilingual-E5-large** (папка ~9 GB) — у тебя уже есть на рабочем столе.
@@ -141,7 +141,7 @@ cd GigaChat\embedding-server
 
 1. Открой в браузере: https://github.com/Jorden-maker/GigaChat
 2. Зелёная кнопка `Code` → `Download ZIP`.
-3. Распакуй ZIP. Внутри будет папка `GigaChat-main/embedding-server/` — это и есть нужная папка с тремя файлами.
+3. Распакуй ZIP. GitHub отдаёт папку с именем `GigaChat-main` — переименуй её в просто `GigaChat`. Внутри будет `embedding-server/` — это и есть нужная папка с тремя файлами.
 
 ### Способ C — скачать только три файла сервера
 
