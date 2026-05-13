@@ -206,16 +206,24 @@
     },
     {
       "parameters": {
-        "jsCode": "// Парсим Excel/CSV через xlsx-библиотеку напрямую с raw:false.\n// Это даёт ОТФОРМАТИРОВАННЫЕ значения: «1,49%» вместо «0.014916666666666667»,\n// «287 ₽» вместо «286.96272» — то есть точно как видит пользователь в Excel.\n// Spreadsheet File node так не умеет, поэтому собираем сами через require('xlsx').\ntry {\n  const meta = $('Валидация и тип').first().json;\n  const buf = await this.helpers.getBinaryDataBuffer(0, meta.binaryKey);\n\n  const XLSX = require('xlsx');\n  const wb = XLSX.read(buf, { type: 'buffer', cellDates: true });\n\n  if (!wb.SheetNames || wb.SheetNames.length === 0) {\n    return [{ json: { row: [] }, _empty: true }];\n  }\n\n  const items = [];\n  const multiSheet = wb.SheetNames.length > 1;\n\n  for (let s = 0; s < wb.SheetNames.length; s++) {\n    const sheetName = wb.SheetNames[s];\n    const sheet = wb.Sheets[sheetName];\n\n    // raw:false  — применить cell formatting (%, ₽, даты — как видно в Excel)\n    // header:1   — каждая строка как массив ячеек (не объект с заголовками)\n    // defval:''  — пустая ячейка как пустая строка\n    // blankrows:true — сохранить пустые строки\n    const rows = XLSX.utils.sheet_to_json(sheet, {\n      header: 1,\n      raw: false,\n      defval: '',\n      blankrows: true\n    });\n\n    // Маркер листа добавляем только если листов больше одного\n    if (multiSheet) {\n      if (s > 0) items.push({ json: { row: [] } });\n      items.push({ json: { row: ['=== Лист: ' + sheetName + ' ==='] } });\n    }\n\n    for (const r of rows) {\n      const arr = Array.isArray(r) ? r : [];\n      const stringCells = arr.map(c => {\n        if (c === null || c === undefined) return '';\n        if (c instanceof Date) return c.toLocaleString('ru-RU');\n        if (typeof c === 'object') return JSON.stringify(c);\n        return String(c);\n      });\n      items.push({ json: { row: stringCells } });\n    }\n  }\n\n  if (items.length === 0) {\n    return [{ json: { row: [] } }];\n  }\n\n  return items;\n} catch (e) {\n  // Если xlsx-библиотека недоступна или файл битый — отдаём осмысленную ошибку.\n  // Формат {row: [...]} сохраняем чтобы дальше форматтер не падал.\n  return [{ json: { row: ['Ошибка чтения таблицы: ' + e.message] } }];\n}"
+        "operation": "fromFile",
+        "binaryPropertyName": "file",
+        "options": {
+          "sheetName": "",
+          "headerRow": false,
+          "rawData": true
+        }
       },
-      "type": "n8n-nodes-base.code",
+      "type": "n8n-nodes-base.spreadsheetFile",
       "typeVersion": 2,
       "position": [
         1120,
         520
       ],
       "id": "te-0008-spreadsheet",
-      "name": "Парсинг таблицы"
+      "name": "Парсинг таблицы",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
