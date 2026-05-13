@@ -11,14 +11,14 @@
     </script>
     <style>
         :root {
-            --bg-primary: #0f1724;
-            --bg-secondary: #162032;
-            --bg-input: #1e2d44;
-            --bg-user: #1e2d44;
-            --bg-bot: #141e30;
-            --border: #2a3a5a;
-            --text-primary: #e0e0e0;
-            --text-secondary: #8899bb;
+            --bg-primary: #0a0e15;
+            --bg-secondary: #131820;
+            --bg-input: #1b2230;
+            --bg-user: rgba(14, 165, 233, 0.12);
+            --bg-bot: #131820;
+            --border: #283040;
+            --text-primary: #e6e8ec;
+            --text-secondary: #8a98a8;
             --accent: #0ea5e9;
             --accent-hover: #0284c7;
             --sidebar-width: 220px;
@@ -32,25 +32,25 @@
             display: flex;
             overflow: hidden;
         }
-        .btn-home { display:block; padding:10px 16px; background:#0a1018; border-bottom:1px solid #1e2d44; color:#667; text-decoration:none; font-size:13px; transition:color .2s; }
+        .btn-home { display:block; padding:10px 16px; background:#070a10; border-bottom:1px solid var(--border); color:#7a8a9a; text-decoration:none; font-size:13px; transition:color .2s; }
         .btn-home:hover { color:#0ea5e9; }
         .btn-home .arrow { margin-right:6px; }
         .sidebar {
             width: var(--sidebar-width); height: 100vh;
-            background: #0a1220; border-right: 1px solid #1e2d44;
+            background: #0c1119; border-right: 1px solid var(--border);
             display: flex; flex-direction: column; flex-shrink: 0;
         }
-        .sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid #1e2d44; }
+        .sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
         .sidebar-header h3 { font-size: 13px; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
-        .sidebar-add { padding: 10px 16px; border-bottom: 1px solid #1e2d44; }
+        .sidebar-add { padding: 10px 16px; border-bottom: 1px solid var(--border); }
         .sidebar-add button {
             width: 100%; padding: 8px;
-            background: var(--bg-secondary); border: 1px dashed #2a3a5a;
+            background: var(--bg-secondary); border: 1px dashed var(--border);
             color: var(--text-secondary); border-radius: 6px;
             cursor: pointer; font-size: 13px;
         }
         .sidebar-add button:hover { border-color: var(--accent); color: var(--accent); }
-        .session-list { flex: 1; overflow-y: auto; padding: 8px; scrollbar-width: thin; scrollbar-color: #1e2d44 transparent; }
+        .session-list { flex: 1; overflow-y: auto; padding: 8px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
         .session-item {
             display: flex; align-items: center; justify-content: space-between;
             padding: 10px 12px; margin: 2px 0; border-radius: 8px;
@@ -68,7 +68,7 @@
         .session-item:hover .edit { opacity: 0.8; }
         .session-item .edit:hover { background: var(--bg-secondary); color: var(--accent); opacity: 1; }
         .session-item .edit svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-        .session-item .close:hover { background: #2a2a4a; color: #ff6666; opacity: 1; }
+        .session-item .close:hover { background: #2a3040; color: #ff6666; opacity: 1; }
         .session-item .name-edit {
             flex: 1; min-width: 0;
             background: var(--bg-input);
@@ -83,7 +83,7 @@
         .main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
         header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 14px 20px; flex-shrink: 0; border-bottom: 1px solid #1e2d50;
+            padding: 14px 20px; flex-shrink: 0; border-bottom: 1px solid var(--border);
         }
         .header-left { display:flex; align-items:center; gap:12px; }
         .header-right { display:flex; align-items:center; gap:12px; }
@@ -96,25 +96,25 @@
         .btn-export { padding:6px 16px; background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-secondary); border-radius:6px; cursor:pointer; font-size:12px; transition:all .2s; }
         .btn-export:hover { background:rgba(14,165,233,0.15); color:var(--accent); border-color:var(--accent); }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        #chat { flex: 1; overflow-y: auto; padding: 20px; scrollbar-width: thin; scrollbar-color: #2a3a5a transparent; }
+        #chat { flex: 1; overflow-y: auto; padding: 20px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
         #chat::-webkit-scrollbar { width: 5px; }
         #chat::-webkit-scrollbar-track { background: transparent; }
-        #chat::-webkit-scrollbar-thumb { background: #2a3a5a; border-radius: 10px; }
+        #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
         .msg {
             margin: 10px 0; padding: 14px 18px; border-radius: 12px;
             max-width: 85%; line-height: 1.6; font-size: 14.5px; animation: fadeIn 0.3s ease;
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .user { background: var(--bg-user); margin-left: auto; border: 1px solid var(--border); color: var(--text-primary); }
-        .bot { background: var(--bg-bot); border: 1px solid #1a2540; color: #c8c8c8; }
+        .bot { background: var(--bg-bot); border: 1px solid var(--border); color: var(--text-primary); }
         .bot b { color: var(--text-primary); }
         .bot i { color: #aaa; }
-        .bot code { background: #1e2d44; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; }
-        .bot pre { background: #1e2d44; padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; white-space: pre; }
-        .bot hr { border: none; border-top: 1px solid #2a3a5a; margin: 10px 0; }
+        .bot code { background: #0e131c; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; }
+        .bot pre { background: #0e131c; padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; white-space: pre; }
+        .bot hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
         .bot table { border-collapse: collapse; margin: 8px 0; width: 100%; }
-        .bot th, .bot td { border: 1px solid #2a3a5a; padding: 6px 10px; text-align: left; font-size: 13px; }
-        .bot th { background: #1e2d44; color: var(--accent); }
+        .bot th, .bot td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; font-size: 13px; }
+        .bot th { background: #0e131c; color: var(--accent); }
         .loading { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 13px; padding: 14px 18px; font-style: italic; }
         .loading .dots span { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--text-secondary); animation: blink 1.4s infinite; }
         .loading .dots span:nth-child(2) { animation-delay: 0.2s; }
@@ -145,7 +145,7 @@
         #send:hover { background: var(--accent-hover); }
         #send:disabled { opacity: 0.4; cursor: not-allowed; }
         .empty-chat { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #445566; font-size: 14px; gap: 8px; }
-        .empty-chat .memory-note { font-size: 12px; color: #334455; }
+        .empty-chat .memory-note { font-size: 12px; color: var(--text-secondary); opacity: 0.6; }
         .history-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: 14px; font-style: italic; }
 
         /* ============ КНОПКА ТЕМЫ ============ */

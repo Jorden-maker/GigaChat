@@ -11,17 +11,17 @@
     </script>
     <style>
         :root {
-            --bg-primary: #1a1a2e;
-            --bg-secondary: #16213e;
-            --bg-input: #0f3460;
-            --bg-user: #1a3a5c;
-            --bg-bot: #1e2a3a;
-            --border: #2a4a6a;
-            --text-primary: #e0e0e0;
-            --text-secondary: #8899aa;
+            --bg-primary: #0a0e15;
+            --bg-secondary: #131820;
+            --bg-input: #1b2230;
+            --bg-user: rgba(233, 69, 96, 0.12);
+            --bg-bot: #131820;
+            --border: #283040;
+            --text-primary: #e6e8ec;
+            --text-secondary: #8a98a8;
             --accent: #e94560;
             --accent-hover: #d63851;
-            --code-bg: #0d1117;
+            --code-bg: #0e131c;
             --code-text: #7ee787;
             --sidebar-width: 220px;
         }
@@ -34,21 +34,21 @@
             display: flex;
             overflow: hidden;
         }
-        .btn-home { display:block; padding:10px 16px; background:#0a0a1a; border-bottom:1px solid #1a2a4a; color:#667; text-decoration:none; font-size:13px; transition:color .2s; }
+        .btn-home { display:block; padding:10px 16px; background:#070a10; border-bottom:1px solid var(--border); color:#7a8a9a; text-decoration:none; font-size:13px; transition:color .2s; }
         .btn-home:hover { color:#e94560; }
         .btn-home .arrow { margin-right:6px; }
         .sidebar {
             width: var(--sidebar-width);
             height: 100vh;
-            background: #0f0f23;
-            border-right: 1px solid #1a2a4a;
+            background: #0c1119;
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
         }
         .sidebar-header {
             padding: 20px 16px 12px;
-            border-bottom: 1px solid #1a2a4a;
+            border-bottom: 1px solid var(--border);
         }
         .sidebar-header h3 {
             font-size: 13px;
@@ -58,13 +58,13 @@
         }
         .sidebar-add {
             padding: 10px 16px;
-            border-bottom: 1px solid #1a2a4a;
+            border-bottom: 1px solid var(--border);
         }
         .sidebar-add button {
             width: 100%;
             padding: 8px;
             background: var(--bg-secondary);
-            border: 1px dashed #2a4a6a;
+            border: 1px dashed var(--border);
             color: var(--text-secondary);
             border-radius: 6px;
             cursor: pointer;
@@ -79,7 +79,7 @@
             overflow-y: auto;
             padding: 8px;
             scrollbar-width: thin;
-            scrollbar-color: #1a2a4a transparent;
+            scrollbar-color: var(--border) transparent;
         }
         .session-item {
             display: flex;
@@ -135,7 +135,7 @@
             display: flex; align-items: center; justify-content: space-between;
             padding: 14px 20px;
             flex-shrink: 0;
-            border-bottom: 1px solid #1a3a5a;
+            border-bottom: 1px solid var(--border);
         }
         .header-left { display:flex; align-items:center; gap:12px; }
         .header-right { display:flex; align-items:center; gap:12px; }
@@ -171,11 +171,11 @@
             overflow-y: auto;
             padding: 20px;
             scrollbar-width: thin;
-            scrollbar-color: #2a4a6a transparent;
+            scrollbar-color: var(--border) transparent;
         }
         #chat::-webkit-scrollbar { width: 5px; }
         #chat::-webkit-scrollbar-track { background: transparent; }
-        #chat::-webkit-scrollbar-thumb { background: #2a4a6a; border-radius: 10px; }
+        #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
         .msg {
             margin: 10px 0;
             padding: 14px 18px;
@@ -192,12 +192,12 @@
         .user {
             background: var(--bg-user);
             margin-left: auto;
-            border: 1px solid var(--border);
+            border: 1px solid rgba(233, 69, 96, 0.35);
             color: var(--text-primary);
         }
         .bot {
             background: var(--bg-bot);
-            border: 1px solid #253545;
+            border: 1px solid var(--border);
             color: #c8c8c8;
         }
         .bot b { color: var(--text-primary); }
@@ -432,6 +432,19 @@
                 try { localStorage.removeItem('math_histories'); } catch (e) {}
             } catch (e) {}
         }
+        function saveDisplaySnapshot() {
+            if (!activeSessionId) return;
+            try { localStorage.setItem('math_view_' + activeSessionId, JSON.stringify(displayMessages)); } catch (e) {}
+        }
+        function loadDisplaySnapshot(sid) {
+            try {
+                var s = localStorage.getItem('math_view_' + sid);
+                return s ? JSON.parse(s) : null;
+            } catch (e) { return null; }
+        }
+        function clearDisplaySnapshot(sid) {
+            try { localStorage.removeItem('math_view_' + sid); } catch (e) {}
+        }
         function checkServerStatus() {
             return GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
         }
@@ -444,18 +457,18 @@
         async function switchToSession(id, opts) {
             opts = opts || {};
             activeSessionId = id;
-            displayMessages = [];
+            displayMessages = loadDisplaySnapshot(id) || [];
             renderSessionList();
             saveSessions();
+            renderChat();
             input.disabled = false; btn.disabled = false; input.focus();
-            if (opts.skipHistoryLoad) {
-                renderChat();
-                return;
-            }
+            if (opts.skipHistoryLoad) return;
             await loadHistoryForActive(id);
         }
         async function loadHistoryForActive(targetSessionId) {
-            chat.innerHTML = '<div class="empty-chat">Загружаю историю...</div>';
+            if (!displayMessages.length) {
+                chat.innerHTML = '<div class="empty-chat">Загружаю историю...</div>';
+            }
             try {
                 var res = await fetch(HISTORY_URL, {
                     method: 'POST',
@@ -469,16 +482,18 @@
                 displayMessages = (data.messages || []).map(function (m) {
                     return { role: m.role, content: m.content, extras: m.extras || null };
                 });
+                saveDisplaySnapshot();
                 renderChat();
             } catch (e) {
                 if (activeSessionId !== targetSessionId) return;
-                displayMessages = [];
-                chat.innerHTML = '<div class="empty-chat">Не удалось загрузить историю.</div>';
+                if (displayMessages.length) { renderChat(); }
+                else { chat.innerHTML = '<div class="empty-chat">Не удалось загрузить историю.</div>'; }
             }
         }
         function deleteSession(id, event) {
             event.stopPropagation();
             sessions = sessions.filter(function(s) { return s.id !== id; });
+            clearDisplaySnapshot(id);
             if (activeSessionId === id) {
                 if (sessions.length > 0) { switchToSession(sessions[sessions.length - 1].id); }
                 else {
@@ -560,6 +575,7 @@
             isProcessing = true;
             var sendSessionId = activeSessionId;
             displayMessages.push({ role: 'user', content: text });
+            saveDisplaySnapshot();
             renderChat();
             input.value = ''; input.disabled = true; btn.disabled = true;
 
@@ -596,6 +612,7 @@
                         content: data.response || 'Пустой ответ',
                         extras: { code: data.code || '', raw_result: data.raw_result || '' }
                     });
+                    saveDisplaySnapshot();
                     renderChat();
                 }
                 statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
@@ -609,6 +626,7 @@
                         content: 'Ошибка: ' + e.message,
                         extras: null
                     });
+                    saveDisplaySnapshot();
                     renderChat();
                 }
                 statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';

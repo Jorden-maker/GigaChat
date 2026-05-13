@@ -503,6 +503,19 @@
                 if (c) sessionCounter = parseInt(c, 10) || 0;
             } catch (e) {}
         }
+        function saveDisplaySnapshot() {
+            if (!activeSessionId) return;
+            try { localStorage.setItem('router_view_' + activeSessionId, JSON.stringify(displayMessages)); } catch (e) {}
+        }
+        function loadDisplaySnapshot(sid) {
+            try {
+                var s = localStorage.getItem('router_view_' + sid);
+                return s ? JSON.parse(s) : null;
+            } catch (e) { return null; }
+        }
+        function clearDisplaySnapshot(sid) {
+            try { localStorage.removeItem('router_view_' + sid); } catch (e) {}
+        }
         function checkServerStatus() {
             return GigaChat.checkServerStatus(ROUTER_URL, statusDot, statusText);
         }
@@ -515,18 +528,18 @@
         async function switchToSession(id, opts) {
             opts = opts || {};
             activeSessionId = id;
-            displayMessages = [];
+            displayMessages = loadDisplaySnapshot(id) || [];
             renderSessionList();
             saveSessions();
+            renderChat();
             input.disabled = false; btn.disabled = false; input.focus();
-            if (opts.skipHistoryLoad) {
-                renderChat();
-                return;
-            }
+            if (opts.skipHistoryLoad) return;
             await loadHistoryForActive(id);
         }
         async function loadHistoryForActive(targetSessionId) {
-            chat.innerHTML = '<div class="history-loading">Загружаю историю...</div>';
+            if (!displayMessages.length) {
+                chat.innerHTML = '<div class="history-loading">Загружаю историю...</div>';
+            }
             try {
                 var res = await fetch(HISTORY_URL, {
                     method: 'POST',
@@ -540,16 +553,18 @@
                 displayMessages = (data.messages || []).map(function (m) {
                     return { role: m.role, content: m.content, extras: m.extras || null };
                 });
+                saveDisplaySnapshot();
                 renderChat();
             } catch (e) {
                 if (activeSessionId !== targetSessionId) return;
-                displayMessages = [];
-                chat.innerHTML = '<div class="empty-chat"><span>Не удалось загрузить историю.</span></div>';
+                if (displayMessages.length) { renderChat(); }
+                else { chat.innerHTML = '<div class="empty-chat"><span>Не удалось загрузить историю.</span></div>'; }
             }
         }
         function deleteSession(id, event) {
             event.stopPropagation();
             sessions = sessions.filter(function (s) { return s.id !== id; });
+            clearDisplaySnapshot(id);
             if (activeSessionId === id) {
                 if (sessions.length > 0) { switchToSession(sessions[sessions.length - 1].id); }
                 else {
@@ -636,6 +651,7 @@
             var agentUrl = GigaChat.webhookUrl(agent);
 
             displayMessages.push({ role: 'user', content: text });
+            saveDisplaySnapshot();
             renderChat();
             input.value = ''; input.style.height = 'auto';
             input.disabled = true; btn.disabled = true;
@@ -665,6 +681,7 @@
                 var responseText = data.response || data.output || 'Пустой ответ от сервера';
                 if (activeSessionId === sendSessionId) {
                     displayMessages.push({ role: 'assistant', content: responseText, agent: agent });
+                    saveDisplaySnapshot();
                     renderChat();
                 }
                 statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
@@ -674,6 +691,7 @@
                 if (loading) loading.remove();
                 if (activeSessionId === sendSessionId) {
                     displayMessages.push({ role: 'assistant', content: 'Ошибка: ' + e.message, agent: agent });
+                    saveDisplaySnapshot();
                     renderChat();
                 }
                 statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';

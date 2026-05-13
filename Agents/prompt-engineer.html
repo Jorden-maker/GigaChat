@@ -12,26 +12,26 @@
 </script>
 <style>
 :root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-tertiary: #252540;
+  --bg-primary: #0a0e15;
+  --bg-secondary: #131820;
+  --bg-tertiary: #1b2230;
   --accent: #7c3aed;
   --accent-hover: #6d28d9;
   --accent-light: rgba(124, 58, 237, 0.15);
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --border: #2d2d4a;
+  --text-primary: #e6e8ec;
+  --text-secondary: #8a98a8;
+  --text-muted: #5a6878;
+  --border: #283040;
   --success: #10b981;
   --error: #ef4444;
   --warning: #f59e0b;
-  --code-bg: #1e1e2e;
-  --eval-bg: #1a1a2e;
+  --code-bg: #0e131c;
+  --eval-bg: #131820;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg-primary); color:var(--text-primary); height:100vh; display:flex; overflow:hidden; }
 
-.btn-home { display:block; padding:10px 16px; background:#0d0d18; border-bottom:1px solid var(--border); color:var(--text-muted); text-decoration:none; font-size:13px; transition:color .2s; }
+.btn-home { display:block; padding:10px 16px; background:#070a10; border-bottom:1px solid var(--border); color:#7a8a9a; text-decoration:none; font-size:13px; transition:color .2s; }
 .btn-home:hover { color:var(--accent); }
 .btn-home .arrow { margin-right:6px; }
 
@@ -77,9 +77,8 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 .chat-container { flex:1; overflow-y:auto; padding:24px; }
 .chat-container::-webkit-scrollbar { width:6px; }
 .chat-container::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-.welcome { text-align:center; padding:60px 20px; }
-.welcome h2 { font-size:22px; margin-bottom:8px; color:var(--text-primary); }
-.welcome p { color:var(--text-secondary); font-size:14px; max-width:500px; margin:0 auto 24px; line-height:1.6; }
+.welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:20px; text-align:center; gap:8px; }
+.welcome p { color:var(--text-muted); font-size:14px; max-width:500px; margin:0; line-height:1.6; }
 .welcome-modes { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; max-width:600px; margin:0 auto; }
 .mode-card { background:var(--bg-tertiary); border:1px solid var(--border); border-radius:10px; padding:16px; text-align:left; width:180px; }
 .mode-card h4 { font-size:13px; color:var(--accent); margin-bottom:6px; }
@@ -216,7 +215,6 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
     <div class="header-left">
       <div class="header-info">
         <h1>Агент по промпт-инженерии — GigaChat</h1>
-        <p>Создание и улучшение промптов</p>
       </div>
     </div>
     <div class="header-right">
@@ -234,22 +232,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 
   <div class="chat-container" id="chatContainer">
     <div class="welcome" id="welcome">
-      <h2>Агент по промпт-инженерии</h2>
-      <p>Опишите задачу — получите готовый промпт. Вставьте существующий промпт со словом «улучши» — получите усиленную версию.</p>
-      <div class="welcome-modes">
-        <div class="mode-card">
-          <h4>✨ Создать</h4>
-          <p>Опишите задачу, и я создам структурированный промпт с ролью, контекстом и примерами</p>
-        </div>
-        <div class="mode-card">
-          <h4>🔧 Улучшить</h4>
-          <p>Вставьте промпт со словом «улучши» — я найду слабые места и усилю его</p>
-        </div>
-        <div class="mode-card">
-          <h4>🔄 Адаптировать</h4>
-          <p>Скажите «адаптируй под...» — я переделаю промпт под новую задачу</p>
-        </div>
-      </div>
+      <p>Создайте новую сессию для начала работы</p>
     </div>
   </div>
 
@@ -272,15 +255,7 @@ let activeSessionId = null;
 let sessionCounter = 0;
 let isProcessing = false;
 let serverOnline = false;
-const WELCOME_HTML = `<div class="welcome">
-  <h2>Агент по промпт-инженерии</h2>
-  <p>Опишите задачу — получите готовый промпт. Вставьте существующий промпт со словом «улучши» — получите усиленную версию.</p>
-  <div class="welcome-modes">
-    <div class="mode-card"><h4>✨ Создать</h4><p>Опишите задачу, и я создам структурированный промпт с ролью, контекстом и примерами</p></div>
-    <div class="mode-card"><h4>🔧 Улучшить</h4><p>Вставьте промпт со словом «улучши» — я найду слабые места и усилю его</p></div>
-    <div class="mode-card"><h4>🔄 Адаптировать</h4><p>Скажите «адаптируй под...» — я переделаю промпт под новую задачу</p></div>
-  </div>
-</div>`;
+const WELCOME_HTML = '<div class="welcome"><p>Создайте новую сессию для начала работы</p></div>';
 
 // --- Init ---
 function init() {
@@ -316,6 +291,19 @@ function saveSessions() {
   localStorage.setItem(STORAGE_KEYS.counter, String(sessionCounter));
   localStorage.setItem(STORAGE_KEYS.active, activeSessionId || '');
 }
+function saveDisplaySnapshot() {
+  if (!activeSessionId) return;
+  try { localStorage.setItem('pe_view_' + activeSessionId, JSON.stringify(displayMessages)); } catch (e) {}
+}
+function loadDisplaySnapshot(sid) {
+  try {
+    const s = localStorage.getItem('pe_view_' + sid);
+    return s ? JSON.parse(s) : null;
+  } catch (e) { return null; }
+}
+function clearDisplaySnapshot(sid) {
+  try { localStorage.removeItem('pe_view_' + sid); } catch (e) {}
+}
 
 function createNewSession() {
   sessionCounter++;
@@ -328,22 +316,22 @@ function createNewSession() {
 async function switchToSession(id, opts) {
   opts = opts || {};
   activeSessionId = id;
-  displayMessages = [];
+  displayMessages = loadDisplaySnapshot(id) || [];
   saveSessions();
   renderSessionList();
+  renderChat();
   document.getElementById('userInput').disabled = false;
   document.getElementById('btnSend').disabled = false;
   document.getElementById('userInput').focus();
-  if (opts.skipHistoryLoad) {
-    renderChat();
-    return;
-  }
+  if (opts.skipHistoryLoad) return;
   await loadHistoryForActive(id);
 }
 
 async function loadHistoryForActive(targetSessionId) {
   const container = document.getElementById('chatContainer');
-  container.innerHTML = '<div class="welcome"><p style="color:var(--text-muted);">Загружаю историю...</p></div>';
+  if (!displayMessages.length) {
+    container.innerHTML = '<div class="welcome"><p>Загружаю историю...</p></div>';
+  }
   try {
     const res = await fetch(HISTORY_URL, {
       method: 'POST',
@@ -359,23 +347,25 @@ async function loadHistoryForActive(targetSessionId) {
       content: m.content,
       extras: m.extras || null
     }));
+    saveDisplaySnapshot();
     renderChat();
   } catch (e) {
     if (activeSessionId !== targetSessionId) return;
-    displayMessages = [];
-    container.innerHTML = `<div class="welcome"><p style="color:var(--text-muted);">Не удалось загрузить историю.</p></div>`;
+    if (displayMessages.length) { renderChat(); }
+    else { container.innerHTML = '<div class="welcome"><p>Не удалось загрузить историю.</p></div>'; }
   }
 }
 
 function deleteSession(id, e) {
   e.stopPropagation();
   sessions = sessions.filter(s => s.id !== id);
+  clearDisplaySnapshot(id);
   if (activeSessionId === id) {
     if (sessions.length > 0) { switchToSession(sessions[0].id); }
     else {
       activeSessionId = null;
       displayMessages = [];
-      document.getElementById('chatContainer').innerHTML = '<div class="welcome"><h2>Агент по промпт-инженерии</h2><p>Создайте новую сессию для начала работы</p></div>';
+      document.getElementById('chatContainer').innerHTML = WELCOME_HTML;
       document.getElementById('userInput').disabled = true;
       document.getElementById('btnSend').disabled = true;
     }
@@ -494,6 +484,7 @@ async function sendMessage() {
   input.style.height = 'auto';
 
   displayMessages.push({ role:'user', content: text });
+  saveDisplaySnapshot();
   renderChat();
 
   const startTime = Date.now();
@@ -526,6 +517,7 @@ async function sendMessage() {
         content: data.response || 'Ответ получен',
         extras: { prompt: data.prompt || '', elapsed }
       });
+      saveDisplaySnapshot();
       renderChat();
     }
   } catch(err) {
@@ -538,6 +530,7 @@ async function sendMessage() {
         content: 'Ошибка: ' + err.message,
         extras: { prompt: '', elapsed: ((Date.now()-startTime)/1000).toFixed(1) }
       });
+      saveDisplaySnapshot();
       renderChat();
     }
   }
