@@ -122,7 +122,8 @@
           ]
         },
         "options": {
-          "fallbackOutput": "extra"
+          "fallbackOutput": "extra",
+          "looseTypeValidation": true
         }
       },
       "type": "n8n-nodes-base.switch",
@@ -310,7 +311,8 @@
           ]
         },
         "options": {
-          "fallbackOutput": "extra"
+          "fallbackOutput": "extra",
+          "looseTypeValidation": true
         }
       },
       "type": "n8n-nodes-base.switch",

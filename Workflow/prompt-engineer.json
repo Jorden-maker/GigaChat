@@ -107,7 +107,8 @@
           ]
         },
         "options": {
-          "fallbackOutput": "extra"
+          "fallbackOutput": "extra",
+          "looseTypeValidation": true
         }
       },
       "id": "pe-switch",

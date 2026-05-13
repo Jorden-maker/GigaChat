@@ -51,7 +51,9 @@
           ],
           "combinator": "and"
         },
-        "options": {}
+        "options": {
+          "looseTypeValidation": true
+        }
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -125,7 +127,9 @@
           ],
           "combinator": "and"
         },
-        "options": {}
+        "options": {
+          "looseTypeValidation": true
+        }
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
