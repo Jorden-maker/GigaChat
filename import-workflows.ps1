@@ -30,7 +30,7 @@
 # ---- НАСТРОЙКИ ----
 $folder = "C:\Users\Lenovo\Desktop\GigaChat\Workflow"   # путь к папке с .json
 $n8n    = "http://localhost:5678"                       # URL n8n БЕЗ слеша на конце
-$apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMWQzMzQ3Ny05MjdlLTQxMGEtYjNiMC0wMWNmOTY2ODgwYmYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiNmMwOTRmNjItNDc0OS00Y2VlLWI4YmUtZWVmZjhiNjkzYTJkIiwiaWF0IjoxNzc4NzA0MDY4LCJleHAiOjE3ODEyMzY4MDB9.yX3B3dw9o4g472bYHOyRw0fy_FJDG-G7_6OUTdZwbsw"                                            # вставь сюда API-ключ из n8n
+$apiKey = ""                                            # вставь сюда API-ключ из n8n
 $prefix = "[GigaChat] "                                 # префикс имени, "" чтобы отключить
 # -------------------
 
