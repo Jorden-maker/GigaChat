@@ -36,7 +36,8 @@
         "conditions": {
           "options": {
             "caseSensitive": true,
-            "leftValue": ""
+            "leftValue": "",
+            "typeValidation": "loose"
           },
           "conditions": [
             {
@@ -102,7 +103,7 @@
                 "options": {
                   "caseSensitive": false,
                   "leftValue": "",
-                  "typeValidation": "strict",
+                  "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
@@ -291,7 +292,7 @@
                 "options": {
                   "caseSensitive": false,
                   "leftValue": "",
-                  "typeValidation": "strict",
+                  "typeValidation": "loose",
                   "version": 3
                 },
                 "conditions": [
