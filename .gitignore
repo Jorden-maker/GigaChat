@@ -14,3 +14,13 @@ node_modules/
 *.tmp
 *.log
 *.bak
+
+# Python venv и кэш
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Оффлайн-бандл эмбеддингов — лежит в GitHub Release, не в репо
+embedding-server/wheels/
+embedding-server/wheels.zip
