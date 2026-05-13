@@ -53,9 +53,8 @@
           ],
           "combinator": "and"
         },
-        "options": {
-          "looseTypeValidation": true
-        }
+        "options": {},
+        "looseTypeValidation": true
       },
       "id": "pe-if-valid",
       "name": "Запрос валиден?",
@@ -108,9 +107,9 @@
           ]
         },
         "options": {
-          "fallbackOutput": "extra",
-          "looseTypeValidation": true
-        }
+          "fallbackOutput": "extra"
+        },
+        "looseTypeValidation": true
       },
       "id": "pe-switch",
       "name": "Switch",

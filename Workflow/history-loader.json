@@ -53,9 +53,8 @@
           ],
           "combinator": "and"
         },
-        "options": {
-          "looseTypeValidation": true
-        }
+        "options": {},
+        "looseTypeValidation": true
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,

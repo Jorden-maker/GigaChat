@@ -53,9 +53,8 @@
           ],
           "combinator": "and"
         },
-        "options": {
-          "looseTypeValidation": true
-        }
+        "options": {},
+        "looseTypeValidation": true
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -123,9 +122,9 @@
           ]
         },
         "options": {
-          "fallbackOutput": "extra",
-          "looseTypeValidation": true
-        }
+          "fallbackOutput": "extra"
+        },
+        "looseTypeValidation": true
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
@@ -312,9 +311,9 @@
           ]
         },
         "options": {
-          "fallbackOutput": "extra",
-          "looseTypeValidation": true
-        }
+          "fallbackOutput": "extra"
+        },
+        "looseTypeValidation": true
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
