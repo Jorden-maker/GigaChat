@@ -1,14 +1,16 @@
 ﻿# =============================================================================
-# Массовый импорт всех workflow из папки Workflow/ в n8n через Public API.
+# Массовый импорт / обновление всех workflow из папки Workflow/ в n8n.
 #
-# КОГДА запускать: на любом ПК, имеющем HTTP-доступ к n8n.
-# ЧТО делает: читает все .json из папки $folder, фильтрует тело до
-#             разрешённых API полей (name, nodes, connections, settings)
-#             и POST-ит каждый workflow в n8n. Имена workflow берутся из
-#             поля "name" внутри JSON.
+# Скрипт идемпотентный — можно запускать сколько угодно раз:
+#   - workflow с таким же именем уже есть в n8n -> обновляется (PUT)
+#   - workflow с таким именем нет               -> создаётся (POST)
+# Дубликатов не будет. Привязанные в UI credentials сохраняются при обновлении.
+#
+# КОГДА запускать: после любого изменения .json в папке Workflow/,
+#                  чтобы синхронизировать n8n с локальными файлами.
 #
 # Требования:
-#   - PowerShell 5.1+ (стандартный на Windows 10/11) или PowerShell 7
+#   - PowerShell 5.1+ или PowerShell 7
 #   - HTTP-доступ к n8n
 #   - API-ключ из n8n: Settings -> API -> Create an API key
 #
@@ -41,15 +43,38 @@ if ($jsonFiles.Count -eq 0) {
     exit 1
 }
 
-Write-Host "==> Импорт $($jsonFiles.Count) workflow в $n8n" -ForegroundColor Cyan
+$headers = @{ "X-N8N-API-KEY" = $apiKey }
+
+# Шаг 1. Получаем список существующих workflow из n8n.
+# Нужно для решения «создавать или обновлять»: матчим по полю name.
+Write-Host "==> Получаю текущий список workflow из n8n..." -ForegroundColor Cyan
+try {
+    $list = Invoke-RestMethod -Uri "$n8n/api/v1/workflows?limit=250" -Headers $headers
+} catch {
+    Write-Host "ОШИБКА: не удалось получить список workflow." -ForegroundColor Red
+    Write-Host "  $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "  Проверь `$n8n URL и `$apiKey."
+    exit 1
+}
+
+# Карта «имя -> id» для уже существующих
+$existing = @{}
+foreach ($wf in $list.data) {
+    $existing[$wf.name] = $wf.id
+}
+Write-Host "    Найдено workflow в n8n: $($existing.Count)"
+Write-Host ""
+
+Write-Host "==> Синхронизация $($jsonFiles.Count) .json файлов с n8n" -ForegroundColor Cyan
 Write-Host ""
 
 $allowed = @('name', 'nodes', 'connections', 'settings')
-$ok = 0
+$created = 0
+$updated = 0
 $failed = 0
 
 foreach ($file in $jsonFiles) {
-    Write-Host "Importing: $($file.Name)" -ForegroundColor Cyan
+    Write-Host "Processing: $($file.Name)" -ForegroundColor Cyan
     try {
         $raw = Get-Content $file.FullName -Raw -Encoding UTF8
         $obj = $raw | ConvertFrom-Json
@@ -62,23 +87,35 @@ foreach ($file in $jsonFiles) {
                 $clean[$key] = $obj.$key
             }
         }
-        # settings обязательно, даже если в исходнике пусто
         if (-not $clean.Contains('settings')) {
             $clean['settings'] = @{}
         }
 
+        $name = $clean['name']
         $body = $clean | ConvertTo-Json -Depth 100 -Compress
-        # Конвертим в UTF-8 байты, чтобы кириллица в названиях долетела без искажений
+        # Кириллицу — в UTF-8 байты явно, иначе Invoke-RestMethod может побить
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
 
-        $response = Invoke-RestMethod -Method POST `
-            -Uri "$n8n/api/v1/workflows" `
-            -Headers @{ "X-N8N-API-KEY" = $apiKey } `
-            -ContentType "application/json; charset=utf-8" `
-            -Body $bytes
-
-        Write-Host "  OK -> id: $($response.id), name: $($response.name)" -ForegroundColor Green
-        $ok++
+        if ($existing.ContainsKey($name)) {
+            # Обновление существующего workflow через PUT
+            $id = $existing[$name]
+            $response = Invoke-RestMethod -Method PUT `
+                -Uri "$n8n/api/v1/workflows/$id" `
+                -Headers $headers `
+                -ContentType "application/json; charset=utf-8" `
+                -Body $bytes
+            Write-Host "  UPDATED -> id: $($response.id), name: $($response.name)" -ForegroundColor Yellow
+            $updated++
+        } else {
+            # Создание нового workflow через POST
+            $response = Invoke-RestMethod -Method POST `
+                -Uri "$n8n/api/v1/workflows" `
+                -Headers $headers `
+                -ContentType "application/json; charset=utf-8" `
+                -Body $bytes
+            Write-Host "  CREATED -> id: $($response.id), name: $($response.name)" -ForegroundColor Green
+            $created++
+        }
     } catch {
         Write-Host "  FAILED: $($_.Exception.Message)" -ForegroundColor Red
         if ($_.Exception.Response) {
@@ -96,11 +133,14 @@ foreach ($file in $jsonFiles) {
 
 Write-Host ""
 Write-Host "=============================================================" -ForegroundColor Green
-Write-Host " ИТОГ: успешно $ok из $($jsonFiles.Count), ошибок $failed" -ForegroundColor Green
+Write-Host " ИТОГ:" -ForegroundColor Green
+Write-Host "   создано:    $created" -ForegroundColor Green
+Write-Host "   обновлено:  $updated" -ForegroundColor Yellow
+Write-Host "   ошибок:     $failed" -ForegroundColor $(if ($failed) { 'Red' } else { 'DarkGray' })
 Write-Host "=============================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host " ЧТО ДАЛЬШЕ:"
-Write-Host " 1. Обнови страницу n8n (F5) - workflow появятся в списке."
-Write-Host " 2. В каждом workflow привяжи credentials (Postgres, GigaChat)"
-Write-Host "    к узлам с предупреждением, сохрани и активируй."
+Write-Host " 1. Обнови страницу n8n (F5)."
+Write-Host " 2. Для НОВЫХ workflow привяжи credentials в узлах и активируй."
+Write-Host "    Для ОБНОВЛЁННЫХ — credentials остались, ничего делать не надо."
 Write-Host "=============================================================" -ForegroundColor Green
