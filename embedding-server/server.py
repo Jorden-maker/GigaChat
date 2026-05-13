@@ -36,6 +36,14 @@ import os
 import logging
 from typing import List, Optional, Union
 
+# Принудительный оффлайн-режим: модель грузится ТОЛЬКО из локальной папки.
+# Без этих переменных sentence-transformers/transformers могут попытаться
+# уточнить версию в HuggingFace Hub при загрузке — и зависнуть в LAN без интернета.
+# Ставится до import sentence_transformers, иначе бесполезно.
+os.environ.setdefault('HF_HUB_OFFLINE', '1')
+os.environ.setdefault('TRANSFORMERS_OFFLINE', '1')
+os.environ.setdefault('HF_DATASETS_OFFLINE', '1')
+
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
