@@ -3,9 +3,10 @@
 #
 # КОГДА запускать: на ОФИСНОМ ПК.
 # ЧТО нужно: рядом со скриптом должны лежать requirements.txt, server.py
-#            и папка wheels с заранее скачанными пакетами
-#            (см. make-offline-bundle.ps1, запускается на ПК с интернетом).
-# ЧТО делает: создаёт venv, ставит все зависимости из ./wheels БЕЗ интернета.
+#            и ЛИБО папка wheels с .whl-файлами, ЛИБО файл wheels.zip
+#            (см. make-offline-bundle.ps1 или скачай wheels.zip из GitHub Releases).
+# ЧТО делает: при необходимости распаковывает wheels.zip, создаёт venv,
+#             ставит все зависимости из ./wheels БЕЗ интернета.
 #
 # Требования: Python 3.10-3.12 в PATH.
 # =============================================================================
@@ -18,19 +19,32 @@ Write-Host "==> Проверка Python..."
 $pythonVersion = python --version 2>&1
 Write-Host "    $pythonVersion"
 
+# Если есть wheels.zip и нет папки wheels — автоматически распаковываем
+if ((Test-Path "wheels.zip") -and (-not (Test-Path "wheels"))) {
+    Write-Host ""
+    Write-Host "==> Найден wheels.zip — распаковываю в папку wheels..."
+    Expand-Archive -Path "wheels.zip" -DestinationPath . -Force
+    if (Test-Path "wheels") {
+        Write-Host "    Распаковка завершена."
+    } else {
+        Write-Host "ОШИБКА: распаковка не создала папку wheels." -ForegroundColor Red
+        exit 1
+    }
+}
+
 Write-Host ""
 Write-Host "==> Проверка файлов бандла..."
 $missing = @()
 if (-not (Test-Path "requirements.txt")) { $missing += "requirements.txt" }
 if (-not (Test-Path "server.py"))        { $missing += "server.py" }
-if (-not (Test-Path "wheels"))           { $missing += "wheels/ (папка с .whl-файлами)" }
+if (-not (Test-Path "wheels"))           { $missing += "wheels/ (папка с .whl-файлами) ИЛИ wheels.zip" }
 
 if ($missing.Count -gt 0) {
     Write-Host ""
     Write-Host "ОШИБКА: в текущей папке не хватает файлов:" -ForegroundColor Red
     foreach ($m in $missing) { Write-Host "  - $m" -ForegroundColor Red }
     Write-Host ""
-    Write-Host "Скопируй всю папку embedding-server (с подпапкой wheels) с флешки целиком."
+    Write-Host "Скопируй всю папку embedding-server (с wheels.zip или с подпапкой wheels) с флешки целиком."
     exit 1
 }
 

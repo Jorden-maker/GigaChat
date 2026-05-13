@@ -75,22 +75,22 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 Подтверди `Y` (Да).
 
-### Шаг 1.4 — Получить папку `wheels`
+### Шаг 1.4 — Получить бандл с пакетами
 
 Есть два способа. **Используй A, он быстрее.**
 
-#### Способ A (рекомендуется) — скачать готовый бандл из GitHub Releases
+#### Способ A (рекомендуется) — скачать готовый wheels.zip из GitHub Releases
 
-В репозитории опубликован уже собранный `wheels.zip` (~200 MB, Python 3.12, CPU-вариант torch, 44 пакета). Скачиваешь, распаковываешь — папка `wheels` готова.
+В репозитории опубликован уже собранный `wheels.zip` (~200 MB, Python 3.12, CPU-вариант torch, 44 пакета).
 
 В PowerShell:
 ```powershell
 Invoke-WebRequest -Uri "https://github.com/Jorden-maker/GigaChat/releases/latest/download/wheels.zip" -OutFile "wheels.zip"
-Expand-Archive -Path wheels.zip -DestinationPath . -Force
-Remove-Item wheels.zip
 ```
 
-После выполнения в текущей папке появится `wheels/` с .whl файлами. Время: 1–3 минуты на скачивание + 10 секунд на распаковку.
+После выполнения в `embedding-server` появится `wheels.zip` (~200 MB). Время: 1–3 минуты.
+
+> **Распаковывать НЕ нужно** — `install-offline.ps1` в офисе сам распакует `wheels.zip` при первом запуске. Один файл лучше переносится через флешку, чем 44 мелких.
 
 > **Когда НЕ использовать способ A:** только если ты планируешь ставить эмбеддинг на ПК с **другой версией Python** (не 3.12). Тогда нужен способ B — он соберёт wheels под версию, установленную на ТВОЕЙ домашней машине.
 
@@ -111,10 +111,9 @@ Remove-Item wheels.zip
 
 ### Шаг 1.5 — Скопировать на флешку
 
-На флешку скопируй **всю папку `GigaChat` целиком**. Внутри теперь:
-- `Agents/`, `Workflow/`, гайды и т.д. (~MB)
-- `embedding-server/wheels/` (~200 MB) ← это и есть бандл
-- `embedding-server/server.py`, `install-offline.ps1` и т.д.
+На флешку скопируй **всю папку `GigaChat` целиком**. Внутри `embedding-server/` должно быть **одно из двух**:
+- `wheels.zip` (~200 MB) — если использовал Способ A
+- `wheels/` (~200 MB, папка с .whl) — если использовал Способ B
 
 Размер флешки нужен **не менее 1 GB**.
 
