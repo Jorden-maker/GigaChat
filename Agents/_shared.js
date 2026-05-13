@@ -146,6 +146,203 @@
     try { localStorage.setItem('giga_theme', next); } catch (e) {}
   }
 
+  // ============================================================
+  // ВЛОЖЕНИЯ К СООБЩЕНИЯМ
+  // ============================================================
+  // Одна скрепка в поле ввода, один файл за раз, любой формат.
+  // Под капотом текст извлекается через webhook /extract-text, затем
+  // зашивается в сообщение разделителями [ВЛОЖЕНИЕ:filename]...[/ВЛОЖЕНИЕ].
+  // На бэке (в SQL-узле «Сохранить вопрос») этот блок вырезается
+  // регексом, в БД лежит «[прикреплён файл]».
+  // CSS инжектится один раз при первом вызове setupAttachment.
+
+  var ATTACH_CSS_INJECTED = false;
+  function injectAttachCss() {
+    if (ATTACH_CSS_INJECTED) return;
+    ATTACH_CSS_INJECTED = true;
+    var css = ''
+      + '.gc-attach-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);cursor:pointer;transition:all .2s;flex-shrink:0;padding:0}'
+      + '.gc-attach-btn:hover{border-color:var(--accent);color:var(--accent)}'
+      + '.gc-attach-btn:disabled{opacity:.4;cursor:not-allowed}'
+      + '.gc-attach-btn.has-file{border-color:var(--accent);color:var(--accent);background:rgba(255,255,255,0.04)}'
+      + '.gc-attach-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
+      + '.gc-attach-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 8px 0}'
+      + '.gc-attach-chips:empty{display:none}'
+      + '.gc-attach-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg-input,#1b2230);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text-primary);max-width:280px}'
+      + '.gc-attach-chip .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+      + '.gc-attach-chip .x{cursor:pointer;color:var(--text-secondary);font-size:14px;line-height:1;padding:0 2px}'
+      + '.gc-attach-chip .x:hover{color:#ff6666}'
+      + '.gc-attach-chip.error{border-color:#cc4444;color:#ff8888}'
+      + '.gc-attach-chip.bot{background:rgba(255,255,255,0.06)}'
+      + '';
+    var style = document.createElement('style');
+    style.setAttribute('data-gc-attach', '1');
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  // Иконка скрепки (Feather paperclip)
+  var PAPERCLIP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+
+  // Создаёт контроллер вложений. Возвращает объект:
+  //   hasFile() -> bool
+  //   getFile() -> File или null
+  //   clear()
+  //   cancel()  — отменить идущую экстракцию
+  //   extract(onProgress) -> Promise<{text, fileName, error}>
+  //
+  // Опции:
+  //   buttonContainer (DOM) — куда воткнуть кнопку-скрепку
+  //   chipsContainer (DOM)  — куда показывать чип с именем файла
+  //   inputElement (DOM)    — textarea (для focus после выбора, опционально)
+  //   onChange()            — колбэк когда файл добавлен/удалён
+  function setupAttachment(opts) {
+    injectAttachCss();
+    var buttonContainer = opts.buttonContainer;
+    var chipsContainer = opts.chipsContainer;
+    var inputElement = opts.inputElement;
+    var onChange = opts.onChange || function () {};
+
+    var selectedFile = null;
+    var abortCtrl = null;
+
+    // Скрытый input file
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.style.display = 'none';
+    fileInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.log,.rtf,.odt,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp,.gif,.heic';
+    document.body.appendChild(fileInput);
+
+    // Кнопка-скрепка
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gc-attach-btn';
+    btn.title = 'Прикрепить файл';
+    btn.innerHTML = PAPERCLIP_SVG;
+    btn.addEventListener('click', function () { fileInput.click(); });
+    buttonContainer.appendChild(btn);
+
+    fileInput.addEventListener('change', function () {
+      if (fileInput.files && fileInput.files.length > 0) {
+        var f = fileInput.files[0];
+        if (f.size > 50 * 1024 * 1024) {
+          alert('Файл слишком большой (макс. 50 МБ)');
+          fileInput.value = '';
+          return;
+        }
+        selectedFile = f;
+        renderChip();
+        btn.classList.add('has-file');
+        onChange();
+        if (inputElement) inputElement.focus();
+      }
+      fileInput.value = '';
+    });
+
+    function renderChip() {
+      chipsContainer.innerHTML = '';
+      if (!selectedFile) return;
+      var chip = document.createElement('span');
+      chip.className = 'gc-attach-chip';
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = '📎 ' + selectedFile.name;
+      var x = document.createElement('span');
+      x.className = 'x';
+      x.textContent = '×';
+      x.title = 'Убрать файл';
+      x.addEventListener('click', function () {
+        selectedFile = null;
+        renderChip();
+        btn.classList.remove('has-file');
+        onChange();
+      });
+      chip.appendChild(name);
+      chip.appendChild(x);
+      chipsContainer.appendChild(chip);
+    }
+
+    function hasFile() { return !!selectedFile; }
+    function getFile() { return selectedFile; }
+    function clear() {
+      selectedFile = null;
+      renderChip();
+      btn.classList.remove('has-file');
+    }
+    function cancel() {
+      if (abortCtrl) { try { abortCtrl.abort(); } catch (e) {} }
+      abortCtrl = null;
+    }
+
+    // Выполнить извлечение. Возвращает {text, fileName, error}
+    async function extract(onProgress) {
+      if (!selectedFile) return { text: '', fileName: '', error: '' };
+      var fileName = selectedFile.name;
+      var url = cfg.N8N_BASE.replace(/\/$/, '') + '/webhook/extract-text';
+      abortCtrl = new AbortController();
+      try {
+        if (typeof onProgress === 'function') onProgress('Извлекаю текст из файла «' + fileName + '»...');
+        var fd = new FormData();
+        fd.append('file', selectedFile);
+        var res = await fetch(url, { method: 'POST', body: fd, signal: abortCtrl.signal });
+        if (!res.ok) {
+          return { text: '', fileName: fileName, error: 'Сервер вернул ' + res.status };
+        }
+        var data = await res.json();
+        if (data.success === false || !data.response) {
+          return { text: '', fileName: fileName, error: data.response || 'Не удалось извлечь текст' };
+        }
+        return { text: String(data.response), fileName: fileName, error: '' };
+      } catch (e) {
+        if (e.name === 'AbortError') return { text: '', fileName: fileName, error: 'Отменено пользователем' };
+        return { text: '', fileName: fileName, error: 'Ошибка: ' + e.message };
+      } finally {
+        abortCtrl = null;
+      }
+    }
+
+    return {
+      hasFile: hasFile,
+      getFile: getFile,
+      clear: clear,
+      cancel: cancel,
+      extract: extract
+    };
+  }
+
+  // Утилита: собрать сообщение для агента и краткое описание для UI.
+  // Если файл успешно извлечён — возвращает:
+  //   { messageForAgent: '[ВЛОЖЕНИЕ:name]\n<text>\n[/ВЛОЖЕНИЕ]\n<user text>', attachmentSummary: 'имя.расш (1234 симв.)' }
+  // Если файл с ошибкой — текст не вшивается, в attachmentSummary помечается ошибка.
+  // Если файла нет — возвращает userText без изменений и пустую summary.
+  function buildMessageWithAttachment(userText, extracted) {
+    var hasText = extracted && extracted.text && extracted.text.length > 0;
+    var hasError = extracted && extracted.error && extracted.error.length > 0;
+    var fname = extracted && extracted.fileName;
+    if (!fname) {
+      return { messageForAgent: userText || '', attachmentSummary: '' };
+    }
+    if (hasText) {
+      var block = '[ВЛОЖЕНИЕ:' + fname + ']\n' + extracted.text + '\n[/ВЛОЖЕНИЕ]\n\n';
+      var msg = (userText && userText.trim().length > 0)
+        ? block + userText
+        : block + 'Проанализируй прикреплённый файл.';
+      return {
+        messageForAgent: msg,
+        attachmentSummary: fname + ' (' + extracted.text.length.toLocaleString('ru-RU') + ' симв.)'
+      };
+    }
+    if (hasError) {
+      // OCR упала: текст не зашиваем, но в сообщение для агента добавим короткую пометку.
+      var noteMsg = '[не удалось обработать файл: ' + fname + ' — ' + extracted.error + ']\n\n' + (userText || '');
+      return {
+        messageForAgent: noteMsg,
+        attachmentSummary: fname + ' (ошибка: ' + extracted.error + ')'
+      };
+    }
+    return { messageForAgent: userText || '', attachmentSummary: '' };
+  }
+
   global.GigaChat = {
     config: cfg,
     webhookUrl: webhookUrl,
@@ -155,6 +352,8 @@
     formatMarkdown: formatMarkdown,
     formatMarkdownTable: formatMarkdownTable,
     toggleTheme: toggleTheme,
+    setupAttachment: setupAttachment,
+    buildMessageWithAttachment: buildMessageWithAttachment,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,
     RETRY_DELAY_MS: RETRY_DELAY_MS

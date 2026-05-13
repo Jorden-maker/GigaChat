@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 10000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 10000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 100000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 100000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -445,7 +445,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $json.session_id }}', 'user', '{{ ($json.message || '').replaceAll(\"'\", \"''\") }}')",
+        "query": "=INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $json.session_id }}', 'user', '{{ $json.message.replace(/\\[ВЛОЖЕНИЕ:[^\\]]+\\][\\s\\S]*?\\[\\/ВЛОЖЕНИЕ\\]\\s*/g, \"[прикреплён файл] \").replace(/\\[не удалось обработать файл:[^\\]]+\\]\\s*/g, \"[ошибка вложения] \").replaceAll(\"'\", \"''\") }}')",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",

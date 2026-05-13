@@ -388,8 +388,10 @@
             <div class="empty-chat">Создайте новую сессию для начала работы</div>
         </div>
         <div class="bottom-area">
+            <div class="gc-attach-chips" id="attachChips"></div>
             <div id="input-area">
                 <textarea id="msg" rows="1" placeholder="Введите математическую задачу..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';" disabled></textarea>
+                <span id="attachBtn"></span>
                 <button id="send" onclick="sendMsg()" disabled>Решить</button>
             </div>
         </div>

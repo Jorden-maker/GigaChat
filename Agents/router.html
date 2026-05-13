@@ -316,8 +316,10 @@
                 </div>
                 <span class="change-hint">можно изменить</span>
             </div>
+            <div class="gc-attach-chips" id="attachChips"></div>
             <div id="input-area">
                 <textarea id="msg" rows="1" placeholder="Спросите что угодно..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}" oninput="onInput();" disabled></textarea>
+                <span id="attachBtn"></span>
                 <button id="send" onclick="sendMsg()" disabled>Отправить</button>
             </div>
         </div>

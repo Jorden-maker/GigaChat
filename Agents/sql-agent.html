@@ -234,8 +234,10 @@
         </header>
         <div id="chat"><div class="empty-chat">Создайте новую сессию для начала работы</div></div>
         <div class="bottom-area">
+            <div class="gc-attach-chips" id="attachChips"></div>
             <div id="input-area">
                 <textarea id="msg" rows="1" placeholder="Введите запрос к базе данных..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';" disabled></textarea>
+                <span id="attachBtn"></span>
                 <button id="send" onclick="sendMsg()" disabled>Отправить</button>
             </div>
         </div>
@@ -400,8 +402,15 @@
             var html = '';
             for (var i = 0; i < displayMessages.length; i++) {
                 var m = displayMessages[i];
-                if (m.role === 'user') html += '<div class="msg user">' + escapeHtml(m.content) + '</div>';
-                else html += '<div class="msg bot">' + formatResponse(m.content) + '</div>';
+                if (m.role === 'user') {
+                    var userBody = m.content ? escapeHtml(m.content) : '<i style="opacity:.6">(только вложение)</i>';
+                    if (m.attachment) {
+                        var cls = m.attachmentError ? 'gc-attach-chip bot error' : 'gc-attach-chip bot';
+                        userBody += '<div style="margin-top:8px"><span class="' + cls + '">📎 ' + escapeHtml(m.attachment) + '</span></div>';
+                    }
+                    html += '<div class="msg user">' + userBody + '</div>';
+                } else
+                 += '<div class="msg bot">' + formatResponse(m.content) + '</div>';
             }
             chat.innerHTML = html;
             chat.scrollTop = chat.scrollHeight;
