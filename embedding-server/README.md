@@ -13,15 +13,16 @@
 ## Оглавление
 
 1. [Что нужно перед началом](#1-что-нужно-перед-началом)
-2. [Подготовка папки модели](#2-подготовка-папки-модели)
-3. [Установка Python и зависимостей](#3-установка-python-и-зависимостей)
-4. [Запуск сервера](#4-запуск-сервера)
-5. [Проверка работы](#5-проверка-работы)
-6. [Подключение к n8n](#6-подключение-к-n8n)
-7. [Автозапуск при включении ПК](#7-автозапуск-при-включении-пк)
-8. [Конфигурация](#8-конфигурация)
-9. [API](#9-api)
-10. [Решение частых проблем](#10-решение-частых-проблем)
+2. [Получить файлы сервера](#2-получить-файлы-сервера)
+3. [Подготовка папки модели](#3-подготовка-папки-модели)
+4. [Установка Python и зависимостей](#4-установка-python-и-зависимостей)
+5. [Запуск сервера](#5-запуск-сервера)
+6. [Проверка работы](#6-проверка-работы)
+7. [Подключение к n8n](#7-подключение-к-n8n)
+8. [Автозапуск при включении ПК](#8-автозапуск-при-включении-пк)
+9. [Конфигурация](#9-конфигурация)
+10. [API](#10-api)
+11. [Решение частых проблем](#11-решение-частых-проблем)
 
 ---
 
@@ -41,7 +42,50 @@ python --version
 
 ---
 
-## 2. Подготовка папки модели
+## 2. Получить файлы сервера
+
+Сервер — это три файла: `server.py`, `requirements.txt`, `README.md`. Они лежат в репозитории GigaChat на GitHub в папке `embedding-server/`. На новом ПК их нужно получить любым из способов ниже.
+
+> **Важно:** не путай папку, в которой создаёшь venv, с пустой папкой. Файлы `requirements.txt` и `server.py` обязательно должны лежать в этой папке РЯДОМ с папкой `venv`. Иначе `pip install -r requirements.txt` выдаст «No such file or directory».
+
+### Способ A — клонировать весь репозиторий (рекомендуется, если есть git)
+
+```powershell
+cd C:\Users\<твоё_имя>\Desktop
+git clone https://github.com/Jorden-maker/GigaChat.git
+cd GigaChat\embedding-server
+```
+
+Если git не установлен — скачай его с [git-scm.com](https://git-scm.com/download/win) или используй способ B/C.
+
+### Способ B — скачать ZIP с GitHub
+
+1. Открой в браузере: https://github.com/Jorden-maker/GigaChat
+2. Зелёная кнопка `Code` → `Download ZIP`.
+3. Распакуй ZIP. Внутри будет папка `GigaChat-main/embedding-server/` — это и есть нужная папка с тремя файлами.
+
+### Способ C — скачать только три файла сервера
+
+Если хочешь только сервер (без всего проекта). Создай папку и перейди в неё в PowerShell:
+
+```powershell
+mkdir C:\Users\<твоё_имя>\Desktop\embedding-server
+cd C:\Users\<твоё_имя>\Desktop\embedding-server
+
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Jorden-maker/GigaChat/main/embedding-server/server.py" -OutFile "server.py"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Jorden-maker/GigaChat/main/embedding-server/requirements.txt" -OutFile "requirements.txt"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Jorden-maker/GigaChat/main/embedding-server/README.md" -OutFile "README.md"
+```
+
+Проверь, что файлы скачались:
+```powershell
+dir
+```
+Должно показать `server.py`, `requirements.txt`, `README.md`. После этого переходи к шагу 4 (установка зависимостей).
+
+---
+
+## 3. Подготовка папки модели
 
 ### Что должно быть внутри папки
 
@@ -60,7 +104,7 @@ python --version
 
 Если `sentence_bert_config.json` и `modules.json` **есть** — отлично, всё заработает «из коробки».
 
-Если их **нет** — модель в «голом» формате `transformers`. См. раздел [Решение частых проблем](#10-решение-частых-проблем), пункт «Модель без sentence-transformers конфигов».
+Если их **нет** — модель в «голом» формате `transformers`. См. раздел [Решение частых проблем](#11-решение-частых-проблем), пункт «Модель без sentence-transformers конфигов».
 
 ### Переименуй папку (рекомендуется)
 
@@ -79,7 +123,7 @@ C:\Users\Lenovo\Desktop\multilingual-e5-large
 
 ---
 
-## 3. Установка Python и зависимостей
+## 4. Установка Python и зависимостей
 
 Открой PowerShell **от обычного пользователя** (не от администратора). Перейди в папку сервера:
 
@@ -117,7 +161,7 @@ pip install -r requirements.txt
 
 ---
 
-## 4. Запуск сервера
+## 5. Запуск сервера
 
 В том же окне PowerShell (где активно `(venv)`):
 
@@ -144,7 +188,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
 
 ---
 
-## 5. Проверка работы
+## 6. Проверка работы
 
 Открой **второе** окно PowerShell (первое не трогай — там сервер).
 
@@ -172,7 +216,7 @@ Invoke-RestMethod -Method POST -Uri http://localhost:8001/embed -ContentType "ap
 
 ---
 
-## 6. Подключение к n8n
+## 7. Подключение к n8n
 
 В workflows `document-loader.json` и `rag-agent.json` URL-эндпойнт стоит как заглушка:
 
@@ -209,7 +253,7 @@ ipconfig
 
 ---
 
-## 7. Автозапуск при включении ПК
+## 8. Автозапуск при включении ПК
 
 Чтобы не запускать вручную каждый раз — сделай автозапуск.
 
@@ -288,7 +332,7 @@ journalctl -u gigachat-embed -f         # смотреть логи
 
 ---
 
-## 8. Конфигурация
+## 9. Конфигурация
 
 Сервер читает настройки из переменных окружения. Менять значения можно либо в `.bat`/`.service`-файле автозапуска, либо в текущей сессии PowerShell перед запуском.
 
@@ -310,7 +354,7 @@ python server.py
 
 ---
 
-## 9. API
+## 10. API
 
 ### `POST /embed`
 Один текст → один вектор.
@@ -362,7 +406,17 @@ python server.py
 
 ---
 
-## 10. Решение частых проблем
+## 11. Решение частых проблем
+
+### `ERROR: Could not open requirements file: ... 'requirements.txt'`
+
+Файлы сервера (`requirements.txt`, `server.py`) **не лежат в папке**, в которой ты сейчас находишься. Типовой случай: создал пустую папку, в ней `python -m venv venv`, но файлы из репозитория не положил.
+
+Проверь:
+```powershell
+dir
+```
+Должно показать как минимум `requirements.txt`, `server.py` и папку `venv`. Если их нет — см. раздел [Получить файлы сервера](#2-получить-файлы-сервера) и скачай нужное.
 
 ### `OSError: ... is not a valid model identifier`
 
