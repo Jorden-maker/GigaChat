@@ -83,7 +83,7 @@
         .result-actions { display: flex; gap: 8px; }
         .btn-action { padding: 6px 12px; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
         .btn-action:hover { border-color: var(--accent); color: var(--accent); }
-        #resultText { width: 100%; min-height: 380px; max-height: 70vh; background: transparent; border: none; color: var(--text-primary); padding: 14px 18px; font-family: Consolas, 'Cascadia Code', monospace; font-size: 13.5px; line-height: 1.55; white-space: pre; overflow: auto; resize: vertical; outline: none; tab-size: 4; }
+        #resultText { width: 100%; min-height: 380px; max-height: 70vh; background: transparent; border: none; color: var(--text-primary); padding: 14px 18px; font-family: Consolas, 'Cascadia Code', monospace; font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; overflow-x: hidden; overflow-y: auto; resize: vertical; outline: none; tab-size: 4; }
 
         .reset-btn { text-align: center; margin-top: 14px; display: none; }
         .reset-btn button { background: none; border: 1px solid #444; color: #888; padding: 8px 24px; border-radius: 6px; cursor: pointer; font-size: 13px; }
