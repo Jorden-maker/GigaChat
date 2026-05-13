@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Определяем тип файла, валидируем размер.\n// Маршруты:\n//   ocr     — image/* | pdf | doc | docx | rtf | odt   (через OCR-сервис)\n//   text    — text/plain, .txt, .md, .log              (читаем как есть)\n//   table   — .xlsx, .xls, .csv                         (Spreadsheet File node)\nconst item = $input.first();\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  return [{ json: { valid: false, error: 'Файл не загружен. Прикрепите файл.', route: 'error' } }];\n}\n\nconst key = Object.keys(binary)[0];\nconst info = binary[key];\nconst fileName = info.fileName || 'unknown';\nconst mimeType = (info.mimeType || '').toLowerCase();\nconst fileSize = info.fileSize || 0;\n\nif (fileSize > 50 * 1024 * 1024) {\n  return [{ json: { valid: false, error: 'Файл слишком большой (макс. 50 МБ).', route: 'error' } }];\n}\n\nconst ext = (fileName.split('.').pop() || '').toLowerCase();\n\nlet route = 'ocr';\nif (mimeType.startsWith('text/plain') || ['txt','md','log'].includes(ext)) {\n  route = 'text';\n} else if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || ['xlsx','xls','csv'].includes(ext)) {\n  route = 'table';\n} else if (mimeType.startsWith('image/') || mimeType.includes('pdf') || mimeType.includes('msword') || mimeType.includes('wordprocessing') || mimeType.includes('officedocument.wordprocessing') || ['pdf','doc','docx','rtf','odt','jpg','jpeg','png','tiff','tif','bmp','webp','gif','heic'].includes(ext)) {\n  route = 'ocr';\n} else {\n  // По умолчанию пытаемся OCR — он покрывает большинство типовых документов.\n  route = 'ocr';\n}\n\nreturn [{\n  json: {\n    valid: true,\n    binaryKey: key,\n    fileName: fileName,\n    mimeType: mimeType,\n    fileSize: fileSize,\n    extension: ext,\n    route: route\n  },\n  binary: binary\n}];"
+        "jsCode": "// Определяем тип файла, валидируем размер.\n// Маршруты:\n//   ocr     — image/* | pdf | doc | docx | rtf | odt   (через OCR-сервис)\n//   text    — text/plain, .txt, .md, .log              (читаем как есть)\n//   csv     — .csv (отдельная ветка: авто-детект delimiter и encoding)\n//   xlsx    — .xlsx, .xls                              (Spreadsheet File node)\nconst item = $input.first();\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  return [{ json: { valid: false, error: 'Файл не загружен. Прикрепите файл.', route: 'error' } }];\n}\n\nconst key = Object.keys(binary)[0];\nconst info = binary[key];\nconst fileName = info.fileName || 'unknown';\nconst mimeType = (info.mimeType || '').toLowerCase();\nconst fileSize = info.fileSize || 0;\n\nif (fileSize > 50 * 1024 * 1024) {\n  return [{ json: { valid: false, error: 'Файл слишком большой (макс. 50 МБ).', route: 'error' } }];\n}\n\nconst ext = (fileName.split('.').pop() || '').toLowerCase();\n\nlet route = 'ocr';\nif (mimeType.startsWith('text/plain') || ['txt','md','log'].includes(ext)) {\n  route = 'text';\n} else if (ext === 'csv' || mimeType.includes('csv')) {\n  route = 'csv';\n} else if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || ['xlsx','xls'].includes(ext)) {\n  route = 'xlsx';\n} else if (mimeType.startsWith('image/') || mimeType.includes('pdf') || mimeType.includes('msword') || mimeType.includes('wordprocessing') || mimeType.includes('officedocument.wordprocessing') || ['pdf','doc','docx','rtf','odt','jpg','jpeg','png','tiff','tif','bmp','webp','gif','heic'].includes(ext)) {\n  route = 'ocr';\n} else {\n  // По умолчанию пытаемся OCR — он покрывает большинство типовых документов.\n  route = 'ocr';\n}\n\nreturn [{\n  json: {\n    valid: true,\n    binaryKey: key,\n    fileName: fileName,\n    mimeType: mimeType,\n    fileSize: fileSize,\n    extension: ext,\n    route: route\n  },\n  binary: binary\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -123,12 +123,34 @@
                 "conditions": [
                   {
                     "leftValue": "={{ $json.route }}",
-                    "rightValue": "table",
+                    "rightValue": "xlsx",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
                     },
-                    "id": "rule-table"
+                    "id": "rule-xlsx"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "csv",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-csv"
                   }
                 ],
                 "combinator": "and"
@@ -280,6 +302,19 @@
       ],
       "id": "te-0012-respond-err",
       "name": "Ответ: ошибка"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Парсинг CSV с авто-детекцией кодировки и разделителя.\n// Поддержка: UTF-8 (с BOM/без), CP1251 (русская Excel-локаль), UTF-16 LE BOM.\n// Разделители: , ; \\t — выбираем максимально частый в первой строке.\n// Корректно обрабатываем поля в кавычках с разделителями/переносами внутри.\ntry {\n  const meta = $('Валидация и тип').first().json;\n  const buf = await this.helpers.getBinaryDataBuffer(0, meta.binaryKey);\n  if (!buf || buf.length === 0) {\n    return [{ json: { row: ['(пустой файл)'] } }];\n  }\n\n  // --- Декодирование байтов в строку ---\n  function decodeUtf8(b) {\n    if (b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return b.slice(3).toString('utf8');\n    return b.toString('utf8');\n  }\n  function countReplacement(s) {\n    let n = 0;\n    for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 0xFFFD) n++;\n    return n;\n  }\n  const CP1251 = (function () {\n    const m = new Array(256);\n    for (let i = 0; i < 128; i++) m[i] = i;\n    const h = 'ЂЃ‚ѓ„…†‡€‰Љ‹ЊЌЋЏђ‘’“”•–—?™љ›њќћџ ЎўЈ¤Ґ¦§Ё©Є«¬­®Ї°±Ііґµ¶·ё№є»јЅѕї';\n    for (let i = 0; i < h.length; i++) m[128 + i] = h.charCodeAt(i);\n    for (let i = 0; i < 64; i++) m[0xC0 + i] = 0x0410 + i;\n    return m;\n  })();\n  function decodeCp1251(b) {\n    let s = '';\n    for (let i = 0; i < b.length; i++) s += String.fromCharCode(CP1251[b[i]]);\n    return s;\n  }\n\n  let text;\n  if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) {\n    text = buf.slice(2).toString('utf16le');\n  } else {\n    const u = decodeUtf8(buf);\n    const bad = countReplacement(u);\n    if (bad === 0) {\n      text = u;\n    } else {\n      const c = decodeCp1251(buf);\n      text = (countReplacement(c) < bad) ? c : u;\n    }\n  }\n\n  // --- Авто-детект разделителя по первой непустой строке ---\n  // Считаем количество кандидатов ; , \\t — выбираем самый частый.\n  let firstLine = '';\n  const m = text.match(/^[^\\n]*/);\n  if (m) firstLine = m[0].replace(/\\r$/, '');\n  const counts = {\n    ',': (firstLine.match(/,/g) || []).length,\n    ';': (firstLine.match(/;/g) || []).length,\n    '\\t': (firstLine.match(/\\t/g) || []).length,\n  };\n  let delim = ',';\n  let max = counts[','];\n  if (counts[';'] > max) { delim = ';'; max = counts[';']; }\n  if (counts['\\t'] > max) { delim = '\\t'; max = counts['\\t']; }\n\n  // --- Парсер CSV с поддержкой кавычек и многострочных полей ---\n  const rows = [];\n  let row = [];\n  let cur = '';\n  let inQ = false;\n  let i = 0;\n  while (i < text.length) {\n    const ch = text[i];\n    if (inQ) {\n      if (ch === '\"') {\n        if (text[i + 1] === '\"') { cur += '\"'; i += 2; }\n        else { inQ = false; i++; }\n      } else {\n        cur += ch; i++;\n      }\n    } else {\n      if (ch === '\"' && cur === '') { inQ = true; i++; }\n      else if (ch === delim) { row.push(cur); cur = ''; i++; }\n      else if (ch === '\\n') { row.push(cur); rows.push(row); row = []; cur = ''; i++; }\n      else if (ch === '\\r') { i++; }  // пропускаем, обработка по \\n\n      else { cur += ch; i++; }\n    }\n  }\n  // финальная ячейка/строка\n  if (cur.length > 0 || row.length > 0) {\n    row.push(cur);\n    rows.push(row);\n  }\n\n  if (rows.length === 0) {\n    return [{ json: { row: ['(нет строк в CSV)'] } }];\n  }\n\n  // Конвертим в формат items с {row: [strings]} — как у Spreadsheet File rawData=true\n  return rows.map(r => ({ json: { row: r.map(c => String(c)) } }));\n} catch (e) {\n  return [{ json: { row: ['Ошибка парсинга CSV: ' + e.message] } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        800
+      ],
+      "id": "te-0013-csv-parse",
+      "name": "Парсинг CSV"
     }
   ],
   "connections": {
@@ -342,6 +377,13 @@
         [
           {
             "node": "Парсинг таблицы",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Парсинг CSV",
             "type": "main",
             "index": 0
           }
@@ -408,6 +450,17 @@
         [
           {
             "node": "Ответ: успех",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Парсинг CSV": {
+      "main": [
+        [
+          {
+            "node": "Форматировать таблицу",
             "type": "main",
             "index": 0
           }
