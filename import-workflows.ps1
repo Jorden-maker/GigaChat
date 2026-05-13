@@ -30,7 +30,7 @@
 # ---- НАСТРОЙКИ ----
 $folder = "C:\Users\Lenovo\Desktop\GigaChat\Workflow"   # путь к папке с .json
 $n8n    = "http://localhost:5678"                       # URL n8n БЕЗ слеша на конце
-$apiKey = ""                                            # вставь сюда API-ключ из n8n
+$apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMWQzMzQ3Ny05MjdlLTQxMGEtYjNiMC0wMWNmOTY2ODgwYmYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiNmMwOTRmNjItNDc0OS00Y2VlLWI4YmUtZWVmZjhiNjkzYTJkIiwiaWF0IjoxNzc4NzA0MDY4LCJleHAiOjE3ODEyMzY4MDB9.yX3B3dw9o4g472bYHOyRw0fy_FJDG-G7_6OUTdZwbsw"                                            # вставь сюда API-ключ из n8n
 $prefix = "[GigaChat] "                                 # префикс имени, "" чтобы отключить
 # -------------------
 
@@ -67,11 +67,22 @@ try {
 }
 
 # Карта «имя -> id» для уже существующих
+# Карта «имя -> id» только для активных workflow.
+# Архивированные нельзя обновлять через PUT, поэтому их в карту не кладём —
+# скрипт создаст новые active workflow рядом с архивами.
 $existing = @{}
+$archivedSkipped = 0
 foreach ($wf in $list.data) {
+    if ($wf.isArchived) {
+        $archivedSkipped++
+        continue
+    }
     $existing[$wf.name] = $wf.id
 }
-Write-Host "    Найдено workflow в n8n: $($existing.Count)"
+Write-Host "    Найдено активных workflow в n8n: $($existing.Count)"
+if ($archivedSkipped -gt 0) {
+    Write-Host "    Архивированных (игнорируются): $archivedSkipped" -ForegroundColor DarkGray
+}
 if ($prefix) {
     Write-Host "    Префикс имени: `"$prefix`""
 }
