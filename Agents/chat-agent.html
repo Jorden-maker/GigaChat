@@ -281,6 +281,20 @@
                 if (c) sessionCounter = parseInt(c, 10) || 0;
             } catch (e) {}
         }
+        // Кэш отображаемых сообщений на случай оффлайна / неудачной загрузки истории
+        function saveDisplaySnapshot() {
+            if (!activeSessionId) return;
+            try { localStorage.setItem('chat_view_' + activeSessionId, JSON.stringify(displayMessages)); } catch (e) {}
+        }
+        function loadDisplaySnapshot(sid) {
+            try {
+                var s = localStorage.getItem('chat_view_' + sid);
+                return s ? JSON.parse(s) : null;
+            } catch (e) { return null; }
+        }
+        function clearDisplaySnapshot(sid) {
+            try { localStorage.removeItem('chat_view_' + sid); } catch (e) {}
+        }
         function checkServerStatus() {
             return GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
         }
@@ -293,18 +307,20 @@
         async function switchToSession(id, opts) {
             opts = opts || {};
             activeSessionId = id;
-            displayMessages = [];
+            // Сразу показываем последнее, что видели — даже если оффлайн
+            displayMessages = loadDisplaySnapshot(id) || [];
             renderSessionList();
             saveSessions();
+            renderChat();
             input.disabled = false; btn.disabled = false; input.focus();
-            if (opts.skipHistoryLoad) {
-                renderChat();
-                return;
-            }
+            if (opts.skipHistoryLoad) return;
             await loadHistoryForActive(id);
         }
         async function loadHistoryForActive(targetSessionId) {
-            chat.innerHTML = '<div class="history-loading">Загружаю историю...</div>';
+            // Если кэш пуст — показываем "Загружаю..."; если есть — оставляем кэш видимым
+            if (!displayMessages.length) {
+                chat.innerHTML = '<div class="history-loading">Загружаю историю...</div>';
+            }
             try {
                 var res = await fetch(HISTORY_URL, {
                     method: 'POST',
@@ -318,16 +334,22 @@
                 displayMessages = (data.messages || []).map(function (m) {
                     return { role: m.role, content: m.content };
                 });
+                saveDisplaySnapshot();
                 renderChat();
             } catch (e) {
                 if (activeSessionId !== targetSessionId) return;
-                displayMessages = [];
-                chat.innerHTML = '<div class="empty-chat"><span>Не удалось загрузить историю.</span><span class="memory-note">Можно продолжить общение — новые сообщения сохранятся</span></div>';
+                // Если кэш есть — оставляем его видимым (не теряем оффлайн-сообщения)
+                if (displayMessages.length) {
+                    renderChat();
+                } else {
+                    chat.innerHTML = '<div class="empty-chat"><span>Не удалось загрузить историю.</span><span class="memory-note">Можно продолжить общение — новые сообщения сохранятся</span></div>';
+                }
             }
         }
         function deleteSession(id, event) {
             event.stopPropagation();
             sessions = sessions.filter(function(s) { return s.id !== id; });
+            clearDisplaySnapshot(id);
             if (activeSessionId === id) {
                 if (sessions.length > 0) { switchToSession(sessions[sessions.length - 1].id); }
                 else {
@@ -407,6 +429,7 @@
 
             // Добавляем сообщение пользователя в отображение
             displayMessages.push({ role: 'user', content: text });
+            saveDisplaySnapshot();
             renderChat();
             input.value = ''; input.disabled = true; btn.disabled = true;
 
@@ -436,6 +459,7 @@
                 // Добавляем ответ в отображение
                 if (activeSessionId === sendSessionId) {
                     displayMessages.push({ role: 'assistant', content: responseText });
+                    saveDisplaySnapshot();
                     renderChat();
                 }
                 statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
@@ -445,6 +469,7 @@
                 if (loading) loading.remove();
                 if (activeSessionId === sendSessionId) {
                     displayMessages.push({ role: 'assistant', content: 'Ошибка: ' + e.message });
+                    saveDisplaySnapshot();
                     renderChat();
                 }
                 statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
