@@ -1,5 +1,5 @@
 {
-  "name": "SQL-Агент",
+  "name": "SQL-Агент. Поток",
   "nodes": [
     {
       "parameters": {

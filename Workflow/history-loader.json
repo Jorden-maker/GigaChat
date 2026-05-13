@@ -1,5 +1,5 @@
 {
-  "name": "History Loader",
+  "name": "Загрузка истории. Поток",
   "nodes": [
     {
       "parameters": {

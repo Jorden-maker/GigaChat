@@ -1,5 +1,5 @@
 {
-  "name": "RAG-Агент",
+  "name": "RAG-Агент. Поток",
   "nodes": [
     {
       "parameters": {

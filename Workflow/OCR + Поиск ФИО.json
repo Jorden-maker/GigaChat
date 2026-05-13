@@ -1,5 +1,5 @@
 {
-  "name": "OCR + Поиск ФИО",
+  "name": "OCR + Поиск ФИО. Поток",
   "nodes": [
     {
       "parameters": {
