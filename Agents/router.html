@@ -11,14 +11,14 @@
     </script>
     <style>
         :root {
-            --bg-primary: #1a1410;
-            --bg-secondary: #241a14;
-            --bg-input: #2d2218;
-            --bg-user: #3a2c1c;
-            --bg-bot: #1f1812;
-            --border: #4a3a2a;
-            --text-primary: #e8d8b8;
-            --text-secondary: #a89572;
+            --bg-primary: #0f1218;
+            --bg-secondary: #181c25;
+            --bg-input: #21262f;
+            --bg-user: rgba(212, 175, 55, 0.12);
+            --bg-bot: #181c25;
+            --border: #2e3340;
+            --text-primary: #e6e8ec;
+            --text-secondary: #8a98a8;
             --accent: #d4af37;
             --accent-hover: #b8941f;
             --sidebar-width: 220px;
@@ -32,12 +32,12 @@
             display: flex;
             overflow: hidden;
         }
-        .btn-home { display:block; padding:10px 16px; background:#100c08; border-bottom:1px solid var(--border); color:#776; text-decoration:none; font-size:13px; transition:color .2s; }
+        .btn-home { display:block; padding:10px 16px; background:#0a0d12; border-bottom:1px solid var(--border); color:#7a8a9a; text-decoration:none; font-size:13px; transition:color .2s; }
         .btn-home:hover { color: var(--accent); }
         .btn-home .arrow { margin-right:6px; }
         .sidebar {
             width: var(--sidebar-width); height: 100vh;
-            background: #15100c; border-right: 1px solid var(--border);
+            background: #12161e; border-right: 1px solid var(--border);
             display: flex; flex-direction: column; flex-shrink: 0;
         }
         .sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
@@ -59,8 +59,8 @@
         .session-item:hover { background: var(--bg-secondary); }
         .session-item.active { background: var(--bg-secondary); color: var(--accent); border: 1px solid var(--border); }
         .session-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .session-item .close { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #776; font-size: 14px; flex-shrink: 0; margin-left: 6px; }
-        .session-item .close:hover { background: #3a2a1a; color: #ff6666; }
+        .session-item .close { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #7a8a9a; font-size: 14px; flex-shrink: 0; margin-left: 6px; }
+        .session-item .close:hover { background: #2a3040; color: #ff6666; }
         .main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
         header {
             display: flex; align-items: center; justify-content: space-between;
@@ -100,9 +100,10 @@
         }
         .bot b { color: var(--text-primary); }
         .bot i { color: var(--text-secondary); }
-        .bot code { background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; }
-        .bot pre { background: var(--bg-secondary); padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; white-space: pre; }
+        .bot code { background: #13171f; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; }
+        .bot pre { background: #13171f; padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; white-space: pre; }
         .bot hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+        .user { border: 1px solid rgba(212, 175, 55, 0.3); }
         .loading { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 13px; padding: 14px 18px; font-style: italic; }
         .loading .dots span { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: var(--text-secondary); animation: blink 1.4s infinite; }
         .loading .dots span:nth-child(2) { animation-delay: 0.2s; }
