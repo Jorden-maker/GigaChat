@@ -442,14 +442,10 @@ function renderChat() {
     } else {
       const extras = m.extras || {};
       const prompt = extras.prompt || m.prompt || '';
-      const elapsed = extras.elapsed || m.elapsed || '';
       html += `<div class="msg bot">`;
       html += formatResponse(text);
       if (prompt) {
         html += `<div class="prompt-block"><div class="prompt-block-header"><span>Готовый промпт</span><button class="btn-copy" onclick="copyPrompt(this)">Копировать</button></div><pre>${escapeHtml(prompt)}</pre></div>`;
-      }
-      if (elapsed) {
-        html += `<div class="timer">⏱ ${elapsed} сек</div>`;
       }
       html += `</div>`;
     }
@@ -514,7 +510,6 @@ async function sendMessage() {
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ message: text, session_id: sendSessionId })
     });
-    const elapsed = ((Date.now()-startTime)/1000).toFixed(1);
     clearInterval(timerInterval);
     const loading = document.getElementById('loading');
     if (loading) loading.remove();
@@ -523,7 +518,7 @@ async function sendMessage() {
       displayMessages.push({
         role:'assistant',
         content: data.response || 'Ответ получен',
-        extras: { prompt: data.prompt || '', elapsed }
+        extras: { prompt: data.prompt || '' }
       });
       saveDisplaySnapshot();
       renderChat();
@@ -535,8 +530,7 @@ async function sendMessage() {
     if (activeSessionId === sendSessionId) {
       displayMessages.push({
         role:'assistant',
-        content: 'Ошибка: ' + err.message,
-        extras: { prompt: '', elapsed: ((Date.now()-startTime)/1000).toFixed(1) }
+        content: 'Ошибка: ' + err.message
       });
       saveDisplaySnapshot();
       renderChat();
@@ -576,13 +570,11 @@ function exportChat() {
     const content = m.content || m.text || '';
     const extras = m.extras || {};
     const prompt = extras.prompt || m.prompt || '';
-    const elapsed = extras.elapsed || m.elapsed || '';
     if (m.role === 'user') {
-      text += '👤 Вы:\n' + content + '\n\n';
+      text += 'Вы:\n' + content + '\n\n';
     } else {
-      text += '🧠 Агент по промпт-инженерии:\n' + content + '\n';
+      text += 'Агент по промпт-инженерии:\n' + content + '\n';
       if (prompt) text += '\n--- ПРОМПТ ---\n' + prompt + '\n--- /ПРОМПТ ---\n';
-      if (elapsed) text += '\n⏱ ' + elapsed + ' сек\n';
       text += '\n';
     }
     text += '-'.repeat(40) + '\n\n';
