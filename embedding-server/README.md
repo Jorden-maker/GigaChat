@@ -75,7 +75,26 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 Подтверди `Y` (Да).
 
-### Шаг 1.4 — Собрать оффлайн-бандл
+### Шаг 1.4 — Получить папку `wheels`
+
+Есть два способа. **Используй A, он быстрее.**
+
+#### Способ A (рекомендуется) — скачать готовый бандл из GitHub Releases
+
+В репозитории опубликован уже собранный `wheels.zip` (~200 MB, Python 3.12, CPU-вариант torch, 44 пакета). Скачиваешь, распаковываешь — папка `wheels` готова.
+
+В PowerShell:
+```powershell
+Invoke-WebRequest -Uri "https://github.com/Jorden-maker/GigaChat/releases/latest/download/wheels.zip" -OutFile "wheels.zip"
+Expand-Archive -Path wheels.zip -DestinationPath . -Force
+Remove-Item wheels.zip
+```
+
+После выполнения в текущей папке появится `wheels/` с .whl файлами. Время: 1–3 минуты на скачивание + 10 секунд на распаковку.
+
+> **Когда НЕ использовать способ A:** только если ты планируешь ставить эмбеддинг на ПК с **другой версией Python** (не 3.12). Тогда нужен способ B — он соберёт wheels под версию, установленную на ТВОЕЙ домашней машине.
+
+#### Способ B — собрать бандл скриптом (15 минут)
 
 ```powershell
 .\make-offline-bundle.ps1
@@ -84,7 +103,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 Скрипт сам:
 - проверит Python,
 - обновит pip,
-- скачает все Python-пакеты (~3 GB) в подпапку `wheels`.
+- скачает все Python-пакеты (~200 MB для CPU-torch) в подпапку `wheels`.
 
 Время: **5–15 минут**, зависит от твоего интернета.
 
@@ -94,10 +113,10 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 На флешку скопируй **всю папку `GigaChat` целиком**. Внутри теперь:
 - `Agents/`, `Workflow/`, гайды и т.д. (~MB)
-- `embedding-server/wheels/` (~3 GB) ← это и есть бандл
+- `embedding-server/wheels/` (~200 MB) ← это и есть бандл
 - `embedding-server/server.py`, `install-offline.ps1` и т.д.
 
-Размер флешки нужен **не менее 4 GB**.
+Размер флешки нужен **не менее 1 GB**.
 
 ---
 
