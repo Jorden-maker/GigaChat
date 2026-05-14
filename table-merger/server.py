@@ -36,7 +36,7 @@ from typing import List, Tuple, Dict, Optional
 from urllib.parse import quote as url_quote
 
 import uvicorn
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -340,7 +340,20 @@ def detect_kind(filename: str) -> Optional[str]:
 
 
 @app.post('/merge')
-async def merge(files: List[UploadFile] = File(...)):
+async def merge(request: Request):
+    """
+    Принимаем все UploadFile из формы независимо от имени поля. Это нужно
+    потому что n8n при отправке multipart с массивом файлов под одним именем
+    («files») де-факто перекодирует имена в индексированный вариант
+    («files-0», «files-1»). Чтобы не зависеть от поведения клиента — берём
+    все upload'ы из form.multi_items().
+    """
+    form = await request.form()
+    files: List[UploadFile] = []
+    for _name, value in form.multi_items():
+        if isinstance(value, UploadFile):
+            files.append(value)
+
     if not files:
         raise HTTPException(400, 'Не передано ни одного файла.')
     if len(files) > MAX_FILES:
