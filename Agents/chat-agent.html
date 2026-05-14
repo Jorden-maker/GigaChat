@@ -311,6 +311,15 @@
         async function switchToSession(id, opts) {
             opts = opts || {};
             activeSessionId = id;
+            // При переключении сессии — очищаем поле ввода и вложение,
+            // чтобы чип не «утекал» в новую сессию.
+            input.value = '';
+            input.style.height = 'auto';
+            if (attachment) {
+                attachment.cancel();
+                attachment.clear();
+                attachment.setDisabled(false);
+            }
             // Сразу показываем последнее, что видели — даже если оффлайн
             displayMessages = loadDisplaySnapshot(id) || [];
             renderSessionList();
