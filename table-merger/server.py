@@ -342,20 +342,38 @@ def detect_kind(filename: str) -> Optional[str]:
 @app.post('/merge')
 async def merge(request: Request):
     """
-    Принимаем все UploadFile из формы независимо от имени поля. Это нужно
-    потому что n8n при отправке multipart с массивом файлов под одним именем
-    («files») де-факто перекодирует имена в индексированный вариант
-    («files-0», «files-1»). Чтобы не зависеть от поведения клиента — берём
-    все upload'ы из form.multi_items().
+    Принимаем все UploadFile из формы независимо от имени поля.
+    Также fallback: если n8n шлёт файл как plain string/bytes (без
+    filename), оборачиваем в "виртуальный" UploadFile из имени поля.
     """
+    content_type = request.headers.get('content-type', '')
+    log.info('=== POST /merge ===')
+    log.info('Content-Type: %s', content_type)
+
     form = await request.form()
+
+    # DEBUG: смотрим что именно пришло
+    log.info('Form fields received: %d', len(list(form.multi_items())))
+    for name, value in form.multi_items():
+        if isinstance(value, UploadFile):
+            log.info('  field=%s, UploadFile, filename=%s, content_type=%s', name, value.filename, value.content_type)
+        else:
+            vstr = str(value)
+            log.info('  field=%s, %s, len=%d, preview=%s',
+                     name, type(value).__name__, len(vstr), vstr[:80].replace('\n', '\\n'))
+
     files: List[UploadFile] = []
     for _name, value in form.multi_items():
         if isinstance(value, UploadFile):
             files.append(value)
 
     if not files:
-        raise HTTPException(400, 'Не передано ни одного файла.')
+        raise HTTPException(
+            400,
+            f'Не передано ни одного файла. Content-Type был: {content_type[:200]}. '
+            f'Form содержит {len(list(form.multi_items()))} полей. '
+            f'Проверь логи сервиса для подробностей.',
+        )
     if len(files) > MAX_FILES:
         raise HTTPException(
             400,
