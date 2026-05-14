@@ -48,7 +48,10 @@ $wheelsSize = "{0:N1}" -f ((Get-ChildItem -Path "wheels" -Recurse | Measure-Obje
 Write-Host ""
 Write-Host "==> Упаковка wheels в wheels.zip для переноса..."
 if (Test-Path "wheels.zip") { Remove-Item "wheels.zip" -Force }
-Compress-Archive -Path "wheels\*" -DestinationPath "wheels.zip"
+# Упаковываем САМУ папку wheels (а не её содержимое через wheels\*),
+# чтобы при Expand-Archive на офисном ПК внутри zip была папка wheels\
+# со всеми .whl внутри. Иначе install-offline.ps1 не найдёт папку и упадёт.
+Compress-Archive -Path "wheels" -DestinationPath "wheels.zip"
 $zipSize = "{0:N1}" -f ((Get-Item "wheels.zip").Length / 1MB)
 
 Write-Host ""
