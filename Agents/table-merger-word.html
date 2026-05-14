@@ -355,6 +355,7 @@ main {
 </style>
 <script src="_config.js"></script>
 <script src="_shared.js"></script>
+<script src="lib/jszip.min.js"></script>
 </head>
 <body>
 
@@ -405,10 +406,12 @@ main {
 </main>
 
 <script>
-var WEBHOOK_URL = GigaChat.webhookUrl('table-merger-word');
+// Word-объединение работает ПОЛНОСТЬЮ В БРАУЗЕРЕ через JSZip.
+// Никаких HTTP-запросов, никакого Python-сервиса, никакого n8n.
+// Файл .docx — это zip-архив; внутри word/document.xml — XML с таблицей.
+// Распаковываем → парсим → склеиваем таблицы → запаковываем → скачиваем.
 var MAX_FILES_WARN = 10;
 var MAX_FILES_HARD = 25;
-var FETCH_TIMEOUT_MS = 240000;
 
 var dropZone = document.getElementById('dropZone');
 var fileInput = document.getElementById('fileInput');
@@ -557,6 +560,188 @@ dropZone.addEventListener('drop', function(e) {
         addFiles(e.dataTransfer.files);
     }
 });
+// =================== Browser-only merge через JSZip + DOMParser ===================
+
+var WNS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+function normalizeHeader(h) {
+    return String(h == null ? '' : h).trim().toLowerCase()
+        .replace(/[\s._\-(){}\[\]\\\/:;,!?'"]+/g, '');
+}
+
+// Извлекает текст из всех ячеек <w:tc> одной строки <w:tr>.
+function extractRowText(tr) {
+    var tcs = tr.getElementsByTagName('w:tc');
+    var result = [];
+    for (var i = 0; i < tcs.length; i++) {
+        var ts = tcs[i].getElementsByTagName('w:t');
+        var parts = [];
+        for (var j = 0; j < ts.length; j++) {
+            parts.push(ts[j].textContent || '');
+        }
+        result.push(parts.join(''));
+    }
+    return result;
+}
+
+// Парсит один docx-файл: распаковывает, находит первую таблицу, извлекает строки.
+async function parseDocx(file) {
+    var buf = await file.arrayBuffer();
+    var zip = await JSZip.loadAsync(buf);
+    var xmlFile = zip.file('word/document.xml');
+    if (!xmlFile) throw new Error('В файле «' + file.name + '» нет word/document.xml — это не Word-документ.');
+    var xml = await xmlFile.async('string');
+    var doc = new DOMParser().parseFromString(xml, 'application/xml');
+    var pe = doc.getElementsByTagName('parsererror')[0];
+    if (pe) throw new Error('Файл «' + file.name + '»: не удалось разобрать XML.');
+
+    var tables = doc.getElementsByTagName('w:tbl');
+    if (tables.length === 0) throw new Error('В файле «' + file.name + '» нет таблиц.');
+    var tbl = tables[0];
+
+    var rows = tbl.getElementsByTagName('w:tr');
+    if (rows.length === 0) throw new Error('Таблица в файле «' + file.name + '» пустая.');
+
+    var headers = extractRowText(rows[0]);
+    var dataRows = [];
+    for (var i = 1; i < rows.length; i++) {
+        var rowText = extractRowText(rows[i]);
+        // Пропускаем полностью пустые строки
+        var hasContent = false;
+        for (var j = 0; j < rowText.length; j++) {
+            if (String(rowText[j] || '').trim() !== '') { hasContent = true; break; }
+        }
+        if (hasContent) dataRows.push(rowText);
+    }
+
+    return { file: file, zip: zip, doc: doc, tbl: tbl, headers: headers, dataRows: dataRows };
+}
+
+// Создаёт XML-узел <w:tr> с ячейками.
+function buildRow(xmlDoc, cells, isHeader) {
+    var tr = xmlDoc.createElementNS(WNS, 'w:tr');
+    for (var i = 0; i < cells.length; i++) {
+        var tc = xmlDoc.createElementNS(WNS, 'w:tc');
+
+        var tcPr = xmlDoc.createElementNS(WNS, 'w:tcPr');
+        var tcW = xmlDoc.createElementNS(WNS, 'w:tcW');
+        tcW.setAttributeNS(WNS, 'w:w', '2200');
+        tcW.setAttributeNS(WNS, 'w:type', 'dxa');
+        tcPr.appendChild(tcW);
+        tc.appendChild(tcPr);
+
+        var p = xmlDoc.createElementNS(WNS, 'w:p');
+        var r = xmlDoc.createElementNS(WNS, 'w:r');
+        if (isHeader) {
+            var rPr = xmlDoc.createElementNS(WNS, 'w:rPr');
+            var b = xmlDoc.createElementNS(WNS, 'w:b');
+            rPr.appendChild(b);
+            r.appendChild(rPr);
+        }
+        var t = xmlDoc.createElementNS(WNS, 'w:t');
+        t.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
+        t.textContent = String(cells[i] == null ? '' : cells[i]);
+        r.appendChild(t);
+        p.appendChild(r);
+        tc.appendChild(p);
+        tr.appendChild(tc);
+    }
+    return tr;
+}
+
+async function mergeDocxFiles(files) {
+    // 1. Парсим все файлы
+    var parsed = [];
+    for (var i = 0; i < files.length; i++) {
+        parsed.push(await parseDocx(files[i]));
+    }
+
+    // 2. Объединяем заголовки (union со стабильным порядком первого появления)
+    var columnOrder = [];
+    var canonical = {};
+    for (var i = 0; i < parsed.length; i++) {
+        var hs = parsed[i].headers;
+        for (var j = 0; j < hs.length; j++) {
+            var norm = normalizeHeader(hs[j]);
+            if (!norm) continue;
+            if (!(norm in canonical)) {
+                canonical[norm] = hs[j];
+                columnOrder.push(norm);
+            }
+        }
+    }
+    if (columnOrder.length === 0) throw new Error('Во всех файлах заголовки пустые — нечего объединять.');
+
+    var mergedHeaders = columnOrder.map(function(k) { return canonical[k]; });
+
+    // 3. Объединяем строки
+    var mergedDataRows = [];
+    for (var i = 0; i < parsed.length; i++) {
+        var p = parsed[i];
+        var localMap = {};
+        for (var j = 0; j < p.headers.length; j++) {
+            var norm = normalizeHeader(p.headers[j]);
+            if (norm && !(norm in localMap)) localMap[norm] = j;
+        }
+        for (var k = 0; k < p.dataRows.length; k++) {
+            var row = p.dataRows[k];
+            var newRow = [];
+            for (var c = 0; c < columnOrder.length; c++) {
+                var idx = localMap[columnOrder[c]];
+                newRow.push((idx != null && row[idx] != null) ? row[idx] : '');
+            }
+            mergedDataRows.push(newRow);
+        }
+    }
+    if (mergedDataRows.length === 0) throw new Error('Во всех файлах нет данных кроме заголовков.');
+
+    // 4. Берём первый файл как template — там сохранятся все служебные части docx
+    //    (стили, шрифты, нумерация, заголовки страниц) и стиль таблицы.
+    var template = parsed[0];
+    var xmlDoc = template.doc;
+    var origTbl = template.tbl;
+
+    // Копируем w:tblPr из оригинальной таблицы (стиль, обводки, цвет и т.п.)
+    var tblPr = origTbl.getElementsByTagName('w:tblPr')[0];
+
+    // Строим новую таблицу
+    var newTbl = xmlDoc.createElementNS(WNS, 'w:tbl');
+    if (tblPr) newTbl.appendChild(tblPr.cloneNode(true));
+
+    // w:tblGrid — определение ширин колонок
+    var tblGrid = xmlDoc.createElementNS(WNS, 'w:tblGrid');
+    for (var i = 0; i < mergedHeaders.length; i++) {
+        var gc = xmlDoc.createElementNS(WNS, 'w:gridCol');
+        gc.setAttributeNS(WNS, 'w:w', '2200');
+        tblGrid.appendChild(gc);
+    }
+    newTbl.appendChild(tblGrid);
+
+    // Заголовок (жирным) и данные
+    newTbl.appendChild(buildRow(xmlDoc, mergedHeaders, true));
+    for (var i = 0; i < mergedDataRows.length; i++) {
+        newTbl.appendChild(buildRow(xmlDoc, mergedDataRows[i], false));
+    }
+
+    // Заменяем старую таблицу новой
+    origTbl.parentNode.replaceChild(newTbl, origTbl);
+
+    // 5. Сериализуем XML и пишем обратно в zip
+    var newXml = new XMLSerializer().serializeToString(xmlDoc);
+    if (newXml.indexOf('<?xml') !== 0) {
+        newXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + newXml;
+    }
+    template.zip.file('word/document.xml', newXml);
+
+    // 6. Генерируем итоговый docx как Blob
+    var blob = await template.zip.generateAsync({
+        type: 'blob',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    });
+
+    return { blob: blob, rowsCount: mergedDataRows.length, colsCount: mergedHeaders.length };
+}
+
 async function doMerge() {
     if (selectedFiles.length === 0) return;
     clearError();
@@ -564,50 +749,12 @@ async function doMerge() {
     mergeBtn.disabled = true;
     mergeBtnText.innerHTML = '<span class="spinner"></span> Обрабатываю...';
 
-    var formData = new FormData();
-    for (var i = 0; i < selectedFiles.length; i++) {
-        formData.append('files', selectedFiles[i], selectedFiles[i].name);
-    }
-
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
-
     try {
-        var res = await fetch(WEBHOOK_URL, {
-            method: 'POST',
-            body: formData,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-            // Сервер вернул JSON с ошибкой
-            var errText;
-            try {
-                var errJson = await res.json();
-                errText = errJson.error || errJson.message || ('HTTP ' + res.status);
-            } catch (e) {
-                errText = 'HTTP ' + res.status;
-            }
-            throw new Error(errText);
-        }
-
-        var blob = await res.blob();
-        if (blob.size === 0) throw new Error('Сервер вернул пустой файл.');
-
-        // Имя файла из Content-Disposition если есть, иначе по умолчанию
-        var cd = res.headers.get('content-disposition') || '';
-        var filename = 'merged.bin';
-        var m = cd.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
-        if (m) {
-            try { filename = decodeURIComponent(m[1].replace(/^["']|["']$/g, '')); }
-            catch (_) { filename = m[1].replace(/^["']|["']$/g, ''); }
-        } else {
-            filename = 'merged.docx';
-        }
+        var result = await mergeDocxFiles(selectedFiles);
+        var filename = 'merged.docx';
 
         // Триггерим скачивание
-        var url = URL.createObjectURL(blob);
+        var url = URL.createObjectURL(result.blob);
         var a = document.createElement('a');
         a.href = url;
         a.download = filename;
@@ -617,55 +764,31 @@ async function doMerge() {
         setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 
         var filesCount = selectedFiles.length;
-        showSuccess('Готово. Файл «' + filename + '» (' + formatSize(blob.size) + ') скачан. Объединено файлов: ' + filesCount + '.');
-        // Очищаем список выбранных файлов — следующая партия начинается с чистого листа.
+        showSuccess('Готово. Файл «' + filename + '» (' + formatSize(result.blob.size) +
+                    ') скачан. Объединено файлов: ' + filesCount +
+                    ', строк: ' + result.rowsCount + ', столбцов: ' + result.colsCount + '.');
         selectedFiles = [];
         fileInput.value = '';
     } catch (err) {
-        clearTimeout(timeoutId);
-        if (err.name === 'AbortError') {
-            showError('Превышено время ожидания (4 минуты). Файлов слишком много или они слишком большие.');
-        } else {
-            showError(err.message || 'Не удалось обработать файлы.');
-        }
+        showError(err && err.message ? err.message : 'Не удалось обработать файлы.');
     } finally {
         mergeBtn.disabled = false;
         mergeBtnText.textContent = 'Объединить и скачать';
-        renderList(); // вернёт правильное disabled если что
+        renderList();
     }
 }
 
-// Health check — пингаем НАПРЯМУЮ Python-сервис на localhost:8082/health
-// (минуя n8n), чтобы не нагружать workflow-очередь n8n каждые 30 секунд.
-// Браузер запущен на хост-машине → localhost резолвится в хост, где висит
-// Python. Если сервис не отвечает за 5 сек — индикатор офлайн.
+// Status check: проверяем что JSZip загрузился — это всё что нужно для работы.
 function checkStatus() {
-    statusDot.className = 'dot checking';
-    statusText.textContent = 'проверка...';
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function() { controller.abort(); }, 5000);
-    fetch('http://localhost:8082/health', {
-        method: 'GET',
-        signal: controller.signal
-    })
-    .then(function(res) {
-        clearTimeout(timeoutId);
-        if (res.ok) {
-            statusDot.className = 'dot online';
-            statusText.textContent = 'сервис онлайн';
-        } else {
-            statusDot.className = 'dot offline';
-            statusText.textContent = 'сервис отвечает с ошибкой';
-        }
-    })
-    .catch(function() {
-        clearTimeout(timeoutId);
+    if (typeof JSZip === 'undefined') {
         statusDot.className = 'dot offline';
-        statusText.textContent = 'сервис не запущен';
-    });
+        statusText.textContent = 'JSZip не загружен';
+    } else {
+        statusDot.className = 'dot online';
+        statusText.textContent = 'готов';
+    }
 }
 checkStatus();
-setInterval(checkStatus, 30000);
 
 renderList();
 </script>

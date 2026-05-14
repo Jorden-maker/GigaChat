@@ -707,11 +707,16 @@
         { id: 'ocr',    webhook: GigaChat.webhookUrl('ocr') },
         { id: 'docs',   webhook: GigaChat.webhookUrl('upload-doc') },
         { id: 'extract', webhook: GigaChat.webhookUrl('extract-text') },
-        { id: 'merger-excel', webhook: GigaChat.webhookUrl('table-merger-excel') },
-        { id: 'merger-word', webhook: GigaChat.webhookUrl('table-merger-word') }
+        { id: 'merger-excel', webhook: GigaChat.webhookUrl('table-merger-excel') }
+        // merger-word работает целиком в браузере (JSZip + DOMParser) —
+        // без webhook'а, всегда «онлайн», статус-чек не нужен.
     ];
 
     document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+    // merger-word работает в браузере — статус ВСЕГДА online (никакой сервер не нужен).
+    var mergerWordDot = document.getElementById('status-merger-word');
+    if (mergerWordDot) mergerWordDot.className = 'card-status online';
 
     function toggleTheme() {
         var current = document.documentElement.getAttribute('data-theme') || 'light';
