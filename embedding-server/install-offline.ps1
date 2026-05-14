@@ -22,12 +22,28 @@ Write-Host "    $pythonVersion"
 # Если есть wheels.zip и нет папки wheels — автоматически распаковываем
 if ((Test-Path "wheels.zip") -and (-not (Test-Path "wheels"))) {
     Write-Host ""
-    Write-Host "==> Найден wheels.zip — распаковываю в папку wheels..."
+    Write-Host "==> Найден wheels.zip — распаковываю..."
     Expand-Archive -Path "wheels.zip" -DestinationPath . -Force
+
+    # Поддерживаем оба формата zip:
+    # 1) Внутри zip папка wheels\ со всеми .whl → Expand-Archive создаст wheels\
+    # 2) Внутри zip сами .whl-файлы в корне → они распакуются рядом со скриптом,
+    #    тогда мы их соберём в папку wheels вручную.
+    if (-not (Test-Path "wheels")) {
+        $looseWhls = Get-ChildItem -Filter "*.whl" -File
+        if ($looseWhls.Count -gt 0) {
+            Write-Host "    .whl-файлы оказались в корне (старый формат zip) — переношу в wheels\..."
+            New-Item -ItemType Directory -Force -Path "wheels" | Out-Null
+            foreach ($f in $looseWhls) {
+                Move-Item -Path $f.FullName -Destination "wheels\" -Force
+            }
+        }
+    }
+
     if (Test-Path "wheels") {
         Write-Host "    Распаковка завершена."
     } else {
-        Write-Host "ОШИБКА: распаковка не создала папку wheels." -ForegroundColor Red
+        Write-Host "ОШИБКА: распаковка не нашла .whl-файлов." -ForegroundColor Red
         exit 1
     }
 }
