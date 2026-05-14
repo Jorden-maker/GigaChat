@@ -275,6 +275,8 @@
         .card-docs:hover { box-shadow: 0 8px 40px rgba(245,158,11,0.12); }
         .card-extract::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
         .card-extract:hover { box-shadow: 0 8px 40px rgba(245,158,11,0.12); }
+        .card-merger::before { background: linear-gradient(90deg, #06b6d4, #22d3ee); }
+        .card-merger:hover { box-shadow: 0 8px 40px rgba(6,182,212,0.14); }
 
         .card-icon {
             width: 48px; height: 48px;
@@ -303,6 +305,7 @@
         .card-chat .card-icon { background: linear-gradient(135deg, rgba(14,165,233,0.15), rgba(56,189,248,0.15)); color: #0ea5e9; }
         .card-docs .card-icon { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.15)); color: #f59e0b; }
         .card-extract .card-icon { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.15)); color: #f59e0b; }
+        .card-merger .card-icon { background: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(34,211,238,0.15)); color: #06b6d4; }
 
         .card-title {
             font-size: 17px;
@@ -320,6 +323,7 @@
         .card-chat .card-title { color: #0ea5e9; }
         .card-docs .card-title { color: #f59e0b; }
         .card-extract .card-title { color: #f59e0b; }
+        .card-merger .card-title { color: #06b6d4; }
 
         .card-desc {
             font-size: 13px;
@@ -347,6 +351,7 @@
         .card-chat .card-tag { background: rgba(14,165,233,0.1); color: #0ea5e9; border: 1px solid rgba(14,165,233,0.2); }
         .card-docs .card-tag { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
         .card-extract .card-tag { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+        .card-merger .card-tag { background: rgba(6,182,212,0.1); color: #06b6d4; border: 1px solid rgba(6,182,212,0.2); }
 
         .card-arrow {
             position: absolute;
@@ -615,7 +620,7 @@
     </div>
 
     <div class="cards-section-title">Инструменты</div>
-    <div class="cards-grid">
+    <div class="cards-grid-2">
 
         <a class="card card-ocr" href="Agents/OCR-search-FIO.html" id="card-ocr">
             <div class="card-status checking" id="status-ocr"></div>
@@ -644,6 +649,15 @@
             <span class="card-tag">Извлечение</span>
         </a>
 
+        <a class="card card-merger" href="Agents/table-merger.html" id="card-merger">
+            <div class="card-status checking" id="status-merger"></div>
+            <span class="card-arrow">&#8594;</span>
+            <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="13" height="13" rx="2"/><rect x="8" y="8" width="13" height="13" rx="2"/></svg></div>
+            <div class="card-title">Объединение таблиц</div>
+            <div class="card-desc">Несколько Excel или Word файлов с одинаковыми таблицами — в один итоговый файл</div>
+            <span class="card-tag">Слияние</span>
+        </a>
+
     </div>
 
     <div class="footer">
@@ -662,7 +676,8 @@
         { id: 'chat',   webhook: GigaChat.webhookUrl('chat') },
         { id: 'ocr',    webhook: GigaChat.webhookUrl('ocr') },
         { id: 'docs',   webhook: GigaChat.webhookUrl('upload-doc') },
-        { id: 'extract', webhook: GigaChat.webhookUrl('extract-text') }
+        { id: 'extract', webhook: GigaChat.webhookUrl('extract-text') },
+        { id: 'merger', webhook: GigaChat.webhookUrl('table-merger') }
     ];
 
     document.getElementById('currentYear').textContent = new Date().getFullYear();

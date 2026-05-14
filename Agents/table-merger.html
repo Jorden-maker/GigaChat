@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Объединение таблиц — GigaChat</title>
+<script>
+    (function () {
+        var t = localStorage.getItem('giga_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+</script>
+<style>
+:root {
+    --bg-primary: #0a0e15;
+    --bg-secondary: #131820;
+    --bg-input: #1b2230;
+    --bg-card: #131820;
+    --border: #283040;
+    --text-primary: #e6e8ec;
+    --text-secondary: #8a98a8;
+    --text-muted: #5a6878;
+    --accent: #06b6d4;
+    --accent-hover: #0891b2;
+    --accent-light: rgba(6, 182, 212, 0.12);
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: Segoe UI, Tahoma, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.btn-home { display:block; padding:10px 16px; background:#070a10; border-bottom:1px solid var(--border); color:#7a8a9a; text-decoration:none; font-size:13px; transition:color .2s; }
+.btn-home:hover { color: var(--accent); }
+.btn-home .arrow { margin-right:6px; }
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+}
+header h1 {
+    font-family: Consolas, monospace;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 2px;
+}
+.header-right { display: flex; align-items: center; gap: 12px; }
+
+.theme-toggle {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 50%;
+    width: 36px; height: 36px;
+    cursor: pointer; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.25s ease;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+.theme-toggle:hover { border-color: rgba(255, 255, 255, 0.4); color: var(--text-primary); transform: scale(1.08); }
+.theme-toggle svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.theme-toggle .theme-icon-sun { display: inline-flex; }
+.theme-toggle .theme-icon-moon { display: none; }
+
+main {
+    flex: 1;
+    padding: 32px 24px;
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.intro {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+}
+.intro h2 {
+    font-size: 15px;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+.intro p {
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    line-height: 1.6;
+}
+.intro p + p { margin-top: 8px; }
+.intro code {
+    background: var(--bg-input);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: var(--accent);
+}
+
+.drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 40px 24px;
+    text-align: center;
+    transition: all 0.2s;
+    cursor: pointer;
+    background: var(--bg-card);
+    margin-bottom: 16px;
+}
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-light);
+}
+.drop-zone .icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+.drop-zone .title {
+    font-size: 15px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+.drop-zone .hint {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.drop-zone input[type="file"] { display: none; }
+
+#fileList {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    display: none;
+}
+#fileList.show { display: block; }
+#fileList .file-list-header {
+    padding: 12px 18px;
+    background: var(--bg-input);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+}
+#fileList .file-list-header .count {
+    color: var(--accent);
+    font-weight: 600;
+}
+#fileList .file-list-header .clear-all {
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+#fileList .file-list-header .clear-all:hover { color: var(--error); background: rgba(239,68,68,0.08); }
+.file-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13.5px;
+}
+.file-row:last-child { border-bottom: none; }
+.file-row .name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+.file-row .size {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: Consolas, monospace;
+    flex-shrink: 0;
+}
+.file-row .remove {
+    width: 22px; height: 22px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+.file-row .remove:hover { color: var(--error); background: rgba(239,68,68,0.08); }
+
+.warning {
+    background: rgba(245, 158, 11, 0.10);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    color: var(--warning);
+    font-size: 13px;
+    display: none;
+}
+.warning.show { display: block; }
+
+.error-msg {
+    background: rgba(239, 68, 68, 0.10);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    color: var(--error);
+    font-size: 13px;
+    display: none;
+}
+.error-msg.show { display: block; }
+
+.success-msg {
+    background: rgba(16, 185, 129, 0.10);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    color: var(--success);
+    font-size: 13px;
+    display: none;
+}
+.success-msg.show { display: block; }
+
+.actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+.btn-primary {
+    padding: 12px 28px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14.5px;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn-secondary {
+    padding: 12px 20px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+.btn-secondary:hover:not(:disabled) { color: var(--text-primary); border-color: var(--text-secondary); }
+.btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+}
+.status-bar .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #f0ad4e;
+    animation: pulse 1s infinite;
+}
+.status-bar .dot.online { background: #4caf50; box-shadow: 0 0 8px rgba(76,175,80,0.5); animation: pulse 2s infinite; }
+.status-bar .dot.offline { background: #cc4444; box-shadow: 0 0 8px rgba(204,68,68,0.4); animation: none; }
+.status-bar .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ============ СВЕТЛАЯ ТЕМА ============ */
+:root[data-theme="light"] {
+    --bg-primary: #faf6ee;
+    --bg-secondary: #f5efe1;
+    --bg-input: #f0e8d4;
+    --bg-card: #ffffff;
+    --accent-light: rgba(6, 182, 212, 0.10);
+    --text-primary: #2d2416;
+    --text-secondary: #6b5a3c;
+    --text-muted: #b8a576;
+    --border: #e2dcc8;
+}
+:root[data-theme="light"] body { background: var(--bg-primary); color: var(--text-primary); }
+:root[data-theme="light"] .btn-home { background: #f0e8d4; color: var(--text-muted); border-bottom-color: var(--border); }
+:root[data-theme="light"] .btn-home:hover { color: var(--accent); }
+:root[data-theme="light"] header { background: var(--bg-secondary); border-bottom-color: var(--border); }
+:root[data-theme="light"] .intro { background: var(--bg-card); border-color: var(--border); }
+:root[data-theme="light"] .intro p { color: var(--text-secondary); }
+:root[data-theme="light"] .intro code { background: var(--bg-input); color: var(--accent); }
+:root[data-theme="light"] .drop-zone { background: var(--bg-card); border-color: var(--border); }
+:root[data-theme="light"] .drop-zone:hover, :root[data-theme="light"] .drop-zone.dragover { border-color: var(--accent); background: var(--accent-light); }
+:root[data-theme="light"] .drop-zone .title { color: var(--text-primary); }
+:root[data-theme="light"] .drop-zone .hint { color: var(--text-muted); }
+:root[data-theme="light"] #fileList { background: var(--bg-card); border-color: var(--border); }
+:root[data-theme="light"] #fileList .file-list-header { background: var(--bg-input); border-bottom-color: var(--border); color: var(--text-secondary); }
+:root[data-theme="light"] .file-row { border-bottom-color: var(--border); }
+:root[data-theme="light"] .file-row .name { color: var(--text-primary); }
+:root[data-theme="light"] .btn-secondary { color: var(--text-secondary); border-color: var(--border); }
+:root[data-theme="light"] .btn-secondary:hover:not(:disabled) { color: var(--text-primary); border-color: var(--text-secondary); }
+:root[data-theme="light"] .status-bar { color: var(--text-secondary); }
+:root[data-theme="light"] .theme-toggle { border-color: rgba(212, 175, 55, 0.35); color: #8a7754; }
+:root[data-theme="light"] .theme-toggle:hover { border-color: rgba(212, 175, 55, 0.7); color: #2d2416; box-shadow: 0 0 16px rgba(212, 175, 55, 0.25); }
+:root[data-theme="light"] .theme-toggle .theme-icon-sun { display: none; }
+:root[data-theme="light"] .theme-toggle .theme-icon-moon { display: inline-flex; }
+</style>
+<script src="_config.js"></script>
+<script src="_shared.js"></script>
+</head>
+<body>
+
+<a class="btn-home" href="../GigaChat-Platform.html"><span class="arrow">&#8592;</span>GigaChat</a>
+
+<header>
+    <h1>Объединение таблиц — GigaChat</h1>
+    <div class="header-right">
+        <div class="status-bar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
+        <button class="theme-toggle" onclick="GigaChat.toggleTheme()" title="Сменить тему" aria-label="Сменить тему">
+            <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
+            <svg class="theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+    </div>
+</header>
+
+<main>
+    <div class="intro">
+        <h2>Что делает инструмент</h2>
+        <p>Загружаете несколько файлов <b>одного формата</b> — Excel (<code>.xlsx</code>) <b>или</b> Word (<code>.docx</code>) — в каждом из них одна таблица. Инструмент склеивает все таблицы в одну и отдаёт результат тем же форматом.</p>
+        <p>В Excel читается первый лист, в Word — первая таблица. Первая строка считается заголовком. Заголовки сопоставляются без учёта пробелов, точек и регистра (<code>Ф.И.О.</code> = <code>фио</code> = <code>Ф И О</code>).</p>
+    </div>
+
+    <label class="drop-zone" id="dropZone" for="fileInput">
+        <div class="icon">📊</div>
+        <div class="title">Перетащите файлы сюда или нажмите для выбора</div>
+        <div class="hint">Excel (.xlsx) или Word (.docx). Все файлы должны быть одного формата.</div>
+        <input type="file" id="fileInput" multiple accept=".xlsx,.xlsm,.docx">
+    </label>
+
+    <div class="warning" id="warningBox"></div>
+    <div class="error-msg" id="errorBox"></div>
+    <div class="success-msg" id="successBox"></div>
+
+    <div id="fileList">
+        <div class="file-list-header">
+            <span>Выбрано: <span class="count" id="fileCount">0</span></span>
+            <button class="clear-all" type="button" onclick="clearFiles()">Очистить</button>
+        </div>
+        <div id="fileRows"></div>
+    </div>
+
+    <div class="actions">
+        <button class="btn-primary" id="mergeBtn" onclick="doMerge()" disabled>
+            <span id="mergeBtnText">Объединить и скачать</span>
+        </button>
+    </div>
+</main>
+
+<script>
+var WEBHOOK_URL = GigaChat.webhookUrl('table-merger');
+var MAX_FILES_WARN = 10;
+var MAX_FILES_HARD = 25;
+var FETCH_TIMEOUT_MS = 240000;
+
+var dropZone = document.getElementById('dropZone');
+var fileInput = document.getElementById('fileInput');
+var fileList = document.getElementById('fileList');
+var fileRows = document.getElementById('fileRows');
+var fileCount = document.getElementById('fileCount');
+var warningBox = document.getElementById('warningBox');
+var errorBox = document.getElementById('errorBox');
+var successBox = document.getElementById('successBox');
+var mergeBtn = document.getElementById('mergeBtn');
+var mergeBtnText = document.getElementById('mergeBtnText');
+var statusDot = document.getElementById('statusDot');
+var statusText = document.getElementById('statusText');
+
+var selectedFiles = [];
+
+function escapeHtml(s) { return GigaChat.escapeHtml(s); }
+
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' Б';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+    return (bytes / 1024 / 1024).toFixed(1) + ' МБ';
+}
+
+function detectKind(name) {
+    var lower = (name || '').toLowerCase();
+    if (lower.endsWith('.xlsx') || lower.endsWith('.xlsm')) return 'xlsx';
+    if (lower.endsWith('.docx')) return 'docx';
+    return null;
+}
+
+function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add('show');
+    successBox.classList.remove('show');
+}
+function clearError() {
+    errorBox.classList.remove('show');
+}
+function showSuccess(msg) {
+    successBox.textContent = msg;
+    successBox.classList.add('show');
+    errorBox.classList.remove('show');
+}
+function clearSuccess() {
+    successBox.classList.remove('show');
+}
+
+function renderList() {
+    if (selectedFiles.length === 0) {
+        fileList.classList.remove('show');
+        warningBox.classList.remove('show');
+        mergeBtn.disabled = true;
+        return;
+    }
+    fileList.classList.add('show');
+    fileCount.textContent = selectedFiles.length;
+
+    var html = '';
+    for (var i = 0; i < selectedFiles.length; i++) {
+        var f = selectedFiles[i];
+        html += '<div class="file-row">';
+        html += '<span class="name">' + escapeHtml(f.name) + '</span>';
+        html += '<span class="size">' + formatSize(f.size) + '</span>';
+        html += '<button class="remove" onclick="removeFile(' + i + ')" title="Удалить">×</button>';
+        html += '</div>';
+    }
+    fileRows.innerHTML = html;
+
+    // Предупреждения
+    var warns = [];
+    if (selectedFiles.length > MAX_FILES_HARD) {
+        warns.push('Превышен предел в ' + MAX_FILES_HARD + ' файлов. Удалите лишние.');
+    } else if (selectedFiles.length > MAX_FILES_WARN) {
+        warns.push('Файлов больше ' + MAX_FILES_WARN + ' — обработка может занять минуту или дольше.');
+    }
+    // Проверка одинаковости формата
+    var kinds = {};
+    for (var j = 0; j < selectedFiles.length; j++) {
+        var k = detectKind(selectedFiles[j].name);
+        if (k) kinds[k] = true;
+        else warns.push('Файл «' + selectedFiles[j].name + '» имеет неподдерживаемый формат.');
+    }
+    if (Object.keys(kinds).length > 1) {
+        warns.push('Файлы разных форматов (Excel + Word). Оставьте только один формат.');
+    }
+
+    if (warns.length > 0) {
+        warningBox.innerHTML = warns.map(function(w) { return '⚠ ' + escapeHtml(w); }).join('<br>');
+        warningBox.classList.add('show');
+    } else {
+        warningBox.classList.remove('show');
+    }
+
+    var canMerge = selectedFiles.length >= 1 &&
+                   selectedFiles.length <= MAX_FILES_HARD &&
+                   Object.keys(kinds).length === 1;
+    mergeBtn.disabled = !canMerge;
+}
+
+function addFiles(fileLikeList) {
+    clearError();
+    clearSuccess();
+    for (var i = 0; i < fileLikeList.length; i++) {
+        var f = fileLikeList[i];
+        // Защита от дубликатов по имени+размеру
+        var dup = false;
+        for (var j = 0; j < selectedFiles.length; j++) {
+            if (selectedFiles[j].name === f.name && selectedFiles[j].size === f.size) {
+                dup = true; break;
+            }
+        }
+        if (!dup) selectedFiles.push(f);
+    }
+    renderList();
+}
+
+function removeFile(idx) {
+    selectedFiles.splice(idx, 1);
+    renderList();
+}
+function clearFiles() {
+    selectedFiles = [];
+    fileInput.value = '';
+    renderList();
+    clearError();
+    clearSuccess();
+}
+
+fileInput.addEventListener('change', function() {
+    addFiles(fileInput.files);
+    // Сбрасываем value чтобы можно было загрузить тот же файл повторно
+    fileInput.value = '';
+});
+
+dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', function() {
+    dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer && e.dataTransfer.files) {
+        addFiles(e.dataTransfer.files);
+    }
+});
+// Перехватываем клик на label чтобы не сработал двойной trigger от browser default
+dropZone.addEventListener('click', function(e) {
+    // label сам открывает picker по for="fileInput", дополнительный код не нужен
+});
+
+async function doMerge() {
+    if (selectedFiles.length === 0) return;
+    clearError();
+    clearSuccess();
+    mergeBtn.disabled = true;
+    mergeBtnText.innerHTML = '<span class="spinner"></span> Обрабатываю...';
+
+    var formData = new FormData();
+    for (var i = 0; i < selectedFiles.length; i++) {
+        formData.append('files', selectedFiles[i], selectedFiles[i].name);
+    }
+
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
+
+    try {
+        var res = await fetch(WEBHOOK_URL, {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+            // Сервер вернул JSON с ошибкой
+            var errText;
+            try {
+                var errJson = await res.json();
+                errText = errJson.error || errJson.message || ('HTTP ' + res.status);
+            } catch (e) {
+                errText = 'HTTP ' + res.status;
+            }
+            throw new Error(errText);
+        }
+
+        var blob = await res.blob();
+        if (blob.size === 0) throw new Error('Сервер вернул пустой файл.');
+
+        // Имя файла из Content-Disposition если есть, иначе по умолчанию
+        var cd = res.headers.get('content-disposition') || '';
+        var filename = 'merged.bin';
+        var m = cd.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
+        if (m) {
+            try { filename = decodeURIComponent(m[1].replace(/^["']|["']$/g, '')); }
+            catch (_) { filename = m[1].replace(/^["']|["']$/g, ''); }
+        } else {
+            // Дефолт по формату исходников
+            var k = detectKind(selectedFiles[0].name);
+            filename = k === 'docx' ? 'merged.docx' : 'merged.xlsx';
+        }
+
+        // Триггерим скачивание
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+
+        showSuccess('Готово. Файл «' + filename + '» (' + formatSize(blob.size) + ') скачан. Объединено файлов: ' + selectedFiles.length + '.');
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+            showError('Превышено время ожидания (4 минуты). Файлов слишком много или они слишком большие.');
+        } else {
+            showError(err.message || 'Не удалось обработать файлы.');
+        }
+    } finally {
+        mergeBtn.disabled = false;
+        mergeBtnText.textContent = 'Объединить и скачать';
+        renderList(); // вернёт правильное disabled если что
+    }
+}
+
+// Health check (через webhook — если n8n live, считаем что и сервис live;
+// настоящий статус узнаем только при запросе на /merge).
+function checkStatus() {
+    GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
+}
+checkStatus();
+setInterval(checkStatus, 30000);
+
+renderList();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,164 @@
+{
+  "name": "Объединение таблиц. Поток",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "table-merger",
+        "responseMode": "responseNode",
+        "options": {
+          "binaryData": true
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "tm-webhook-0001",
+      "name": "Webhook",
+      "webhookId": "table-merger-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Прокси: собираем multipart/form-data из всех входящих binary-полей и шлём в\n// table-merger Python-сервис на localhost:8082. Возвращаем binary файл и\n// его имя из заголовка Content-Disposition обратно в UI.\n//\n// Почему так: n8n webhook раскладывает multipart на отдельные binary-поля\n// (data, data_0, data_1, ...). Мы переупаковываем их обратно в multipart\n// руками (через Buffer.concat) и шлём через this.helpers.httpRequest. Этот\n// способ не требует внешних пакетов типа form-data — поэтому работает\n// в стандартной n8n без NODE_FUNCTION_ALLOW_EXTERNAL.\n\nconst input = $input.first();\nconst binary = input.binary || {};\nconst binaryKeys = Object.keys(binary);\n\nif (binaryKeys.length === 0) {\n  return [{ json: { success: false, error: 'Не загружено ни одного файла.' } }];\n}\n\nconst boundary = '----WebKitFormBoundary' + Math.random().toString(16).slice(2) + Date.now().toString(16);\nconst chunks = [];\n\nfor (const key of binaryKeys) {\n  const meta = binary[key];\n  const buf = await this.helpers.getBinaryDataBuffer(0, key);\n  const filename = (meta.fileName || (key + '.bin')).replace(/\"/g, '');\n  const contentType = meta.mimeType || 'application/octet-stream';\n\n  chunks.push(Buffer.from('--' + boundary + '\\r\\n', 'utf8'));\n  chunks.push(Buffer.from(\n    'Content-Disposition: form-data; name=\"files\"; filename=\"' + filename + '\"\\r\\n',\n    'utf8'\n  ));\n  chunks.push(Buffer.from('Content-Type: ' + contentType + '\\r\\n\\r\\n', 'utf8'));\n  chunks.push(buf);\n  chunks.push(Buffer.from('\\r\\n', 'utf8'));\n}\nchunks.push(Buffer.from('--' + boundary + '--\\r\\n', 'utf8'));\nconst body = Buffer.concat(chunks);\n\nlet response;\ntry {\n  response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'http://localhost:8082/merge',\n    body,\n    headers: {\n      'Content-Type': 'multipart/form-data; boundary=' + boundary,\n      'Content-Length': String(body.length)\n    },\n    encoding: 'arraybuffer',\n    returnFullResponse: true,\n    timeout: 180000\n  });\n} catch (e) {\n  // Если сервис вернул 4xx/5xx — тело ошибки приходит в e.response.body\n  let errMsg = e.message || 'Ошибка вызова table-merger';\n  if (e.response && e.response.body) {\n    try {\n      const txt = Buffer.from(e.response.body).toString('utf8');\n      const parsed = JSON.parse(txt);\n      if (parsed && parsed.detail) errMsg = parsed.detail;\n      else errMsg = txt.slice(0, 500);\n    } catch (_) {\n      errMsg = Buffer.from(e.response.body).toString('utf8').slice(0, 500);\n    }\n  } else if (e.cause && (e.cause.code === 'ECONNREFUSED' || e.cause.code === 'ENOTFOUND')) {\n    errMsg = 'table-merger сервис не запущен (localhost:8082 недоступен). Запусти start.bat.';\n  }\n  return [{ json: { success: false, error: errMsg } }];\n}\n\n// Парсим Content-Disposition: filename=\"merged.xlsx\"; filename*=UTF-8''merged.xlsx\nconst headers = response.headers || {};\nconst cd = headers['content-disposition'] || headers['Content-Disposition'] || '';\nlet outFilename = 'merged.bin';\nlet m = cd.match(/filename\\*=UTF-8''([^;]+)/i);\nif (m) {\n  try { outFilename = decodeURIComponent(m[1]); } catch (_) { outFilename = m[1]; }\n} else {\n  m = cd.match(/filename=\"?([^\";]+)\"?/i);\n  if (m) outFilename = m[1];\n}\nconst outMime = headers['content-type'] || headers['Content-Type'] || 'application/octet-stream';\n\nconst outBuffer = Buffer.from(response.body);\nconst binaryData = await this.helpers.prepareBinaryData(outBuffer, outFilename, outMime);\n\nreturn [{\n  json: { success: true, filename: outFilename, size: outBuffer.length, files: binaryKeys.length },\n  binary: { data: binaryData }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        300
+      ],
+      "id": "tm-proxy-0001",
+      "name": "Прокси в table-merger"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-tm-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        300
+      ],
+      "id": "tm-if-0001",
+      "name": "Успех?"
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Disposition",
+                "value": "=attachment; filename=\"{{ $json.filename }}\""
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        840,
+        180
+      ],
+      "id": "tm-respond-ok-0001",
+      "name": "Ответ: файл"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: $json.error || 'Ошибка обработки' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        840,
+        420
+      ],
+      "id": "tm-respond-err-0001",
+      "name": "Ответ: ошибка"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Прокси в table-merger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Прокси в table-merger": {
+      "main": [
+        [
+          {
+            "node": "Успех?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Успех?": {
+      "main": [
+        [
+          {
+            "node": "Ответ: файл",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "table-merger-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "table-merger-001",
+  "tags": []
+}
