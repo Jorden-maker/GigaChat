@@ -202,7 +202,8 @@ function Resolve-CredentialId {
 function Apply-CredentialMapping {
     param(
         $workflowObj,
-        [hashtable]$resolved
+        [hashtable]$resolved,
+        [hashtable]$mapping
     )
 
     if (-not $workflowObj.nodes) { return $workflowObj }
@@ -213,10 +214,19 @@ function Apply-CredentialMapping {
         foreach ($prop in $credProps) {
             $credType = $prop.Name
             if ($resolved.ContainsKey($credType) -and $resolved[$credType].id) {
-                # Подменяем ID и name на резолвленные.
+                # Полная подмена: и id, и name. Самый надёжный путь.
                 $prop.Value = [PSCustomObject]@{
                     id   = $resolved[$credType].id
                     name = $resolved[$credType].name
+                }
+            } elseif ($mapping.ContainsKey($credType) -and $mapping[$credType].name) {
+                # ID не зарезолвлен, но имя из $credentialMapping мы знаем.
+                # Подменяем только name — n8n при импорте через PUT/POST умеет
+                # делать name-matching: если ID не найден, ищет credential по имени.
+                # (Так у пользователя Postgres подтягивается автоматически.)
+                $prop.Value = [PSCustomObject]@{
+                    id   = ""
+                    name = $mapping[$credType].name
                 }
             }
         }
@@ -235,7 +245,11 @@ foreach ($type in $credentialMapping.Keys) {
         $resolvedCreds[$type] = @{ id = $id; name = $cfg.name }
         Write-Host "    $type -> id: $id, name: $($cfg.name)" -ForegroundColor DarkGray
     } else {
-        Write-Host "    $type -> не резолвлен (узлы останутся с битым credential)" -ForegroundColor Yellow
+        # Fallback: ID не получили, но имя знаем. Apply-CredentialMapping подменит
+        # в каждом узле credentials.<type>.name на это имя (id оставит пустым).
+        # n8n при импорте делает name-matching — если в его credentials есть
+        # запись с этим именем, она привяжется автоматически.
+        Write-Host "    $type -> ID не получен, применю name-matching по имени '$($cfg.name)'" -ForegroundColor DarkGray
     }
 }
 Save-CredentialCache $credCache
@@ -303,11 +317,10 @@ foreach ($file in $jsonFiles) {
         }
 
         # Подменяем credential id/name в узлах на актуальные для текущей n8n.
-        # Если для какого-то типа credential не нашли — оставляем как есть
-        # (в UI он покажется битым, пользователь сможет привязать вручную).
-        if ($resolvedCreds.Count -gt 0) {
-            Apply-CredentialMapping -workflowObj $clean -resolved $resolvedCreds | Out-Null
-        }
+        # - Если ID зарезолвлен (через autoCreate или явно вписан) — пишем id + name.
+        # - Если ID нет, но в $credentialMapping есть имя — пишем только name,
+        #   и n8n при импорте сделает name-matching (как с Postgres у пользователя).
+        Apply-CredentialMapping -workflowObj $clean -resolved $resolvedCreds -mapping $credentialMapping | Out-Null
 
         # Имя из JSON. Чистим возможный старый префикс, потом добавляем актуальный.
         # Так script идемпотентен: повторный запуск не приведёт к "[GigaChat] [GigaChat] ...".
