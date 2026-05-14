@@ -22,7 +22,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Webhook с multipart складывает все файлы в одно item.binary с ключами\n// data, data_0, data_1, ... Для последующего Spreadsheet File нужно, чтобы\n// каждый файл был отдельным item с одним фиксированным binary-ключом «data».\n// Заодно проставляем fileIndex/fileName в json, чтобы можно было\n// различать происхождение строк после чтения.\n\nconst input = $input.first();\nconst binary = input.binary || {};\nconst keys = Object.keys(binary);\n\nif (keys.length === 0) {\n  throw new Error('Не загружено ни одного файла.');\n}\n\nconst items = [];\nlet fileIndex = 0;\nfor (const key of keys) {\n  const meta = binary[key] || {};\n  const fileName = meta.fileName || ('file-' + fileIndex + '.xlsx');\n  const lower = fileName.toLowerCase();\n  if (!(lower.endsWith('.xlsx') || lower.endsWith('.xlsm'))) {\n    throw new Error('Файл «' + fileName + '» имеет неподдерживаемое расширение. Принимаются только .xlsx и .xlsm.');\n  }\n  items.push({\n    json: { fileIndex: fileIndex, fileName: fileName },\n    binary: { data: meta }\n  });\n  fileIndex++;\n}\n\nreturn items;"
+        "jsCode": "// Webhook с multipart складывает все файлы в одно item.binary с ключами\n// data, data_0, data_1, ... Для последующего Spreadsheet File нужно, чтобы\n// каждый файл был отдельным item с одним фиксированным binary-ключом «data».\n//\n// Binary получаем через helpers.getBinaryDataBuffer/prepareBinaryData, а не\n// копированием meta-объекта — иначе в filesystem-mode n8n ссылка на исходный\n// файл может потеряться.\n//\n// При любой ошибке валидации возвращаем один item с success:false, чтобы\n// IF-нода ниже перенаправила в JSON-ответ с кодом 400.\n\nconst input = $input.first();\nconst binary = input.binary || {};\nconst keys = Object.keys(binary);\n\nif (keys.length === 0) {\n  return [{ json: { success: false, error: 'Не загружено ни одного файла.' } }];\n}\n\nconst items = [];\nlet fileIndex = 0;\nfor (const key of keys) {\n  const meta = binary[key] || {};\n  const fileName = meta.fileName || ('file-' + fileIndex + '.xlsx');\n  const lower = fileName.toLowerCase();\n  if (!(lower.endsWith('.xlsx') || lower.endsWith('.xlsm'))) {\n    return [{ json: { success: false, error: 'Файл «' + fileName + '» имеет неподдерживаемое расширение. Принимаются только .xlsx и .xlsm.' } }];\n  }\n\n  // Читаем буфер явно и пересоздаём binary entry — это надёжнее, чем передавать meta\n  let buf;\n  try {\n    buf = await this.helpers.getBinaryDataBuffer(0, key);\n  } catch (e) {\n    return [{ json: { success: false, error: 'Не удалось прочитать файл «' + fileName + '»: ' + (e.message || e) } }];\n  }\n  const binaryData = await this.helpers.prepareBinaryData(\n    Buffer.from(buf),\n    fileName,\n    meta.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'\n  );\n\n  items.push({\n    json: { fileIndex: fileIndex, fileName: fileName, success: true },\n    binary: { data: binaryData }\n  });\n  fileIndex++;\n}\n\nreturn items;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -35,6 +35,40 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-split-ok",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        300
+      ],
+      "id": "tme-if-split-0001",
+      "name": "Разбито успешно?"
+    },
+    {
+      "parameters": {
         "operation": "fromFile",
         "options": {
           "headerRow": true,
@@ -44,24 +78,72 @@
       "type": "n8n-nodes-base.spreadsheetFile",
       "typeVersion": 2,
       "position": [
-        560,
-        300
+        840,
+        180
       ],
       "id": "tme-read-0001",
       "name": "Прочитать xlsx"
     },
     {
       "parameters": {
-        "jsCode": "// На входе — items от Spreadsheet File. Каждый item — одна строка xlsx,\n// json содержит поля по заголовкам файла. pairedItem.item ссылается на\n// исходный «файловый» item из ноды «Разбить на items», поэтому по нему\n// можно определить, из какого файла строка.\n//\n// Логика слияния повторяет ту, что в Python-сервисе для Word:\n//   1) Нормализуем заголовки (без пробелов, точек, регистра).\n//   2) Объединяем порядок столбцов: первые столбцы первого файла → лишние\n//      из второго → и т.д. (стабильно для пользователя).\n//   3) Отображаемое имя столбца — первое встреченное.\n//   4) Для каждой строки строим новую строку в едином порядке столбцов.\n//      Если в исходной таблице столбца не было — пусто.\n\nfunction extractFileIndex(item) {\n  if (!item.pairedItem) return 0;\n  if (typeof item.pairedItem === 'number') return item.pairedItem;\n  if (Array.isArray(item.pairedItem)) return item.pairedItem[0] && item.pairedItem[0].item != null ? item.pairedItem[0].item : 0;\n  if (item.pairedItem.item != null) return item.pairedItem.item;\n  return 0;\n}\n\nfunction normalize(h) {\n  if (h == null) return '';\n  return String(h).trim().toLowerCase().replace(/[\\s._\\-(){}\\[\\]\\\\/:;,!?'\\\"]+/g, '');\n}\n\nconst items = $input.all();\nif (items.length === 0) {\n  throw new Error('После чтения файлов не осталось ни одной строки данных.');\n}\n\n// Группируем строки по индексу исходного файла\nconst byFile = new Map();\nfor (const item of items) {\n  const idx = extractFileIndex(item);\n  if (!byFile.has(idx)) byFile.set(idx, []);\n  byFile.get(idx).push(item.json || {});\n}\n\n// 1) Порядок столбцов в итоге + 2) каноническое отображаемое имя\nconst columnOrder = [];\nconst canonical = {};\nfor (const rows of byFile.values()) {\n  if (rows.length === 0) continue;\n  for (const k of Object.keys(rows[0])) {\n    const norm = normalize(k);\n    if (!norm) continue;\n    if (!(norm in canonical)) {\n      canonical[norm] = k;\n      columnOrder.push(norm);\n    }\n  }\n}\n\nif (columnOrder.length === 0) {\n  throw new Error('Во всех файлах заголовки пустые — нечего объединять.');\n}\n\n// 3) Собираем итоговые строки\nconst mergedRows = [];\nfor (const rows of byFile.values()) {\n  if (rows.length === 0) continue;\n  // Для этого файла: норм.ключ → оригинальный ключ\n  const localMap = {};\n  for (const k of Object.keys(rows[0])) {\n    const norm = normalize(k);\n    if (norm && !(norm in localMap)) localMap[norm] = k;\n  }\n  for (const row of rows) {\n    const newRow = {};\n    for (const norm of columnOrder) {\n      const displayName = canonical[norm];\n      const srcKey = localMap[norm];\n      const v = srcKey != null ? row[srcKey] : null;\n      // Числа Excel — оставляем как есть, без округления; null/undefined → пусто\n      newRow[displayName] = v == null ? '' : v;\n    }\n    mergedRows.push(newRow);\n  }\n}\n\nif (mergedRows.length === 0) {\n  throw new Error('Во всех файлах нет данных кроме заголовков.');\n}\n\nreturn mergedRows.map(r => ({ json: r }));"
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Прикрепляем к каждой строке индекс исходного файла через явный\n// $('Разбить на items').item — n8n сам резолвит соответствие через\n// pairedItem, нам не нужно полагаться на это вручную.\n// Этот узел работает в режиме «runOnceForEachItem», что и активирует\n// корректную работу $('node').item для текущего item.\n\nconst fileIndex = $('Разбить на items').item.json.fileIndex;\nconst fileName = $('Разбить на items').item.json.fileName;\nreturn {\n  json: Object.assign({}, $json, { _fileIndex: fileIndex, _fileName: fileName })\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        840,
-        300
+        1120,
+        180
+      ],
+      "id": "tme-tag-0001",
+      "name": "Маркировать fileIndex"
+    },
+    {
+      "parameters": {
+        "jsCode": "// На входе — items от «Маркировать fileIndex». Каждый item — одна строка xlsx,\n// json содержит поля по заголовкам файла плюс _fileIndex / _fileName.\n//\n// Логика слияния:\n//   1) Нормализуем заголовки (без пробелов, точек, регистра).\n//   2) Объединяем порядок столбцов: первые столбцы первого файла → лишние\n//      из второго → и т.д. (стабильно для пользователя).\n//   3) Отображаемое имя столбца — первое встреченное.\n//   4) Для каждой строки строим новую строку в едином порядке столбцов.\n//      Если в исходной таблице столбца не было — пусто.\n//\n// При ошибке возвращаем один item с success:false для роутинга через IF.\n\nfunction normalize(h) {\n  if (h == null) return '';\n  return String(h).trim().toLowerCase().replace(/[\\s._\\-(){}\\[\\]\\\\/:;,!?'\\\"]+/g, '');\n}\n\ntry {\n  const items = $input.all();\n  if (items.length === 0) {\n    return [{ json: { success: false, error: 'После чтения файлов не осталось ни одной строки данных.' } }];\n  }\n\n  // Группируем строки по индексу исходного файла (по полю _fileIndex,\n  // которое прикрепил «Маркировать fileIndex»).\n  const byFile = new Map();\n  for (const item of items) {\n    const j = item.json || {};\n    const idx = (typeof j._fileIndex === 'number') ? j._fileIndex : 0;\n    if (!byFile.has(idx)) byFile.set(idx, []);\n    // Чистим служебные поля из json — они не должны попасть в итог\n    const clean = Object.assign({}, j);\n    delete clean._fileIndex;\n    delete clean._fileName;\n    byFile.get(idx).push(clean);\n  }\n\n  // Порядок столбцов в итоге + каноническое отображаемое имя\n  const columnOrder = [];\n  const canonical = {};\n  for (const rows of byFile.values()) {\n    if (rows.length === 0) continue;\n    for (const k of Object.keys(rows[0])) {\n      const norm = normalize(k);\n      if (!norm) continue;\n      if (!(norm in canonical)) {\n        canonical[norm] = k;\n        columnOrder.push(norm);\n      }\n    }\n  }\n\n  if (columnOrder.length === 0) {\n    return [{ json: { success: false, error: 'Во всех файлах заголовки пустые — нечего объединять.' } }];\n  }\n\n  // Собираем итоговые строки\n  const mergedRows = [];\n  for (const rows of byFile.values()) {\n    if (rows.length === 0) continue;\n    const localMap = {};\n    for (const k of Object.keys(rows[0])) {\n      const norm = normalize(k);\n      if (norm && !(norm in localMap)) localMap[norm] = k;\n    }\n    for (const row of rows) {\n      const newRow = {};\n      for (const norm of columnOrder) {\n        const displayName = canonical[norm];\n        const srcKey = localMap[norm];\n        const v = srcKey != null ? row[srcKey] : null;\n        newRow[displayName] = v == null ? '' : v;\n      }\n      mergedRows.push(newRow);\n    }\n  }\n\n  if (mergedRows.length === 0) {\n    return [{ json: { success: false, error: 'Во всех файлах нет данных кроме заголовков.' } }];\n  }\n\n  return mergedRows.map(r => ({ json: r }));\n} catch (e) {\n  return [{ json: { success: false, error: 'Ошибка слияния: ' + (e.message || e) } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        180
       ],
       "id": "tme-merge-0001",
       "name": "Слияние"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-merge-ok",
+              "leftValue": "={{ $json.success === false ? false : true }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        180
+      ],
+      "id": "tme-if-merge-0001",
+      "name": "Слияние успешно?"
     },
     {
       "parameters": {
@@ -76,8 +158,8 @@
       "type": "n8n-nodes-base.spreadsheetFile",
       "typeVersion": 2,
       "position": [
-        1120,
-        300
+        1960,
+        100
       ],
       "id": "tme-write-0001",
       "name": "Создать xlsx"
@@ -85,29 +167,33 @@
     {
       "parameters": {
         "respondWith": "binary",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2240,
+        100
+      ],
+      "id": "tme-respond-ok-0001",
+      "name": "Ответ: файл"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: $json.error || 'Ошибка обработки' }) }}",
         "options": {
-          "responseHeaders": {
-            "entries": [
-              {
-                "name": "Content-Disposition",
-                "value": "attachment; filename=\"merged.xlsx\""
-              },
-              {
-                "name": "Content-Type",
-                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              }
-            ]
-          }
+          "responseCode": 400
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1400,
-        300
+        1960,
+        420
       ],
-      "id": "tme-respond-0001",
-      "name": "Ответ: файл"
+      "id": "tme-respond-err-0001",
+      "name": "Ответ: ошибка"
     }
   ],
   "pinData": {},
@@ -127,7 +213,25 @@
       "main": [
         [
           {
+            "node": "Разбито успешно?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Разбито успешно?": {
+      "main": [
+        [
+          {
             "node": "Прочитать xlsx",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
             "type": "main",
             "index": 0
           }
@@ -135,6 +239,17 @@
       ]
     },
     "Прочитать xlsx": {
+      "main": [
+        [
+          {
+            "node": "Маркировать fileIndex",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Маркировать fileIndex": {
       "main": [
         [
           {
@@ -149,7 +264,25 @@
       "main": [
         [
           {
+            "node": "Слияние успешно?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Слияние успешно?": {
+      "main": [
+        [
+          {
             "node": "Создать xlsx",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
             "type": "main",
             "index": 0
           }
@@ -172,7 +305,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "table-merger-excel-v1",
+  "versionId": "table-merger-excel-v2",
   "meta": {
     "templateCredsSetupCompleted": true
   },

@@ -125,6 +125,9 @@ main {
     border-color: var(--accent);
     background: var(--accent-light);
 }
+/* pointer-events: none на детях предотвращает «мерцание» dragover —
+   браузер не считает заход курсора на дочерний div выходом из drop-zone. */
+.drop-zone > * { pointer-events: none; }
 .drop-zone .icon {
     font-size: 36px;
     margin-bottom: 12px;
@@ -554,11 +557,6 @@ dropZone.addEventListener('drop', function(e) {
         addFiles(e.dataTransfer.files);
     }
 });
-// Перехватываем клик на label чтобы не сработал двойной trigger от browser default
-dropZone.addEventListener('click', function(e) {
-    // label сам открывает picker по for="fileInput", дополнительный код не нужен
-});
-
 async function doMerge() {
     if (selectedFiles.length === 0) return;
     clearError();
@@ -618,7 +616,11 @@ async function doMerge() {
         document.body.removeChild(a);
         setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 
-        showSuccess('Готово. Файл «' + filename + '» (' + formatSize(blob.size) + ') скачан. Объединено файлов: ' + selectedFiles.length + '.');
+        var filesCount = selectedFiles.length;
+        showSuccess('Готово. Файл «' + filename + '» (' + formatSize(blob.size) + ') скачан. Объединено файлов: ' + filesCount + '.');
+        // Очищаем список выбранных файлов — следующая партия начинается с чистого листа.
+        selectedFiles = [];
+        fileInput.value = '';
     } catch (err) {
         clearTimeout(timeoutId);
         if (err.name === 'AbortError') {
