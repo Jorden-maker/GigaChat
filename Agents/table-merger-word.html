@@ -782,10 +782,10 @@ async function doMerge() {
 function checkStatus() {
     if (typeof JSZip === 'undefined') {
         statusDot.className = 'dot offline';
-        statusText.textContent = 'JSZip не загружен';
+        statusText.textContent = 'Офлайн';
     } else {
         statusDot.className = 'dot online';
-        statusText.textContent = 'готов';
+        statusText.textContent = 'Онлайн';
     }
 }
 checkStatus();
