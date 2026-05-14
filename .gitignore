@@ -24,3 +24,7 @@ __pycache__/
 # Оффлайн-бандл эмбеддингов — лежит в GitHub Release, не в репо
 embedding-server/wheels/
 embedding-server/wheels.zip
+
+# Локальный кеш ID credentials для import-workflows.ps1.
+# Содержит ID credentials с конкретной машины — на других машинах ID другие.
+credentials-cache.local.json

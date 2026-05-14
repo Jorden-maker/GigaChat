@@ -32,6 +32,44 @@ $folder = "C:\Users\Lenovo\Desktop\GigaChat\Workflow"   # путь к папке
 $n8n    = "http://localhost:5678"                       # URL n8n БЕЗ слеша на конце
 $apiKey = ""                                            # вставь сюда API-ключ из n8n
 $prefix = "[GigaChat] "                                 # префикс имени, "" чтобы отключить
+
+# ---- CREDENTIAL MAPPING ----
+# В .json-файлах workflow прописаны ID credentials с РАЗРАБОТЧЕСКОЙ машины.
+# На другой машине таких ID нет, поэтому n8n показывает «битый credential».
+# Скрипт сам подменяет ID в каждом узле перед импортом — на ID credential с
+# нужным именем и типом из текущей n8n.
+#
+# Откуда берётся ID:
+#   1. Если у поля .id ниже стоит непустая строка — используется она.
+#   2. Иначе скрипт проверяет локальный кеш credentials-cache.local.json
+#      (рядом со скриптом, в .gitignore).
+#   3. Иначе и autoCreate = $true → создаём credential через POST /api/v1/credentials
+#      и сохраняем новый ID в кеш.
+#   4. Иначе → предупреждение, узлы остаются с битым credential.
+#
+# ВАЖНО про Postgres: автосоздание выключено, потому что пароль БД не должен
+# жить в скрипте в git. На офисной машине Postgres credential нужно создать
+# вручную ОДИН РАЗ через UI n8n (имя «Postgres»), а скрипт найдёт его ID
+# при попытке создания (n8n вернёт 400 с текстом ошибки) — либо просто
+# впиши $credentialMapping.postgres.id ниже.
+$credentialMapping = @{
+    openAiApi = @{
+        name       = "GigaChat"
+        id         = ""
+        autoCreate = $true
+        data       = @{
+            # GigaChat (локальный) не требует Authorization — apiKey любой непустой.
+            apiKey = "no-auth"
+            url    = "http://130.100.95.104:8810/v1"
+        }
+    }
+    postgres = @{
+        name       = "Postgres"
+        id         = ""
+        autoCreate = $false   # пароль не хранится в скрипте
+        data       = @{}
+    }
+}
 # -------------------
 
 if ([string]::IsNullOrWhiteSpace($apiKey)) {
@@ -53,6 +91,150 @@ if ($jsonFiles.Count -eq 0) {
 }
 
 $headers = @{ "X-N8N-API-KEY" = $apiKey }
+
+# ============================================================================
+# Резолвинг credentials (см. блок $credentialMapping выше)
+# ============================================================================
+
+# Файл с уже резолвленными ID — лежит рядом со скриптом и в .gitignore.
+$credCachePath = Join-Path $PSScriptRoot "credentials-cache.local.json"
+
+function Get-CredentialCache {
+    if (-not (Test-Path $credCachePath)) { return @{} }
+    try {
+        $raw = Get-Content $credCachePath -Raw -Encoding UTF8
+        $obj = $raw | ConvertFrom-Json
+        $h = @{}
+        foreach ($p in $obj.PSObject.Properties) {
+            $h[$p.Name] = @{ id = $p.Value.id; name = $p.Value.name }
+        }
+        return $h
+    } catch {
+        Write-Host "  Не удалось прочитать $credCachePath — игнорирую кеш." -ForegroundColor DarkYellow
+        return @{}
+    }
+}
+
+function Save-CredentialCache($cache) {
+    try {
+        # Подготовка к ConvertTo-Json: чистая хеш-таблица
+        $clean = [ordered]@{}
+        foreach ($k in $cache.Keys) {
+            $clean[$k] = [ordered]@{
+                id   = $cache[$k].id
+                name = $cache[$k].name
+            }
+        }
+        $clean | ConvertTo-Json -Depth 5 | Set-Content $credCachePath -Encoding UTF8
+    } catch {
+        Write-Host "  Не удалось сохранить $credCachePath : $($_.Exception.Message)" -ForegroundColor DarkYellow
+    }
+}
+
+function Resolve-CredentialId {
+    param(
+        [string]$type,
+        [hashtable]$config,
+        [hashtable]$cache
+    )
+
+    # 1. Явно прописанный ID в скрипте — приоритетнее всего.
+    if (-not [string]::IsNullOrWhiteSpace($config.id)) {
+        $cache[$type] = @{ id = $config.id; name = $config.name }
+        return $config.id
+    }
+
+    # 2. Кеш.
+    if ($cache.ContainsKey($type) -and -not [string]::IsNullOrWhiteSpace($cache[$type].id)) {
+        return $cache[$type].id
+    }
+
+    # 3. Авто-создание через POST /api/v1/credentials.
+    if ($config.autoCreate) {
+        Write-Host "  Создаю credential '$($config.name)' (тип $type) в n8n..." -ForegroundColor Cyan
+        $createBody = @{
+            name = $config.name
+            type = $type
+            data = $config.data
+        } | ConvertTo-Json -Depth 10 -Compress
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($createBody)
+        try {
+            $resp = Invoke-RestMethod -Method POST `
+                -Uri "$n8n/api/v1/credentials" `
+                -Headers $headers `
+                -ContentType "application/json; charset=utf-8" `
+                -Body $bytes
+            if ($resp.id) {
+                Write-Host "    OK: создан, id = $($resp.id)" -ForegroundColor Green
+                $cache[$type] = @{ id = $resp.id; name = $config.name }
+                return $resp.id
+            }
+        } catch {
+            $errBody = ""
+            if ($_.Exception.Response) {
+                try {
+                    $stream = $_.Exception.Response.GetResponseStream()
+                    $stream.Position = 0
+                    $reader = New-Object System.IO.StreamReader($stream)
+                    $errBody = $reader.ReadToEnd()
+                } catch {}
+            }
+            Write-Host "    Не удалось создать: $($_.Exception.Message)" -ForegroundColor Yellow
+            if ($errBody) { Write-Host "    Сервер: $errBody" -ForegroundColor DarkYellow }
+            Write-Host "    Возможно, credential с именем '$($config.name)' уже существует." -ForegroundColor DarkYellow
+            Write-Host "    Открой UI n8n -> Credentials -> '$($config.name)', скопируй ID из URL" -ForegroundColor DarkYellow
+            Write-Host "    и впиши в \$credentialMapping.$type.id в начале скрипта." -ForegroundColor DarkYellow
+        }
+    } else {
+        Write-Host "  Credential '$($config.name)' (тип $type): autoCreate выключен." -ForegroundColor Yellow
+        Write-Host "    Создай credential вручную в UI n8n, затем впиши ID в" -ForegroundColor DarkYellow
+        Write-Host "    \$credentialMapping.$type.id в начале скрипта." -ForegroundColor DarkYellow
+    }
+
+    return $null
+}
+
+function Apply-CredentialMapping {
+    param(
+        $workflowObj,
+        [hashtable]$resolved
+    )
+
+    if (-not $workflowObj.nodes) { return $workflowObj }
+
+    foreach ($node in $workflowObj.nodes) {
+        if (-not $node.credentials) { continue }
+        $credProps = $node.credentials.PSObject.Properties
+        foreach ($prop in $credProps) {
+            $credType = $prop.Name
+            if ($resolved.ContainsKey($credType) -and $resolved[$credType].id) {
+                # Подменяем ID и name на резолвленные.
+                $prop.Value = [PSCustomObject]@{
+                    id   = $resolved[$credType].id
+                    name = $resolved[$credType].name
+                }
+            }
+        }
+    }
+    return $workflowObj
+}
+
+# Резолвим credentials заранее — один раз для всех workflow.
+Write-Host "==> Резолвлю credentials..." -ForegroundColor Cyan
+$credCache = Get-CredentialCache
+$resolvedCreds = @{}
+foreach ($type in $credentialMapping.Keys) {
+    $cfg = $credentialMapping[$type]
+    $id = Resolve-CredentialId -type $type -config $cfg -cache $credCache
+    if ($id) {
+        $resolvedCreds[$type] = @{ id = $id; name = $cfg.name }
+        Write-Host "    $type -> id: $id, name: $($cfg.name)" -ForegroundColor DarkGray
+    } else {
+        Write-Host "    $type -> не резолвлен (узлы останутся с битым credential)" -ForegroundColor Yellow
+    }
+}
+Save-CredentialCache $credCache
+Write-Host ""
 
 # Шаг 1. Получаем список существующих workflow из n8n.
 # Нужно для решения «создавать или обновлять»: матчим по полю name.
@@ -113,6 +295,13 @@ foreach ($file in $jsonFiles) {
         }
         if (-not $clean.Contains('settings')) {
             $clean['settings'] = @{}
+        }
+
+        # Подменяем credential id/name в узлах на актуальные для текущей n8n.
+        # Если для какого-то типа credential не нашли — оставляем как есть
+        # (в UI он покажется битым, пользователь сможет привязать вручную).
+        if ($resolvedCreds.Count -gt 0) {
+            Apply-CredentialMapping -workflowObj $clean -resolved $resolvedCreds | Out-Null
         }
 
         # Имя из JSON. Чистим возможный старый префикс, потом добавляем актуальный.

@@ -88,6 +88,11 @@ $prefix = "[GigaChat] "
 | `$apiKey`  | Ключ из Шага 1, **без угловых скобок** `<` и `>`.                              |
 | `$prefix`  | Префикс к имени каждого workflow в n8n. По умолчанию `[GigaChat] ` (с пробелом в конце). Чтобы отключить — поставь пустую строку `""`. |
 
+Чуть ниже — блок `$credentialMapping`. **По умолчанию ничего трогать не надо**, скрипт сам резолвит credentials (см. раздел [Привязка credentials](#привязка-credentials)). Менять туда нужно только если:
+- У тебя другой URL/apiKey для GigaChat — поправь `openAiApi.data.url` и `apiKey`.
+- Хочешь дать credentials другие имена в n8n — поправь `name` у нужного типа.
+- Хочешь сам вписать ID существующего credential (а не позволять скрипту создавать) — впиши его в `id`.
+
 Сохрани файл.
 
 ### Зачем префикс
@@ -171,17 +176,65 @@ Processing: document-loader.json
 
 ## Привязка credentials
 
-После **CREATED** в новом workflow нужно вручную привязать credentials:
+В `.json`-файлах workflow прописаны ID credentials с **разработческой машины**. На офисной/новой машине таких ID нет, и без подмены каждый импортированный workflow показывал бы «битый credential» в узлах LLM и Postgres. Скрипт автоматически чинит это.
 
-1. Открой новый workflow в n8n.
-2. У узлов **Postgres** и **OpenAI / GigaChat** будет красный значок ⚠.
-3. Клик по узлу → правая панель → поле **Credential** → выбери из dropdown.
-4. Сохрани (`Ctrl+S`).
-5. Активируй тумблером **Active** справа сверху.
+### Что делает скрипт
 
-После **UPDATED** credentials **остаются на месте** — заново привязывать не надо.
+Перед самым первым импортом скрипт делает **резолвинг credentials** один раз:
 
-> n8n привязывает credentials к узлам по их внутреннему `id`. Скрипт не меняет id узлов, поэтому связь не рвётся.
+```
+==> Резолвлю credentials...
+  Создаю credential 'GigaChat' (тип openAiApi) в n8n...
+    OK: создан, id = a8X2tYpFq...
+    openAiApi -> id: a8X2tYpFq..., name: GigaChat
+    postgres  -> не резолвлен (узлы останутся с битым credential)
+```
+
+Что произошло:
+1. **GigaChat (`openAiApi`)** — скрипт сам создал credential в n8n через `POST /api/v1/credentials` с настройками из блока `$credentialMapping.openAiApi.data` (`url`, `apiKey`). Полученный ID запомнил в `credentials-cache.local.json` рядом со скриптом.
+2. **Postgres** — `autoCreate = $false` (пароль БД не должен жить в скрипте в git). Пока не привяжешь — узлы Postgres будут битыми.
+
+Дальше при каждом обработанном workflow скрипт **подменяет ID и `name`** в полях `credentials.openAiApi` / `credentials.postgres` каждого узла на резолвленные.
+
+### Что нужно сделать ОДИН раз на новой машине
+
+**Postgres credential** создаётся вручную через UI n8n (потому что нужен пароль БД):
+1. n8n → **Credentials** → **Add credential** → **Postgres**.
+2. Имя: `Postgres` (важно — то же что в скрипте, иначе подмена не сработает).
+3. Заполни host / port / database / user / password.
+4. Сохрани.
+5. Скопируй ID из URL страницы редактирования (`/credentials/<ID>/edit`).
+6. В скрипте впиши его в `$credentialMapping.postgres.id`.
+
+Повторный запуск `import-workflows.ps1` после этого подцепит Postgres ко всем workflow автоматически.
+
+**GigaChat credential** обычно создаётся **скриптом сам** (autoCreate = `$true`). Но если у тебя credential с именем `GigaChat` **уже существует** в n8n, скрипт получит 4xx — тогда:
+1. Открой существующий credential в UI n8n.
+2. Скопируй ID из URL.
+3. Впиши в `$credentialMapping.openAiApi.id`.
+4. Запусти скрипт ещё раз.
+
+### Локальный кеш ID
+
+`credentials-cache.local.json` рядом со скриптом — хранит резолвленные ID. **В git не комитится** (см. `.gitignore`).
+
+Когда полезен:
+- При повторных запусках скрипт не создаёт credentials заново — берёт ID из кеша.
+- Можно переносить с одной машины на ту же сессию n8n (если та же база).
+
+Когда удалить:
+- Поменял n8n БД → ID устарели → удали файл, скрипт пересоздаст.
+- Случайно создались дубли credentials → разберись в UI, удали лишние, удали кеш, запусти скрипт.
+
+### Активация workflow
+
+После **CREATED** workflow приходит в n8n **выключенным**. Нужно один раз:
+1. Открой workflow.
+2. Тумблер **Active** справа сверху → **Save**.
+
+После **UPDATED** активность сохраняется — менять не нужно.
+
+> Цвет всё ещё красный у узла? Значит credential либо не зарезолвился (см. вывод скрипта), либо `name` в `$credentialMapping` не совпадает с тем что в n8n. Проверь оба условия и перезапусти.
 
 ## Важно про PUT и UI-правки
 
