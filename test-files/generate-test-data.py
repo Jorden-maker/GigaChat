@@ -13,7 +13,10 @@
 
 Запуск:
     cd C:\\Users\\Lenovo\\Desktop\\GigaChat\\test-files
-    C:\\table-merger\\venv\\Scripts\\python.exe generate-test-data.py
+    python generate-test-data.py
+
+Требуются: openpyxl, python-docx
+    pip install openpyxl python-docx
 """
 
 import random
