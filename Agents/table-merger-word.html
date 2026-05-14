@@ -111,6 +111,7 @@ main {
 }
 
 .drop-zone {
+    display: block;
     border: 2px dashed var(--border);
     border-radius: 12px;
     padding: 40px 24px;
@@ -371,14 +372,13 @@ main {
     <div class="intro">
         <h2>Что делает инструмент</h2>
         <p>Загружаете несколько <b>Word-файлов</b> (<code>.docx</code>) с одинаковыми таблицами. Инструмент склеивает все таблицы в одну и отдаёт итоговый <code>.docx</code>.</p>
-        <p>Читается <b>первая таблица</b> в каждом документе. Первая строка таблицы — заголовок. Заголовки сопоставляются без учёта пробелов, точек и регистра (<code>Ф.И.О.</code> = <code>фио</code> = <code>Ф И О</code>).</p>
-        <p style="color: var(--text-muted); font-size: 12.5px;">⚙ Требует запущенного локального сервиса <code>table-merger</code> на порту 8082. Если сервис не запущен — будет ошибка при отправке.</p>
+        <p>Читается <b>первая таблица</b> в каждом документе. Первая строка таблицы — заголовок.</p>
     </div>
 
     <label class="drop-zone" id="dropZone" for="fileInput">
         <div class="icon">📄</div>
         <div class="title">Перетащите Word-файлы сюда или нажмите для выбора</div>
-        <div class="hint">Принимаются только <b>.docx</b>. Excel — в соседнем инструменте.</div>
+        <div class="hint">Принимаются только <b>.docx</b>.</div>
         <input type="file" id="fileInput" multiple accept=".docx">
     </label>
 

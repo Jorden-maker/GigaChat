@@ -111,6 +111,7 @@ main {
 }
 
 .drop-zone {
+    display: block;
     border: 2px dashed var(--border);
     border-radius: 12px;
     padding: 40px 24px;
@@ -371,14 +372,13 @@ main {
     <div class="intro">
         <h2>Что делает инструмент</h2>
         <p>Загружаете несколько <b>Excel-файлов</b> (<code>.xlsx</code>) с одинаковыми таблицами. Инструмент склеивает все таблицы в одну и отдаёт итоговый <code>.xlsx</code>.</p>
-        <p>Читается <b>первый лист</b> в каждом файле. Первая строка считается заголовком. Заголовки сопоставляются без учёта пробелов, точек и регистра (<code>Ф.И.О.</code> = <code>фио</code> = <code>Ф И О</code>).</p>
-        <p style="color: var(--text-muted); font-size: 12.5px;">⚙ Работает полностью через n8n — отдельный локальный сервис запускать не нужно.</p>
+        <p>Читается <b>первый лист</b> в каждом файле. Первая строка считается заголовком.</p>
     </div>
 
     <label class="drop-zone" id="dropZone" for="fileInput">
         <div class="icon">📊</div>
         <div class="title">Перетащите Excel-файлы сюда или нажмите для выбора</div>
-        <div class="hint">Принимаются <b>.xlsx</b> и <b>.xlsm</b>. Word — в соседнем инструменте.</div>
+        <div class="hint">Принимаются <b>.xlsx</b> и <b>.xlsm</b>.</div>
         <input type="file" id="fileInput" multiple accept=".xlsx,.xlsm">
     </label>
 
