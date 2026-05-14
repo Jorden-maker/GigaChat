@@ -239,8 +239,10 @@
         <div class="bottom-area">
             <div class="gc-attach-chips" id="attachChips"></div>
             <div id="input-area">
-                <textarea id="msg" rows="1" placeholder="Напишите сообщение..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';" disabled></textarea>
-                <span id="attachBtn"></span>
+                <div class="gc-input-wrap">
+                    <textarea id="msg" rows="1" placeholder="Напишите сообщение..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';" disabled></textarea>
+                    <span id="attachBtn"></span>
+                </div>
                 <button id="send" onclick="sendMsg()" disabled>Отправить</button>
             </div>
         </div>
@@ -248,8 +250,8 @@
     <script>
         var WEBHOOK_URL = GigaChat.webhookUrl('chat');
         var HISTORY_URL = GigaChat.webhookUrl('history');
-        var FETCH_TIMEOUT_MS = 120000;
-        var MAX_RETRIES = 2;
+        var FETCH_TIMEOUT_MS = 90000;
+        var MAX_RETRIES = 0;
         var RETRY_DELAY_MS = 3000;
 
         var chat = document.getElementById('chat');
@@ -414,10 +416,11 @@
             for (var i = 0; i < displayMessages.length; i++) {
                 var m = displayMessages[i];
                 if (m.role === 'user') {
-                    var userBody = m.content ? escapeHtml(m.content) : '<i style="opacity:.6">(только вложение)</i>';
+                    var userBody = m.content ? escapeHtml(m.content) : '';
                     if (m.attachment) {
                         var cls = m.attachmentError ? 'gc-attach-chip bot error' : 'gc-attach-chip bot';
-                        userBody += '<div style="margin-top:8px"><span class="' + cls + '">📎 ' + escapeHtml(m.attachment) + '</span></div>';
+                        var spacing = userBody ? 'margin-top:8px' : '';
+                        userBody += '<div style="' + spacing + '"><span class="' + cls + '">📎 ' + escapeHtml(m.attachment) + '</span></div>';
                     }
                     html += '<div class="msg user">' + userBody + '</div>';
                 } else {
@@ -462,10 +465,21 @@
             isProcessing = true;
             var sendSessionId = activeSessionId;
             input.disabled = true; btn.disabled = true;
+            if (attachment) attachment.setDisabled(true);
             input.value = '';
 
             var messageForAgent = text;
             var extracted = null;
+
+            function abortAndRestore() {
+                // Откат: пользователь отменил или отказался от confirm.
+                // Возвращаем введённый текст, разблокируем input, чип сохраняем.
+                isProcessing = false;
+                input.disabled = false; btn.disabled = false;
+                if (attachment) attachment.setDisabled(false);
+                input.value = text;
+                input.focus();
+            }
 
             // Этап 1 — извлечение текста из файла, если есть
             if (hasFile) {
@@ -479,19 +493,13 @@
                 extracted = await attachment.extract();
                 removeLoading(extractId);
                 if (cancelled) {
-                    isProcessing = false;
-                    input.disabled = false; btn.disabled = false;
-                    input.value = text;
-                    input.focus();
+                    abortAndRestore();
                     return;
                 }
                 if (extracted.text && extracted.text.length > 30000) {
                     var ok = confirm('Извлечён большой файл: ' + extracted.text.length.toLocaleString('ru-RU') + ' симв.\nGigaChat может не справиться.\nОтправить всё равно?');
                     if (!ok) {
-                        isProcessing = false;
-                        input.disabled = false; btn.disabled = false;
-                        input.value = text;
-                        input.focus();
+                        abortAndRestore();
                         return;
                     }
                 }
@@ -508,7 +516,6 @@
             displayMessages.push(userMsg);
             saveDisplaySnapshot();
             renderChat();
-            if (attachment) attachment.clear();
 
             // Этап 3 — запрос к агенту
             var thinkId = appendLoading('Думаю', false);
@@ -542,7 +549,12 @@
                 statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
             }
             isProcessing = false;
-            input.disabled = false; btn.disabled = false; input.focus();
+            input.disabled = false; btn.disabled = false;
+            if (attachment) {
+                attachment.setDisabled(false);
+                attachment.clear();
+            }
+            input.focus();
             if (activeSessionId === sendSessionId) chat.scrollTop = chat.scrollHeight;
         }
         function exportChat() {

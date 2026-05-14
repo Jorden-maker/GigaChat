@@ -161,11 +161,17 @@
     if (ATTACH_CSS_INJECTED) return;
     ATTACH_CSS_INJECTED = true;
     var css = ''
-      + '.gc-attach-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);cursor:pointer;transition:all .2s;flex-shrink:0;padding:0}'
-      + '.gc-attach-btn:hover{border-color:var(--accent);color:var(--accent)}'
-      + '.gc-attach-btn:disabled{opacity:.4;cursor:not-allowed}'
-      + '.gc-attach-btn.has-file{border-color:var(--accent);color:var(--accent);background:rgba(255,255,255,0.04)}'
+      // Скрепка плоская, без рамки, маленькая — живёт ВНУТРИ textarea (absolute).
+      + '.gc-attach-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:transparent;border:none;border-radius:6px;color:var(--text-secondary);cursor:pointer;transition:all .15s;flex-shrink:0;padding:0}'
+      + '.gc-attach-btn:hover:not(:disabled){color:var(--accent);background:rgba(255,255,255,0.06)}'
+      + '.gc-attach-btn:disabled{opacity:.35;cursor:not-allowed}'
+      + '.gc-attach-btn.has-file{color:var(--accent)}'
       + '.gc-attach-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
+      // Обёртка textarea + скрепка (скрепка absolute в правом нижнем углу).
+      + '.gc-input-wrap{position:relative;flex:1;display:flex;align-items:stretch}'
+      + '.gc-input-wrap > textarea{flex:1;width:100%}'
+      + '.gc-input-wrap > .gc-attach-btn{position:absolute;right:6px;bottom:6px;z-index:2}'
+      // Чипы с именами файлов над input-area.
       + '.gc-attach-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 8px 0}'
       + '.gc-attach-chips:empty{display:none}'
       + '.gc-attach-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg-input,#1b2230);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text-primary);max-width:280px}'
@@ -268,11 +274,24 @@
       selectedFile = null;
       renderChip();
       btn.classList.remove('has-file');
+      btn.disabled = false;
     }
     function cancel() {
       if (abortCtrl) { try { abortCtrl.abort(); } catch (e) {} }
       abortCtrl = null;
     }
+    // Включить/выключить скрепку извне (на время обработки запроса).
+    function setDisabled(disabled) {
+      btn.disabled = !!disabled;
+    }
+
+    // Когда файл выбран — скрепка disabled, чтобы нельзя было повесить второй.
+    // Сброс через clear() или крестик в чипе вернёт активность.
+    var origRenderChip = renderChip;
+    renderChip = function () {
+      origRenderChip();
+      if (selectedFile) btn.disabled = true; else btn.disabled = false;
+    };
 
     // Выполнить извлечение. Возвращает {text, fileName, error}
     async function extract(onProgress) {
@@ -280,11 +299,17 @@
       var fileName = selectedFile.name;
       var url = cfg.N8N_BASE.replace(/\/$/, '') + '/webhook/extract-text';
       abortCtrl = new AbortController();
+      // Жёсткий таймаут на extract: 3 минуты. Если OCR-сервис не отвечает,
+      // не будем ждать вечно.
+      var tid = setTimeout(function () {
+        try { abortCtrl.abort(); } catch (e) {}
+      }, 180000);
       try {
         if (typeof onProgress === 'function') onProgress('Извлекаю текст из файла «' + fileName + '»...');
         var fd = new FormData();
         fd.append('file', selectedFile);
         var res = await fetch(url, { method: 'POST', body: fd, signal: abortCtrl.signal });
+        clearTimeout(tid);
         if (!res.ok) {
           return { text: '', fileName: fileName, error: 'Сервер вернул ' + res.status };
         }
@@ -294,7 +319,8 @@
         }
         return { text: String(data.response), fileName: fileName, error: '' };
       } catch (e) {
-        if (e.name === 'AbortError') return { text: '', fileName: fileName, error: 'Отменено пользователем' };
+        clearTimeout(tid);
+        if (e.name === 'AbortError') return { text: '', fileName: fileName, error: 'Извлечение отменено или превысило таймаут (3 мин)' };
         return { text: '', fileName: fileName, error: 'Ошибка: ' + e.message };
       } finally {
         abortCtrl = null;
@@ -306,6 +332,7 @@
       getFile: getFile,
       clear: clear,
       cancel: cancel,
+      setDisabled: setDisabled,
       extract: extract
     };
   }
