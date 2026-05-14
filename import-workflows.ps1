@@ -54,8 +54,13 @@ $prefix = "[GigaChat] "                                 # префикс име�
 # впиши $credentialMapping.postgres.id ниже.
 $credentialMapping = @{
     openAiApi = @{
-        name       = "GigaChat"
+        # Имя credential типа OpenAI в офисной n8n.
+        # Если на твоей машине credential называется иначе — поправь имя.
+        name       = "GigaChatLite10b"
         id         = ""
+        # autoCreate: если в n8n ещё нет credential с этим именем — скрипт создаст.
+        # Если уже есть (например в офисе) — API вернёт 400 и сработает fallback
+        # на name-matching: n8n при импорте сам найдёт credential по имени.
         autoCreate = $true
         data       = @{
             # GigaChat (локальный) не требует Authorization — apiKey любой непустой.
@@ -71,7 +76,7 @@ $credentialMapping = @{
     postgres = @{
         name       = "Postgres"
         id         = ""
-        autoCreate = $false   # пароль не хранится в скрипте
+        autoCreate = $false   # пароль не хранится в скрипте; credential создаётся вручную через UI n8n
         data       = @{}
     }
 }
