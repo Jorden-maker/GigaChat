@@ -1,0 +1,181 @@
+{
+  "name": "Объединение Excel-таблиц. Поток",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "table-merger-excel",
+        "responseMode": "responseNode",
+        "options": {
+          "binaryData": true
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "tme-webhook-0001",
+      "name": "Webhook",
+      "webhookId": "table-merger-excel-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Webhook с multipart складывает все файлы в одно item.binary с ключами\n// data, data_0, data_1, ... Для последующего Spreadsheet File нужно, чтобы\n// каждый файл был отдельным item с одним фиксированным binary-ключом «data».\n// Заодно проставляем fileIndex/fileName в json, чтобы можно было\n// различать происхождение строк после чтения.\n\nconst input = $input.first();\nconst binary = input.binary || {};\nconst keys = Object.keys(binary);\n\nif (keys.length === 0) {\n  throw new Error('Не загружено ни одного файла.');\n}\n\nconst items = [];\nlet fileIndex = 0;\nfor (const key of keys) {\n  const meta = binary[key] || {};\n  const fileName = meta.fileName || ('file-' + fileIndex + '.xlsx');\n  const lower = fileName.toLowerCase();\n  if (!(lower.endsWith('.xlsx') || lower.endsWith('.xlsm'))) {\n    throw new Error('Файл «' + fileName + '» имеет неподдерживаемое расширение. Принимаются только .xlsx и .xlsm.');\n  }\n  items.push({\n    json: { fileIndex: fileIndex, fileName: fileName },\n    binary: { data: meta }\n  });\n  fileIndex++;\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        300
+      ],
+      "id": "tme-split-0001",
+      "name": "Разбить на items"
+    },
+    {
+      "parameters": {
+        "operation": "fromFile",
+        "options": {
+          "headerRow": true,
+          "readAsString": false
+        }
+      },
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 2,
+      "position": [
+        560,
+        300
+      ],
+      "id": "tme-read-0001",
+      "name": "Прочитать xlsx"
+    },
+    {
+      "parameters": {
+        "jsCode": "// На входе — items от Spreadsheet File. Каждый item — одна строка xlsx,\n// json содержит поля по заголовкам файла. pairedItem.item ссылается на\n// исходный «файловый» item из ноды «Разбить на items», поэтому по нему\n// можно определить, из какого файла строка.\n//\n// Логика слияния повторяет ту, что в Python-сервисе для Word:\n//   1) Нормализуем заголовки (без пробелов, точек, регистра).\n//   2) Объединяем порядок столбцов: первые столбцы первого файла → лишние\n//      из второго → и т.д. (стабильно для пользователя).\n//   3) Отображаемое имя столбца — первое встреченное.\n//   4) Для каждой строки строим новую строку в едином порядке столбцов.\n//      Если в исходной таблице столбца не было — пусто.\n\nfunction extractFileIndex(item) {\n  if (!item.pairedItem) return 0;\n  if (typeof item.pairedItem === 'number') return item.pairedItem;\n  if (Array.isArray(item.pairedItem)) return item.pairedItem[0] && item.pairedItem[0].item != null ? item.pairedItem[0].item : 0;\n  if (item.pairedItem.item != null) return item.pairedItem.item;\n  return 0;\n}\n\nfunction normalize(h) {\n  if (h == null) return '';\n  return String(h).trim().toLowerCase().replace(/[\\s._\\-(){}\\[\\]\\\\/:;,!?'\\\"]+/g, '');\n}\n\nconst items = $input.all();\nif (items.length === 0) {\n  throw new Error('После чтения файлов не осталось ни одной строки данных.');\n}\n\n// Группируем строки по индексу исходного файла\nconst byFile = new Map();\nfor (const item of items) {\n  const idx = extractFileIndex(item);\n  if (!byFile.has(idx)) byFile.set(idx, []);\n  byFile.get(idx).push(item.json || {});\n}\n\n// 1) Порядок столбцов в итоге + 2) каноническое отображаемое имя\nconst columnOrder = [];\nconst canonical = {};\nfor (const rows of byFile.values()) {\n  if (rows.length === 0) continue;\n  for (const k of Object.keys(rows[0])) {\n    const norm = normalize(k);\n    if (!norm) continue;\n    if (!(norm in canonical)) {\n      canonical[norm] = k;\n      columnOrder.push(norm);\n    }\n  }\n}\n\nif (columnOrder.length === 0) {\n  throw new Error('Во всех файлах заголовки пустые — нечего объединять.');\n}\n\n// 3) Собираем итоговые строки\nconst mergedRows = [];\nfor (const rows of byFile.values()) {\n  if (rows.length === 0) continue;\n  // Для этого файла: норм.ключ → оригинальный ключ\n  const localMap = {};\n  for (const k of Object.keys(rows[0])) {\n    const norm = normalize(k);\n    if (norm && !(norm in localMap)) localMap[norm] = k;\n  }\n  for (const row of rows) {\n    const newRow = {};\n    for (const norm of columnOrder) {\n      const displayName = canonical[norm];\n      const srcKey = localMap[norm];\n      const v = srcKey != null ? row[srcKey] : null;\n      // Числа Excel — оставляем как есть, без округления; null/undefined → пусто\n      newRow[displayName] = v == null ? '' : v;\n    }\n    mergedRows.push(newRow);\n  }\n}\n\nif (mergedRows.length === 0) {\n  throw new Error('Во всех файлах нет данных кроме заголовков.');\n}\n\nreturn mergedRows.map(r => ({ json: r }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        300
+      ],
+      "id": "tme-merge-0001",
+      "name": "Слияние"
+    },
+    {
+      "parameters": {
+        "operation": "toFile",
+        "fileFormat": "xlsx",
+        "options": {
+          "fileName": "merged.xlsx",
+          "headerRow": true,
+          "sheetName": "Объединённая таблица"
+        }
+      },
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ],
+      "id": "tme-write-0001",
+      "name": "Создать xlsx"
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Disposition",
+                "value": "attachment; filename=\"merged.xlsx\""
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1400,
+        300
+      ],
+      "id": "tme-respond-0001",
+      "name": "Ответ: файл"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Разбить на items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Разбить на items": {
+      "main": [
+        [
+          {
+            "node": "Прочитать xlsx",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Прочитать xlsx": {
+      "main": [
+        [
+          {
+            "node": "Слияние",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Слияние": {
+      "main": [
+        [
+          {
+            "node": "Создать xlsx",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Создать xlsx": {
+      "main": [
+        [
+          {
+            "node": "Ответ: файл",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "table-merger-excel-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "table-merger-excel-001",
+  "tags": []
+}

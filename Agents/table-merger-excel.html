@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Объединение таблиц — GigaChat</title>
+<title>Объединение таблиц Excel — GigaChat</title>
 <script>
     (function () {
         var t = localStorage.getItem('giga_theme') || 'light';
@@ -20,9 +20,9 @@
     --text-primary: #e6e8ec;
     --text-secondary: #8a98a8;
     --text-muted: #5a6878;
-    --accent: #06b6d4;
-    --accent-hover: #0891b2;
-    --accent-light: rgba(6, 182, 212, 0.12);
+    --accent: #16a34a;
+    --accent-hover: #15803d;
+    --accent-light: rgba(22, 163, 74, 0.12);
     --success: #10b981;
     --warning: #f59e0b;
     --error: #ef4444;
@@ -320,7 +320,7 @@ main {
     --bg-secondary: #f5efe1;
     --bg-input: #f0e8d4;
     --bg-card: #ffffff;
-    --accent-light: rgba(6, 182, 212, 0.10);
+    --accent-light: rgba(22, 163, 74, 0.10);
     --text-primary: #2d2416;
     --text-secondary: #6b5a3c;
     --text-muted: #b8a576;
@@ -357,7 +357,7 @@ main {
 <a class="btn-home" href="../GigaChat-Platform.html"><span class="arrow">&#8592;</span>GigaChat</a>
 
 <header>
-    <h1>Объединение таблиц — GigaChat</h1>
+    <h1>Объединение Excel — GigaChat</h1>
     <div class="header-right">
         <div class="status-bar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
         <button class="theme-toggle" onclick="GigaChat.toggleTheme()" title="Сменить тему" aria-label="Сменить тему">
@@ -370,15 +370,16 @@ main {
 <main>
     <div class="intro">
         <h2>Что делает инструмент</h2>
-        <p>Загружаете несколько файлов <b>одного формата</b> — Excel (<code>.xlsx</code>) <b>или</b> Word (<code>.docx</code>) — в каждом из них одна таблица. Инструмент склеивает все таблицы в одну и отдаёт результат тем же форматом.</p>
-        <p>В Excel читается первый лист, в Word — первая таблица. Первая строка считается заголовком. Заголовки сопоставляются без учёта пробелов, точек и регистра (<code>Ф.И.О.</code> = <code>фио</code> = <code>Ф И О</code>).</p>
+        <p>Загружаете несколько <b>Excel-файлов</b> (<code>.xlsx</code>) с одинаковыми таблицами. Инструмент склеивает все таблицы в одну и отдаёт итоговый <code>.xlsx</code>.</p>
+        <p>Читается <b>первый лист</b> в каждом файле. Первая строка считается заголовком. Заголовки сопоставляются без учёта пробелов, точек и регистра (<code>Ф.И.О.</code> = <code>фио</code> = <code>Ф И О</code>).</p>
+        <p style="color: var(--text-muted); font-size: 12.5px;">⚙ Работает полностью через n8n — отдельный локальный сервис запускать не нужно.</p>
     </div>
 
     <label class="drop-zone" id="dropZone" for="fileInput">
         <div class="icon">📊</div>
-        <div class="title">Перетащите файлы сюда или нажмите для выбора</div>
-        <div class="hint">Excel (.xlsx) или Word (.docx). Все файлы должны быть одного формата.</div>
-        <input type="file" id="fileInput" multiple accept=".xlsx,.xlsm,.docx">
+        <div class="title">Перетащите Excel-файлы сюда или нажмите для выбора</div>
+        <div class="hint">Принимаются <b>.xlsx</b> и <b>.xlsm</b>. Word — в соседнем инструменте.</div>
+        <input type="file" id="fileInput" multiple accept=".xlsx,.xlsm">
     </label>
 
     <div class="warning" id="warningBox"></div>
@@ -401,7 +402,7 @@ main {
 </main>
 
 <script>
-var WEBHOOK_URL = GigaChat.webhookUrl('table-merger');
+var WEBHOOK_URL = GigaChat.webhookUrl('table-merger-excel');
 var MAX_FILES_WARN = 10;
 var MAX_FILES_HARD = 25;
 var FETCH_TIMEOUT_MS = 240000;
@@ -432,7 +433,6 @@ function formatSize(bytes) {
 function detectKind(name) {
     var lower = (name || '').toLowerCase();
     if (lower.endsWith('.xlsx') || lower.endsWith('.xlsm')) return 'xlsx';
-    if (lower.endsWith('.docx')) return 'docx';
     return null;
 }
 
@@ -489,7 +489,7 @@ function renderList() {
         else warns.push('Файл «' + selectedFiles[j].name + '» имеет неподдерживаемый формат.');
     }
     if (Object.keys(kinds).length > 1) {
-        warns.push('Файлы разных форматов (Excel + Word). Оставьте только один формат.');
+        warns.push('Файлы разных форматов. Оставьте только .xlsx/.xlsm.');
     }
 
     if (warns.length > 0) {
@@ -605,9 +605,7 @@ async function doMerge() {
             try { filename = decodeURIComponent(m[1].replace(/^["']|["']$/g, '')); }
             catch (_) { filename = m[1].replace(/^["']|["']$/g, ''); }
         } else {
-            // Дефолт по формату исходников
-            var k = detectKind(selectedFiles[0].name);
-            filename = k === 'docx' ? 'merged.docx' : 'merged.xlsx';
+            filename = 'merged.xlsx';
         }
 
         // Триггерим скачивание

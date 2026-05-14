@@ -1,10 +1,10 @@
 {
-  "name": "Объединение таблиц. Поток",
+  "name": "Объединение Word-таблиц. Поток",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "table-merger",
+        "path": "table-merger-word",
         "responseMode": "responseNode",
         "options": {
           "binaryData": true
@@ -16,9 +16,9 @@
         0,
         300
       ],
-      "id": "tm-webhook-0001",
+      "id": "tmw-webhook-0001",
       "name": "Webhook",
-      "webhookId": "table-merger-webhook-001"
+      "webhookId": "table-merger-word-webhook-001"
     },
     {
       "parameters": {
@@ -155,10 +155,10 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "table-merger-v1",
+  "versionId": "table-merger-word-v1",
   "meta": {
     "templateCredsSetupCompleted": true
   },
-  "id": "table-merger-001",
+  "id": "table-merger-word-001",
   "tags": []
 }
