@@ -635,10 +635,34 @@ async function doMerge() {
     }
 }
 
-// Health check (через webhook — если n8n live, считаем что и сервис live;
-// настоящий статус узнаем только при запросе на /merge).
+// Health check — пингаем НАПРЯМУЮ Python-сервис на localhost:8082/health
+// (минуя n8n), чтобы не нагружать workflow-очередь n8n каждые 30 секунд.
+// Браузер запущен на хост-машине → localhost резолвится в хост, где висит
+// Python. Если сервис не отвечает за 5 сек — индикатор офлайн.
 function checkStatus() {
-    GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
+    statusDot.className = 'dot checking';
+    statusText.textContent = 'проверка...';
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, 5000);
+    fetch('http://localhost:8082/health', {
+        method: 'GET',
+        signal: controller.signal
+    })
+    .then(function(res) {
+        clearTimeout(timeoutId);
+        if (res.ok) {
+            statusDot.className = 'dot online';
+            statusText.textContent = 'сервис онлайн';
+        } else {
+            statusDot.className = 'dot offline';
+            statusText.textContent = 'сервис отвечает с ошибкой';
+        }
+    })
+    .catch(function() {
+        clearTimeout(timeoutId);
+        statusDot.className = 'dot offline';
+        statusText.textContent = 'сервис не запущен';
+    });
 }
 checkStatus();
 setInterval(checkStatus, 30000);

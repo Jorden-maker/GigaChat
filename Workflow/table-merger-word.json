@@ -153,9 +153,11 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "executionTimeout": 30,
+    "saveExecutionProgress": false
   },
-  "versionId": "table-merger-word-v1",
+  "versionId": "table-merger-word-v2",
   "meta": {
     "templateCredsSetupCompleted": true
   },
