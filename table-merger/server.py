@@ -350,7 +350,15 @@ async def merge(request: Request):
     log.info('=== POST /merge ===')
     log.info('Content-Type: %s', content_type)
 
-    form = await request.form()
+    # DEBUG: дамп первых 300 байт raw body чтобы видеть multipart-границы
+    raw_body = await request.body()
+    log.info('Raw body size: %d', len(raw_body))
+    preview = raw_body[:300]
+    log.info('Raw body preview (repr): %r', preview)
+
+    # Чтобы парсер не отрубил на лимите 1000 полей при битых разделителях
+    # (диагностика). max_fields раздуваем — увидим реальную причину.
+    form = await request.form(max_fields=1_000_000, max_files=1_000)
 
     # DEBUG: смотрим что именно пришло
     log.info('Form fields received: %d', len(list(form.multi_items())))
