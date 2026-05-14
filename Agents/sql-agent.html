@@ -236,8 +236,10 @@
         <div class="bottom-area">
             <div class="gc-attach-chips" id="attachChips"></div>
             <div id="input-area">
-                <textarea id="msg" rows="1" placeholder="Введите запрос к базе данных..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';" disabled></textarea>
-                <span id="attachBtn"></span>
+                <div class="gc-input-wrap">
+                    <textarea id="msg" rows="1" placeholder="Введите запрос к базе данных..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';" disabled></textarea>
+                    <span id="attachBtn"></span>
+                </div>
                 <button id="send" onclick="sendMsg()" disabled>Отправить</button>
             </div>
         </div>
@@ -304,6 +306,15 @@
         async function switchToSession(id, opts) {
             opts = opts || {};
             activeSessionId = id;
+            // При переключении сессии — очищаем поле ввода и вложение,
+            // чтобы чип не «утекал» в новую сессию.
+            input.value = '';
+            input.style.height = 'auto';
+            if (attachment) {
+                attachment.cancel();
+                attachment.clear();
+                attachment.setDisabled(false);
+            }
             displayMessages = loadDisplaySnapshot(id) || [];
             renderSessionList();
             saveSessions();
@@ -403,14 +414,16 @@
             for (var i = 0; i < displayMessages.length; i++) {
                 var m = displayMessages[i];
                 if (m.role === 'user') {
-                    var userBody = m.content ? escapeHtml(m.content) : '<i style="opacity:.6">(только вложение)</i>';
+                    var userBody = m.content ? escapeHtml(m.content) : '';
                     if (m.attachment) {
                         var cls = m.attachmentError ? 'gc-attach-chip bot error' : 'gc-attach-chip bot';
-                        userBody += '<div style="margin-top:8px"><span class="' + cls + '">📎 ' + escapeHtml(m.attachment) + '</span></div>';
+                        var spacing = userBody ? 'margin-top:8px' : '';
+                        userBody += '<div style="' + spacing + '"><span class="' + cls + '">📎 ' + escapeHtml(m.attachment) + '</span></div>';
                     }
                     html += '<div class="msg user">' + userBody + '</div>';
-                } else
-                 += '<div class="msg bot">' + formatResponse(m.content) + '</div>';
+                } else {
+                    html += '<div class="msg bot">' + formatResponse(m.content) + '</div>';
+                }
             }
             chat.innerHTML = html;
             chat.scrollTop = chat.scrollHeight;
@@ -418,36 +431,100 @@
         function fetchWithRetry(url, options, retries) {
             return GigaChat.fetchWithRetry(url, options, { timeout: FETCH_TIMEOUT_MS, retries: retries, retryDelay: RETRY_DELAY_MS });
         }
+        // Контроллер вложений: создаётся после загрузки сессий ниже
+        var attachment = null;
+
+        function appendLoading(label, withCancel) {
+            var id = 'loading-' + Date.now();
+            var cancelHtml = withCancel ? ' <button type="button" class="btn-export" id="cancel-' + id + '" style="padding:2px 10px;margin-left:8px">Отмена</button>' : '';
+            var timerHtml = withCancel ? '' : '<span class="timer" id="timer-' + id + '">0 сек</span>';
+            chat.innerHTML += '<div class="loading" id="' + id + '">' + label + ' <span class="dots"><span>.</span><span>.</span><span>.</span></span>' + timerHtml + cancelHtml + '</div>';
+            chat.scrollTop = chat.scrollHeight;
+            return id;
+        }
+        function startTimer(id) {
+            var t0 = Date.now();
+            return setInterval(function() {
+                var el = document.getElementById('timer-' + id);
+                if (el) { var sec = Math.floor((Date.now() - t0) / 1000); el.textContent = sec + ' сек'; }
+            }, 1000);
+        }
+        function removeLoading(id) {
+            var el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
         async function sendMsg() {
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) return;
             var text = input.value.trim();
-            if (!text || isProcessing) return;
+            var hasFile = attachment && attachment.hasFile();
+            if (!text && !hasFile) return;
+            if (isProcessing) return;
             isProcessing = true;
             var sendSessionId = activeSessionId;
-            displayMessages.push({ role: 'user', content: text });
+            input.disabled = true; btn.disabled = true;
+            if (attachment) attachment.setDisabled(true);
+            input.value = '';
+
+            var messageForAgent = text;
+            var extracted = null;
+
+            function abortAndRestore() {
+                isProcessing = false;
+                input.disabled = false; btn.disabled = false;
+                if (attachment) attachment.setDisabled(false);
+                input.value = text;
+                input.focus();
+            }
+
+            // Этап 1 — извлечение текста из файла, если есть
+            if (hasFile) {
+                var extractId = appendLoading('Извлекаю текст из файла', true);
+                var cancelled = false;
+                var cancelBtn = document.getElementById('cancel-' + extractId);
+                if (cancelBtn) cancelBtn.onclick = function () {
+                    cancelled = true;
+                    attachment.cancel();
+                };
+                extracted = await attachment.extract();
+                removeLoading(extractId);
+                if (cancelled) {
+                    abortAndRestore();
+                    return;
+                }
+                if (extracted.text && extracted.text.length > 30000) {
+                    var ok = confirm('Извлечён большой файл: ' + extracted.text.length.toLocaleString('ru-RU') + ' симв.\nGigaChat может не справиться.\nОтправить всё равно?');
+                    if (!ok) {
+                        abortAndRestore();
+                        return;
+                    }
+                }
+                var built = GigaChat.buildMessageWithAttachment(text, extracted);
+                messageForAgent = built.messageForAgent;
+            }
+
+            // Этап 2 — пользовательский «пузырь» с чипом, если есть
+            var userMsg = { role: 'user', content: text };
+            if (extracted) {
+                userMsg.attachment = extracted.fileName;
+                userMsg.attachmentError = !!extracted.error;
+            }
+            displayMessages.push(userMsg);
             saveDisplaySnapshot();
             renderChat();
-            input.value = ''; input.disabled = true; btn.disabled = true;
 
-            var loadingId = 'loading-' + Date.now();
-            var startTime = Date.now();
-            chat.innerHTML += '<div class="loading" id="' + loadingId + '">Выполняю запрос <span class="dots"><span>.</span><span>.</span><span>.</span></span><span class="timer" id="timer-' + loadingId + '">0 сек</span></div>';
-            chat.scrollTop = chat.scrollHeight;
-
-            var timerInterval = setInterval(function() {
-                var el = document.getElementById('timer-' + loadingId);
-                if (el) { var sec = Math.floor((Date.now() - startTime) / 1000); el.textContent = sec + ' сек'; }
-            }, 1000);
+            // Этап 3 — запрос к агенту
+            var thinkId = appendLoading('Выполняю запрос', false);
+            var timerInterval = startTimer(thinkId);
 
             try {
                 var res = await fetchWithRetry(WEBHOOK_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json; charset=utf-8' },
-                    body: JSON.stringify({ message: text, session_id: sendSessionId })
+                    body: JSON.stringify({ message: messageForAgent, session_id: sendSessionId })
                 }, MAX_RETRIES);
                 clearInterval(timerInterval);
-                var loading = document.getElementById(loadingId);
-                if (loading) loading.remove();
+                removeLoading(thinkId);
                 if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
                 var data = await res.json();
                 var responseText = data.response || data.output || 'Пустой ответ от сервера';
@@ -459,8 +536,7 @@
                 statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
             } catch (e) {
                 clearInterval(timerInterval);
-                var loading = document.getElementById(loadingId);
-                if (loading) loading.remove();
+                removeLoading(thinkId);
                 if (activeSessionId === sendSessionId) {
                     displayMessages.push({ role: 'assistant', content: 'Ошибка: ' + e.message });
                     saveDisplaySnapshot();
@@ -469,7 +545,12 @@
                 statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
             }
             isProcessing = false;
-            input.disabled = false; btn.disabled = false; input.focus();
+            input.disabled = false; btn.disabled = false;
+            if (attachment) {
+                attachment.setDisabled(false);
+                attachment.clear();
+            }
+            input.focus();
             if (activeSessionId === sendSessionId) chat.scrollTop = chat.scrollHeight;
         }
         function exportChat() {
@@ -502,6 +583,12 @@
             if (activeSessionId) { switchToSession(activeSessionId); }
             else { switchToSession(sessions[sessions.length - 1].id); }
         }
+        // Контроллер вложений (скрепка справа от input, чип над input)
+        attachment = GigaChat.setupAttachment({
+            buttonContainer: document.getElementById('attachBtn'),
+            chipsContainer: document.getElementById('attachChips'),
+            inputElement: input
+        });
         checkServerStatus();
         setInterval(checkServerStatus, 30000);
     </script>
