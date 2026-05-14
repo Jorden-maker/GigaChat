@@ -59,8 +59,13 @@ $credentialMapping = @{
         autoCreate = $true
         data       = @{
             # GigaChat (локальный) не требует Authorization — apiKey любой непустой.
-            apiKey = "no-auth"
-            url    = "http://130.100.95.104:8810/v1"
+            apiKey      = "no-auth"
+            url         = "http://130.100.95.104:8810/v1"
+            # n8n openAiApi credential под капотом — это HTTP-Header-Auth, который
+            # шлёт `Authorization: Bearer <apiKey>`. UI подставляет эти поля сам, но
+            # через POST API их нужно указывать явно, иначе валидация падает с 400.
+            headerName  = "Authorization"
+            headerValue = "Bearer no-auth"
         }
     }
     postgres = @{
@@ -183,12 +188,12 @@ function Resolve-CredentialId {
             if ($errBody) { Write-Host "    Сервер: $errBody" -ForegroundColor DarkYellow }
             Write-Host "    Возможно, credential с именем '$($config.name)' уже существует." -ForegroundColor DarkYellow
             Write-Host "    Открой UI n8n -> Credentials -> '$($config.name)', скопируй ID из URL" -ForegroundColor DarkYellow
-            Write-Host "    и впиши в \$credentialMapping.$type.id в начале скрипта." -ForegroundColor DarkYellow
+            Write-Host "    и впиши в `$credentialMapping.$type.id в начале скрипта." -ForegroundColor DarkYellow
         }
     } else {
         Write-Host "  Credential '$($config.name)' (тип $type): autoCreate выключен." -ForegroundColor Yellow
         Write-Host "    Создай credential вручную в UI n8n, затем впиши ID в" -ForegroundColor DarkYellow
-        Write-Host "    \$credentialMapping.$type.id в начале скрипта." -ForegroundColor DarkYellow
+        Write-Host "    `$credentialMapping.$type.id в начале скрипта." -ForegroundColor DarkYellow
     }
 
     return $null
