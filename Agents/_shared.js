@@ -632,6 +632,261 @@
     return { messageForAgent: userText || '', attachmentSummary: '' };
   }
 
+  // ============================================================
+  // ХРАНИЛИЩЕ СЕССИЙ — единый код для сайдбара всех чат-агентов
+  // ============================================================
+  // Раньше каждый из 6 агентов содержал ~200 строк дублированного кода
+  // (sessions/save/load/switch/delete/rename/render). Теперь — фабрика.
+  //
+  // opts:
+  //   prefix         (string)   — префикс ключей в localStorage ('chat', 'rag'...)
+  //   idPrefix       (string)   — префикс id новой сессии ('chat_', 'rag_'...)
+  //   namePrefix     (string)   — префикс имени новой сессии ('Чат-', 'Документ-'...)
+  //   sessionList    (Element)  — куда рисовать сайдбар
+  //   renderMessages (function) — агент рисует чат сам (вызывается при смене сессии / push)
+  //   loadHistory    (function) async (sessionId) — опц. подгрузка истории с сервера
+  //   isProcessing   (function) → bool — нужно ли беречь attachment (sendMsg идёт)
+  //   onAttachmentClear (function) — клиент сам сбрасывает скрепку при безопасном свитче
+  //   onEmpty        (function) — после удаления последней сессии (зачистить UI)
+  //   onSwitch       (function) (sessionId, opts) — после переключения (для focus, scroll)
+  function createSessionStore(opts) {
+    opts = opts || {};
+    var prefix = opts.prefix;
+    var idPrefix = opts.idPrefix || (prefix + '_');
+    var namePrefix = opts.namePrefix || 'Сессия-';
+    var sessionList = opts.sessionList;
+    var renderMessages = opts.renderMessages || function () {};
+    var loadHistory = opts.loadHistory || null;
+    var isProcessing = opts.isProcessing || function () { return false; };
+    var onAttachmentClear = opts.onAttachmentClear || function () {};
+    var onEmpty = opts.onEmpty || function () {};
+    var onSwitch = opts.onSwitch || function () {};
+
+    var KEY_SESSIONS = prefix + '_sessions';
+    var KEY_ACTIVE = prefix + '_active';
+    var KEY_COUNTER = prefix + '_counter';
+    var KEY_VIEW = prefix + '_view_';
+
+    var store = {
+      sessions: [],
+      activeSessionId: null,
+      sessionCounter: 0,
+      displayMessages: [],
+      editingSessionId: null
+    };
+
+    var PENCIL_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+
+    function save() {
+      try {
+        localStorage.setItem(KEY_SESSIONS, JSON.stringify(store.sessions));
+        localStorage.setItem(KEY_ACTIVE, store.activeSessionId || '');
+        localStorage.setItem(KEY_COUNTER, String(store.sessionCounter));
+      } catch (e) {}
+    }
+
+    function load() {
+      try {
+        var s = localStorage.getItem(KEY_SESSIONS);
+        var a = localStorage.getItem(KEY_ACTIVE);
+        var c = localStorage.getItem(KEY_COUNTER);
+        if (s) store.sessions = JSON.parse(s) || [];
+        if (a) store.activeSessionId = a || null;
+        if (c) store.sessionCounter = parseInt(c, 10) || 0;
+      } catch (e) {}
+    }
+
+    function saveSnapshot() {
+      if (!store.activeSessionId) return;
+      try {
+        localStorage.setItem(KEY_VIEW + store.activeSessionId, JSON.stringify(store.displayMessages));
+      } catch (e) {}
+    }
+
+    function loadSnapshot(sid) {
+      try {
+        var s = localStorage.getItem(KEY_VIEW + sid);
+        return s ? JSON.parse(s) : null;
+      } catch (e) { return null; }
+    }
+
+    function clearSnapshot(sid) {
+      try { localStorage.removeItem(KEY_VIEW + sid); } catch (e) {}
+    }
+
+    // Утилита: пуш сообщения в активную сессию ИЛИ в snapshot чужой
+    // (если юзер ушёл в другую сессию, пока шла обработка).
+    function pushToSession(sid, msg) {
+      if (!sid) return;
+      if (sid === store.activeSessionId) {
+        store.displayMessages.push(msg);
+        saveSnapshot();
+        renderMessages(store.displayMessages);
+      } else {
+        try {
+          var snap = loadSnapshot(sid) || [];
+          snap.push(msg);
+          localStorage.setItem(KEY_VIEW + sid, JSON.stringify(snap));
+        } catch (e) {}
+      }
+    }
+
+    function findSession(id) {
+      for (var i = 0; i < store.sessions.length; i++) {
+        if (store.sessions[i].id === id) return store.sessions[i];
+      }
+      return null;
+    }
+
+    function createNew() {
+      store.sessionCounter++;
+      var id = idPrefix + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      store.sessions.push({ id: id, name: namePrefix + store.sessionCounter });
+      return switchTo(id, { skipHistoryLoad: true });
+    }
+
+    async function switchTo(id, switchOpts) {
+      switchOpts = switchOpts || {};
+      store.activeSessionId = id;
+      // Скрепку трогаем только если в фоне НЕ идёт обработка.
+      if (!isProcessing()) onAttachmentClear();
+      store.displayMessages = loadSnapshot(id) || [];
+      renderList();
+      save();
+      renderMessages(store.displayMessages);
+      onSwitch(id, switchOpts);
+      if (switchOpts.skipHistoryLoad) return;
+      if (loadHistory) {
+        try {
+          var msgs = await loadHistory(id);
+          // Подгрузка истории — только если юзер всё ещё в этой сессии.
+          if (store.activeSessionId !== id) return;
+          if (Array.isArray(msgs)) {
+            store.displayMessages = msgs;
+            saveSnapshot();
+            renderMessages(store.displayMessages);
+          }
+        } catch (e) {
+          // тихо: оставляем кэш видимым
+        }
+      }
+    }
+
+    function remove(id) {
+      store.sessions = store.sessions.filter(function (s) { return s.id !== id; });
+      clearSnapshot(id);
+      if (store.activeSessionId === id) {
+        if (store.sessions.length > 0) {
+          switchTo(store.sessions[store.sessions.length - 1].id);
+        } else {
+          store.activeSessionId = null;
+          store.displayMessages = [];
+          onEmpty();
+        }
+      }
+      renderList();
+      save();
+    }
+
+    function startRename(id) {
+      store.editingSessionId = id;
+      renderList();
+      setTimeout(function () {
+        if (!sessionList) return;
+        var inp = sessionList.querySelector('.session-item.editing .name-edit');
+        if (inp) { inp.focus(); inp.select(); }
+      }, 0);
+    }
+
+    function finishRename(id, newName) {
+      if (store.editingSessionId !== id) return;
+      var s = findSession(id);
+      if (s && newName && newName.trim()) s.name = newName.trim();
+      store.editingSessionId = null;
+      save();
+      renderList();
+    }
+
+    function cancelRename() {
+      store.editingSessionId = null;
+      renderList();
+    }
+
+    // Рендер сайдбара через createElement + addEventListener (без onclick-строк).
+    // Это устраняет потенциальный XSS через id с кавычкой и упрощает дебаг.
+    function renderList() {
+      if (!sessionList) return;
+      sessionList.innerHTML = '';
+      for (var i = 0; i < store.sessions.length; i++) {
+        var s = store.sessions[i];
+        var item = document.createElement('div');
+        item.className = 'session-item' +
+          (s.id === store.activeSessionId ? ' active' : '') +
+          (s.id === store.editingSessionId ? ' editing' : '');
+        (function (sess) {
+          item.addEventListener('click', function () { switchTo(sess.id); });
+        })(s);
+
+        if (s.id === store.editingSessionId) {
+          var inp = document.createElement('input');
+          inp.className = 'name-edit';
+          inp.value = s.name;
+          inp.addEventListener('click', function (e) { e.stopPropagation(); });
+          (function (sess) {
+            inp.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter') { e.preventDefault(); finishRename(sess.id, inp.value); }
+              else if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+            });
+            inp.addEventListener('blur', function () { finishRename(sess.id, inp.value); });
+          })(s);
+          item.appendChild(inp);
+        } else {
+          var name = document.createElement('span');
+          name.className = 'name';
+          name.textContent = s.name;
+          item.appendChild(name);
+
+          var edit = document.createElement('span');
+          edit.className = 'edit';
+          edit.title = 'Переименовать';
+          edit.innerHTML = PENCIL_SVG;
+          (function (sess) {
+            edit.addEventListener('click', function (e) { e.stopPropagation(); startRename(sess.id); });
+          })(s);
+          item.appendChild(edit);
+
+          var close = document.createElement('span');
+          close.className = 'close';
+          close.title = 'Удалить';
+          close.textContent = '×';
+          (function (sess) {
+            close.addEventListener('click', function (e) { e.stopPropagation(); remove(sess.id); });
+          })(s);
+          item.appendChild(close);
+        }
+        sessionList.appendChild(item);
+      }
+    }
+
+    return {
+      state: store,                              // прямой доступ к sessions/activeSessionId/displayMessages
+      load: load,
+      save: save,
+      saveSnapshot: saveSnapshot,
+      loadSnapshot: loadSnapshot,
+      clearSnapshot: clearSnapshot,
+      createNew: createNew,
+      switchTo: switchTo,
+      remove: remove,
+      startRename: startRename,
+      finishRename: finishRename,
+      cancelRename: cancelRename,
+      renderList: renderList,
+      pushToSession: pushToSession,
+      findSession: findSession
+    };
+  }
+
   global.GigaChat = {
     config: cfg,
     webhookUrl: webhookUrl,
@@ -650,6 +905,7 @@
     extractXlsxText: extractXlsxText,
     padTabularText: padTabularText,
     fileExt: fileExt,
+    createSessionStore: createSessionStore,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,
     RETRY_DELAY_MS: RETRY_DELAY_MS

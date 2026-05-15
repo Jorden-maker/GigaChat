@@ -258,170 +258,65 @@
         var sessionList = document.getElementById('sessionList');
         var statusDot = document.getElementById('statusDot');
         var statusText = document.getElementById('statusText');
-        var sessions = [];
-        var displayMessages = [];
-        var activeSessionId = null;
-        var sessionCounter = 0;
         var isProcessing = false;
+        try { localStorage.removeItem('sql_histories'); } catch (e) {}
 
-        function saveSessions() {
-            try {
-                localStorage.setItem('sql_sessions', JSON.stringify(sessions));
-                localStorage.setItem('sql_active', activeSessionId || '');
-                localStorage.setItem('sql_counter', sessionCounter);
-            } catch (e) {}
-        }
-        function loadSessions() {
-            try {
-                var s = localStorage.getItem('sql_sessions');
-                var a = localStorage.getItem('sql_active');
-                var c = localStorage.getItem('sql_counter');
-                if (s) sessions = JSON.parse(s);
-                if (a) activeSessionId = a || null;
-                if (c) sessionCounter = parseInt(c, 10) || 0;
-                try { localStorage.removeItem('sql_histories'); } catch (e) {}
-            } catch (e) {}
-        }
-        function saveDisplaySnapshot() {
-            if (!activeSessionId) return;
-            try { localStorage.setItem('sql_view_' + activeSessionId, JSON.stringify(displayMessages)); } catch (e) {}
-        }
-        function loadDisplaySnapshot(sid) {
-            try {
-                var s = localStorage.getItem('sql_view_' + sid);
-                return s ? JSON.parse(s) : null;
-            } catch (e) { return null; }
-        }
-        function clearDisplaySnapshot(sid) {
-            try { localStorage.removeItem('sql_view_' + sid); } catch (e) {}
-        }
+        var sessionStore = GigaChat.createSessionStore({
+            prefix: 'sql',
+            idPrefix: 'sql_',
+            namePrefix: 'База-',
+            sessionList: sessionList,
+            renderMessages: function () { renderChat(); },
+            isProcessing: function () { return isProcessing; },
+            onAttachmentClear: function () {
+                if (attachment) { attachment.cancel(); attachment.clear(); attachment.setDisabled(false); }
+            },
+            onEmpty: function () {
+                chat.innerHTML = '<div class="empty-chat">Создайте новую сессию для начала работы</div>';
+                input.disabled = true; btn.disabled = true;
+            },
+            onSwitch: function () {
+                input.value = '';
+                input.style.height = 'auto';
+                input.disabled = false; btn.disabled = false; input.focus();
+            },
+            loadHistory: async function (sid) {
+                if (!sessionStore.state.displayMessages.length) {
+                    chat.innerHTML = '<div class="empty-chat">Загружаю историю...</div>';
+                }
+                try {
+                    var res = await fetch(HISTORY_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                        body: JSON.stringify({ session_id: sid })
+                    });
+                    if (!res.ok) throw new Error('Сервер ответил ' + res.status);
+                    var data = await res.json();
+                    return (data.messages || []).map(function (m) {
+                        return { role: m.role, content: m.content, extras: m.extras };
+                    });
+                } catch (e) {
+                    if (!sessionStore.state.displayMessages.length) {
+                        chat.innerHTML = '<div class="empty-chat">Не удалось загрузить историю.</div>';
+                    }
+                    return null;
+                }
+            }
+        });
+
+        ['sessions', 'activeSessionId', 'displayMessages'].forEach(function (k) {
+            Object.defineProperty(window, k, {
+                get: function () { return sessionStore.state[k]; },
+                set: function (v) { sessionStore.state[k] = v; },
+                configurable: true
+            });
+        });
+
+        function createNewSession() { sessionStore.createNew(); }
+        function pushToSession(sid, msg) { sessionStore.pushToSession(sid, msg); }
+
         function checkServerStatus() {
             return GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
-        }
-        function createNewSession() {
-            sessionCounter++;
-            var id = 'sql_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            sessions.push({ id: id, name: 'База-' + sessionCounter });
-            switchToSession(id, { skipHistoryLoad: true });
-        }
-        // Универсальный пуш сообщения в нужную сессию.
-        // Если эта сессия сейчас активна — обновляем displayMessages + рендерим.
-        // Если нет — обновляем её snapshot в localStorage; при возврате юзер увидит.
-        function pushToSession(sid, msg) {
-            if (!sid) return;
-            if (sid === activeSessionId) {
-                displayMessages.push(msg);
-                saveDisplaySnapshot();
-                renderChat();
-            } else {
-                try {
-                    var snap = loadDisplaySnapshot(sid) || [];
-                    snap.push(msg);
-                    localStorage.setItem('sql_view_' + sid, JSON.stringify(snap));
-                } catch (e) {}
-            }
-        }
-        async function switchToSession(id, opts) {
-            opts = opts || {};
-            activeSessionId = id;
-            // При переключении сессии — очищаем поле ввода. Вложение трогаем
-            // только если в фоне НЕ идёт обработка (иначе оборвём sendMsg).
-            input.value = '';
-            input.style.height = 'auto';
-            if (attachment && !isProcessing) {
-                attachment.cancel();
-                attachment.clear();
-                attachment.setDisabled(false);
-            }
-            displayMessages = loadDisplaySnapshot(id) || [];
-            renderSessionList();
-            saveSessions();
-            renderChat();
-            input.disabled = false; btn.disabled = false; input.focus();
-            if (opts.skipHistoryLoad) return;
-            await loadHistoryForActive(id);
-        }
-        async function loadHistoryForActive(targetSessionId) {
-            if (!displayMessages.length) {
-                chat.innerHTML = '<div class="empty-chat">Загружаю историю...</div>';
-            }
-            try {
-                var res = await fetch(HISTORY_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-                    body: JSON.stringify({ session_id: targetSessionId })
-                });
-                if (activeSessionId !== targetSessionId) return;
-                if (!res.ok) throw new Error('Сервер ответил ' + res.status);
-                var data = await res.json();
-                if (activeSessionId !== targetSessionId) return;
-                displayMessages = (data.messages || []).map(function (m) {
-                    return { role: m.role, content: m.content, extras: m.extras };
-                });
-                saveDisplaySnapshot();
-                renderChat();
-            } catch (e) {
-                if (activeSessionId !== targetSessionId) return;
-                if (displayMessages.length) { renderChat(); }
-                else { chat.innerHTML = '<div class="empty-chat">Не удалось загрузить историю.</div>'; }
-            }
-        }
-        function deleteSession(id, event) {
-            event.stopPropagation();
-            sessions = sessions.filter(function(s) { return s.id !== id; });
-            clearDisplaySnapshot(id);
-            if (activeSessionId === id) {
-                if (sessions.length > 0) { switchToSession(sessions[sessions.length - 1].id); }
-                else {
-                    activeSessionId = null;
-                    displayMessages = [];
-                    chat.innerHTML = '<div class="empty-chat">Создайте новую сессию для начала работы</div>';
-                    input.disabled = true; btn.disabled = true;
-                }
-            }
-            renderSessionList(); saveSessions();
-        }
-        var editingSessionId = null;
-        var PENCIL_SVG = '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
-        function startRename(id, event) {
-            if (event) event.stopPropagation();
-            editingSessionId = id;
-            renderSessionList();
-            setTimeout(function () {
-                var inp = sessionList.querySelector('.session-item.editing .name-edit');
-                if (inp) { inp.focus(); inp.select(); }
-            }, 0);
-        }
-        function finishRename(id, newName) {
-            if (editingSessionId !== id) return;
-            var s = null;
-            for (var i = 0; i < sessions.length; i++) if (sessions[i].id === id) { s = sessions[i]; break; }
-            if (s && newName && newName.trim()) s.name = newName.trim();
-            editingSessionId = null;
-            saveSessions();
-            renderSessionList();
-        }
-        function cancelRename() {
-            editingSessionId = null;
-            renderSessionList();
-        }
-        function renderSessionList() {
-            var html = '';
-            for (var i = 0; i < sessions.length; i++) {
-                var s = sessions[i];
-                var isActive = s.id === activeSessionId ? ' active' : '';
-                var isEditing = s.id === editingSessionId ? ' editing' : '';
-                html += '<div class="session-item' + isActive + isEditing + '" onclick="switchToSession(\'' + s.id + '\')">';
-                if (s.id === editingSessionId) {
-                    html += '<input class="name-edit" value="' + escapeHtml(s.name) + '" onclick="event.stopPropagation()" onkeydown="if(event.key===&quot;Enter&quot;){event.preventDefault();finishRename(\'' + s.id + '\', this.value);}else if(event.key===&quot;Escape&quot;){event.preventDefault();cancelRename();}" onblur="finishRename(\'' + s.id + '\', this.value)">';
-                } else {
-                    html += '<span class="name">' + escapeHtml(s.name) + '</span>';
-                    html += '<span class="edit" onclick="startRename(\'' + s.id + '\', event)" title="Переименовать">' + PENCIL_SVG + '</span>';
-                    html += '<span class="close" onclick="deleteSession(\'' + s.id + '\', event)" title="Удалить">&#215;</span>';
-                }
-                html += '</div>';
-            }
-            sessionList.innerHTML = html;
         }
         function renderChat() {
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) {
@@ -585,12 +480,14 @@
             // formatMarkdown сам вызывает formatMarkdownTable внутри — не оборачиваем повторно.
             return GigaChat.formatMarkdown(text, '#10b981');
         }
-        loadSessions();
-        if (activeSessionId && !sessions.find(function(s){ return s.id === activeSessionId; })) { activeSessionId = null; }
-        if (sessions.length > 0) {
-            renderSessionList();
-            if (activeSessionId) { switchToSession(activeSessionId); }
-            else { switchToSession(sessions[sessions.length - 1].id); }
+        sessionStore.load();
+        if (sessionStore.state.activeSessionId && !sessionStore.findSession(sessionStore.state.activeSessionId)) {
+            sessionStore.state.activeSessionId = null;
+        }
+        if (sessionStore.state.sessions.length > 0) {
+            sessionStore.renderList();
+            var targetId = sessionStore.state.activeSessionId || sessionStore.state.sessions[sessionStore.state.sessions.length - 1].id;
+            sessionStore.switchTo(targetId);
         }
         // Контроллер вложений (скрепка справа от input, чип над input)
         attachment = GigaChat.setupAttachment({

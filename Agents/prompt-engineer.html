@@ -264,31 +264,90 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 <script>
 const WEBHOOK_URL = GigaChat.webhookUrl('prompt-engineer');
 const HISTORY_URL = GigaChat.webhookUrl('history');
-const STORAGE_KEYS = { sessions:'pe_sessions', active:'pe_active', counter:'pe_counter' };
 
-let sessions = [];
-let displayMessages = [];
-let activeSessionId = null;
-let sessionCounter = 0;
 let isProcessing = false;
 let serverOnline = false;
 const WELCOME_HTML = '<div class="welcome"><p>Создайте новую сессию для начала работы</p></div>';
+try { localStorage.removeItem('pe_histories'); } catch (e) {}
+
+const sessionStore = GigaChat.createSessionStore({
+  prefix: 'pe',
+  idPrefix: 'pe_',
+  namePrefix: 'Промпт-',
+  sessionList: document.getElementById('sessionList'),
+  renderMessages: function () { renderChat(); },
+  isProcessing: function () { return isProcessing; },
+  onAttachmentClear: function () {
+    if (typeof attachment !== 'undefined' && attachment) {
+      attachment.cancel(); attachment.clear(); attachment.setDisabled(false);
+    }
+  },
+  onEmpty: function () {
+    document.getElementById('chatContainer').innerHTML = WELCOME_HTML;
+    document.getElementById('userInput').disabled = true;
+    document.getElementById('btnSend').disabled = true;
+  },
+  onSwitch: function () {
+    const userInput = document.getElementById('userInput');
+    userInput.value = '';
+    userInput.style.height = 'auto';
+    userInput.disabled = false;
+    document.getElementById('btnSend').disabled = false;
+    userInput.focus();
+  },
+  loadHistory: async function (sid) {
+    const container = document.getElementById('chatContainer');
+    if (!sessionStore.state.displayMessages.length) {
+      container.innerHTML = '<div class="welcome"><p>Загружаю историю...</p></div>';
+    }
+    try {
+      const res = await fetch(HISTORY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify({ session_id: sid })
+      });
+      if (!res.ok) throw new Error('Сервер ответил ' + res.status);
+      const data = await res.json();
+      return (data.messages || []).map(m => ({
+        role: m.role,
+        content: m.content,
+        extras: m.extras || null
+      }));
+    } catch (e) {
+      if (!sessionStore.state.displayMessages.length) {
+        container.innerHTML = '<div class="welcome"><p>Не удалось загрузить историю.</p></div>';
+      }
+      return null;
+    }
+  }
+});
+
+['sessions', 'activeSessionId', 'displayMessages'].forEach(k => {
+  Object.defineProperty(window, k, {
+    get: () => sessionStore.state[k],
+    set: v => { sessionStore.state[k] = v; },
+    configurable: true
+  });
+});
+
+function createNewSession() { sessionStore.createNew(); }
+function pushToSession(sid, msg) { sessionStore.pushToSession(sid, msg); }
 
 // --- Init ---
 function init() {
-  loadSessions();
-  if (activeSessionId && !sessions.find(s => s.id === activeSessionId)) {
-    activeSessionId = null;
+  sessionStore.load();
+  if (sessionStore.state.activeSessionId && !sessionStore.findSession(sessionStore.state.activeSessionId)) {
+    sessionStore.state.activeSessionId = null;
   }
-  if (sessions.length > 0) {
-    if (activeSessionId) switchToSession(activeSessionId);
-    else switchToSession(sessions[0].id);
+  if (sessionStore.state.sessions.length > 0) {
+    sessionStore.renderList();
+    const targetId = sessionStore.state.activeSessionId || sessionStore.state.sessions[0].id;
+    sessionStore.switchTo(targetId);
   } else {
-    activeSessionId = null;
     document.getElementById('userInput').disabled = true;
     document.getElementById('btnSend').disabled = true;
+    sessionStore.renderList();
   }
-  renderSessionList();
   // Контроллер вложений (скрепка справа от input, чип над input)
   attachment = GigaChat.setupAttachment({
     buttonContainer: document.getElementById('attachBtn'),
@@ -297,172 +356,6 @@ function init() {
   });
   checkServerStatus();
   setInterval(checkServerStatus, 30000);
-}
-
-// --- Sessions ---
-function loadSessions() {
-  try {
-    sessions = JSON.parse(localStorage.getItem(STORAGE_KEYS.sessions) || '[]');
-    sessionCounter = parseInt(localStorage.getItem(STORAGE_KEYS.counter) || '0');
-    activeSessionId = localStorage.getItem(STORAGE_KEYS.active) || null;
-    // История теперь на сервере — старый локальный кеш не нужен
-    try { localStorage.removeItem('pe_histories'); } catch (e) {}
-  } catch(e) { sessions=[]; sessionCounter=0; activeSessionId=null; }
-}
-function saveSessions() {
-  localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(sessions));
-  localStorage.setItem(STORAGE_KEYS.counter, String(sessionCounter));
-  localStorage.setItem(STORAGE_KEYS.active, activeSessionId || '');
-}
-function saveDisplaySnapshot() {
-  if (!activeSessionId) return;
-  try { localStorage.setItem('pe_view_' + activeSessionId, JSON.stringify(displayMessages)); } catch (e) {}
-}
-function loadDisplaySnapshot(sid) {
-  try {
-    const s = localStorage.getItem('pe_view_' + sid);
-    return s ? JSON.parse(s) : null;
-  } catch (e) { return null; }
-}
-function clearDisplaySnapshot(sid) {
-  try { localStorage.removeItem('pe_view_' + sid); } catch (e) {}
-}
-
-function createNewSession() {
-  sessionCounter++;
-  const s = { id:'pe_'+Date.now(), name:'Промпт-'+sessionCounter, created:new Date().toISOString() };
-  sessions.unshift(s);
-  saveSessions();
-  switchToSession(s.id, { skipHistoryLoad: true });
-}
-
-// Универсальный пуш сообщения в нужную сессию.
-// Если эта сессия сейчас активна — обновляем displayMessages + рендерим.
-// Если нет — обновляем её snapshot в localStorage; при возврате юзер увидит.
-function pushToSession(sid, msg) {
-  if (!sid) return;
-  if (sid === activeSessionId) {
-    displayMessages.push(msg);
-    saveDisplaySnapshot();
-    renderChat();
-  } else {
-    try {
-      const snap = loadDisplaySnapshot(sid) || [];
-      snap.push(msg);
-      localStorage.setItem('pe_view_' + sid, JSON.stringify(snap));
-    } catch (e) {}
-  }
-}
-async function switchToSession(id, opts) {
-  opts = opts || {};
-  activeSessionId = id;
-  // При переключении сессии — очищаем поле ввода. Вложение трогаем
-  // только если в фоне НЕ идёт обработка (иначе оборвём sendMsg).
-  const userInput = document.getElementById('userInput');
-  userInput.value = '';
-  userInput.style.height = 'auto';
-  if (attachment && !isProcessing) {
-    attachment.cancel();
-    attachment.clear();
-    attachment.setDisabled(false);
-  }
-  displayMessages = loadDisplaySnapshot(id) || [];
-  saveSessions();
-  renderSessionList();
-  renderChat();
-  userInput.disabled = false;
-  document.getElementById('btnSend').disabled = false;
-  userInput.focus();
-  if (opts.skipHistoryLoad) return;
-  await loadHistoryForActive(id);
-}
-
-async function loadHistoryForActive(targetSessionId) {
-  const container = document.getElementById('chatContainer');
-  if (!displayMessages.length) {
-    container.innerHTML = '<div class="welcome"><p>Загружаю историю...</p></div>';
-  }
-  try {
-    const res = await fetch(HISTORY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ session_id: targetSessionId })
-    });
-    if (activeSessionId !== targetSessionId) return;
-    if (!res.ok) throw new Error('Сервер ответил ' + res.status);
-    const data = await res.json();
-    if (activeSessionId !== targetSessionId) return;
-    displayMessages = (data.messages || []).map(m => ({
-      role: m.role,
-      content: m.content,
-      extras: m.extras || null
-    }));
-    saveDisplaySnapshot();
-    renderChat();
-  } catch (e) {
-    if (activeSessionId !== targetSessionId) return;
-    if (displayMessages.length) { renderChat(); }
-    else { container.innerHTML = '<div class="welcome"><p>Не удалось загрузить историю.</p></div>'; }
-  }
-}
-
-function deleteSession(id, e) {
-  e.stopPropagation();
-  sessions = sessions.filter(s => s.id !== id);
-  clearDisplaySnapshot(id);
-  if (activeSessionId === id) {
-    if (sessions.length > 0) { switchToSession(sessions[0].id); }
-    else {
-      activeSessionId = null;
-      displayMessages = [];
-      document.getElementById('chatContainer').innerHTML = WELCOME_HTML;
-      document.getElementById('userInput').disabled = true;
-      document.getElementById('btnSend').disabled = true;
-    }
-  }
-  renderSessionList();
-  saveSessions();
-}
-
-let editingSessionId = null;
-const PENCIL_SVG = '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
-function startRename(id, event) {
-  if (event) event.stopPropagation();
-  editingSessionId = id;
-  renderSessionList();
-  setTimeout(() => {
-    const inp = document.querySelector('#sessionList .session-item.editing .session-name-edit');
-    if (inp) { inp.focus(); inp.select(); }
-  }, 0);
-}
-function finishRename(id, newName) {
-  if (editingSessionId !== id) return;
-  const s = sessions.find(x => x.id === id);
-  if (s && newName && newName.trim()) s.name = newName.trim();
-  editingSessionId = null;
-  saveSessions();
-  renderSessionList();
-}
-function cancelRename() {
-  editingSessionId = null;
-  renderSessionList();
-}
-function renderSessionList() {
-  const el = document.getElementById('sessionList');
-  el.innerHTML = sessions.map(s => {
-    const isActive = s.id === activeSessionId ? 'active' : '';
-    const isEditing = s.id === editingSessionId ? 'editing' : '';
-    if (s.id === editingSessionId) {
-      return `<div class="session-item ${isActive} ${isEditing}" onclick="switchToSession('${s.id}')">
-        <input class="session-name-edit" value="${escapeHtml(s.name)}" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter'){event.preventDefault();finishRename('${s.id}', this.value);}else if(event.key==='Escape'){event.preventDefault();cancelRename();}" onblur="finishRename('${s.id}', this.value)">
-      </div>`;
-    }
-    return `<div class="session-item ${isActive}" onclick="switchToSession('${s.id}')">
-      <span>${escapeHtml(s.name)}</span>
-      <button class="session-edit" onclick="startRename('${s.id}', event)" title="Переименовать">${PENCIL_SVG}</button>
-      <button class="session-delete" onclick="deleteSession('${s.id}',event)" title="Удалить">×</button>
-    </div>`;
-  }).join('');
 }
 
 // --- Chat ---
