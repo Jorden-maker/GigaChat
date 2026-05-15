@@ -20,12 +20,16 @@
   }
 
   // fetch с таймаутом и повторами. opts: { timeout, retries, retryDelay }
+  // ВАЖНО: при AbortError (таймаут) НЕ повторяем — сервер уже мог принять запрос
+  // и продолжает его обрабатывать (особенно опасно для долгих OCR/embed).
+  // Повтор делается только на сетевых ошибках (отказ соединения и т.п.).
   async function fetchWithRetry(url, options, opts) {
     opts = opts || {};
     var timeout = opts.timeout || FETCH_TIMEOUT_MS;
     var retries = (opts.retries == null) ? MAX_RETRIES : opts.retries;
     var retryDelay = opts.retryDelay || RETRY_DELAY_MS;
 
+    var lastErr = null;
     for (var attempt = 0; attempt <= retries; attempt++) {
       var controller = new AbortController();
       var tid = setTimeout(function () { controller.abort(); }, timeout);
@@ -35,16 +39,21 @@
         return res;
       } catch (e) {
         clearTimeout(tid);
+        lastErr = e;
+        // Таймаут — сразу выходим, не плодим параллельные запросы.
+        if (e.name === 'AbortError') {
+          throw new Error('Сервер не ответил за ' + (timeout / 1000) + ' сек.');
+        }
+        // Сетевая ошибка — пробуем ещё.
         if (attempt < retries) {
           await new Promise(function (r) { setTimeout(r, retryDelay); });
           continue;
         }
-        if (e.name === 'AbortError') {
-          throw new Error('Сервер не ответил за ' + (timeout / 1000) + ' сек.');
-        }
         throw e;
       }
     }
+    // Цикл может выйти только через return/throw выше, но для строгости:
+    throw lastErr || new Error('fetchWithRetry: исчерпаны попытки');
   }
 
   // Пингует webhook (тело {"message":"ping"}). Обновляет визуальные элементы.
@@ -64,7 +73,9 @@
       signal: controller.signal
     }).then(function (res) {
       clearTimeout(tid);
-      var ok = res.ok || res.status > 0;
+      // 2xx — точно онлайн. 404/405 — webhook просто в test-mode без активной
+      // регистрации, но сервер живой. 5xx — сервер сломан, считаем офлайн.
+      var ok = res.ok || res.status === 404 || res.status === 405;
       if (dotEl) dotEl.className = dotClass + (ok ? ' online' : ' offline');
       if (textEl) textEl.textContent = ok ? labels.online : labels.offline;
       return ok;
@@ -154,8 +165,6 @@
   // Требует подключённый jszip.min.js (для docx/xlsx). Для txt-like
   // достаточно нативного file.text().
 
-  var BROWSER_EXT = ['docx','txt','md','log','csv','xlsx','xlsm'];
-
   function fileExt(name) {
     return (name || '').split('.').pop().toLowerCase();
   }
@@ -179,12 +188,25 @@
     var pe = doc.getElementsByTagName('parsererror')[0];
     if (pe) throw new Error('Не удалось разобрать XML в .docx');
 
+    // Обходим параграфы; внутри собираем не только w:t (текст), но и
+    // w:tab (табуляция) и w:br (мягкий перенос), иначе таблично-выровненный
+    // текст склеивается в одну строку, а абзацы с разрывами теряют структуру.
     var lines = [];
     var paragraphs = doc.getElementsByTagName('w:p');
     for (var i = 0; i < paragraphs.length; i++) {
-      var ts = paragraphs[i].getElementsByTagName('w:t');
+      var children = paragraphs[i].getElementsByTagName('*');
       var line = '';
-      for (var j = 0; j < ts.length; j++) line += ts[j].textContent || '';
+      for (var j = 0; j < children.length; j++) {
+        var tag = children[j].tagName; // например, w:t, w:tab, w:br
+        // tagName в XML с namespace сохраняет префикс, сравниваем суффикс
+        if (tag === 'w:t' || tag.endsWith(':t') || tag === 't') {
+          line += children[j].textContent || '';
+        } else if (tag === 'w:tab' || tag.endsWith(':tab') || tag === 'tab') {
+          line += '\t';
+        } else if (tag === 'w:br' || tag.endsWith(':br') || tag === 'br') {
+          line += '\n';
+        }
+      }
       if (line) lines.push(line);
     }
     return lines.join('\n');
@@ -209,11 +231,18 @@
       }
     }
 
-    // Первый лист
+    // Первый лист. Если sheet1.xml отсутствует (юзер удалил первый лист в Excel),
+    // ищем все sheetN.xml и берём с минимальным N — иначе JSZip может вернуть
+    // их в произвольном порядке, и каждый раз будет открываться другой лист.
     var sheetFile = zip.file('xl/worksheets/sheet1.xml');
     if (!sheetFile) {
       var sheets = zip.file(/^xl\/worksheets\/sheet\d+\.xml$/);
       if (!sheets || sheets.length === 0) throw new Error('В .xlsx не найдено листов.');
+      sheets.sort(function (a, b) {
+        var na = parseInt((a.name.match(/sheet(\d+)\.xml$/) || [0,0])[1], 10);
+        var nb = parseInt((b.name.match(/sheet(\d+)\.xml$/) || [0,0])[1], 10);
+        return na - nb;
+      });
       sheetFile = sheets[0];
     }
     var sheetXml = await sheetFile.async('string');
@@ -365,9 +394,15 @@
       fileInput.value = '';
     });
 
+    // Перерисовка чипа с именем файла + синхронизация состояния кнопки.
+    // Когда файл выбран — скрепка disabled (чтобы нельзя было повесить второй).
+    // Сброс через clear() или крестик в чипе возвращает активность.
     function renderChip() {
       chipsContainer.innerHTML = '';
-      if (!selectedFile) return;
+      if (!selectedFile) {
+        btn.disabled = false;
+        return;
+      }
       var chip = document.createElement('span');
       chip.className = 'gc-attach-chip';
       var name = document.createElement('span');
@@ -379,22 +414,22 @@
       x.title = 'Убрать файл';
       x.addEventListener('click', function () {
         selectedFile = null;
-        renderChip();
         btn.classList.remove('has-file');
+        renderChip();
         onChange();
       });
       chip.appendChild(name);
       chip.appendChild(x);
       chipsContainer.appendChild(chip);
+      btn.disabled = true;
     }
 
     function hasFile() { return !!selectedFile; }
     function getFile() { return selectedFile; }
     function clear() {
       selectedFile = null;
-      renderChip();
       btn.classList.remove('has-file');
-      btn.disabled = false;
+      renderChip();
     }
     function cancel() {
       if (abortCtrl) { try { abortCtrl.abort(); } catch (e) {} }
@@ -407,14 +442,6 @@
       btn.disabled = !!disabled;
       chipsContainer.style.display = disabled ? 'none' : '';
     }
-
-    // Когда файл выбран — скрепка disabled, чтобы нельзя было повесить второй.
-    // Сброс через clear() или крестик в чипе вернёт активность.
-    var origRenderChip = renderChip;
-    renderChip = function () {
-      origRenderChip();
-      if (selectedFile) btn.disabled = true; else btn.disabled = false;
-    };
 
     // Выполнить извлечение. Возвращает {text, fileName, error}.
     // Сначала пытаемся в браузере (docx/xlsx/txt-like). Если не подходит —

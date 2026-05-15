@@ -501,123 +501,8 @@ main {
         }
     }
 
-    // === Браузерные парсеры — извлекаем текст БЕЗ OCR ===
-    // docx, xlsx и текстовые форматы парсим прямо в браузере через JSZip + DOMParser.
-    // PDF и изображения отправляем как файл — на сервере для них OCR.
-
-    var BROWSER_EXT = ['docx','txt','md','log','csv','xlsx','xlsm'];
-
-    function fileExt(name) {
-        return (name || '').split('.').pop().toLowerCase();
-    }
-
-    function canExtractInBrowser(name) {
-        return BROWSER_EXT.indexOf(fileExt(name)) !== -1;
-    }
-
-    async function extractDocxText(file) {
-        var buf = await file.arrayBuffer();
-        var zip = await JSZip.loadAsync(buf);
-        var xmlFile = zip.file('word/document.xml');
-        if (!xmlFile) throw new Error('В .docx нет word/document.xml — файл повреждён или не Word-документ.');
-        var xml = await xmlFile.async('string');
-        var doc = new DOMParser().parseFromString(xml, 'application/xml');
-        var pe = doc.getElementsByTagName('parsererror')[0];
-        if (pe) throw new Error('Не удалось разобрать XML в .docx файле.');
-
-        // Итерируем по параграфам — добавляем перенос строки между ними
-        var lines = [];
-        var paragraphs = doc.getElementsByTagName('w:p');
-        for (var i = 0; i < paragraphs.length; i++) {
-            var ts = paragraphs[i].getElementsByTagName('w:t');
-            var line = '';
-            for (var j = 0; j < ts.length; j++) line += ts[j].textContent || '';
-            if (line) lines.push(line);
-        }
-        // Также вытаскиваем текст из таблиц (если есть) — в той же последовательности
-        // т.к. getElementsByTagName('w:p') уже включает параграфы внутри ячеек таблиц.
-        return lines.join('\n');
-    }
-
-    async function extractXlsxText(file) {
-        var buf = await file.arrayBuffer();
-        var zip = await JSZip.loadAsync(buf);
-
-        // Читаем sharedStrings (если есть)
-        var sharedStrings = [];
-        var ssFile = zip.file('xl/sharedStrings.xml');
-        if (ssFile) {
-            var ssXml = await ssFile.async('string');
-            var ssDoc = new DOMParser().parseFromString(ssXml, 'application/xml');
-            var siList = ssDoc.getElementsByTagName('si');
-            for (var i = 0; i < siList.length; i++) {
-                var ts = siList[i].getElementsByTagName('t');
-                var s = '';
-                for (var j = 0; j < ts.length; j++) s += ts[j].textContent || '';
-                sharedStrings.push(s);
-            }
-        }
-
-        // Читаем первый лист — обычно xl/worksheets/sheet1.xml
-        var sheetFile = zip.file('xl/worksheets/sheet1.xml');
-        if (!sheetFile) {
-            // Если sheet1.xml нет — берём первый найденный sheetN.xml через regex
-            var sheets = zip.file(/^xl\/worksheets\/sheet\d+\.xml$/);
-            if (!sheets || sheets.length === 0) throw new Error('В .xlsx не найдено листов.');
-            sheetFile = sheets[0];
-        }
-        var sheetXml = await sheetFile.async('string');
-        var sheetDoc = new DOMParser().parseFromString(sheetXml, 'application/xml');
-        var rows = sheetDoc.getElementsByTagName('row');
-
-        var lines = [];
-        for (var r = 0; r < rows.length; r++) {
-            var cells = rows[r].getElementsByTagName('c');
-            var cellTexts = [];
-            for (var c = 0; c < cells.length; c++) {
-                var cell = cells[c];
-                var type = cell.getAttribute('t');
-                var value = '';
-                if (type === 's') {
-                    var vEl = cell.getElementsByTagName('v')[0];
-                    if (vEl) {
-                        var idx = parseInt(vEl.textContent, 10);
-                        value = (sharedStrings[idx] != null) ? sharedStrings[idx] : '';
-                    }
-                } else if (type === 'inlineStr') {
-                    var isEl = cell.getElementsByTagName('is')[0];
-                    if (isEl) {
-                        var its = isEl.getElementsByTagName('t');
-                        for (var k = 0; k < its.length; k++) value += its[k].textContent || '';
-                    }
-                } else {
-                    // Number, boolean, date — берём значение как есть
-                    var vEl2 = cell.getElementsByTagName('v')[0];
-                    value = vEl2 ? (vEl2.textContent || '') : '';
-                }
-                cellTexts.push(value);
-            }
-            // Пропускаем полностью пустые строки
-            var hasContent = false;
-            for (var x = 0; x < cellTexts.length; x++) {
-                if (String(cellTexts[x]).trim() !== '') { hasContent = true; break; }
-            }
-            if (hasContent) lines.push(cellTexts.join('\t'));
-        }
-
-        return lines.join('\n');
-    }
-
-    async function extractBrowserText(file) {
-        var ext = fileExt(file.name);
-        if (ext === 'docx') return await extractDocxText(file);
-        if (ext === 'xlsx' || ext === 'xlsm') return await extractXlsxText(file);
-        if (['txt','md','log','csv'].indexOf(ext) !== -1) {
-            // Простой текст — читаем как UTF-8
-            return await file.text();
-        }
-        throw new Error('Расширение не поддерживается браузерным парсером: ' + ext);
-    }
+    // Браузерные парсеры (docx/xlsx/txt/md/log/csv) — в _shared.js: GigaChat.canExtractInBrowser,
+    // GigaChat.extractBrowserText. Локально дублировать не нужно — единая точка правды.
 
     function startTimer() {
         startTime = Date.now();
@@ -658,12 +543,12 @@ main {
             // Развилка: docx / xlsx / txt — извлекаем текст в браузере и шлём JSON.
             // PDF / картинки — шлём файл как multipart, на сервере OCR.
             var res;
-            if (canExtractInBrowser(selectedFile.name)) {
+            if (GigaChat.canExtractInBrowser(selectedFile.name)) {
                 var loadingText = loading.querySelector('div');
                 if (loadingText) loadingText.textContent = 'Извлекаю текст из файла...';
                 var extractedText;
                 try {
-                    extractedText = await extractBrowserText(selectedFile);
+                    extractedText = await GigaChat.extractBrowserText(selectedFile);
                 } catch (extractErr) {
                     throw new Error('Не удалось извлечь текст: ' + extractErr.message);
                 }
@@ -702,10 +587,20 @@ main {
                 throw new Error('Сервер вернул ошибку: ' + res.status);
             }
 
-            var data = await res.json();
+            // Безопасный JSON-парсинг: если сервер вдруг ответил HTML
+            // (страница ошибки прокси, например) — даём осмысленную ошибку.
+            var data;
+            try {
+                data = await res.json();
+            } catch (parseErr) {
+                throw new Error('Сервер вернул некорректный ответ (не JSON).');
+            }
             var responseText = data.response || JSON.stringify(data);
 
-            if (responseText.indexOf('ошибк') !== -1 || responseText.indexOf('Ошибк') !== -1) {
+            // Источник правды — флаги от бэкенда. На текст полагаться нельзя:
+            // ответ «загружено без ошибок» ложно матчился на подстроку «ошибк».
+            var isError = (data.success === false) || !!data.error;
+            if (isError) {
                 result.className = 'warning';
             } else {
                 result.className = 'success';
@@ -770,9 +665,7 @@ main {
         }
     }
 
-    function escapeHtml(str) {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+    var escapeHtml = GigaChat.escapeHtml;
 </script>
 </body>
 </html>

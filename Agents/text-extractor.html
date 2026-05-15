@@ -597,7 +597,14 @@ main {
 
             if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
 
-            var data = await res.json();
+            // Безопасный JSON-парсинг: сервер мог вернуть HTML-страницу ошибки
+            // (прокси, n8n test-mode без активного webhook'а и т.п.).
+            var data;
+            try {
+                data = await res.json();
+            } catch (parseErr) {
+                throw new Error('Сервер вернул некорректный ответ (не JSON).');
+            }
 
             if (data.success && data.response) {
                 lastResultText = data.response;
@@ -649,7 +656,9 @@ main {
         a.href = URL.createObjectURL(blob);
         a.download = baseName + '.txt';
         a.click();
-        URL.revokeObjectURL(a.href);
+        // Револьвируем URL с задержкой — иначе Firefox/медленные машины могут
+        // не успеть начать скачивание до того, как blob уйдёт.
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
     }
 
     function resetForm() {
@@ -666,9 +675,7 @@ main {
         lastFileName = '';
     }
 
-    function escapeHtml(str) {
-        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
+    var escapeHtml = GigaChat.escapeHtml;
 </script>
 </body>
 </html>

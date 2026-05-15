@@ -407,9 +407,6 @@ main {
         document.getElementById('fileSize').textContent = formatFileSize(file.size);
         sendBtn.disabled = false;
     }
-    function fetchWithRetry(url, options, retries) {
-        return GigaChat.fetchWithRetry(url, options, { timeout: FETCH_TIMEOUT_MS, retries: retries, retryDelay: RETRY_DELAY_MS });
-    }
     async function sendFile() {
         if (!selectedFile || isProcessing) return;
         isProcessing = true;
@@ -422,10 +419,22 @@ main {
         try {
             var formData = new FormData();
             formData.append('file', selectedFile);
-            var res = await fetchWithRetry(WEBHOOK_URL, { method: 'POST', body: formData }, MAX_RETRIES);
+            // GigaChat.fetchWithRetry напрямую — без локального враппера,
+            // чтобы параметры retries/retryDelay/timeout не рассинхронизировались.
+            var res = await GigaChat.fetchWithRetry(WEBHOOK_URL, { method: 'POST', body: formData }, {
+                timeout: FETCH_TIMEOUT_MS,
+                retries: MAX_RETRIES,
+                retryDelay: RETRY_DELAY_MS
+            });
             clearInterval(timerInterval); loading.classList.remove('show');
             if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
-            var data = await res.json();
+            // Безопасный JSON-парсинг (сервер мог ответить HTML).
+            var data;
+            try {
+                data = await res.json();
+            } catch (parseErr) {
+                throw new Error('Сервер вернул некорректный ответ (не JSON).');
+            }
             var responseText = data.response || data.output || 'Пустой ответ';
             result.className = 'success';
             result.innerHTML = formatResponse(responseText);

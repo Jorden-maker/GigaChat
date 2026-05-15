@@ -227,6 +227,7 @@
             font-size: 11px;
         }
         .code-block .copy-btn:hover { background: #484f58; color: #e0e0e0; }
+        .code-block .code-body { margin: 0; font: inherit; background: transparent; color: inherit; white-space: pre-wrap; }
         .raw-result {
             background: #1a2332;
             border-left: 3px solid var(--accent);
@@ -733,7 +734,9 @@
             var code = extras.code || msg.code || '';
             var raw = extras.raw_result || msg.raw_result || '';
             if (code) {
-                html += '<div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Копировать</button>' + escapeHtml(code) + '</div>';
+                // Сам код кладём отдельным <pre>, а кнопка работает с этим узлом —
+                // textContent даёт ровно код без артефактов вроде самого слова «Копировать».
+                html += '<div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Копировать</button><pre class="code-body">' + escapeHtml(code) + '</pre></div>';
             }
             if (raw) {
                 html += '<div class="raw-result">' + escapeHtml(raw) + '</div>';
@@ -767,8 +770,11 @@
             a.click(); URL.revokeObjectURL(a.href);
         }
         function copyCode(btn) {
+            // Берём текст из соседнего .code-body (или ближайшего pre), чтобы
+            // не пытаться вырезать слово «Копировать» из textContent родителя.
             var codeBlock = btn.parentElement;
-            var code = codeBlock.textContent.replace('Копировать', '').trim();
+            var pre = codeBlock.querySelector('.code-body') || codeBlock.querySelector('pre');
+            var code = (pre ? pre.textContent : codeBlock.textContent.replace(/^Копировать\s*/, '')).trim();
             navigator.clipboard.writeText(code).then(function() {
                 btn.textContent = 'Скопировано!';
                 setTimeout(function() { btn.textContent = 'Копировать'; }, 2000);

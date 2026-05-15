@@ -582,7 +582,8 @@
         }
         var escapeHtml = GigaChat.escapeHtml;
         function formatResponse(text) {
-            return GigaChat.formatMarkdownTable(GigaChat.formatMarkdown(text, '#10b981'));
+            // formatMarkdown сам вызывает formatMarkdownTable внутри — не оборачиваем повторно.
+            return GigaChat.formatMarkdown(text, '#10b981');
         }
         loadSessions();
         if (activeSessionId && !sessions.find(function(s){ return s.id === activeSessionId; })) { activeSessionId = null; }

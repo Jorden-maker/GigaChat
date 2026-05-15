@@ -821,7 +821,8 @@
         }
         var escapeHtml = GigaChat.escapeHtml;
         function formatResponse(text) {
-            return GigaChat.formatMarkdownTable(GigaChat.formatMarkdown(text, '#d4af37'));
+            // formatMarkdown сам вызывает formatMarkdownTable внутри — не оборачиваем повторно.
+            return GigaChat.formatMarkdown(text, '#d4af37');
         }
         loadSessions();
         if (activeSessionId && !sessions.find(function (s) { return s.id === activeSessionId; })) { activeSessionId = null; }
