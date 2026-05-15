@@ -333,7 +333,6 @@
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) {
                 chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="memory-note">История хранится на сервере — агент помнит весь диалог</span></div>'; return;
             }
-            if (displayMessages.length === 0) { chat.innerHTML = ''; return; }
             var html = '';
             for (var i = 0; i < displayMessages.length; i++) {
                 var m = displayMessages[i];
@@ -357,6 +356,15 @@
                 } else {
                     html += '<div class="msg bot">' + formatResponse(m.content) + '</div>';
                 }
+            }
+            // Inflight-спиннер: показываем когда в активной сессии идёт фоновая обработка.
+            // Маркер живёт в localStorage — переживает уход/возврат в сессию.
+            var inflight = sessionStore.getInflight(activeSessionId);
+            if (inflight) {
+                var elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
+                html += '<div class="loading">' + escapeHtml(inflight.label) +
+                    ' <span class="dots"><span>.</span><span>.</span><span>.</span></span>' +
+                    '<span class="timer">' + elapsed + ' сек</span></div>';
             }
             chat.innerHTML = html;
             chat.scrollTop = chat.scrollHeight;
@@ -443,9 +451,9 @@
             }
             pushToSession(sendSessionId, userMsg);
 
-            // Этап 3 — запрос к агенту
-            var thinkId = appendLoading('Думаю', false);
-            var timerInterval = startTimer(thinkId);
+            // Этап 3 — запрос к агенту. Inflight-маркер живёт в localStorage,
+            // поэтому если юзер уйдёт в другую сессию и вернётся — увидит спиннер.
+            sessionStore.setInflight(sendSessionId, 'Думаю');
 
             try {
                 var res = await fetchWithRetry(WEBHOOK_URL, {
@@ -453,16 +461,14 @@
                     headers: { 'Content-Type': 'application/json; charset=utf-8' },
                     body: JSON.stringify({ message: messageForAgent, session_id: sendSessionId })
                 }, MAX_RETRIES);
-                clearInterval(timerInterval);
-                removeLoading(thinkId);
+                sessionStore.clearInflight(sendSessionId);
                 if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
                 var data = await res.json();
                 var responseText = data.response || data.output || 'Пустой ответ от сервера';
                 pushToSession(sendSessionId, { role: 'assistant', content: responseText });
                 statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
             } catch (e) {
-                clearInterval(timerInterval);
-                removeLoading(thinkId);
+                sessionStore.clearInflight(sendSessionId);
                 pushToSession(sendSessionId, { role: 'assistant', content: 'Ошибка: ' + e.message });
                 statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
             }

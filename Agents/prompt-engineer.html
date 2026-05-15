@@ -361,7 +361,8 @@ function init() {
 // --- Chat ---
 function renderChat() {
   const container = document.getElementById('chatContainer');
-  if (displayMessages.length === 0) {
+  const inflight = sessionStore.getInflight(activeSessionId);
+  if (displayMessages.length === 0 && !inflight) {
     container.innerHTML = WELCOME_HTML;
     return;
   }
@@ -393,6 +394,10 @@ function renderChat() {
       }
       html += `</div>`;
     }
+  }
+  if (inflight) {
+    const elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
+    html += `<div class="loading">${escapeHtml(inflight.label)} <span class="dots"><span>.</span><span>.</span><span>.</span></span><span class="timer">${elapsed} сек</span></div>`;
   }
   container.innerHTML = html;
   container.scrollTop = container.scrollHeight;
@@ -494,9 +499,7 @@ async function sendMessage() {
   if (attachmentsForUI.length > 0) userMsg.attachments = attachmentsForUI;
   pushToSession(sendSessionId, userMsg);
 
-  // Этап 3 — запрос к агенту
-  const thinkId = appendLoading('Генерирую промпт', false);
-  const timerInterval = startTimer(thinkId);
+  sessionStore.setInflight(sendSessionId, 'Генерирую промпт');
 
   try {
     const data = await fetchWithRetry(WEBHOOK_URL, {
@@ -504,8 +507,7 @@ async function sendMessage() {
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify({ message: messageForAgent, session_id: sendSessionId })
     });
-    clearInterval(timerInterval);
-    removeLoading(thinkId);
+    sessionStore.clearInflight(sendSessionId);
 
     pushToSession(sendSessionId, {
       role: 'assistant',
@@ -513,8 +515,7 @@ async function sendMessage() {
       extras: { prompt: data.prompt || '' }
     });
   } catch (err) {
-    clearInterval(timerInterval);
-    removeLoading(thinkId);
+    sessionStore.clearInflight(sendSessionId);
     pushToSession(sendSessionId, {
       role: 'assistant',
       content: 'Ошибка: ' + err.message

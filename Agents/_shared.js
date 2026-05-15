@@ -733,6 +733,7 @@
     var KEY_ACTIVE = prefix + '_active';
     var KEY_COUNTER = prefix + '_counter';
     var KEY_VIEW = prefix + '_view_';
+    var KEY_INFLIGHT = prefix + '_inflight_';
 
     var store = {
       sessions: [],
@@ -781,6 +782,53 @@
       try { localStorage.removeItem(KEY_VIEW + sid); } catch (e) {}
     }
 
+    // Inflight-маркер: «в этой сессии идёт фоновая обработка».
+    // Хранится в отдельном ключе localStorage, чтобы:
+    //   1) не загрязнять snapshot (который попадает в renderMessages как сообщения)
+    //   2) при возврате юзера в сессию A показать спиннер, даже если он
+    //      переключался на B пока работало sendMsg.
+    //
+    // Тикающий «X сек» обновляется живым setInterval, который запускается на
+    // setInflight и останавливается на clearInflight (или при switchTo в
+    // сессию без inflight). Renderer (агентский renderChat) сам читает
+    // getInflight() и рисует спиннер в конце чата.
+    var inflightTimer = null;
+    function startInflightTicker() {
+      if (inflightTimer) return;
+      inflightTimer = setInterval(function () {
+        // Пинаем renderMessages — он покажет обновлённый «X сек».
+        renderMessages(store.displayMessages);
+      }, 1000);
+    }
+    function stopInflightTicker() {
+      if (inflightTimer) { clearInterval(inflightTimer); inflightTimer = null; }
+    }
+    function setInflight(sid, label) {
+      if (!sid) return;
+      try {
+        localStorage.setItem(KEY_INFLIGHT + sid, JSON.stringify({
+          label: String(label || 'Обработка'),
+          startedAt: Date.now()
+        }));
+      } catch (e) {}
+      // Сразу обновляем UI и запускаем тикер.
+      renderMessages(store.displayMessages);
+      startInflightTicker();
+    }
+    function clearInflight(sid) {
+      if (!sid) return;
+      try { localStorage.removeItem(KEY_INFLIGHT + sid); } catch (e) {}
+      stopInflightTicker();
+      renderMessages(store.displayMessages);
+    }
+    function getInflight(sid) {
+      if (!sid) return null;
+      try {
+        var raw = localStorage.getItem(KEY_INFLIGHT + sid);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+
     // Утилита: пуш сообщения в активную сессию ИЛИ в snapshot чужой
     // (если юзер ушёл в другую сессию, пока шла обработка).
     function pushToSession(sid, msg) {
@@ -821,6 +869,10 @@
       renderList();
       save();
       renderMessages(store.displayMessages);
+      // Если в новой сессии есть inflight (обработка в фоне) — запускаем тикер
+      // для живого «X сек», иначе останавливаем (бережём CPU).
+      if (getInflight(id)) startInflightTicker();
+      else stopInflightTicker();
       onSwitch(id, switchOpts);
       if (switchOpts.skipHistoryLoad) return;
       if (loadHistory) {
@@ -842,6 +894,7 @@
     function remove(id) {
       store.sessions = store.sessions.filter(function (s) { return s.id !== id; });
       clearSnapshot(id);
+      clearInflight(id);
       if (store.activeSessionId === id) {
         if (store.sessions.length > 0) {
           switchTo(store.sessions[store.sessions.length - 1].id);
@@ -942,6 +995,9 @@
       saveSnapshot: saveSnapshot,
       loadSnapshot: loadSnapshot,
       clearSnapshot: clearSnapshot,
+      setInflight: setInflight,
+      clearInflight: clearInflight,
+      getInflight: getInflight,
       createNew: createNew,
       switchTo: switchTo,
       remove: remove,
