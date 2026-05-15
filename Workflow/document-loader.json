@@ -193,26 +193,10 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "http://EMBED_HOST:8001/embed",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ input: $json.chunk_text, type: 'passage' }) }}",
-        "options": {
-          "timeout": 60000
-        }
+        "jsCode": "// Эмбеддинг через embedding-server. Используем fallback URL — host.docker.internal\n// для Docker n8n (дома), 127.0.0.1 для нативного n8n (офис). На ENOTFOUND/\n// ECONNREFUSED пробуем следующий URL.\n\nconst URLS = [\n  'http://host.docker.internal:8001/embed',\n  'http://127.0.0.1:8001/embed'\n];\n\nconst chunkText = $json.chunk_text;\nconst payload = JSON.stringify({ input: chunkText, type: 'passage' });\n\nconst NET_ERR = ['ECONNREFUSED','ENOTFOUND','EHOSTUNREACH','EAI_AGAIN','ETIMEDOUT','ECONNABORTED','ECONNRESET'];\n\nlet lastErr = '';\nfor (const url of URLS) {\n  try {\n    const r = await this.helpers.httpRequest({\n      method: 'POST',\n      url: url,\n      body: payload,\n      headers: { 'Content-Type': 'application/json' },\n      json: false,\n      returnFullResponse: true,\n      ignoreHttpStatusErrors: true,\n      timeout: 60000\n    });\n    const status = r.statusCode || r.status || 0;\n    if (status >= 200 && status < 300) {\n      // Парсим JSON тело\n      let data = r.body;\n      if (typeof data === 'string') {\n        try { data = JSON.parse(data); } catch (_) {}\n      } else if (data && data.type === 'Buffer' && Array.isArray(data.data)) {\n        try { data = JSON.parse(Buffer.from(data.data).toString('utf8')); } catch (_) {}\n      } else if (Buffer.isBuffer && Buffer.isBuffer(data)) {\n        try { data = JSON.parse(data.toString('utf8')); } catch (_) {}\n      }\n      return [{ json: data }];\n    }\n    // HTTP 4xx/5xx — это ошибка сервиса, не сетевая. Сразу прокидываем.\n    let bodyText = '';\n    try {\n      const b = r.body;\n      if (Buffer.isBuffer(b)) bodyText = b.toString('utf8');\n      else if (typeof b === 'string') bodyText = b;\n      else if (b && b.type === 'Buffer' && Array.isArray(b.data)) bodyText = Buffer.from(b.data).toString('utf8');\n      else bodyText = JSON.stringify(b);\n    } catch (_) {}\n    return [{ json: { error: 'Embedding HTTP ' + status + ': ' + bodyText.slice(0, 300) } }];\n  } catch (e) {\n    const code = (e.cause && e.cause.code) || e.code || '';\n    if (NET_ERR.includes(code) || /timeout|econnrefused|enotfound|connect|getaddrinfo/i.test(String(e.message || ''))) {\n      lastErr = (e.message || String(e)) + ' (' + url + ')';\n      continue;\n    }\n    return [{ json: { error: 'Embedding исключение: ' + (e.message || String(e)) } }];\n  }\n}\n\nreturn [{ json: { error: 'Embedding-сервер недоступен. Проверь что embedding-server запущен на порту 8001. Последняя ошибка: ' + lastErr } }];"
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         2280,
         200
@@ -260,7 +244,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Агрегируем результаты записи всех кусков.\nconst items = $input.all();\nlet success = 0;\nlet failed = 0;\nlet errors = [];\nlet fileName = '';\nlet totalChunks = 0;\nlet source = '';\n\nfor (const item of items) {\n  const prev = item.json;\n  if (!fileName && prev.fileName) fileName = prev.fileName;\n  if (!totalChunks && prev.total_chunks) totalChunks = prev.total_chunks;\n  if (!source && prev.source) source = prev.source;\n  if (prev.error) {\n    failed++;\n    errors.push(prev.error);\n  } else {\n    success++;\n  }\n}\n\nif (success === 0 && failed === 0) {\n  success = items.length;\n}\n\n// Если fileName или total_chunks потерялись — попробуем взять из «Нарезка»\nif (!fileName) {\n  try { fileName = $('Нарезка на куски').first().json.fileName; } catch (_) {}\n}\nif (!source) {\n  try { source = $('Нарезка на куски').first().json.source; } catch (_) {}\n}\n\nconst sourceLabel = source === 'browser' ? ' (без OCR — текст извлечён в браузере)'\n                  : source === 'ocr'     ? ' (через OCR)' : '';\n\nlet message = '';\nif (failed === 0) {\n  message = 'Документ \"' + fileName + '\" успешно загружен' + sourceLabel + '!\\n' +\n    'Сохранено кусков: ' + success + '\\n' +\n    'Документ теперь доступен для поиска по смыслу через агента по документам.';\n} else {\n  message = 'Документ \"' + fileName + '\" загружен частично' + sourceLabel + '.\\n' +\n    'Успешно: ' + success + ', ошибок: ' + failed + '\\n' +\n    'Ошибки: ' + errors.slice(0, 3).join('; ');\n}\n\nreturn [{ json: { response: message } }];"
+        "jsCode": "// Агрегируем результаты записи всех кусков.\nfunction errToString(e) {\n  if (!e) return '';\n  if (typeof e === 'string') return e;\n  if (typeof e === 'object') {\n    if (e.message) return String(e.message);\n    if (e.detail) return String(e.detail);\n    try { return JSON.stringify(e); } catch (_) { return String(e); }\n  }\n  return String(e);\n}\n\nconst items = $input.all();\nlet success = 0;\nlet failed = 0;\nlet errors = [];\nlet fileName = '';\nlet totalChunks = 0;\nlet source = '';\n\nfor (const item of items) {\n  const prev = item.json || {};\n  if (!fileName && prev.fileName) fileName = prev.fileName;\n  if (!totalChunks && prev.total_chunks) totalChunks = prev.total_chunks;\n  if (!source && prev.source) source = prev.source;\n  if (prev.error) {\n    failed++;\n    errors.push(errToString(prev.error));\n  } else {\n    success++;\n  }\n}\n\nif (success === 0 && failed === 0) {\n  success = items.length;\n}\n\nif (!fileName) {\n  try { fileName = $('Нарезка на куски').first().json.fileName; } catch (_) {}\n}\nif (!source) {\n  try { source = $('Нарезка на куски').first().json.source; } catch (_) {}\n}\n\nconst sourceLabel = source === 'browser' ? ' (без OCR — текст извлечён в браузере)'\n                  : source === 'ocr'     ? ' (через OCR)' : '';\n\nlet message = '';\nif (failed === 0) {\n  message = 'Документ \"' + fileName + '\" успешно загружен' + sourceLabel + '!\\n' +\n    'Сохранено кусков: ' + success + '\\n' +\n    'Документ теперь доступен для поиска по смыслу через агента по документам.';\n} else {\n  // Уникальные ошибки\n  const uniqErrors = Array.from(new Set(errors)).slice(0, 3);\n  message = 'Документ \"' + fileName + '\" загружен частично' + sourceLabel + '.\\n' +\n    'Успешно: ' + success + ', ошибок: ' + failed + '\\n' +\n    'Ошибки: ' + uniqErrors.join(' | ');\n}\n\nreturn [{ json: { response: message } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
