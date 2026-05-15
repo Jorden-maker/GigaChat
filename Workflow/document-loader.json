@@ -6,7 +6,9 @@
         "httpMethod": "POST",
         "path": "upload-doc",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {
+          "binaryData": true
+        }
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
@@ -20,7 +22,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Проверяем, что файл загружен\nconst item = $input.first();\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  return [{ json: { valid: false, error: 'Файл не загружен. Прикрепите документ.' } }];\n}\n\nconst key = Object.keys(binary)[0];\nconst info = binary[key];\nconst fileName = info.fileName || 'unknown';\nconst mimeType = info.mimeType || 'unknown';\nconst fileSize = info.fileSize || 0;\n\n// Проверка размера (макс 50 МБ)\nif (fileSize > 50 * 1024 * 1024) {\n  return [{ json: { valid: false, error: 'Файл слишком большой (макс. 50 МБ).' } }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    binaryKey: key,\n    fileName: fileName,\n    mimeType: mimeType\n  },\n  binary: binary\n}];"
+        "jsCode": "// Определяем что пришло: уже извлечённый текст (от браузера) или бинарный файл.\n// - Если JSON содержит поле text — это путь через браузерные парсеры (docx/xlsx/txt),\n//   OCR пропускаем, идём прямо в нарезку.\n// - Если есть binary файл — это PDF/картинка, идём через OCR.\n\nconst item = $input.first();\nconst json = item.json || {};\nconst binary = item.binary || {};\nconst binaryKeys = Object.keys(binary);\n\n// Браузерный путь: JSON с готовым текстом\nif (json && typeof json.text === 'string' && json.text.trim().length > 0) {\n  return [{\n    json: {\n      has_text: true,\n      text: json.text,\n      fileName: json.fileName || 'document.txt',\n      source: json.source || 'browser'\n    }\n  }];\n}\n\n// Файловый путь: есть binary\nif (binaryKeys.length > 0) {\n  const key = binaryKeys[0];\n  const info = binary[key];\n  const fileName = info.fileName || 'unknown';\n  const fileSize = info.fileSize || 0;\n\n  if (fileSize > 50 * 1024 * 1024) {\n    return [{ json: { has_text: false, has_file: false, error: 'Файл слишком большой (макс. 50 МБ).' } }];\n  }\n\n  return [{\n    json: {\n      has_text: false,\n      has_file: true,\n      binaryKey: key,\n      fileName: fileName,\n      mimeType: info.mimeType || 'unknown'\n    },\n    binary: binary\n  }];\n}\n\n// Ничего не пришло\nreturn [{ json: { has_text: false, has_file: false, error: 'Файл не загружен и текст не передан.' } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -29,7 +31,7 @@
         300
       ],
       "id": "dl-0002-0002-0002-000000000002",
-      "name": "Валидация файла"
+      "name": "Определить вход"
     },
     {
       "parameters": {
@@ -41,12 +43,13 @@
           },
           "conditions": [
             {
-              "id": "cond-valid-dl",
-              "leftValue": "={{ $json.valid }}",
+              "id": "cond-has-text",
+              "leftValue": "={{ $json.has_text }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
-                "operation": "true"
+                "operation": "true",
+                "singleValue": true
               }
             }
           ],
@@ -62,6 +65,40 @@
         300
       ],
       "id": "dl-0003-0003-0003-000000000003",
+      "name": "Текст готов?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-has-file",
+              "leftValue": "={{ $json.has_file }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        840,
+        500
+      ],
+      "id": "dl-0004-0004-0004-000000000004",
       "name": "Файл есть?"
     },
     {
@@ -75,7 +112,7 @@
             {
               "parameterType": "formBinaryData",
               "name": "file",
-              "inputDataFieldName": "file"
+              "inputDataFieldName": "={{ $json.binaryKey }}"
             }
           ]
         },
@@ -86,26 +123,26 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        840,
-        80
+        1120,
+        400
       ],
-      "id": "dl-0004-0004-0004-000000000004",
+      "id": "dl-0005-0005-0005-000000000005",
       "name": "OCR Распознавание",
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Извлекаем текст из ответа OCR\ntry {\n  const data = $input.first().json;\n\n  if (data.error) {\n    const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));\n    return [{ json: { has_text: false, error: 'OCR ошибка: ' + msg } }];\n  }\n\n  let text = '';\n\n  if (typeof data === 'string') {\n    text = data;\n  } else if (data.text && typeof data.text === 'string') {\n    text = data.text;\n  } else if (data.result && typeof data.result === 'string') {\n    text = data.result;\n  } else if (data.result && data.result.text) {\n    text = data.result.text;\n  } else if (data.content && typeof data.content === 'string') {\n    text = data.content;\n  } else if (data.data && typeof data.data === 'string') {\n    text = data.data;\n  } else if (data.output && typeof data.output === 'string') {\n    text = data.output;\n  } else {\n    text = JSON.stringify(data);\n  }\n\n  text = text.trim();\n\n  if (!text || text === '{}' || text === '[]' || text === 'null' || text.length < 3) {\n    return [{ json: { has_text: false, error: 'OCR не смог распознать текст. Попробуйте другой файл.' } }];\n  }\n\n  // Получаем имя файла из предыдущей ноды\n  const fileName = $('Валидация файла').first().json.fileName || 'unknown';\n\n  return [{ json: { has_text: true, ocr_text: text, fileName: fileName } }];\n\n} catch (e) {\n  return [{ json: { has_text: false, error: 'Ошибка обработки OCR: ' + e.message } }];\n}"
+        "jsCode": "// Извлекаем текст из ответа OCR (только если файл проходил через OCR ветку).\ntry {\n  const data = $input.first().json;\n\n  if (data.error) {\n    const msg = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));\n    return [{ json: { has_text: false, error: 'OCR ошибка: ' + msg } }];\n  }\n\n  let text = '';\n  if (typeof data === 'string') text = data;\n  else if (data.text && typeof data.text === 'string') text = data.text;\n  else if (data.result && typeof data.result === 'string') text = data.result;\n  else if (data.result && data.result.text) text = data.result.text;\n  else if (data.content && typeof data.content === 'string') text = data.content;\n  else if (data.data && typeof data.data === 'string') text = data.data;\n  else if (data.output && typeof data.output === 'string') text = data.output;\n  else text = JSON.stringify(data);\n\n  text = text.trim();\n\n  if (!text || text === '{}' || text === '[]' || text === 'null' || text.length < 3) {\n    return [{ json: { has_text: false, error: 'OCR не смог распознать текст. Попробуйте другой файл.' } }];\n  }\n\n  // fileName тянем из «Определить вход»\n  const fileName = $('Определить вход').first().json.fileName || 'unknown';\n  return [{ json: { has_text: true, text: text, fileName: fileName, source: 'ocr' } }];\n} catch (e) {\n  return [{ json: { has_text: false, error: 'Ошибка обработки OCR: ' + e.message } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
-        80
+        1400,
+        400
       ],
-      "id": "dl-0005-0005-0005-000000000005",
-      "name": "Извлечь текст"
+      "id": "dl-0006-0006-0006-000000000006",
+      "name": "Извлечь текст из OCR"
     },
     {
       "parameters": {
@@ -117,12 +154,13 @@
           },
           "conditions": [
             {
-              "id": "cond-text-dl",
+              "id": "cond-ocr-text",
               "leftValue": "={{ $json.has_text }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
-                "operation": "true"
+                "operation": "true",
+                "singleValue": true
               }
             }
           ],
@@ -134,23 +172,23 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1400,
-        80
+        1680,
+        400
       ],
-      "id": "dl-0006-0006-0006-000000000006",
-      "name": "Текст есть?"
+      "id": "dl-0007-0007-0007-000000000007",
+      "name": "OCR Текст есть?"
     },
     {
       "parameters": {
-        "jsCode": "// Нарезаем текст на куски по ~500 слов с перекрытием 50 слов\nconst text = $json.ocr_text;\nconst fileName = $json.fileName;\n\nconst CHUNK_SIZE = 500;  // слов в куске\nconst OVERLAP = 50;      // слов перекрытия\n\nconst words = text.split(/\\s+/).filter(w => w.length > 0);\n\nif (words.length === 0) {\n  return [{ json: { error: 'Текст пустой после обработки.' } }];\n}\n\nconst chunks = [];\nlet start = 0;\n\nwhile (start < words.length) {\n  const end = Math.min(start + CHUNK_SIZE, words.length);\n  const chunkText = words.slice(start, end).join(' ');\n\n  chunks.push({\n    json: {\n      fileName: fileName,\n      chunk_index: chunks.length,\n      chunk_text: chunkText,\n      total_chunks: 0  // обновим после цикла\n    }\n  });\n\n  if (end >= words.length) break;\n  start += CHUNK_SIZE - OVERLAP;\n}\n\n// Обновляем total_chunks\nfor (const chunk of chunks) {\n  chunk.json.total_chunks = chunks.length;\n}\n\nreturn chunks;"
+        "jsCode": "// Нарезаем текст на куски по ~500 слов с перекрытием 50 слов.\n// На входе $json.text (от браузера) или после OCR — тоже text.\nconst text = $json.text;\nconst fileName = $json.fileName;\nconst source = $json.source || 'unknown';\n\nconst CHUNK_SIZE = 500;\nconst OVERLAP = 50;\n\nconst words = String(text || '').split(/\\s+/).filter(w => w.length > 0);\n\nif (words.length === 0) {\n  return [{ json: { error: 'Текст пустой после обработки.' } }];\n}\n\nconst chunks = [];\nlet start = 0;\n\nwhile (start < words.length) {\n  const end = Math.min(start + CHUNK_SIZE, words.length);\n  const chunkText = words.slice(start, end).join(' ');\n\n  chunks.push({\n    json: {\n      fileName: fileName,\n      chunk_index: chunks.length,\n      chunk_text: chunkText,\n      total_chunks: 0,\n      source: source\n    }\n  });\n\n  if (end >= words.length) break;\n  start += CHUNK_SIZE - OVERLAP;\n}\n\nfor (const chunk of chunks) {\n  chunk.json.total_chunks = chunks.length;\n}\n\nreturn chunks;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
-        -140
+        2000,
+        200
       ],
-      "id": "dl-0007-0007-0007-000000000007",
+      "id": "dl-0008-0008-0008-000000000008",
       "name": "Нарезка на куски"
     },
     {
@@ -176,25 +214,25 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1960,
-        -140
+        2280,
+        200
       ],
-      "id": "dl-0008-0008-0008-000000000008",
+      "id": "dl-0009-0009-0009-000000000009",
       "name": "Эмбеддинг",
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Извлекаем вектор из ответа эмбеддинга и готовим SQL\ntry {\n  const data = $input.first().json;\n  const prevData = $('Нарезка на куски').first().json;\n  const fileName = prevData.fileName;\n  const chunkIndex = prevData.chunk_index;\n  const chunkText = prevData.chunk_text;\n  const totalChunks = prevData.total_chunks;\n\n  // Проверяем ошибку\n  if (data.error) {\n    return [{ json: { success: false, error: 'Ошибка эмбеддинга: ' + JSON.stringify(data.error) } }];\n  }\n\n  // Извлекаем вектор — формат OpenAI-совместимый\n  let vector = null;\n\n  if (data.data && Array.isArray(data.data) && data.data[0] && data.data[0].embedding) {\n    vector = data.data[0].embedding;\n  } else if (data.embedding && Array.isArray(data.embedding)) {\n    vector = data.embedding;\n  } else if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'number') {\n    vector = data;\n  }\n\n  if (!vector || vector.length === 0) {\n    return [{ json: { success: false, error: 'Эмбеддинг вернул пустой вектор.' } }];\n  }\n\n  // Экранируем текст для SQL\n  const safeText = chunkText.replaceAll(\"'\", \"''\");\n  const safeFileName = fileName.replaceAll(\"'\", \"''\");\n  const vectorStr = '[' + vector.join(',') + ']';\n\n  const sql = `INSERT INTO documents (filename, chunk_index, chunk_text, embedding) VALUES ('${safeFileName}', ${chunkIndex}, '${safeText}', '${vectorStr}')`;\n\n  return [{ json: {\n    success: true,\n    sql: sql,\n    fileName: fileName,\n    chunk_index: chunkIndex,\n    total_chunks: totalChunks,\n    vector_size: vector.length\n  }}];\n\n} catch (e) {\n  return [{ json: { success: false, error: 'Ошибка обработки эмбеддинга: ' + e.message } }];\n}"
+        "jsCode": "// Извлекаем вектор из ответа эмбеддинга и готовим SQL.\ntry {\n  const data = $input.first().json;\n  const prevData = $('Нарезка на куски').first().json;\n  const fileName = prevData.fileName;\n  const chunkIndex = prevData.chunk_index;\n  const chunkText = prevData.chunk_text;\n  const totalChunks = prevData.total_chunks;\n\n  if (data.error) {\n    return [{ json: { success: false, error: 'Ошибка эмбеддинга: ' + JSON.stringify(data.error) } }];\n  }\n\n  let vector = null;\n  if (data.data && Array.isArray(data.data) && data.data[0] && data.data[0].embedding) {\n    vector = data.data[0].embedding;\n  } else if (data.embedding && Array.isArray(data.embedding)) {\n    vector = data.embedding;\n  } else if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'number') {\n    vector = data;\n  }\n\n  if (!vector || vector.length === 0) {\n    return [{ json: { success: false, error: 'Эмбеддинг вернул пустой вектор.' } }];\n  }\n\n  const safeText = chunkText.replaceAll(\"'\", \"''\");\n  const safeFileName = fileName.replaceAll(\"'\", \"''\");\n  const vectorStr = '[' + vector.join(',') + ']';\n\n  const sql = `INSERT INTO documents (filename, chunk_index, chunk_text, embedding) VALUES ('${safeFileName}', ${chunkIndex}, '${safeText}', '${vectorStr}')`;\n\n  return [{ json: {\n    success: true,\n    sql: sql,\n    fileName: fileName,\n    chunk_index: chunkIndex,\n    total_chunks: totalChunks,\n    vector_size: vector.length\n  }}];\n} catch (e) {\n  return [{ json: { success: false, error: 'Ошибка обработки эмбеддинга: ' + e.message } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2240,
-        -140
+        2560,
+        200
       ],
-      "id": "dl-0009-0009-0009-000000000009",
+      "id": "dl-0010-0010-0010-000000000010",
       "name": "Подготовка SQL"
     },
     {
@@ -206,10 +244,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2520,
-        -140
+        2840,
+        200
       ],
-      "id": "dl-0010-0010-0010-000000000010",
+      "id": "dl-0011-0011-0011-000000000011",
       "name": "Записать в PGVector",
       "credentials": {
         "postgres": {
@@ -222,15 +260,15 @@
     },
     {
       "parameters": {
-        "jsCode": "// Агрегируем результаты записи всех кусков\nconst items = $input.all();\nlet success = 0;\nlet failed = 0;\nlet errors = [];\nlet fileName = '';\nlet totalChunks = 0;\n\nfor (const item of items) {\n  const prev = item.json;\n  if (!fileName && prev.fileName) fileName = prev.fileName;\n  if (!totalChunks && prev.total_chunks) totalChunks = prev.total_chunks;\n\n  if (prev.error) {\n    failed++;\n    errors.push(prev.error);\n  } else {\n    success++;\n  }\n}\n\n// Если нет данных от SQL, считаем по входным\nif (success === 0 && failed === 0) {\n  success = items.length;\n}\n\nlet message = '';\nif (failed === 0) {\n  message = 'Документ \"' + fileName + '\" успешно загружен!\\n' +\n    'Распознано и сохранено кусков: ' + success + '\\n' +\n    'Документ теперь доступен для поиска по смыслу.';\n} else {\n  message = 'Документ \"' + fileName + '\" загружен частично.\\n' +\n    'Успешно: ' + success + ', ошибок: ' + failed + '\\n' +\n    'Ошибки: ' + errors.slice(0, 3).join('; ');\n}\n\nreturn [{ json: { response: message } }];"
+        "jsCode": "// Агрегируем результаты записи всех кусков.\nconst items = $input.all();\nlet success = 0;\nlet failed = 0;\nlet errors = [];\nlet fileName = '';\nlet totalChunks = 0;\nlet source = '';\n\nfor (const item of items) {\n  const prev = item.json;\n  if (!fileName && prev.fileName) fileName = prev.fileName;\n  if (!totalChunks && prev.total_chunks) totalChunks = prev.total_chunks;\n  if (!source && prev.source) source = prev.source;\n  if (prev.error) {\n    failed++;\n    errors.push(prev.error);\n  } else {\n    success++;\n  }\n}\n\nif (success === 0 && failed === 0) {\n  success = items.length;\n}\n\n// Если fileName или total_chunks потерялись — попробуем взять из «Нарезка»\nif (!fileName) {\n  try { fileName = $('Нарезка на куски').first().json.fileName; } catch (_) {}\n}\nif (!source) {\n  try { source = $('Нарезка на куски').first().json.source; } catch (_) {}\n}\n\nconst sourceLabel = source === 'browser' ? ' (без OCR — текст извлечён в браузере)'\n                  : source === 'ocr'     ? ' (через OCR)' : '';\n\nlet message = '';\nif (failed === 0) {\n  message = 'Документ \"' + fileName + '\" успешно загружен' + sourceLabel + '!\\n' +\n    'Сохранено кусков: ' + success + '\\n' +\n    'Документ теперь доступен для поиска по смыслу через агента по документам.';\n} else {\n  message = 'Документ \"' + fileName + '\" загружен частично' + sourceLabel + '.\\n' +\n    'Успешно: ' + success + ', ошибок: ' + failed + '\\n' +\n    'Ошибки: ' + errors.slice(0, 3).join('; ');\n}\n\nreturn [{ json: { response: message } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2800,
-        -140
+        3120,
+        200
       ],
-      "id": "dl-0011-0011-0011-000000000011",
+      "id": "dl-0012-0012-0012-000000000012",
       "name": "Агрегация результатов"
     },
     {
@@ -242,10 +280,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3080,
-        -140
+        3400,
+        200
       ],
-      "id": "dl-0012-0012-0012-000000000012",
+      "id": "dl-0013-0013-0013-000000000013",
       "name": "Ответ: Успех"
     },
     {
@@ -257,10 +295,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        840,
-        520
+        1120,
+        700
       ],
-      "id": "dl-0013-0013-0013-000000000013",
+      "id": "dl-0014-0014-0014-000000000014",
       "name": "Ответ: Нет файла"
     },
     {
@@ -272,10 +310,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1680,
-        300
+        1960,
+        600
       ],
-      "id": "dl-0014-0014-0014-000000000014",
+      "id": "dl-0015-0015-0015-000000000015",
       "name": "Ответ: OCR ошибка"
     }
   ],
@@ -285,15 +323,33 @@
       "main": [
         [
           {
-            "node": "Валидация файла",
+            "node": "Определить вход",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Валидация файла": {
+    "Определить вход": {
       "main": [
+        [
+          {
+            "node": "Текст готов?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Текст готов?": {
+      "main": [
+        [
+          {
+            "node": "Нарезка на куски",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Файл есть?",
@@ -325,25 +381,25 @@
       "main": [
         [
           {
-            "node": "Извлечь текст",
+            "node": "Извлечь текст из OCR",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Извлечь текст": {
+    "Извлечь текст из OCR": {
       "main": [
         [
           {
-            "node": "Текст есть?",
+            "node": "OCR Текст есть?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Текст есть?": {
+    "OCR Текст есть?": {
       "main": [
         [
           {
@@ -421,7 +477,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "doc-loader-v1",
+  "versionId": "doc-loader-v2",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "ad16de428774283a74f2bef15a9b31f771c3828cae096d3c33aab7bd18058813"
