@@ -336,15 +336,32 @@ function createNewSession() {
   switchToSession(s.id, { skipHistoryLoad: true });
 }
 
+// Универсальный пуш сообщения в нужную сессию.
+// Если эта сессия сейчас активна — обновляем displayMessages + рендерим.
+// Если нет — обновляем её snapshot в localStorage; при возврате юзер увидит.
+function pushToSession(sid, msg) {
+  if (!sid) return;
+  if (sid === activeSessionId) {
+    displayMessages.push(msg);
+    saveDisplaySnapshot();
+    renderChat();
+  } else {
+    try {
+      const snap = loadDisplaySnapshot(sid) || [];
+      snap.push(msg);
+      localStorage.setItem('pe_view_' + sid, JSON.stringify(snap));
+    } catch (e) {}
+  }
+}
 async function switchToSession(id, opts) {
   opts = opts || {};
   activeSessionId = id;
-  // При переключении сессии — очищаем поле ввода и вложение,
-  // чтобы чип не «утекал» в новую сессию.
+  // При переключении сессии — очищаем поле ввода. Вложение трогаем
+  // только если в фоне НЕ идёт обработка (иначе оборвём sendMsg).
   const userInput = document.getElementById('userInput');
   userInput.value = '';
   userInput.style.height = 'auto';
-  if (attachment) {
+  if (attachment && !isProcessing) {
     attachment.cancel();
     attachment.clear();
     attachment.setDisabled(false);
@@ -584,9 +601,7 @@ async function sendMessage() {
     userMsg.attachment = extracted.fileName;
     userMsg.attachmentError = !!extracted.error;
   }
-  displayMessages.push(userMsg);
-  saveDisplaySnapshot();
-  renderChat();
+  pushToSession(sendSessionId, userMsg);
 
   // Этап 3 — запрос к агенту
   const thinkId = appendLoading('Генерирую промпт', false);
@@ -601,26 +616,18 @@ async function sendMessage() {
     clearInterval(timerInterval);
     removeLoading(thinkId);
 
-    if (activeSessionId === sendSessionId) {
-      displayMessages.push({
-        role: 'assistant',
-        content: data.response || 'Ответ получен',
-        extras: { prompt: data.prompt || '' }
-      });
-      saveDisplaySnapshot();
-      renderChat();
-    }
+    pushToSession(sendSessionId, {
+      role: 'assistant',
+      content: data.response || 'Ответ получен',
+      extras: { prompt: data.prompt || '' }
+    });
   } catch (err) {
     clearInterval(timerInterval);
     removeLoading(thinkId);
-    if (activeSessionId === sendSessionId) {
-      displayMessages.push({
-        role: 'assistant',
-        content: 'Ошибка: ' + err.message
-      });
-      saveDisplaySnapshot();
-      renderChat();
-    }
+    pushToSession(sendSessionId, {
+      role: 'assistant',
+      content: 'Ошибка: ' + err.message
+    });
   }
 
   isProcessing = false;

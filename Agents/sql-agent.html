@@ -304,14 +304,31 @@
             sessions.push({ id: id, name: 'База-' + sessionCounter });
             switchToSession(id, { skipHistoryLoad: true });
         }
+        // Универсальный пуш сообщения в нужную сессию.
+        // Если эта сессия сейчас активна — обновляем displayMessages + рендерим.
+        // Если нет — обновляем её snapshot в localStorage; при возврате юзер увидит.
+        function pushToSession(sid, msg) {
+            if (!sid) return;
+            if (sid === activeSessionId) {
+                displayMessages.push(msg);
+                saveDisplaySnapshot();
+                renderChat();
+            } else {
+                try {
+                    var snap = loadDisplaySnapshot(sid) || [];
+                    snap.push(msg);
+                    localStorage.setItem('sql_view_' + sid, JSON.stringify(snap));
+                } catch (e) {}
+            }
+        }
         async function switchToSession(id, opts) {
             opts = opts || {};
             activeSessionId = id;
-            // При переключении сессии — очищаем поле ввода и вложение,
-            // чтобы чип не «утекал» в новую сессию.
+            // При переключении сессии — очищаем поле ввода. Вложение трогаем
+            // только если в фоне НЕ идёт обработка (иначе оборвём sendMsg).
             input.value = '';
             input.style.height = 'auto';
-            if (attachment) {
+            if (attachment && !isProcessing) {
                 attachment.cancel();
                 attachment.clear();
                 attachment.setDisabled(false);
@@ -510,9 +527,7 @@
                 userMsg.attachment = extracted.fileName;
                 userMsg.attachmentError = !!extracted.error;
             }
-            displayMessages.push(userMsg);
-            saveDisplaySnapshot();
-            renderChat();
+            pushToSession(sendSessionId, userMsg);
 
             // Этап 3 — запрос к агенту
             var thinkId = appendLoading('Выполняю запрос', false);
@@ -529,20 +544,12 @@
                 if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
                 var data = await res.json();
                 var responseText = data.response || data.output || 'Пустой ответ от сервера';
-                if (activeSessionId === sendSessionId) {
-                    displayMessages.push({ role: 'assistant', content: responseText });
-                    saveDisplaySnapshot();
-                    renderChat();
-                }
+                pushToSession(sendSessionId, { role: 'assistant', content: responseText });
                 statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
             } catch (e) {
                 clearInterval(timerInterval);
                 removeLoading(thinkId);
-                if (activeSessionId === sendSessionId) {
-                    displayMessages.push({ role: 'assistant', content: 'Ошибка: ' + e.message });
-                    saveDisplaySnapshot();
-                    renderChat();
-                }
+                pushToSession(sendSessionId, { role: 'assistant', content: 'Ошибка: ' + e.message });
                 statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
             }
             isProcessing = false;
