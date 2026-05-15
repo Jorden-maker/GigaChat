@@ -367,6 +367,7 @@ main {
 </style>
 <script src="_config.js"></script>
 <script src="_shared.js"></script>
+<script src="lib/jszip.min.js"></script>
 </head>
 <body>
 
@@ -529,8 +530,57 @@ main {
         startTimer();
 
         try {
+            // Развилка: docx/xlsx/txt/csv парсим в браузере (мгновенно, без OCR).
+            // PDF/изображения отправляем на n8n + OCR.
+            if (GigaChat.canExtractInBrowser(selectedFile.name)) {
+                var loadingTextEl = loading.querySelector('div');
+                if (loadingTextEl) loadingTextEl.textContent = 'Извлекаю текст в браузере...';
+
+                var extractedText;
+                try {
+                    extractedText = await GigaChat.extractBrowserText(selectedFile);
+                } catch (extractErr) {
+                    stopTimer();
+                    loading.classList.remove('show');
+                    errorBox.textContent = 'Не удалось извлечь текст: ' + (extractErr.message || extractErr);
+                    errorBox.style.display = 'block';
+                    isProcessing = false;
+                    resetBtnDiv.classList.add('show');
+                    return;
+                }
+
+                stopTimer();
+                loading.classList.remove('show');
+
+                if (!extractedText || !extractedText.trim()) {
+                    errorBox.textContent = 'Из файла не удалось извлечь текст (пустой).';
+                    errorBox.style.display = 'block';
+                } else {
+                    lastResultText = extractedText;
+                    lastFileName = selectedFile.name;
+                    resultText.value = extractedText;
+                    var elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    var ext = GigaChat.fileExt(selectedFile.name);
+                    var sourceLabel = (ext === 'docx') ? 'Word (без OCR)'
+                                    : (ext === 'xlsx' || ext === 'xlsm') ? 'Excel (без OCR)'
+                                    : (ext === 'csv') ? 'CSV'
+                                    : 'Текстовый файл';
+                    var lengthLabel = extractedText.length.toLocaleString('ru-RU') + ' символов';
+                    resultMeta.innerHTML = '<b>' + escapeHtml(selectedFile.name) + '</b> · ' + sourceLabel + ' · ' + lengthLabel + ' · ' + elapsed + ' сек';
+                    resultBox.style.display = 'block';
+                }
+
+                isProcessing = false;
+                resetBtnDiv.classList.add('show');
+                return;
+            }
+
+            // PDF / изображения / прочее — через OCR на n8n.
             var controller = new AbortController();
             var timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
+
+            var loadingTextEl2 = loading.querySelector('div');
+            if (loadingTextEl2) loadingTextEl2.textContent = 'Обрабатываю через OCR...';
 
             var formData = new FormData();
             formData.append('file', selectedFile);
@@ -554,15 +604,15 @@ main {
                 lastFileName = selectedFile.name;
                 resultText.value = data.response;
 
-                var elapsed = Math.floor((Date.now() - startTime) / 1000);
+                var elapsed2 = Math.floor((Date.now() - startTime) / 1000);
                 var sourceMap = { ocr: 'OCR', text: 'Текстовый файл', table: 'Таблица' };
-                var sourceLabel = sourceMap[data.source] || data.source || '—';
-                var lengthLabel = data.response.length.toLocaleString('ru-RU') + ' символов';
+                var sourceLabel2 = sourceMap[data.source] || data.source || '—';
+                var lengthLabel2 = data.response.length.toLocaleString('ru-RU') + ' символов';
                 var tableMeta = '';
                 if (data.source === 'table' && data.rowCount) {
                     tableMeta = ' · ' + data.rowCount + ' строк · ' + (data.colCount || '?') + ' колонок';
                 }
-                resultMeta.innerHTML = '<b>' + escapeHtml(selectedFile.name) + '</b> · ' + sourceLabel + ' · ' + lengthLabel + tableMeta + ' · ' + elapsed + ' сек';
+                resultMeta.innerHTML = '<b>' + escapeHtml(selectedFile.name) + '</b> · ' + sourceLabel2 + ' · ' + lengthLabel2 + tableMeta + ' · ' + elapsed2 + ' сек';
                 resultBox.style.display = 'block';
             } else {
                 errorBox.textContent = data.response || 'Не удалось извлечь текст.';
