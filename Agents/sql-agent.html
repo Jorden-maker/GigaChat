@@ -276,9 +276,12 @@
                 input.disabled = true; btn.disabled = true;
             },
             onSwitch: function (sid) {
-                input.value = sessionStore.getDraft(sid) || '';
-                input.style.height = 'auto';
-                input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+                var draft = sessionStore.getDraft(sid) || '';
+                input.value = draft;
+                input.style.height = '';
+                if (draft) {
+                    input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+                }
                 input.disabled = false; btn.disabled = false; input.focus();
             },
             loadHistory: async function (sid) {
@@ -502,7 +505,7 @@
         });
 
         input.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+            if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMsg();
             }

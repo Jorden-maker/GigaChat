@@ -314,9 +314,12 @@ const sessionStore = GigaChat.createSessionStore({
   },
   onSwitch: function (sid) {
     const userInput = document.getElementById('userInput');
-    userInput.value = sessionStore.getDraft(sid) || '';
-    userInput.style.height = 'auto';
-    userInput.style.height = Math.min(userInput.scrollHeight, 150) + 'px';
+    const draft = sessionStore.getDraft(sid) || '';
+    userInput.value = draft;
+    userInput.style.height = '';
+    if (draft) {
+      userInput.style.height = Math.min(userInput.scrollHeight, 200) + 'px';
+    }
     userInput.disabled = false;
     document.getElementById('btnSend').disabled = false;
     userInput.focus();
@@ -457,7 +460,7 @@ function copyPrompt(btn) {
 // но фактически keydown теперь привязан через addEventListener ниже
 // (с защитой isComposing/keyCode 229 от IME).
 function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+  if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     sendMessage();
   }
@@ -623,7 +626,7 @@ function exportChat() {
 (function () {
   const userInput = document.getElementById('userInput');
   userInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
