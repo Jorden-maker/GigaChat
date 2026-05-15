@@ -876,19 +876,22 @@
       onSwitch(id, switchOpts);
       if (switchOpts.skipHistoryLoad) return;
       // ВАЖНО: пока в сессии идёт обработка (inflight), НЕ перезаписываем
-      // displayMessages с сервера. На сервере свежий userMsg ещё может быть
-      // не сохранён → загрузка перетёрла бы локальный кэш и юзер увидел бы
-      // пустоту вместо своего сообщения + спиннера.
+      // displayMessages с сервера. Сервер может ещё не иметь свежего userMsg.
       if (loadHistory && !getInflight(id)) {
         try {
           var msgs = await loadHistory(id);
-          // Подгрузка истории — только если юзер всё ещё в этой сессии и
-          // за это время не запустилась новая обработка.
           if (store.activeSessionId !== id || getInflight(id)) return;
           if (Array.isArray(msgs)) {
-            store.displayMessages = msgs;
-            saveSnapshot();
-            renderMessages(store.displayMessages);
+            // Защита от потери локально-свежих сообщений: если на сервере
+            // МЕНЬШЕ сообщений чем в локальном snapshot — значит БД ещё не
+            // успела зафиксировать последний обмен (запись асинхронна).
+            // В этом случае оставляем кэш — лучше показать пользователю
+            // его сообщение, даже если оно «отстаёт» от сервера на 1-2 секунды.
+            if (msgs.length >= store.displayMessages.length) {
+              store.displayMessages = msgs;
+              saveSnapshot();
+              renderMessages(store.displayMessages);
+            }
           }
         } catch (e) {
           // тихо: оставляем кэш видимым
