@@ -425,6 +425,8 @@
       + '.gc-attach-chip .x:hover{color:#ff6666}'
       + '.gc-attach-chip.error{border-color:#cc4444;color:#ff8888}'
       + '.gc-attach-chip.bot{background:rgba(255,255,255,0.06)}'
+      // Переносы строк в user-сообщении должны сохраняться визуально.
+      + '.msg.user, .msg-user-body{white-space:pre-wrap;word-wrap:break-word}'
       + '';
     var style = document.createElement('style');
     style.setAttribute('data-gc-attach', '1');

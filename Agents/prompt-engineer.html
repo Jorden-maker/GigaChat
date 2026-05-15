@@ -457,7 +457,7 @@ function copyPrompt(btn) {
 // но фактически keydown теперь привязан через addEventListener ниже
 // (с защитой isComposing/keyCode 229 от IME).
 function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     sendMessage();
   }
@@ -623,7 +623,7 @@ function exportChat() {
 (function () {
   const userInput = document.getElementById('userInput');
   userInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       sendMessage();
     }
