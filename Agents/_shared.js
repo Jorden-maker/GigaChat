@@ -875,11 +875,16 @@
       else stopInflightTicker();
       onSwitch(id, switchOpts);
       if (switchOpts.skipHistoryLoad) return;
-      if (loadHistory) {
+      // ВАЖНО: пока в сессии идёт обработка (inflight), НЕ перезаписываем
+      // displayMessages с сервера. На сервере свежий userMsg ещё может быть
+      // не сохранён → загрузка перетёрла бы локальный кэш и юзер увидел бы
+      // пустоту вместо своего сообщения + спиннера.
+      if (loadHistory && !getInflight(id)) {
         try {
           var msgs = await loadHistory(id);
-          // Подгрузка истории — только если юзер всё ещё в этой сессии.
-          if (store.activeSessionId !== id) return;
+          // Подгрузка истории — только если юзер всё ещё в этой сессии и
+          // за это время не запустилась новая обработка.
+          if (store.activeSessionId !== id || getInflight(id)) return;
           if (Array.isArray(msgs)) {
             store.displayMessages = msgs;
             saveSnapshot();
