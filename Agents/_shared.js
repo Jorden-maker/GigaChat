@@ -56,15 +56,17 @@
     throw lastErr || new Error('fetchWithRetry: исчерпаны попытки');
   }
 
-  // Health-check сервера через CORS preflight (OPTIONS).
-  // Почему OPTIONS, а не POST или GET:
-  //   - POST {"message":"ping"} запускал реальный workflow с непредсказуемым
-  //     payload'ом (table-merger ждёт multipart → 500 → ложный «Офлайн»).
-  //   - GET на POST-only webhook возвращает 404 БЕЗ CORS-заголовков — браузер
-  //     блокирует ответ, fetch уходит в catch → ложный «Офлайн».
-  //   - OPTIONS — стандартный CORS preflight. n8n всегда отвечает 204 с
-  //     Access-Control-Allow-Origin: * (для любого активного webhook'а),
-  //     workflow при этом НЕ запускается.
+  // Health-check сервера. URL webhook'а игнорируется — пингуем общий /healthz
+  // самого n8n. Долгая история «почему не webhook»:
+  //   - POST с {"message":"ping"} запускал workflow с непредсказуемым payload'ом
+  //     (table-merger ждёт multipart → 500 → ложный «Офлайн»).
+  //   - GET на POST-only webhook возвращает 404 без CORS-заголовков → блок.
+  //   - OPTIONS для workflow с «Allow OPTIONS» в Webhook-ноде попадает внутрь
+  //     workflow, который падает на пустом body → 500 без CORS → блок.
+  // Решение: пинговать /healthz через mode:'no-cors'. Это endpoint n8n core
+  // (workflow не запускается), а no-cors превращает любой network-ответ в
+  // opaque resolve — браузер не блокирует ответ из-за отсутствия CORS-заголовков.
+  // Резолв = сервер ответил = онлайн. Catch = сеть/таймаут = реальный офлайн.
   function checkServerStatus(url, dotEl, textEl, opts) {
     opts = opts || {};
     var labels = opts.labels || { online: 'Онлайн', offline: 'Офлайн', checking: 'проверка...' };
@@ -73,17 +75,19 @@
     if (textEl) textEl.textContent = labels.checking;
     var controller = new AbortController();
     var tid = setTimeout(function () { controller.abort(); }, PING_TIMEOUT_MS);
-    return fetch(url, {
-      method: 'OPTIONS',
+    // /healthz — общий core-endpoint n8n, всегда отвечает 200 если сервер жив.
+    var healthUrl = cfg.N8N_BASE.replace(/\/$/, '') + '/healthz';
+    return fetch(healthUrl, {
+      method: 'GET',
+      mode: 'no-cors',
       signal: controller.signal
-    }).then(function (res) {
+    }).then(function () {
       clearTimeout(tid);
-      // n8n на OPTIONS отдаёт 204. Любой ответ от сервера (даже 4xx) = он жив.
-      // Реальный офлайн = сеть/таймаут (попадёт в catch).
-      var ok = res.status >= 200 && res.status < 600;
-      if (dotEl) dotEl.className = dotClass + (ok ? ' online' : ' offline');
-      if (textEl) textEl.textContent = ok ? labels.online : labels.offline;
-      return ok;
+      // С mode:'no-cors' ответ всегда opaque, status=0. Сам факт резолва
+      // означает, что сервер вернул хоть что-то.
+      if (dotEl) dotEl.className = dotClass + ' online';
+      if (textEl) textEl.textContent = labels.online;
+      return true;
     }).catch(function () {
       clearTimeout(tid);
       if (dotEl) dotEl.className = dotClass + ' offline';
