@@ -56,16 +56,15 @@
     throw lastErr || new Error('fetchWithRetry: исчерпаны попытки');
   }
 
-  // Health-check сервера. ВАЖНО: используем GET, чтобы НЕ запускать workflow.
-  // POST с {"message":"ping"} запускал workflow с непредсказуемым payload'ом
-  // (например, table-merger-excel ждёт multipart с файлами — на JSON-ping он
-  // падал с 500, и индикатор показывал «Офлайн» хотя n8n работал).
-  // GET-ответ от webhook:
-  //   200 — webhook принимает GET (редко);
-  //   404 — webhook в test-mode (не активирован);
-  //   405 — webhook активен, но GET для него не разрешён;
-  // Все три варианта означают «n8n живой и доступен». Только catch (сеть
-  // отвалилась / таймаут) считается реальным офлайном.
+  // Health-check сервера через CORS preflight (OPTIONS).
+  // Почему OPTIONS, а не POST или GET:
+  //   - POST {"message":"ping"} запускал реальный workflow с непредсказуемым
+  //     payload'ом (table-merger ждёт multipart → 500 → ложный «Офлайн»).
+  //   - GET на POST-only webhook возвращает 404 БЕЗ CORS-заголовков — браузер
+  //     блокирует ответ, fetch уходит в catch → ложный «Офлайн».
+  //   - OPTIONS — стандартный CORS preflight. n8n всегда отвечает 204 с
+  //     Access-Control-Allow-Origin: * (для любого активного webhook'а),
+  //     workflow при этом НЕ запускается.
   function checkServerStatus(url, dotEl, textEl, opts) {
     opts = opts || {};
     var labels = opts.labels || { online: 'Онлайн', offline: 'Офлайн', checking: 'проверка...' };
@@ -75,11 +74,12 @@
     var controller = new AbortController();
     var tid = setTimeout(function () { controller.abort(); }, PING_TIMEOUT_MS);
     return fetch(url, {
-      method: 'GET',
+      method: 'OPTIONS',
       signal: controller.signal
     }).then(function (res) {
       clearTimeout(tid);
-      // Любой HTTP-ответ от сервера = он жив. Сеть/таймаут отрабатываются в catch.
+      // n8n на OPTIONS отдаёт 204. Любой ответ от сервера (даже 4xx) = он жив.
+      // Реальный офлайн = сеть/таймаут (попадёт в catch).
       var ok = res.status >= 200 && res.status < 600;
       if (dotEl) dotEl.className = dotClass + (ok ? ' online' : ' offline');
       if (textEl) textEl.textContent = ok ? labels.online : labels.offline;
