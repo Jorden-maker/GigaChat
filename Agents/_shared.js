@@ -197,28 +197,76 @@
     var pe = doc.getElementsByTagName('parsererror')[0];
     if (pe) throw new Error('Не удалось разобрать XML в .docx');
 
-    // Обходим параграфы; внутри собираем не только w:t (текст), но и
-    // w:tab (табуляция) и w:br (мягкий перенос), иначе таблично-выровненный
-    // текст склеивается в одну строку, а абзацы с разрывами теряют структуру.
-    var lines = [];
-    var paragraphs = doc.getElementsByTagName('w:p');
-    for (var i = 0; i < paragraphs.length; i++) {
-      var children = paragraphs[i].getElementsByTagName('*');
-      var line = '';
-      for (var j = 0; j < children.length; j++) {
-        var tag = children[j].tagName; // например, w:t, w:tab, w:br
-        // tagName в XML с namespace сохраняет префикс, сравниваем суффикс
-        if (tag === 'w:t' || tag.endsWith(':t') || tag === 't') {
-          line += children[j].textContent || '';
-        } else if (tag === 'w:tab' || tag.endsWith(':tab') || tag === 'tab') {
-          line += '\t';
-        } else if (tag === 'w:br' || tag.endsWith(':br') || tag === 'br') {
-          line += '\n';
-        }
-      }
-      if (line) lines.push(line);
+    // Утилита: суффикс XML-тега без namespace.
+    // tagName в DOMParser/XML сохраняет полный префикс ('w:p', 'w:tbl').
+    function tagSuffix(el) {
+      var t = el.tagName || '';
+      var i = t.indexOf(':');
+      return i === -1 ? t : t.substring(i + 1);
     }
-    return lines.join('\n');
+
+    // Текст одного параграфа: собираем w:t (текст) + w:tab (\t) + w:br (\n).
+    // Идём по всем потомкам, чтобы поймать вложенные runs внутри hyperlinks и т.п.
+    function paragraphText(p) {
+      var nodes = p.getElementsByTagName('*');
+      var line = '';
+      for (var i = 0; i < nodes.length; i++) {
+        var s = tagSuffix(nodes[i]);
+        if (s === 't') line += nodes[i].textContent || '';
+        else if (s === 'tab') line += '\t';
+        else if (s === 'br') line += '\n';
+      }
+      return line;
+    }
+
+    // Текст одной ячейки таблицы (w:tc): склеиваем параграфы через пробел
+    // (а не через \n — внутри ячейки переносы сломают TSV-структуру строки).
+    function cellText(tc) {
+      var paras = tc.getElementsByTagName('w:p');
+      var bits = [];
+      for (var i = 0; i < paras.length; i++) {
+        var t = paragraphText(paras[i]).replace(/\s+/g, ' ').trim();
+        if (t) bits.push(t);
+      }
+      return bits.join(' ');
+    }
+
+    // Таблица → TSV: каждая строка w:tr — это \t-разделённые ячейки w:tc.
+    function tableText(tbl) {
+      var rows = [];
+      var trs = tbl.getElementsByTagName('w:tr');
+      for (var i = 0; i < trs.length; i++) {
+        var tcs = trs[i].getElementsByTagName('w:tc');
+        var cells = [];
+        for (var j = 0; j < tcs.length; j++) cells.push(cellText(tcs[j]));
+        // Пропускаем полностью пустые строки.
+        var has = false;
+        for (var k = 0; k < cells.length; k++) if (cells[k]) { has = true; break; }
+        if (has) rows.push(cells.join('\t'));
+      }
+      return rows.join('\n');
+    }
+
+    // Обходим только верхнеуровневые блоки body (параграфы и таблицы),
+    // НЕ рекурсивно — иначе параграфы внутри таблиц задвоятся (как было
+    // раньше с getElementsByTagName('w:p')).
+    var body = doc.getElementsByTagName('w:body')[0];
+    if (!body) return '';
+    var blocks = [];
+    var children = body.childNodes;
+    for (var i = 0; i < children.length; i++) {
+      var node = children[i];
+      if (node.nodeType !== 1) continue;
+      var s = tagSuffix(node);
+      if (s === 'p') {
+        var pText = paragraphText(node);
+        if (pText) blocks.push(pText);
+      } else if (s === 'tbl') {
+        var tText = tableText(node);
+        if (tText) blocks.push(tText);
+      }
+    }
+    return blocks.join('\n');
   }
 
   async function extractXlsxText(file) {

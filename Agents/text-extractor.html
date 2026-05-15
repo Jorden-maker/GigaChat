@@ -557,11 +557,11 @@ main {
                     errorBox.style.display = 'block';
                 } else {
                     var ext = GigaChat.fileExt(selectedFile.name);
-                    // Для xlsx/xlsm/csv выравниваем колонки моноширинно — иначе TSV
-                    // с табами визуально жмётся. Сам файл лежит как TSV (для машин),
-                    // а превью + скачивание идут в выровненной форме для глаз.
+                    // Для xlsx/xlsm/csv и docx (если внутри есть таблицы) выравниваем
+                    // колонки моноширинно. TSV технически правилен, но визуально жмётся.
+                    // padTabularText не трогает текст без табов — безопасно для всех.
                     var displayText = extractedText;
-                    if (ext === 'xlsx' || ext === 'xlsm' || ext === 'csv') {
+                    if (ext === 'xlsx' || ext === 'xlsm' || ext === 'csv' || ext === 'docx') {
                         displayText = GigaChat.padTabularText(extractedText);
                     }
                     lastResultText = displayText;
