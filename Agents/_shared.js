@@ -56,8 +56,16 @@
     throw lastErr || new Error('fetchWithRetry: исчерпаны попытки');
   }
 
-  // Пингует webhook (тело {"message":"ping"}). Обновляет визуальные элементы.
-  // Возвращает Promise<bool> (true если онлайн).
+  // Health-check сервера. ВАЖНО: используем GET, чтобы НЕ запускать workflow.
+  // POST с {"message":"ping"} запускал workflow с непредсказуемым payload'ом
+  // (например, table-merger-excel ждёт multipart с файлами — на JSON-ping он
+  // падал с 500, и индикатор показывал «Офлайн» хотя n8n работал).
+  // GET-ответ от webhook:
+  //   200 — webhook принимает GET (редко);
+  //   404 — webhook в test-mode (не активирован);
+  //   405 — webhook активен, но GET для него не разрешён;
+  // Все три варианта означают «n8n живой и доступен». Только catch (сеть
+  // отвалилась / таймаут) считается реальным офлайном.
   function checkServerStatus(url, dotEl, textEl, opts) {
     opts = opts || {};
     var labels = opts.labels || { online: 'Онлайн', offline: 'Офлайн', checking: 'проверка...' };
@@ -67,15 +75,12 @@
     var controller = new AbortController();
     var tid = setTimeout(function () { controller.abort(); }, PING_TIMEOUT_MS);
     return fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{"message":"ping"}',
+      method: 'GET',
       signal: controller.signal
     }).then(function (res) {
       clearTimeout(tid);
-      // 2xx — точно онлайн. 404/405 — webhook просто в test-mode без активной
-      // регистрации, но сервер живой. 5xx — сервер сломан, считаем офлайн.
-      var ok = res.ok || res.status === 404 || res.status === 405;
+      // Любой HTTP-ответ от сервера = он жив. Сеть/таймаут отрабатываются в catch.
+      var ok = res.status >= 200 && res.status < 600;
       if (dotEl) dotEl.className = dotClass + (ok ? ' online' : ' offline');
       if (textEl) textEl.textContent = ok ? labels.online : labels.offline;
       return ok;
