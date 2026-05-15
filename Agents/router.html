@@ -320,7 +320,7 @@
             <div class="gc-attach-chips" id="attachChips"></div>
             <div id="input-area">
                 <div class="gc-input-wrap">
-                    <textarea id="msg" rows="1" placeholder="Спросите что угодно..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}" oninput="onInput();" disabled></textarea>
+                    <textarea id="msg" rows="1" placeholder="Спросите что угодно..." disabled></textarea>
                     <span id="attachBtn"></span>
                 </div>
                 <button id="send" onclick="sendMsg()" disabled>Отправить</button>
@@ -502,9 +502,10 @@
                 input.disabled = true; btn.disabled = true;
                 agentHint.style.display = 'none';
             },
-            onSwitch: function () {
-                input.value = '';
+            onSwitch: function (sid) {
+                input.value = sessionStore.getDraft(sid) || '';
                 input.style.height = 'auto';
+                input.style.height = Math.min(input.scrollHeight, 150) + 'px';
                 agentHint.style.display = 'none';
                 input.disabled = false; btn.disabled = false; input.focus();
             },
@@ -626,6 +627,7 @@
             input.disabled = true; btn.disabled = true;
             if (attachment) attachment.setDisabled(true);
             input.value = ''; input.style.height = 'auto';
+            sessionStore.clearDraft(sendSessionId);
             agentHint.style.display = 'none';
 
             var messageForAgent = text;
@@ -736,6 +738,18 @@
             chipsContainer: document.getElementById('attachChips'),
             inputElement: input
         });
+
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+                e.preventDefault();
+                sendMsg();
+            }
+        });
+        input.addEventListener('input', function () {
+            onInput(); // autosize + классификатор + dropdown агента
+            if (activeSessionId) sessionStore.setDraft(activeSessionId, input.value);
+        });
+
         checkServerStatus();
         setInterval(checkServerStatus, 30000);
     </script>

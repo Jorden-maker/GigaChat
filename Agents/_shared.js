@@ -734,6 +734,7 @@
     var KEY_COUNTER = prefix + '_counter';
     var KEY_VIEW = prefix + '_view_';
     var KEY_INFLIGHT = prefix + '_inflight_';
+    var KEY_DRAFT = prefix + '_draft_';
 
     var store = {
       sessions: [],
@@ -844,6 +845,27 @@
       } catch (e) { return null; }
     }
 
+    // Draft — текст, который юзер начал писать, но ещё не отправил.
+    // Сохраняем за каждой сессией отдельно: переключился на другую и
+    // вернулся — текст в input восстанавливается.
+    function setDraft(sid, text) {
+      if (!sid) return;
+      try {
+        if (text) localStorage.setItem(KEY_DRAFT + sid, text);
+        else localStorage.removeItem(KEY_DRAFT + sid);
+      } catch (e) {}
+    }
+    function clearDraft(sid) {
+      if (!sid) return;
+      try { localStorage.removeItem(KEY_DRAFT + sid); } catch (e) {}
+    }
+    function getDraft(sid) {
+      if (!sid) return '';
+      try {
+        return localStorage.getItem(KEY_DRAFT + sid) || '';
+      } catch (e) { return ''; }
+    }
+
     // Утилита: пуш сообщения в активную сессию ИЛИ в snapshot чужой
     // (если юзер ушёл в другую сессию, пока шла обработка).
     function pushToSession(sid, msg) {
@@ -918,6 +940,7 @@
       store.sessions = store.sessions.filter(function (s) { return s.id !== id; });
       clearSnapshot(id);
       clearInflight(id);
+      clearDraft(id);
       if (store.activeSessionId === id) {
         if (store.sessions.length > 0) {
           switchTo(store.sessions[store.sessions.length - 1].id);
@@ -1021,6 +1044,9 @@
       setInflight: setInflight,
       clearInflight: clearInflight,
       getInflight: getInflight,
+      setDraft: setDraft,
+      clearDraft: clearDraft,
+      getDraft: getDraft,
       createNew: createNew,
       switchTo: switchTo,
       remove: remove,

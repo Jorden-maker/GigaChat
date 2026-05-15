@@ -278,7 +278,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
     <div class="gc-attach-chips" id="attachChips"></div>
     <div class="input-wrapper">
       <div class="gc-input-wrap">
-        <textarea id="userInput" placeholder="Опишите подробно, какой промпт нужен — задачу, контекст, требования, формат ответа. Текст может быть длинным." rows="1" onkeydown="handleKey(event)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';"></textarea>
+        <textarea id="userInput" placeholder="Опишите подробно, какой промпт нужен — задачу, контекст, требования, формат ответа. Текст может быть длинным." rows="1"></textarea>
         <span id="attachBtn"></span>
       </div>
       <button class="btn-send" id="btnSend" onclick="sendMessage()">Отправить</button>
@@ -312,10 +312,11 @@ const sessionStore = GigaChat.createSessionStore({
     document.getElementById('userInput').disabled = true;
     document.getElementById('btnSend').disabled = true;
   },
-  onSwitch: function () {
+  onSwitch: function (sid) {
     const userInput = document.getElementById('userInput');
-    userInput.value = '';
+    userInput.value = sessionStore.getDraft(sid) || '';
     userInput.style.height = 'auto';
+    userInput.style.height = Math.min(userInput.scrollHeight, 150) + 'px';
     userInput.disabled = false;
     document.getElementById('btnSend').disabled = false;
     userInput.focus();
@@ -452,8 +453,14 @@ function copyPrompt(btn) {
 }
 
 // --- Send ---
+// handleKey оставлен для возможной совместимости со старой версией,
+// но фактически keydown теперь привязан через addEventListener ниже
+// (с защитой isComposing/keyCode 229 от IME).
 function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault();
+    sendMessage();
+  }
 }
 
 // Контроллер вложений: создаётся в init() после загрузки сессий
@@ -494,6 +501,7 @@ async function sendMessage() {
   if (attachment) attachment.setDisabled(true);
   input.value = '';
   input.style.height = 'auto';
+  sessionStore.clearDraft(sendSessionId);
 
   let messageForAgent = text;
   let extractedList = [];
@@ -608,11 +616,24 @@ function exportChat() {
   URL.revokeObjectURL(a.href);
 }
 
-// --- Textarea auto-resize ---
-document.getElementById('userInput').addEventListener('input', function() {
-  this.style.height = 'auto';
-  this.style.height = Math.min(this.scrollHeight, 200) + 'px';
-});
+// --- Textarea key/input handlers ---
+// Enter — отправить, Shift+Enter — перенос. isComposing/keyCode 229 — защита от IME.
+// Каждый ввод сохраняет draft в localStorage для текущей сессии — при переключении
+// и возврате текст восстанавливается.
+(function () {
+  const userInput = document.getElementById('userInput');
+  userInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  userInput.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+    if (activeSessionId) sessionStore.setDraft(activeSessionId, this.value);
+  });
+})();
 
 init();
 </script>
