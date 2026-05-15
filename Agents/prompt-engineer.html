@@ -370,10 +370,17 @@ function renderChat() {
     const text = m.content || m.text || '';
     if (m.role === 'user') {
       let userBody = text ? escapeHtml(text) : '';
-      if (m.attachment) {
-        const cls = m.attachmentError ? 'gc-attach-chip bot error' : 'gc-attach-chip bot';
+      const atts = m.attachments
+        ? m.attachments
+        : (m.attachment ? [{ fileName: m.attachment, error: !!m.attachmentError }] : []);
+      if (atts.length > 0) {
+        let chipsHtml = '';
+        for (const att of atts) {
+          const cls = att.error ? 'gc-attach-chip bot error' : 'gc-attach-chip bot';
+          chipsHtml += `<span class="${cls}">📎 ${escapeHtml(att.fileName)}</span>`;
+        }
         const spacing = userBody ? 'margin-top:8px' : '';
-        userBody += `<div style="${spacing}"><span class="${cls}">📎 ${escapeHtml(m.attachment)}</span></div>`;
+        userBody += `<div style="${spacing};display:flex;flex-wrap:wrap;gap:6px">${chipsHtml}</div>`;
       }
       html += `<div class="msg user">${userBody}</div>`;
     } else {
@@ -440,8 +447,8 @@ async function sendMessage() {
   if (!activeSessionId || !sessions.find(s => s.id === activeSessionId)) return;
   const input = document.getElementById('userInput');
   const text = input.value.trim();
-  const hasFile = attachment && attachment.hasFile();
-  if (!text && !hasFile) return;
+  const hasFiles = attachment && attachment.hasFiles();
+  if (!text && !hasFiles) return;
   if (isProcessing) return;
 
   isProcessing = true;
@@ -452,7 +459,8 @@ async function sendMessage() {
   input.style.height = 'auto';
 
   let messageForAgent = text;
-  let extracted = null;
+  let extractedList = [];
+  let attachmentsForUI = [];
 
   function abortAndRestore() {
     isProcessing = false;
@@ -462,38 +470,28 @@ async function sendMessage() {
     input.focus();
   }
 
-  // Этап 1 — извлечение текста из файла, если есть
-  if (hasFile) {
-    const extractId = appendLoading('Извлекаю текст из файла', true);
+  if (hasFiles) {
+    const nFiles = attachment.getFiles().length;
+    const extractId = appendLoading(nFiles > 1 ? ('Извлекаю текст из ' + nFiles + ' файлов') : 'Извлекаю текст из файла', true);
     let cancelled = false;
     const cancelBtn = document.getElementById('cancel-' + extractId);
-    if (cancelBtn) cancelBtn.onclick = () => {
-      cancelled = true;
-      attachment.cancel();
-    };
-    extracted = await attachment.extract();
+    if (cancelBtn) cancelBtn.onclick = () => { cancelled = true; attachment.cancel(); };
+    extractedList = await attachment.extract();
     removeLoading(extractId);
-    if (cancelled) {
-      abortAndRestore();
-      return;
+    if (cancelled) { abortAndRestore(); return; }
+    let totalLen = 0;
+    for (const ex of extractedList) totalLen += (ex.text || '').length;
+    if (totalLen > 30000) {
+      const ok = confirm('Извлечено ' + totalLen.toLocaleString('ru-RU') + ' симв. из ' + extractedList.length + ' файла(ов).\nGigaChat может не справиться.\nОтправить всё равно?');
+      if (!ok) { abortAndRestore(); return; }
     }
-    if (extracted.text && extracted.text.length > 30000) {
-      const ok = confirm('Извлечён большой файл: ' + extracted.text.length.toLocaleString('ru-RU') + ' симв.\nGigaChat может не справиться.\nОтправить всё равно?');
-      if (!ok) {
-        abortAndRestore();
-        return;
-      }
-    }
-    const built = GigaChat.buildMessageWithAttachment(text, extracted);
+    const built = GigaChat.buildMessageWithAttachment(text, extractedList);
     messageForAgent = built.messageForAgent;
+    attachmentsForUI = built.attachments;
   }
 
-  // Этап 2 — пользовательский «пузырь» с чипом, если есть
   const userMsg = { role: 'user', content: text };
-  if (extracted) {
-    userMsg.attachment = extracted.fileName;
-    userMsg.attachmentError = !!extracted.error;
-  }
+  if (attachmentsForUI.length > 0) userMsg.attachments = attachmentsForUI;
   pushToSession(sendSessionId, userMsg);
 
   // Этап 3 — запрос к агенту

@@ -485,10 +485,18 @@
                 var m = displayMessages[i];
                 if (m.role === 'user') {
                     var userBody = m.content ? escapeHtml(m.content) : '';
-                    if (m.attachment) {
-                        var cls = m.attachmentError ? 'gc-attach-chip bot error' : 'gc-attach-chip bot';
+                    var atts = m.attachments
+                        ? m.attachments
+                        : (m.attachment ? [{ fileName: m.attachment, error: !!m.attachmentError }] : []);
+                    if (atts.length > 0) {
+                        var chipsHtml = '';
+                        for (var k = 0; k < atts.length; k++) {
+                            var att = atts[k];
+                            var cls = att.error ? 'gc-attach-chip bot error' : 'gc-attach-chip bot';
+                            chipsHtml += '<span class="' + cls + '">📎 ' + escapeHtml(att.fileName) + '</span>';
+                        }
                         var spacing = userBody ? 'margin-top:8px' : '';
-                        userBody += '<div style="' + spacing + '"><span class="' + cls + '">📎 ' + escapeHtml(m.attachment) + '</span></div>';
+                        userBody += '<div style="' + spacing + ';display:flex;flex-wrap:wrap;gap:6px">' + chipsHtml + '</div>';
                     }
                     html += '<div class="msg user">' + userBody + '</div>';
                 } else {
@@ -527,8 +535,8 @@
         async function sendMsg() {
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) return;
             var text = input.value.trim();
-            var hasFile = attachment && attachment.hasFile();
-            if (!text && !hasFile) return;
+            var hasFiles = attachment && attachment.hasFiles();
+            if (!text && !hasFiles) return;
             if (isProcessing) return;
             isProcessing = true;
             var sendSessionId = activeSessionId;
@@ -537,7 +545,8 @@
             input.value = '';
 
             var messageForAgent = text;
-            var extracted = null;
+            var extractedList = [];
+            var attachmentsForUI = [];
 
             function abortAndRestore() {
                 isProcessing = false;
@@ -547,38 +556,28 @@
                 input.focus();
             }
 
-            // Этап 1 — извлечение текста из файла, если есть
-            if (hasFile) {
-                var extractId = appendLoading('Извлекаю текст из файла', true);
+            if (hasFiles) {
+                var nFiles = attachment.getFiles().length;
+                var extractId = appendLoading(nFiles > 1 ? ('Извлекаю текст из ' + nFiles + ' файлов') : 'Извлекаю текст из файла', true);
                 var cancelled = false;
                 var cancelBtn = document.getElementById('cancel-' + extractId);
-                if (cancelBtn) cancelBtn.onclick = function () {
-                    cancelled = true;
-                    attachment.cancel();
-                };
-                extracted = await attachment.extract();
+                if (cancelBtn) cancelBtn.onclick = function () { cancelled = true; attachment.cancel(); };
+                extractedList = await attachment.extract();
                 removeLoading(extractId);
-                if (cancelled) {
-                    abortAndRestore();
-                    return;
+                if (cancelled) { abortAndRestore(); return; }
+                var totalLen = 0;
+                for (var i = 0; i < extractedList.length; i++) totalLen += (extractedList[i].text || '').length;
+                if (totalLen > 30000) {
+                    var ok = confirm('Извлечено ' + totalLen.toLocaleString('ru-RU') + ' симв. из ' + extractedList.length + ' файла(ов).\nGigaChat может не справиться.\nОтправить всё равно?');
+                    if (!ok) { abortAndRestore(); return; }
                 }
-                if (extracted.text && extracted.text.length > 30000) {
-                    var ok = confirm('Извлечён большой файл: ' + extracted.text.length.toLocaleString('ru-RU') + ' симв.\nGigaChat может не справиться.\nОтправить всё равно?');
-                    if (!ok) {
-                        abortAndRestore();
-                        return;
-                    }
-                }
-                var built = GigaChat.buildMessageWithAttachment(text, extracted);
+                var built = GigaChat.buildMessageWithAttachment(text, extractedList);
                 messageForAgent = built.messageForAgent;
+                attachmentsForUI = built.attachments;
             }
 
-            // Этап 2 — пользовательский «пузырь» с чипом, если есть
             var userMsg = { role: 'user', content: text };
-            if (extracted) {
-                userMsg.attachment = extracted.fileName;
-                userMsg.attachmentError = !!extracted.error;
-            }
+            if (attachmentsForUI.length > 0) userMsg.attachments = attachmentsForUI;
             pushToSession(sendSessionId, userMsg);
 
             // Этап 3 — запрос к агенту

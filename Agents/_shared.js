@@ -435,31 +435,40 @@
   // Иконка скрепки (Feather paperclip)
   var PAPERCLIP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
 
-  // Создаёт контроллер вложений. Возвращает объект:
-  //   hasFile() -> bool
-  //   getFile() -> File или null
-  //   clear()
-  //   cancel()  — отменить идущую экстракцию
-  //   extract(onProgress) -> Promise<{text, fileName, error}>
+  // Создаёт контроллер вложений (поддерживает несколько файлов одновременно).
+  // Возвращает объект:
+  //   hasFile() / hasFiles() -> bool
+  //   getFile() (первый) / getFiles() -> File[]
+  //   clear()                     — сбросить все
+  //   removeAt(idx)               — убрать один
+  //   cancel()                    — отменить идущие экстракции
+  //   extract(onProgress)         — Promise<Array<{text, fileName, error}>>
+  //                                  (если файл один — также можно использовать
+  //                                  old-style как массив с одним элементом)
   //
   // Опции:
   //   buttonContainer (DOM) — куда воткнуть кнопку-скрепку
-  //   chipsContainer (DOM)  — куда показывать чип с именем файла
+  //   chipsContainer (DOM)  — куда показывать чипы с именами файлов
   //   inputElement (DOM)    — textarea (для focus после выбора, опционально)
   //   onChange()            — колбэк когда файл добавлен/удалён
+  //   maxFiles (number)     — максимум файлов одновременно (по умолчанию 5)
+  //   maxFileSize (number)  — лимит размера каждого в байтах (по умолчанию 50 МБ)
   function setupAttachment(opts) {
     injectAttachCss();
     var buttonContainer = opts.buttonContainer;
     var chipsContainer = opts.chipsContainer;
     var inputElement = opts.inputElement;
     var onChange = opts.onChange || function () {};
+    var MAX_FILES = opts.maxFiles || 5;
+    var MAX_FILE_SIZE = opts.maxFileSize || 50 * 1024 * 1024;
 
-    var selectedFile = null;
-    var abortCtrl = null;
+    var selectedFiles = [];
+    var abortCtrls = []; // массив контроллеров активных n8n-запросов (по одному на файл)
 
     // Скрытый input file
     var fileInput = document.createElement('input');
     fileInput.type = 'file';
+    fileInput.multiple = true;
     fileInput.style.display = 'none';
     fileInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.log,.rtf,.odt,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp,.gif,.heic';
     document.body.appendChild(fileInput);
@@ -468,89 +477,112 @@
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'gc-attach-btn';
-    btn.title = 'Прикрепить файл';
+    btn.title = 'Прикрепить файл(ы)';
     btn.innerHTML = PAPERCLIP_SVG;
     btn.addEventListener('click', function () { fileInput.click(); });
     buttonContainer.appendChild(btn);
 
     fileInput.addEventListener('change', function () {
-      if (fileInput.files && fileInput.files.length > 0) {
-        var f = fileInput.files[0];
-        if (f.size > 50 * 1024 * 1024) {
-          alert('Файл слишком большой (макс. 50 МБ)');
-          fileInput.value = '';
-          return;
-        }
-        selectedFile = f;
-        renderChip();
-        btn.classList.add('has-file');
-        onChange();
-        if (inputElement) inputElement.focus();
+      if (!fileInput.files || !fileInput.files.length) {
+        fileInput.value = '';
+        return;
       }
+      // Защита от дубликатов: сравниваем по имени+размеру.
+      function isDuplicate(f) {
+        for (var i = 0; i < selectedFiles.length; i++) {
+          if (selectedFiles[i].name === f.name && selectedFiles[i].size === f.size) return true;
+        }
+        return false;
+      }
+      var rejected = [];
+      for (var i = 0; i < fileInput.files.length; i++) {
+        var f = fileInput.files[i];
+        if (selectedFiles.length >= MAX_FILES) {
+          rejected.push(f.name + ' (лимит ' + MAX_FILES + ' файлов)');
+          continue;
+        }
+        if (f.size > MAX_FILE_SIZE) {
+          rejected.push(f.name + ' (больше ' + Math.round(MAX_FILE_SIZE / 1024 / 1024) + ' МБ)');
+          continue;
+        }
+        if (isDuplicate(f)) {
+          rejected.push(f.name + ' (уже добавлен)');
+          continue;
+        }
+        selectedFiles.push(f);
+      }
+      if (rejected.length) alert('Не удалось добавить:\n' + rejected.join('\n'));
+      renderChips();
+      onChange();
+      if (inputElement) inputElement.focus();
       fileInput.value = '';
     });
 
-    // Перерисовка чипа с именем файла + синхронизация состояния кнопки.
-    // Когда файл выбран — скрепка disabled (чтобы нельзя было повесить второй).
-    // Сброс через clear() или крестик в чипе возвращает активность.
-    function renderChip() {
+    // Перерисовка чипов всех прикреплённых файлов + индикатор кнопки.
+    function renderChips() {
       chipsContainer.innerHTML = '';
-      if (!selectedFile) {
-        btn.disabled = false;
+      if (selectedFiles.length === 0) {
+        btn.classList.remove('has-file');
         return;
       }
-      var chip = document.createElement('span');
-      chip.className = 'gc-attach-chip';
-      var name = document.createElement('span');
-      name.className = 'name';
-      name.textContent = '📎 ' + selectedFile.name;
-      var x = document.createElement('span');
-      x.className = 'x';
-      x.textContent = '×';
-      x.title = 'Убрать файл';
-      x.addEventListener('click', function () {
-        selectedFile = null;
-        btn.classList.remove('has-file');
-        renderChip();
-        onChange();
-      });
-      chip.appendChild(name);
-      chip.appendChild(x);
-      chipsContainer.appendChild(chip);
-      btn.disabled = true;
+      btn.classList.add('has-file');
+      for (var i = 0; i < selectedFiles.length; i++) {
+        (function (idx) {
+          var f = selectedFiles[idx];
+          var chip = document.createElement('span');
+          chip.className = 'gc-attach-chip';
+          var name = document.createElement('span');
+          name.className = 'name';
+          name.textContent = '📎 ' + f.name;
+          var x = document.createElement('span');
+          x.className = 'x';
+          x.textContent = '×';
+          x.title = 'Убрать файл';
+          x.addEventListener('click', function () {
+            selectedFiles.splice(idx, 1);
+            renderChips();
+            onChange();
+          });
+          chip.appendChild(name);
+          chip.appendChild(x);
+          chipsContainer.appendChild(chip);
+        })(i);
+      }
     }
 
-    function hasFile() { return !!selectedFile; }
-    function getFile() { return selectedFile; }
+    function hasFiles() { return selectedFiles.length > 0; }
+    function hasFile() { return hasFiles(); } // legacy
+    function getFiles() { return selectedFiles.slice(); }
+    function getFile() { return selectedFiles[0] || null; } // legacy
     function clear() {
-      selectedFile = null;
-      btn.classList.remove('has-file');
-      renderChip();
+      selectedFiles = [];
+      renderChips();
+    }
+    function removeAt(idx) {
+      if (idx >= 0 && idx < selectedFiles.length) {
+        selectedFiles.splice(idx, 1);
+        renderChips();
+        onChange();
+      }
     }
     function cancel() {
-      if (abortCtrl) { try { abortCtrl.abort(); } catch (e) {} }
-      abortCtrl = null;
+      for (var i = 0; i < abortCtrls.length; i++) {
+        try { abortCtrls[i].abort(); } catch (e) {}
+      }
+      abortCtrls = [];
     }
-    // Включить/выключить скрепку извне (на время обработки запроса).
-    // При disabled скрываем и контейнер чипов — чтобы во время «Думаю...»
-    // в поле ввода не было «зависшего» вложения (оно уже в пузыре сверху).
     function setDisabled(disabled) {
       btn.disabled = !!disabled;
       chipsContainer.style.display = disabled ? 'none' : '';
     }
 
-    // Выполнить извлечение. Возвращает {text, fileName, error}.
-    // Сначала пытаемся в браузере (docx/xlsx/txt-like). Если не подходит —
-    // отправляем на n8n через webhook /extract-text (PDF, изображения).
-    async function extract(onProgress) {
-      if (!selectedFile) return { text: '', fileName: '', error: '' };
-      var fileName = selectedFile.name;
-
-      // Путь 1: браузерный парсер (docx, xlsx, txt, md, log, csv).
+    // Извлечь один файл — внутренний helper.
+    async function extractOne(file, onProgress) {
+      var fileName = file.name;
       if (canExtractInBrowser(fileName)) {
         try {
-          if (typeof onProgress === 'function') onProgress('Извлекаю текст из «' + fileName + '»...');
-          var text = await extractBrowserText(selectedFile);
+          if (typeof onProgress === 'function') onProgress('Извлекаю «' + fileName + '»...');
+          var text = await extractBrowserText(file);
           if (!text || !text.trim()) {
             return { text: '', fileName: fileName, error: 'Из файла не удалось извлечь текст (пустой).' };
           }
@@ -559,23 +591,21 @@
           return { text: '', fileName: fileName, error: 'Ошибка извлечения: ' + (e.message || e) };
         }
       }
-
-      // Путь 2: n8n + OCR-сервис (PDF, jpg/png/tiff, doc, rtf, prochee).
+      // OCR-путь через n8n.
       var url = cfg.N8N_BASE.replace(/\/$/, '') + '/webhook/extract-text';
-      abortCtrl = new AbortController();
-      var tid = setTimeout(function () {
-        try { abortCtrl.abort(); } catch (e) {}
-      }, 180000);
+      var ctrl = new AbortController();
+      abortCtrls.push(ctrl);
+      var tid = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 180000);
       try {
-        if (typeof onProgress === 'function') onProgress('Извлекаю текст из «' + fileName + '» через OCR...');
+        if (typeof onProgress === 'function') onProgress('OCR «' + fileName + '»...');
         var fd = new FormData();
-        fd.append('file', selectedFile);
-        var res = await fetch(url, { method: 'POST', body: fd, signal: abortCtrl.signal });
+        fd.append('file', file);
+        var res = await fetch(url, { method: 'POST', body: fd, signal: ctrl.signal });
         clearTimeout(tid);
-        if (!res.ok) {
-          return { text: '', fileName: fileName, error: 'Сервер вернул ' + res.status };
-        }
-        var data = await res.json();
+        if (!res.ok) return { text: '', fileName: fileName, error: 'Сервер вернул ' + res.status };
+        var data;
+        try { data = await res.json(); }
+        catch (parseErr) { return { text: '', fileName: fileName, error: 'Некорректный ответ (не JSON)' }; }
         if (data.success === false || !data.response) {
           return { text: '', fileName: fileName, error: data.response || 'Не удалось извлечь текст' };
         }
@@ -584,52 +614,89 @@
         clearTimeout(tid);
         if (e.name === 'AbortError') return { text: '', fileName: fileName, error: 'Извлечение отменено или превысило таймаут (3 мин)' };
         return { text: '', fileName: fileName, error: 'Ошибка: ' + e.message };
-      } finally {
-        abortCtrl = null;
       }
+    }
+
+    // Извлечь все файлы. Возвращает массив результатов (тот же порядок).
+    // Браузерные парсеры быстрые — гоняем последовательно. OCR-запросы шлём
+    // параллельно (в очереди не запускаем — n8n сам разрулит).
+    async function extract(onProgress) {
+      if (selectedFiles.length === 0) return [];
+      var files = selectedFiles.slice();
+      abortCtrls = [];
+      var promises = files.map(function (f, i) {
+        return extractOne(f, function (msg) {
+          if (typeof onProgress === 'function') {
+            onProgress('[' + (i + 1) + '/' + files.length + '] ' + msg);
+          }
+        });
+      });
+      var results = await Promise.all(promises);
+      abortCtrls = [];
+      return results;
     }
 
     return {
       hasFile: hasFile,
+      hasFiles: hasFiles,
       getFile: getFile,
+      getFiles: getFiles,
       clear: clear,
+      removeAt: removeAt,
       cancel: cancel,
       setDisabled: setDisabled,
       extract: extract
     };
   }
 
-  // Утилита: собрать сообщение для агента и краткое описание для UI.
-  // Если файл успешно извлечён — возвращает:
-  //   { messageForAgent: '[ВЛОЖЕНИЕ:name]\n<text>\n[/ВЛОЖЕНИЕ]\n<user text>', attachmentSummary: 'имя.расш (1234 симв.)' }
-  // Если файл с ошибкой — текст не вшивается, в attachmentSummary помечается ошибка.
-  // Если файла нет — возвращает userText без изменений и пустую summary.
+  // Утилита: собрать сообщение для агента и описание для UI.
+  // Принимает массив extracted (или один объект — для обратной совместимости).
+  // Каждый элемент: {text, fileName, error}.
+  //
+  // Возвращает:
+  //   messageForAgent — текст для отправки агенту, с блоками [ВЛОЖЕНИЕ:f1]...[/ВЛОЖЕНИЕ]
+  //   attachmentSummary — сводка по одному файлу (legacy: 'name (1234 симв.)')
+  //   attachments — массив сводок по каждому файлу (для рендера множества чипов)
   function buildMessageWithAttachment(userText, extracted) {
-    var hasText = extracted && extracted.text && extracted.text.length > 0;
-    var hasError = extracted && extracted.error && extracted.error.length > 0;
-    var fname = extracted && extracted.fileName;
-    if (!fname) {
-      return { messageForAgent: userText || '', attachmentSummary: '' };
+    var list = Array.isArray(extracted) ? extracted : (extracted ? [extracted] : []);
+    if (list.length === 0) {
+      return { messageForAgent: userText || '', attachmentSummary: '', attachments: [] };
     }
-    if (hasText) {
-      var block = '[ВЛОЖЕНИЕ:' + fname + ']\n' + extracted.text + '\n[/ВЛОЖЕНИЕ]\n\n';
-      var msg = (userText && userText.trim().length > 0)
-        ? block + userText
-        : block + 'Проанализируй прикреплённый файл.';
-      return {
-        messageForAgent: msg,
-        attachmentSummary: fname + ' (' + extracted.text.length.toLocaleString('ru-RU') + ' симв.)'
-      };
+    var blocks = [];
+    var attachments = [];
+    var summaryParts = [];
+    var anySuccess = false;
+    var anyError = false;
+    for (var i = 0; i < list.length; i++) {
+      var ex = list[i] || {};
+      var fname = ex.fileName || ('файл-' + (i + 1));
+      var hasText = ex.text && ex.text.length > 0;
+      var hasError = ex.error && ex.error.length > 0;
+      if (hasText) {
+        blocks.push('[ВЛОЖЕНИЕ:' + fname + ']\n' + ex.text + '\n[/ВЛОЖЕНИЕ]');
+        attachments.push({ fileName: fname, error: false });
+        summaryParts.push(fname + ' (' + ex.text.length.toLocaleString('ru-RU') + ' симв.)');
+        anySuccess = true;
+      } else if (hasError) {
+        // OCR упал — текст не зашиваем, но добавляем заметку.
+        blocks.push('[не удалось обработать файл: ' + fname + ' — ' + ex.error + ']');
+        attachments.push({ fileName: fname, error: true });
+        summaryParts.push(fname + ' (ошибка: ' + ex.error + ')');
+        anyError = true;
+      }
     }
-    if (hasError) {
-      // OCR упала: текст не зашиваем, но в сообщение для агента добавим короткую пометку.
-      var noteMsg = '[не удалось обработать файл: ' + fname + ' — ' + extracted.error + ']\n\n' + (userText || '');
-      return {
-        messageForAgent: noteMsg,
-        attachmentSummary: fname + ' (ошибка: ' + extracted.error + ')'
-      };
-    }
-    return { messageForAgent: userText || '', attachmentSummary: '' };
+    var trimmedUser = (userText || '').trim();
+    var prefix = blocks.join('\n\n');
+    var msg;
+    if (prefix && trimmedUser) msg = prefix + '\n\n' + userText;
+    else if (prefix && anySuccess) msg = prefix + '\n\nПроанализируй прикреплённые файлы.';
+    else if (prefix) msg = prefix + (userText ? '\n\n' + userText : '');
+    else msg = userText || '';
+    return {
+      messageForAgent: msg,
+      attachmentSummary: summaryParts.join('; '),
+      attachments: attachments
+    };
   }
 
   // ============================================================
