@@ -567,11 +567,11 @@ async function sendMessage() {
     });
     sessionStore.clearInflight(sendSessionId);
 
-    pushToSession(sendSessionId, {
+    GigaChat.typewriteAssistant(sessionStore, sendSessionId, {
       role: 'assistant',
       content: data.response || 'Ответ получен',
       extras: { prompt: data.prompt || '' }
-    });
+    }, { cps: 60 });
   } catch (err) {
     sessionStore.clearInflight(sendSessionId);
     pushToSession(sendSessionId, {

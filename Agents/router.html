@@ -697,7 +697,7 @@
                 if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
                 var data = await res.json();
                 var responseText = data.response || data.output || 'Пустой ответ от сервера';
-                pushToSession(sendSessionId, { role: 'assistant', content: responseText, agent: agent });
+                GigaChat.typewriteAssistant(sessionStore, sendSessionId, { role: 'assistant', content: responseText, agent: agent }, { cps: 60 });
                 statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
             } catch (e) {
                 sessionStore.clearInflight(sendSessionId);

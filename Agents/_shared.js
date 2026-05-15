@@ -1061,6 +1061,90 @@
     };
   }
 
+  // ============================================================
+  // ПСЕВДО-СТРИМИНГ (TYPEWRITER) ответа агента
+  // ============================================================
+  // Универсальный паттерн для всех агентов:
+  //   GigaChat.typewriteAssistant(sessionStore, sid, msg, { cps, containerSelector })
+  // - msg сразу пушится в snapshot (для возврата в сессию с полным ответом).
+  // - В DOM последний `.msg.bot` (или указанный containerSelector) очищается,
+  //   и текст из msg.content постепенно «печатается» plain-text'ом со скоростью
+  //   ~cps символов/сек (по умолчанию 60).
+  // - В конце innerHTML восстанавливается из ранее отрендеренного finalHtml —
+  //   полностью с markdown, code-блоками, extras и т.п.
+  // - Если юзер переключился на другую сессию во время typewriter — печать
+  //   прерывается тихо; при возврате он увидит полный текст (snapshot содержит).
+  function typewriteAssistant(sessionStore, sid, msg, options) {
+    options = options || {};
+    var cps = options.cps || 60;
+    var containerSelector = options.containerSelector || '.msg.bot';
+    var tickFps = 30;
+    var tickIntervalMs = 1000 / tickFps;
+    var charsPerTick = Math.max(1, Math.round(cps / tickFps));
+
+    // 1) Положить в snapshot и отрисовать. После этого последний .msg.bot
+    //    содержит финальный HTML (markdown отрендерен).
+    sessionStore.pushToSession(sid, msg);
+
+    // 2) Если сессия не активна — анимация не нужна.
+    if (sid !== sessionStore.state.activeSessionId) return null;
+
+    var botEls = document.querySelectorAll(containerSelector);
+    var lastBot = botEls[botEls.length - 1];
+    if (!lastBot) return null;
+
+    var finalHtml = lastBot.innerHTML;
+    var plainText = msg.content || msg.text || '';
+    if (!plainText) return null;
+
+    lastBot.innerHTML = '';
+    lastBot.classList.add('gc-typewriting');
+
+    // Каретка-курсор внутри блока во время печати (мягкий мигающий блок).
+    if (!document.querySelector('style[data-gc-typewriter]')) {
+      var style = document.createElement('style');
+      style.setAttribute('data-gc-typewriter', '1');
+      style.textContent =
+        '.gc-typewriting{white-space:pre-wrap}' +
+        '.gc-typewriting::after{content:"\\258B";display:inline-block;margin-left:1px;color:var(--accent);animation:gcCaret 1s steps(2) infinite}' +
+        '@keyframes gcCaret{50%{opacity:0}}';
+      document.head.appendChild(style);
+    }
+
+    var i = 0;
+    var intervalId = setInterval(function () {
+      // Юзер ушёл — тихо прерываемся (при возврате он увидит полный текст
+      // из snapshot через renderMessages).
+      if (sid !== sessionStore.state.activeSessionId) {
+        clearInterval(intervalId);
+        return;
+      }
+      // Если узел потерян (renderMessages перерисовал чат) — прерываемся.
+      if (!lastBot.isConnected) {
+        clearInterval(intervalId);
+        return;
+      }
+      if (i >= plainText.length) {
+        clearInterval(intervalId);
+        lastBot.innerHTML = finalHtml;
+        lastBot.classList.remove('gc-typewriting');
+        return;
+      }
+      i = Math.min(i + charsPerTick, plainText.length);
+      lastBot.textContent = plainText.substring(0, i);
+    }, tickIntervalMs);
+
+    return {
+      cancel: function () {
+        clearInterval(intervalId);
+        if (lastBot && lastBot.isConnected) {
+          lastBot.innerHTML = finalHtml;
+          lastBot.classList.remove('gc-typewriting');
+        }
+      }
+    };
+  }
+
   global.GigaChat = {
     config: cfg,
     webhookUrl: webhookUrl,
@@ -1080,6 +1164,7 @@
     padTabularText: padTabularText,
     fileExt: fileExt,
     createSessionStore: createSessionStore,
+    typewriteAssistant: typewriteAssistant,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,
     RETRY_DELAY_MS: RETRY_DELAY_MS
