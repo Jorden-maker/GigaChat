@@ -651,6 +651,43 @@
     };
   }
 
+  // Утилита: TSV-блоки (несколько подряд идущих строк с одинаковым числом
+  // табов) превращаем в markdown-таблицы. LLM лучше понимает табличные
+  // данные в формате `| a | b |`, чем «текст со табуляциями».
+  // Не-TSV строки (заголовки секций, plain text) остаются как есть.
+  function tsvBlocksToMarkdownTables(text) {
+    if (!text || text.indexOf('\t') === -1) return text;
+    var lines = text.split('\n');
+    var result = [];
+    var i = 0;
+    while (i < lines.length) {
+      var line = lines[i];
+      var tabCount = (line.match(/\t/g) || []).length;
+      if (tabCount > 0) {
+        var block = [line];
+        var j = i + 1;
+        while (j < lines.length && (lines[j].match(/\t/g) || []).length === tabCount) {
+          block.push(lines[j]);
+          j++;
+        }
+        if (block.length >= 2) {
+          var rows = block.map(function (r) { return r.split('\t'); });
+          var md = '| ' + rows[0].map(function (c) { return (c || '').replace(/\|/g, '\\|') || ' '; }).join(' | ') + ' |\n';
+          md += '|' + rows[0].map(function () { return '---'; }).join('|') + '|';
+          for (var k = 1; k < rows.length; k++) {
+            md += '\n| ' + rows[k].map(function (c) { return (c || '').replace(/\|/g, '\\|') || ' '; }).join(' | ') + ' |';
+          }
+          result.push(md);
+          i = j;
+          continue;
+        }
+      }
+      result.push(line);
+      i++;
+    }
+    return result.join('\n');
+  }
+
   // Утилита: собрать сообщение для агента и описание для UI.
   // Принимает массив extracted (или один объект — для обратной совместимости).
   // Каждый элемент: {text, fileName, error}.
@@ -675,7 +712,11 @@
       var hasText = ex.text && ex.text.length > 0;
       var hasError = ex.error && ex.error.length > 0;
       if (hasText) {
-        blocks.push('[ВЛОЖЕНИЕ:' + fname + ']\n' + ex.text + '\n[/ВЛОЖЕНИЕ]');
+        // Если в тексте есть TSV-блоки (от docx/xlsx/csv через браузерные
+        // парсеры) — конвертим их в markdown-таблицы. LLM лучше понимает
+        // структуру и может отвечать таблично.
+        var textForAgent = tsvBlocksToMarkdownTables(ex.text);
+        blocks.push('[ВЛОЖЕНИЕ:' + fname + ']\n' + textForAgent + '\n[/ВЛОЖЕНИЕ]');
         attachments.push({ fileName: fname, error: false });
         summaryParts.push(fname + ' (' + ex.text.length.toLocaleString('ru-RU') + ' симв.)');
         anySuccess = true;
@@ -767,11 +808,62 @@
       } catch (e) {}
     }
 
+    // Сохранение snapshot с защитой от переполнения localStorage.
+    // Стратегия при QuotaExceededError:
+    //   1) Урезаем displayMessages до последних 50 сообщений и пробуем снова.
+    //   2) Если опять — удаляем все snapshot'ы других сессий этого же агента
+    //      (они уже не активны, юзер при возврате подгрузит с сервера).
+    //   3) Если и это не помогло — оставляем последние 20 сообщений.
+    //   4) Если уж совсем — тихо отказываемся (next saveSnapshot повторит).
+    var MAX_SNAPSHOT_MESSAGES = 100;
+    function trySaveSnapshot(messages) {
+      try {
+        localStorage.setItem(KEY_VIEW + store.activeSessionId, JSON.stringify(messages));
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+    function pruneOtherSnapshots() {
+      var prefixView = KEY_VIEW;
+      var current = KEY_VIEW + store.activeSessionId;
+      var toRemove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(prefixView) === 0 && k !== current) toRemove.push(k);
+      }
+      for (var j = 0; j < toRemove.length; j++) {
+        try { localStorage.removeItem(toRemove[j]); } catch (e) {}
+      }
+    }
     function saveSnapshot() {
       if (!store.activeSessionId) return;
-      try {
-        localStorage.setItem(KEY_VIEW + store.activeSessionId, JSON.stringify(store.displayMessages));
-      } catch (e) {}
+      var msgs = store.displayMessages;
+      // Превентивный лимит: длинные сессии обрезаются ДО попытки записи.
+      if (msgs.length > MAX_SNAPSHOT_MESSAGES) {
+        msgs = msgs.slice(-MAX_SNAPSHOT_MESSAGES);
+        store.displayMessages = msgs;
+      }
+      if (trySaveSnapshot(msgs)) return;
+      // Quota exceeded — пробуем урезать сильнее.
+      var trimmed = msgs.slice(-50);
+      if (trySaveSnapshot(trimmed)) {
+        store.displayMessages = trimmed;
+        return;
+      }
+      // Чистим snapshot'ы других сессий.
+      pruneOtherSnapshots();
+      if (trySaveSnapshot(trimmed)) {
+        store.displayMessages = trimmed;
+        return;
+      }
+      // Самый крайний — последние 20 сообщений.
+      var minimal = msgs.slice(-20);
+      if (trySaveSnapshot(minimal)) {
+        store.displayMessages = minimal;
+        return;
+      }
+      // Тихий отказ — следующий saveSnapshot повторит.
     }
 
     function loadSnapshot(sid) {
@@ -1036,6 +1128,40 @@
       }
     }
 
+    // Multi-tab sync: если в другой вкладке этого же агента поменялся список
+    // сессий, активная сессия или snapshot — реагируем.
+    //   - sessions/active/counter изменились: перечитываем и перерисовываем
+    //     сайдбар. Если активная сессия удалена в другой вкладке — переходим
+    //     к последней доступной (или onEmpty).
+    //   - snapshot активной сессии изменился: обновляем displayMessages.
+    //
+    // НЕ ловим события от собственной вкладки — браузер этого делать и не
+    // должен (storage event только cross-tab).
+    function handleStorageEvent(e) {
+      if (!e.key) return;
+      if (e.key === KEY_SESSIONS || e.key === KEY_ACTIVE || e.key === KEY_COUNTER) {
+        // Другая вкладка изменила список или активную — перечитываем.
+        var prevActive = store.activeSessionId;
+        load();
+        renderList();
+        // Активная сессия исчезла → переключиться на последнюю или onEmpty.
+        if (prevActive && !findSession(prevActive)) {
+          if (store.sessions.length > 0) {
+            switchTo(store.sessions[store.sessions.length - 1].id, { skipHistoryLoad: true });
+          } else {
+            store.activeSessionId = null;
+            store.displayMessages = [];
+            onEmpty();
+          }
+        }
+      } else if (e.key === KEY_VIEW + store.activeSessionId) {
+        // Активная сессия — её snapshot изменился в другой вкладке.
+        store.displayMessages = loadSnapshot(store.activeSessionId) || [];
+        renderMessages(store.displayMessages);
+      }
+    }
+    window.addEventListener('storage', handleStorageEvent);
+
     return {
       state: store,                              // прямой доступ к sessions/activeSessionId/displayMessages
       load: load,
@@ -1165,6 +1291,7 @@
     fileExt: fileExt,
     createSessionStore: createSessionStore,
     typewriteAssistant: typewriteAssistant,
+    tsvBlocksToMarkdownTables: tsvBlocksToMarkdownTables,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,
     RETRY_DELAY_MS: RETRY_DELAY_MS
