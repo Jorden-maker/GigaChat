@@ -793,12 +793,27 @@
     // сессию без inflight). Renderer (агентский renderChat) сам читает
     // getInflight() и рисует спиннер в конце чата.
     var inflightTimer = null;
+    // Тикер обновляет ТОЛЬКО текст таймера в уже существующем DOM-элементе
+    // loader'а — не дёргает renderMessages, иначе chat.innerHTML переписывался
+    // бы каждую секунду и весь чат моргал.
+    // Агентский renderChat при отрисовке loader'а должен:
+    //   - повесить класс `gc-inflight-loader` на сам блок
+    //   - сохранить startedAt в `data-started-at`
+    //   - положить таймер в `<span class="timer">`
+    function tickInflightDom() {
+      var loaders = document.querySelectorAll('.gc-inflight-loader');
+      for (var i = 0; i < loaders.length; i++) {
+        var el = loaders[i];
+        var startedAt = parseInt(el.getAttribute('data-started-at') || '0', 10);
+        if (!startedAt) continue;
+        var elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        var timerEl = el.querySelector('.timer');
+        if (timerEl) timerEl.textContent = elapsed + ' сек';
+      }
+    }
     function startInflightTicker() {
       if (inflightTimer) return;
-      inflightTimer = setInterval(function () {
-        // Пинаем renderMessages — он покажет обновлённый «X сек».
-        renderMessages(store.displayMessages);
-      }, 1000);
+      inflightTimer = setInterval(tickInflightDom, 1000);
     }
     function stopInflightTicker() {
       if (inflightTimer) { clearInterval(inflightTimer); inflightTimer = null; }

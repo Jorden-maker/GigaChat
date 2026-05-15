@@ -578,7 +578,8 @@
             var inflight = sessionStore.getInflight(activeSessionId);
             if (inflight) {
                 var elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
-                html += '<div class="loading">' + escapeHtml(inflight.label) +
+                html += '<div class="loading gc-inflight-loader" data-started-at="' + inflight.startedAt + '">' +
+                    escapeHtml(inflight.label) +
                     ' <span class="dots"><span>.</span><span>.</span><span>.</span></span>' +
                     '<span class="timer">' + elapsed + ' сек</span></div>';
             }

@@ -387,8 +387,15 @@ function init() {
 function renderChat() {
   const container = document.getElementById('chatContainer');
   const inflight = sessionStore.getInflight(activeSessionId);
-  if (displayMessages.length === 0 && !inflight) {
+  // Welcome-блок показываем ТОЛЬКО когда нет активной сессии (сессий нет вообще
+  // либо все удалены). Если сессия выбрана, но в ней ещё нет сообщений —
+  // оставляем пустоту (или inflight loader если уже отправили).
+  if (!activeSessionId) {
     container.innerHTML = WELCOME_HTML;
+    return;
+  }
+  if (displayMessages.length === 0 && !inflight) {
+    container.innerHTML = '';
     return;
   }
   let html = '';
@@ -422,7 +429,7 @@ function renderChat() {
   }
   if (inflight) {
     const elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
-    html += `<div class="loading">${escapeHtml(inflight.label)} <span class="dots"><span>.</span><span>.</span><span>.</span></span><span class="timer">${elapsed} сек</span></div>`;
+    html += `<div class="loading gc-inflight-loader" data-started-at="${inflight.startedAt}">${escapeHtml(inflight.label)} <span class="dots"><span>.</span><span>.</span><span>.</span></span><span class="timer">${elapsed} сек</span></div>`;
   }
   container.innerHTML = html;
   container.scrollTop = container.scrollHeight;
