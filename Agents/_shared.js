@@ -294,6 +294,45 @@
     return lines.join('\n');
   }
 
+  // Превращает TSV-текст (колонки через \t) в моноширинно-выровненную «таблицу».
+  // Полезно для UI text-extractor — TSV технически правилен, но визуально жмётся.
+  // Файл при скачивании можно отдавать в любом виде; результат padTabularText
+  // предназначен только для отображения в textarea (моноширинный шрифт).
+  // Параметр maxColWidth ограничивает ширину колонки, чтобы один очень длинный
+  // абзац не растягивал всю строку.
+  function padTabularText(text, maxColWidth) {
+    if (!text || text.indexOf('\t') === -1) return text;
+    var maxW = (typeof maxColWidth === 'number' && maxColWidth > 0) ? maxColWidth : 60;
+    var lines = text.split('\n');
+    var rows = [];
+    for (var i = 0; i < lines.length; i++) rows.push(lines[i].split('\t'));
+    var widths = [];
+    for (var r = 0; r < rows.length; r++) {
+      for (var c = 0; c < rows[r].length; c++) {
+        var v = rows[r][c] == null ? '' : String(rows[r][c]);
+        var len = Math.min(v.length, maxW);
+        if (widths[c] == null || widths[c] < len) widths[c] = len;
+      }
+    }
+    var out = [];
+    for (var r2 = 0; r2 < rows.length; r2++) {
+      var cells = rows[r2];
+      var parts = [];
+      for (var c2 = 0; c2 < cells.length; c2++) {
+        var val = cells[c2] == null ? '' : String(cells[c2]);
+        var w = widths[c2] || 0;
+        if (val.length > w) {
+          parts.push(val);
+        } else {
+          var pad = w - val.length;
+          parts.push(val + new Array(pad + 1).join(' '));
+        }
+      }
+      out.push(parts.join('  ').replace(/\s+$/, ''));
+    }
+    return out.join('\n');
+  }
+
   async function extractBrowserText(file) {
     var ext = fileExt(file.name);
     if (ext === 'docx') return await extractDocxText(file);
@@ -561,6 +600,7 @@
     extractBrowserText: extractBrowserText,
     extractDocxText: extractDocxText,
     extractXlsxText: extractXlsxText,
+    padTabularText: padTabularText,
     fileExt: fileExt,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,

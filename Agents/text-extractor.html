@@ -556,16 +556,23 @@ main {
                     errorBox.textContent = 'Из файла не удалось извлечь текст (пустой).';
                     errorBox.style.display = 'block';
                 } else {
-                    lastResultText = extractedText;
-                    lastFileName = selectedFile.name;
-                    resultText.value = extractedText;
-                    var elapsed = Math.floor((Date.now() - startTime) / 1000);
                     var ext = GigaChat.fileExt(selectedFile.name);
+                    // Для xlsx/xlsm/csv выравниваем колонки моноширинно — иначе TSV
+                    // с табами визуально жмётся. Сам файл лежит как TSV (для машин),
+                    // а превью + скачивание идут в выровненной форме для глаз.
+                    var displayText = extractedText;
+                    if (ext === 'xlsx' || ext === 'xlsm' || ext === 'csv') {
+                        displayText = GigaChat.padTabularText(extractedText);
+                    }
+                    lastResultText = displayText;
+                    lastFileName = selectedFile.name;
+                    resultText.value = displayText;
+                    var elapsed = Math.floor((Date.now() - startTime) / 1000);
                     var sourceLabel = (ext === 'docx') ? 'Word (без OCR)'
                                     : (ext === 'xlsx' || ext === 'xlsm') ? 'Excel (без OCR)'
                                     : (ext === 'csv') ? 'CSV'
                                     : 'Текстовый файл';
-                    var lengthLabel = extractedText.length.toLocaleString('ru-RU') + ' символов';
+                    var lengthLabel = displayText.length.toLocaleString('ru-RU') + ' символов';
                     resultMeta.innerHTML = '<b>' + escapeHtml(selectedFile.name) + '</b> · ' + sourceLabel + ' · ' + lengthLabel + ' · ' + elapsed + ' сек';
                     resultBox.style.display = 'block';
                 }
