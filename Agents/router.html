@@ -513,11 +513,12 @@
                 chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">GigaChat Auto автоматически направит запрос нужному агенту.</span></div>';
                 return;
             }
-            // Бэйдж "какой агент" прикрепляется к user-сообщению справа сверху
-            // и остаётся на том же месте на протяжении всего жизненного цикла
-            // запроса: сначала по inflight.label (пока ответ грузится), затем
-            // по следующему bot-сообщению (когда ответ пришёл).
-            var inflightLocal = sessionStore.getInflight(activeSessionId);
+            // Бэйдж "какой агент" прикрепляется к каждому user-сообщению
+            // справа сверху. Источник имени агента — сначала m.agent
+            // (сохранён при отправке, переживает ошибки/отмены), иначе
+            // nextBot.agent (на случай старых сессий без m.agent).
+            // НЕ используем inflightLocal.label — он один на сессию и
+            // подсветит ВСЕ user-msgs без bot-ответа одинаковой меткой.
             var html = '';
             for (var i = 0; i < displayMessages.length; i++) {
                 var m = displayMessages[i];
@@ -536,19 +537,16 @@
                         var spacing = userBody ? 'margin-top:8px' : '';
                         userBody += '<div style="' + spacing + ';display:flex;flex-wrap:wrap;gap:6px">' + chipsHtml + '</div>';
                     }
-                    // Определяем имя агента: сначала смотрим на следующее
-                    // bot-сообщение (если ответ уже пришёл), иначе — inflight.label
-                    // (для последнего user-сообщения, пока ответ грузится).
-                    var agentLabel = '';
-                    var nextBot = (i + 1 < displayMessages.length && displayMessages[i + 1].role === 'assistant')
-                        ? displayMessages[i + 1] : null;
-                    if (nextBot && nextBot.agent) {
-                        agentLabel = AGENT_LABELS[nextBot.agent] || nextBot.agent;
-                    } else if (!nextBot && inflightLocal && inflightLocal.label) {
-                        agentLabel = inflightLocal.label;
+                    var agentKey = '';
+                    if (m.agent) {
+                        agentKey = m.agent;
+                    } else {
+                        var nextBot = (i + 1 < displayMessages.length && displayMessages[i + 1].role === 'assistant')
+                            ? displayMessages[i + 1] : null;
+                        if (nextBot && nextBot.agent) agentKey = nextBot.agent;
                     }
-                    var inflBadge = agentLabel
-                        ? '<span class="inflight-agent-badge">' + escapeHtml(agentLabel) + '</span>'
+                    var inflBadge = agentKey
+                        ? '<span class="inflight-agent-badge">' + escapeHtml(AGENT_LABELS[agentKey] || agentKey) + '</span>'
                         : '';
                     html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">'+ userBody + inflBadge + '</div>';
                 } else {
@@ -635,7 +633,10 @@
             // Пушим user-сообщение СРАЗУ + setInflight ДО любых await. Это
             // единый источник правды что сессия занята; onSwitch при возврате
             // увидит inflight и оставит скрепку заблокированной.
-            var userMsg = { role: 'user', content: text, ts: Date.now() };
+            // agent сохраняем на user-msg: бэйдж в renderChat берёт его
+            // оттуда, чтобы каждый запрос помнил свой агент даже если
+            // bot-ответ ещё не пришёл / запрос был отменён.
+            var userMsg = { role: 'user', content: text, ts: Date.now(), agent: agent };
             if (fileNamesSnapshot.length > 0) {
                 userMsg.attachments = fileNamesSnapshot.map(function (n) {
                     return { fileName: n, error: false };
