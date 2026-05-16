@@ -31,13 +31,18 @@
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
+        }
+        /* Скроллбар страницы. Правила НА HTML — потому что в Chrome/Edge
+           page-scrollbar рендерится на корневом элементе, а не на body.
+           scrollbar-* стили — для Firefox. */
+        html {
             scrollbar-width: thin;
             scrollbar-color: var(--border) transparent;
         }
-        body::-webkit-scrollbar { width: 6px; }
-        body::-webkit-scrollbar-track { background: transparent; }
-        body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-        body::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        html::-webkit-scrollbar { width: 5px; }
+        html::-webkit-scrollbar-track { background: transparent; }
+        html::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        html::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
         /* Animated multi-layer radial gradient background */
         /* Анимированные градиенты + noise убраны, но точечная сетка
