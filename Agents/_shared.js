@@ -570,6 +570,56 @@
     });
   }
 
+  // Кнопка «прокрутить вниз» — появляется когда юзер отскроллил вверх.
+  // Центрируется над input-area, кликом доезжает до низа чата.
+  // opts: { scrollable, inputArea }
+  function initScrollToBottomButton(opts) {
+    var scrollEl = opts.scrollable;
+    var inputArea = opts.inputArea;
+    if (!scrollEl || !inputArea) return;
+    if (inputArea.querySelector('.gc-scroll-bottom-btn')) return;
+
+    if (!document.getElementById('gc-scroll-btn-css')) {
+      var style = document.createElement('style');
+      style.id = 'gc-scroll-btn-css';
+      style.textContent =
+        // Кнопка позиционируется в inputArea абсолютно — чтобы стрелка
+        // выровнялась горизонтально по центру поля ввода и торчала ~14px
+        // над верхней границей поля.
+        '.gc-input-area-wrap{position:relative}' +
+        '.gc-scroll-bottom-btn{position:absolute;left:50%;top:-44px;transform:translateX(-50%) translateY(8px);width:32px;height:32px;display:none;align-items:center;justify-content:center;background:var(--bg-secondary);border:1px solid var(--border);border-radius:50%;color:var(--text-secondary);cursor:pointer;padding:0;z-index:5;opacity:0;transition:opacity .2s,transform .2s,background .15s,color .15s,border-color .15s}' +
+        '.gc-scroll-bottom-btn.visible{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}' +
+        '.gc-scroll-bottom-btn:hover{background:var(--bg-input);color:var(--accent);border-color:var(--accent)}' +
+        '.gc-scroll-bottom-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}';
+      document.head.appendChild(style);
+    }
+
+    // Обёртку inputArea помечаем классом (для position:relative якоря).
+    inputArea.classList.add('gc-input-area-wrap');
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gc-scroll-bottom-btn';
+    btn.setAttribute('aria-label', 'Прокрутить вниз');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+    btn.addEventListener('click', function () {
+      scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' });
+    });
+    inputArea.appendChild(btn);
+
+    function update() {
+      var distFromBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
+      if (distFromBottom > 80) btn.classList.add('visible');
+      else btn.classList.remove('visible');
+    }
+    scrollEl.addEventListener('scroll', update, { passive: true });
+    // Контент может расти асинхронно (typewriter, push'ы) — лёгкий interval
+    // и MutationObserver чтобы вовремя реагировать.
+    var mo = new MutationObserver(update);
+    mo.observe(scrollEl, { childList: true, subtree: true, characterData: true });
+    update();
+  }
+
   // Плавный переход между шапкой и чатом через mask-image fade:
   // верхние 24px скролл-контейнера плавно прозрачные → плавное
   // увеличение прозрачности контента к шапке. Никаких теней или линий.
@@ -614,13 +664,12 @@
       style.id = 'gc-sidebar-resize-css';
       style.textContent =
         '.sidebar{position:relative}' +
-        // Hot-zone — ВЕСЬ правый контур (full-height, 16px ширина), drag и
-        // hover работают на любой точке. Индикатор (peach line) виден всегда
-        // по центру 30px, насыщеннее при hover/drag. Юзер сразу понимает где
-        // тянуть, и тянуть можно с любого места правого края.
-        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:16px;cursor:col-resize;z-index:100;background:transparent;user-select:none}' +
-        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:50%;right:0;transform:translateY(-50%);height:30px;width:2px;background:var(--accent);opacity:0;transition:opacity .15s,width .15s}' +
-        '.gc-sidebar-resize-handle:hover::after,.gc-sidebar-resize-handle.dragging::after{opacity:1;width:3px}';
+        // Hot-zone узкая — 6px у самого правого контура (только на нём ловим
+        // hover/drag, чтобы юзер не задевал случайно). Индикатор — 1px
+        // тонкая peach-линия, появляется только при hover.
+        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:6px;cursor:col-resize;z-index:100;background:transparent;user-select:none}' +
+        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:50%;right:0;transform:translateY(-50%);height:40px;width:1px;background:var(--accent);opacity:0;transition:opacity .15s,width .15s}' +
+        '.gc-sidebar-resize-handle:hover::after,.gc-sidebar-resize-handle.dragging::after{opacity:1;width:2px}';
       document.head.appendChild(style);
     }
 
@@ -1464,7 +1513,9 @@
           var close = document.createElement('span');
           close.className = 'close';
           close.setAttribute('aria-label', 'Удалить');
-          close.textContent = '×';
+          // SVG-крестик 12px — визуально совпадает с pencil (тоже 12px svg),
+          // тогда как textContent '×' выглядит выше из-за font-baseline.
+          close.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
           (function (sess) {
             close.addEventListener('click', function (e) { e.stopPropagation(); remove(sess.id); });
           })(s);
@@ -1670,6 +1721,7 @@
     getSendController: getSendController,
     initSidebarResize: initSidebarResize,
     initHeaderShadowOnScroll: initHeaderShadowOnScroll,
+    initScrollToBottomButton: initScrollToBottomButton,
     attachCopyButtons: attachCopyButtons,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,

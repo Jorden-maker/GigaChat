@@ -66,7 +66,7 @@
         .session-item .edit { opacity: 0; }
         .session-item:hover .edit { opacity: 0.8; }
         .session-item .edit:hover { background: var(--bg-secondary); color: var(--accent); opacity: 1; }
-        .session-item .edit svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .session-item .edit svg, .session-item .close svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         .session-item .close:hover { background: var(--bg-secondary); color: var(--accent); opacity: 1; }
         .session-item .name-edit {
             flex: 1; min-width: 0;
@@ -88,7 +88,7 @@
             letter-spacing: 2px;
         }
         header .status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; line-height: 1; color: var(--text-secondary); letter-spacing: 0.5px; }
-        header .status .dot { width: 5px; height: 5px; border-radius: 50%; background: #f0ad4e; transform: translate(-4px, 2px); animation: pulse 1s infinite; }
+        header .status .dot { width: 5px; height: 5px; border-radius: 50%; background: #f0ad4e; transform: translate(-4px, 1px); animation: pulse 1s infinite; }
         header .status .dot.online { background: #4caf50; box-shadow: 0 0 8px rgba(76,175,80,0.5); animation: pulse 2s infinite; }
         header .status .dot.offline { background: #cc4444; box-shadow: 0 0 8px rgba(204,68,68,0.4); animation: none; }
         header .status .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
@@ -742,6 +742,7 @@
             storageKey: 'giga_router_sidebar_w'
         });
         GigaChat.initHeaderShadowOnScroll({ scrollable: document.getElementById('chat') });
+        GigaChat.initScrollToBottomButton({ scrollable: document.getElementById('chat'), inputArea: document.querySelector('.bottom-area') });
 
         sessionStore.load();
         if (sessionStore.state.activeSessionId && !sessionStore.findSession(sessionStore.state.activeSessionId)) {
