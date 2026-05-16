@@ -429,6 +429,9 @@
                 else el.classList.remove('selected');
             });
             document.getElementById('targetAgentSelect').classList.remove('open');
+            // После ручного выбора возвращаем фокус в поле ввода —
+            // юзер сразу продолжает печатать, не теряя контекст.
+            if (input && !input.disabled) input.focus();
         }
         // Закрытие выпадашки при клике вне её
         document.addEventListener('click', function (e) {
