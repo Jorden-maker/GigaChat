@@ -1,12 +1,14 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="dark">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <title>GigaChat Auto</title>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
     <style>
         :root {
             --bg-primary: #1f1f1e;
             --bg-secondary: #1f1e1c;
+            --bg-sidebar: #262626;
             --bg-input: #2c2c2a;
             --bg-user: rgba(212, 165, 116, 0.10);
             --bg-bot: #1f1e1c;
@@ -17,6 +19,20 @@
             --accent: #d4a574;
             --accent-hover: #c08a5a;
             --sidebar-width: 220px;
+        }
+        :root[data-theme="light"] {
+            --bg-primary: #fdfdfc;
+            --bg-secondary: #f3f1ec;
+            --bg-sidebar: #fdfdfc;
+            --bg-input: #fffffe;
+            --bg-user: rgba(184, 137, 93, 0.12);
+            --bg-bot: #f3f1ec;
+            --border: #e3dfd5;
+            --text-primary: #1f1f1e;
+            --text-secondary: #6b6b68;
+            --text-muted: #a8a59f;
+            --accent: #b8895d;
+            --accent-hover: #a0764d;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -33,7 +49,7 @@
         .sidebar {
             width: var(--sidebar-width); height: calc(100vh - 24px);
             margin: 12px 0 12px 12px;
-            background: #262626;
+            background: var(--bg-sidebar);
             border: 1px solid var(--border);
             border-radius: 12px;
             display: flex; flex-direction: column; flex-shrink: 0;

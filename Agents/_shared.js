@@ -178,20 +178,86 @@
     return html;
   }
 
-  // Единая корпоративная тема — тёмная (Claude Code: тёмный сланец + лавандовый акцент).
-  // Светлая тема и переключатель удалены, но эти функции остаются как no-op для
-  // обратной совместимости (на случай если внешний код вызывает их).
+  // ============================================================
+  // ТЕМЫ — светлая (по умолчанию для нового юзера) и тёмная
+  // ============================================================
+  // Палитра задаётся inline в каждой HTML через :root и
+  // :root[data-theme="light"]. Здесь — только переключение
+  // data-theme + sync hljs-CSS + плавающая кнопка в углу страницы.
+  // Чтобы избежать FOUC, в head каждой страницы стоит inline-скрипт,
+  // который читает localStorage и ставит data-theme ДО парсинга CSS.
+
+  var THEME_STORAGE_KEY = 'giga_theme';
+  var SUN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>';
+  var MOON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  function getCurrentTheme() {
+    return document.documentElement.getAttribute('data-theme') || 'light';
+  }
+
   function syncHljsTheme() {
     var dark = document.getElementById('hljs-theme-dark');
     var light = document.getElementById('hljs-theme-light');
-    if (dark) dark.disabled = false;
-    if (light) light.disabled = true;
+    var isDark = getCurrentTheme() === 'dark';
+    if (dark) dark.disabled = !isDark;
+    if (light) light.disabled = isDark;
   }
-  function toggleTheme() { /* no-op: светлая тема удалена */ }
 
-  // Применить подсветку синтаксиса ко всем неподсвеченным <pre><code> внутри
-  // контейнера (либо ко всему документу если container не передан).
-  // Если highlight.js не подключён — тихо пропускаем.
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch (e) {}
+    updateThemeToggleIcon();
+    syncHljsTheme();
+  }
+
+  function toggleTheme() {
+    applyTheme(getCurrentTheme() === 'dark' ? 'light' : 'dark');
+  }
+
+  function updateThemeToggleIcon() {
+    var btn = document.getElementById('gc-theme-toggle');
+    if (!btn) return;
+    var isDark = getCurrentTheme() === 'dark';
+    btn.innerHTML = isDark ? SUN_SVG : MOON_SVG;
+    btn.setAttribute('aria-label', isDark ? 'Светлая тема' : 'Тёмная тема');
+    btn.setAttribute('title', isDark ? 'Светлая тема' : 'Тёмная тема');
+  }
+
+  function initThemeToggle() {
+    if (document.getElementById('gc-theme-toggle')) return;
+    if (!document.getElementById('gc-theme-toggle-css')) {
+      var style = document.createElement('style');
+      style.id = 'gc-theme-toggle-css';
+      style.textContent =
+        '#gc-theme-toggle{position:fixed;top:14px;right:14px;z-index:9999;' +
+        'width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;' +
+        'background:var(--bg-secondary);border:1px solid var(--border);border-radius:50%;' +
+        'color:var(--text-secondary);cursor:pointer;padding:0;' +
+        'transition:background .15s,color .15s,border-color .15s,transform .15s}' +
+        '#gc-theme-toggle:hover{background:var(--bg-input);color:var(--accent);' +
+        'border-color:var(--accent);transform:rotate(15deg)}' +
+        '#gc-theme-toggle svg{width:16px;height:16px;stroke:currentColor;fill:none;' +
+        'stroke-width:2;stroke-linecap:round;stroke-linejoin:round}';
+      document.head.appendChild(style);
+    }
+    var btn = document.createElement('button');
+    btn.id = 'gc-theme-toggle';
+    btn.type = 'button';
+    btn.onclick = toggleTheme;
+    document.body.appendChild(btn);
+    updateThemeToggleIcon();
+  }
+
+  // Cross-tab синхронизация темы: переключил в одной вкладке — все вкладки следуют.
+  global.addEventListener('storage', function (e) {
+    if (e.key !== THEME_STORAGE_KEY || !e.newValue) return;
+    if (e.newValue !== getCurrentTheme()) {
+      document.documentElement.setAttribute('data-theme', e.newValue);
+      updateThemeToggleIcon();
+      syncHljsTheme();
+    }
+  });
+
   function applyHighlight(container) {
     if (typeof global.hljs === 'undefined') return;
     var scope = container || document;
@@ -201,13 +267,14 @@
     }
   }
 
-  // На загрузке страницы включаем тёмную тему hljs (если оба CSS-link'а
-  // присутствуют). hljs CSS подключается из HTML позже, поэтому делаем это
-  // после DOMContentLoaded.
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', syncHljsTheme);
+    document.addEventListener('DOMContentLoaded', function () {
+      syncHljsTheme();
+      initThemeToggle();
+    });
   } else {
     syncHljsTheme();
+    initThemeToggle();
   }
 
   // ============================================================
@@ -1740,6 +1807,8 @@
     formatMarkdown: formatMarkdown,
     formatMarkdownTable: formatMarkdownTable,
     toggleTheme: toggleTheme,
+    applyTheme: applyTheme,
+    initThemeToggle: initThemeToggle,
     setupAttachment: setupAttachment,
     buildMessageWithAttachment: buildMessageWithAttachment,
     // Браузерные парсеры — для прямого использования из text-extractor и других мест

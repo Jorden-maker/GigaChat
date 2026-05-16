@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="dark">
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Поиск ФИО — GigaChat</title>
+<script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
 <style>
 :root {
     --bg-primary: #1f1f1e;
@@ -20,6 +21,19 @@
     --success: #10b981;
     --warning: #f59e0b;
     --error: #ef4444;
+}
+:root[data-theme="light"] {
+    --bg-primary: #fdfdfc;
+    --bg-secondary: #f3f1ec;
+    --bg-input: #fffffe;
+    --bg-card: #fffffe;
+    --border: #e3dfd5;
+    --text-primary: #1f1f1e;
+    --text-secondary: #6b6b68;
+    --text-muted: #a8a59f;
+    --accent: #b8895d;
+    --accent-hover: #a0764d;
+    --accent-light: rgba(184, 137, 93, 0.15);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {

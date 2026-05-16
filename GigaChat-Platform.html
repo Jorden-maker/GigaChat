@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="dark">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GigaChat — Панель управления</title>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -19,6 +20,19 @@
             --accent-hover: #c08a5a;
             --glow-green: #10b981;
             --glow-red: #ef4444;
+        }
+        :root[data-theme="light"] {
+            --bg-primary: #fdfdfc;
+            --bg-secondary: #f3f1ec;
+            --bg-card: #fffffe;
+            --bg-card-hover: #faf7f0;
+            --border: #e3dfd5;
+            --border-hover: #b8895d;
+            --text-primary: #1f1f1e;
+            --text-secondary: #6b6b68;
+            --text-muted: #a8a59f;
+            --accent: #b8895d;
+            --accent-hover: #a0764d;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
