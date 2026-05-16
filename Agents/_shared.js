@@ -445,16 +445,30 @@
     if (ATTACH_CSS_INJECTED) return;
     ATTACH_CSS_INJECTED = true;
     var css = ''
-      // Скрепка плоская, без рамки, маленькая — живёт ВНУТРИ textarea (absolute).
-      + '.gc-attach-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:transparent;border:none;border-radius:6px;color:var(--text-secondary);cursor:pointer;transition:all .15s;flex-shrink:0;padding:0}'
+      // Единое поле ввода всех 6 агентов: textarea с иконкой отправки ВНУТРИ
+      // (правый нижний угол), а скрепка ВЫНЕСЕНА справа от поля и
+      // выровнена по центру высоты. См. inputs section ниже.
+      //
+      // Скрепка плоская, без рамки, маленькая.
+      + '.gc-attach-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:transparent;border:none;border-radius:8px;color:var(--text-secondary);cursor:pointer;transition:all .15s;flex-shrink:0;padding:0}'
       + '.gc-attach-btn:hover:not(:disabled){color:var(--accent);background:rgba(255,255,255,0.06)}'
-      + '.gc-attach-btn:disabled{opacity:.35;cursor:not-allowed}'
+      // pointer-events:none — гарантия что disabled-кнопка вообще не реагирует
+      // на клики/тапы. На случай если CSS внешнего агента переопределит cursor.
+      + '.gc-attach-btn:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}'
       + '.gc-attach-btn.has-file{color:var(--accent)}'
-      + '.gc-attach-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
-      // Обёртка textarea + скрепка (скрепка absolute в правом нижнем углу).
-      + '.gc-input-wrap{position:relative;flex:1;display:flex;align-items:stretch}'
-      + '.gc-input-wrap > textarea{flex:1;width:100%}'
-      + '.gc-input-wrap > .gc-attach-btn{position:absolute;right:6px;bottom:6px;z-index:2}'
+      + '.gc-attach-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
+      // Обёртка textarea + иконка-отправки (иконка absolute в правом нижнем углу).
+      // padding-right у textarea — место под иконку.
+      + '.gc-input-wrap{position:relative;flex:1;display:flex;align-items:stretch;min-width:0}'
+      + '.gc-input-wrap > textarea{flex:1;width:100%;padding-right:48px !important}'
+      // Кнопка-отправка как иконка внутри поля: квадратная, акцентный фон, ↵.
+      + '.gc-send-icon{position:absolute;right:8px;bottom:8px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;padding:0;transition:background .15s,opacity .15s;z-index:2}'
+      + '.gc-send-icon:hover:not(:disabled){background:var(--accent-hover,var(--accent));filter:brightness(1.08)}'
+      + '.gc-send-icon:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}'
+      + '.gc-send-icon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}'
+      // Внешний контейнер всего ряда: [wrap с textarea+send] + [скрепка].
+      // align-items:center — скрепка выровнена по центру высоты поля.
+      + '.gc-input-row{display:flex;gap:8px;align-items:center;width:100%}'
       // Чипы с именами файлов над input-area.
       + '.gc-attach-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 8px 0}'
       + '.gc-attach-chips:empty{display:none}'
@@ -475,6 +489,10 @@
 
   // Иконка скрепки (Feather paperclip)
   var PAPERCLIP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+
+  // Иконка отправки (Feather corner-down-left — стрелка ↵). Используется как
+  // содержимое .gc-send-icon кнопки внутри поля ввода.
+  var SEND_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
 
   // Создаёт контроллер вложений (поддерживает несколько файлов одновременно).
   // Возвращает объект:
@@ -1345,6 +1363,8 @@
     tsvBlocksToMarkdownTables: tsvBlocksToMarkdownTables,
     applyHighlight: applyHighlight,
     syncHljsTheme: syncHljsTheme,
+    SEND_ICON_SVG: SEND_ICON_SVG,
+    PAPERCLIP_SVG: PAPERCLIP_SVG,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,
     RETRY_DELAY_MS: RETRY_DELAY_MS

@@ -197,7 +197,9 @@
         :root[data-theme="light"] .custom-select-panel { box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
         :root[data-theme="light"] .custom-select-option.selected { background: var(--accent); color: #ffffff; }
         .agent-hint .change-hint { color: var(--text-secondary); margin-left: auto; font-style: italic; opacity: 0.7; }
-        #input-area { display: flex; gap: 10px; align-items: flex-end; }
+        /* Поле ввода: textarea + иконка-отправки (внутри) + скрепка (снаружи).
+           Базовая раскладка задаётся классом .gc-input-row в _shared.js. */
+        #input-area { display: flex; gap: 8px; align-items: center; }
         #msg {
             flex: 1; padding: 14px 18px; border-radius: 10px; border: 1px solid var(--border);
             background: var(--bg-input); color: var(--text-primary);
@@ -215,13 +217,8 @@
         #msg:focus { border-color: var(--accent); }
         #msg:disabled { opacity: 0.4; }
         #msg::placeholder { color: var(--text-secondary); opacity: 0.5; }
-        #send {
-            padding: 14px 24px; background: var(--accent); color: #1a1410; border: none; border-radius: 10px;
-            cursor: pointer; font-size: 14px; font-weight: 700;
-            letter-spacing: 0.5px; transition: background 0.2s; align-self: flex-end; flex-shrink: 0;
-        }
-        #send:hover { background: var(--accent-hover); }
-        #send:disabled { opacity: 0.4; cursor: not-allowed; }
+        /* Роутер использует золотой акцент — на нём чёрная иконка читается лучше белой. */
+        #send.gc-send-icon { color: #1a1410; }
         .empty-chat { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: 14px; gap: 8px; padding: 20px; text-align: center; }
         .empty-chat .hint { font-size: 12px; opacity: 0.7; max-width: 400px; line-height: 1.5; }
         .history-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: 14px; font-style: italic; }
@@ -337,12 +334,14 @@
                 <span class="change-hint">можно изменить</span>
             </div>
             <div class="gc-attach-chips" id="attachChips"></div>
-            <div id="input-area">
+            <div id="input-area" class="gc-input-row">
                 <div class="gc-input-wrap">
                     <textarea id="msg" rows="1" placeholder="Спросите что угодно..." disabled></textarea>
-                    <span id="attachBtn"></span>
+                    <button id="send" class="gc-send-icon" onclick="sendMsg()" disabled aria-label="Отправить" title="Отправить">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                    </button>
                 </div>
-                <button id="send" onclick="sendMsg()" disabled>Отправить</button>
+                <span id="attachBtn"></span>
             </div>
         </div>
     </div>
@@ -647,33 +646,60 @@
             var agent = currentAgent;
             var agentUrl = GigaChat.webhookUrl(agent);
 
+            var fileNamesSnapshot = hasFiles
+                ? attachment.getFiles().map(function (f) { return f.name; })
+                : [];
+
             input.disabled = true; btn.disabled = true;
             if (attachment) attachment.setDisabled(true);
             input.value = ''; input.style.height = 'auto';
             sessionStore.clearDraft(sendSessionId);
             agentHint.style.display = 'none';
 
+            // Пушим user-сообщение СРАЗУ + setInflight ДО любых await. Это
+            // единый источник правды что сессия занята; onSwitch при возврате
+            // увидит inflight и оставит скрепку заблокированной.
+            var userMsg = { role: 'user', content: text };
+            if (fileNamesSnapshot.length > 0) {
+                userMsg.attachments = fileNamesSnapshot.map(function (n) {
+                    return { fileName: n, error: false };
+                });
+            }
+            pushToSession(sendSessionId, userMsg);
+            sessionStore.setInflight(sendSessionId, hasFiles ? 'Извлекаю файлы' : (AGENT_LABELS[agent] || agent) + ' обрабатывает');
+
             var messageForAgent = text;
             var extractedList = [];
-            var attachmentsForUI = [];
 
             function abortAndRestore() {
+                sessionStore.clearInflight(sendSessionId);
+                var msgs = sessionStore.state.displayMessages;
+                if (msgs.length && msgs[msgs.length - 1].role === 'user') {
+                    msgs.pop();
+                    sessionStore.saveSnapshot();
+                }
                 if (activeSessionId === sendSessionId) {
                     input.disabled = false; btn.disabled = false;
                     if (attachment) attachment.setDisabled(false);
                     input.value = text;
                     input.focus();
+                    renderChat();
                 }
             }
 
             if (hasFiles) {
-                var nFiles = attachment.getFiles().length;
-                var extractId = appendLoading(nFiles > 1 ? ('Извлекаю текст из ' + nFiles + ' файлов') : 'Извлекаю текст из файла', true);
                 var cancelled = false;
-                var cancelBtn = document.getElementById('cancel-' + extractId);
-                if (cancelBtn) cancelBtn.onclick = function () { cancelled = true; attachment.cancel(); };
+                var inflightLoader = document.querySelector('.gc-inflight-loader');
+                if (inflightLoader) {
+                    var cancelBtn = document.createElement('button');
+                    cancelBtn.type = 'button';
+                    cancelBtn.className = 'btn-export';
+                    cancelBtn.style.cssText = 'padding:2px 10px;margin-left:8px';
+                    cancelBtn.textContent = 'Отмена';
+                    cancelBtn.onclick = function () { cancelled = true; attachment.cancel(); };
+                    inflightLoader.appendChild(cancelBtn);
+                }
                 extractedList = await attachment.extract();
-                removeLoading(extractId);
                 if (cancelled) { abortAndRestore(); return; }
                 var totalLen = 0;
                 for (var i = 0; i < extractedList.length; i++) totalLen += (extractedList[i].text || '').length;
@@ -683,14 +709,16 @@
                 }
                 var built = GigaChat.buildMessageWithAttachment(text, extractedList);
                 messageForAgent = built.messageForAgent;
-                attachmentsForUI = built.attachments;
+                var msgs2 = sessionStore.state.displayMessages;
+                for (var j = msgs2.length - 1; j >= 0; j--) {
+                    if (msgs2[j].role === 'user') {
+                        msgs2[j].attachments = built.attachments;
+                        break;
+                    }
+                }
+                sessionStore.saveSnapshot();
+                sessionStore.setInflight(sendSessionId, (AGENT_LABELS[agent] || agent) + ' обрабатывает');
             }
-
-            var userMsg = { role: 'user', content: text };
-            if (attachmentsForUI.length > 0) userMsg.attachments = attachmentsForUI;
-            pushToSession(sendSessionId, userMsg);
-
-            sessionStore.setInflight(sendSessionId, (AGENT_LABELS[agent] || agent) + ' обрабатывает');
 
             try {
                 var res = await fetchWithRetry(agentUrl, {

@@ -158,18 +158,17 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 /* Timer */
 .timer { font-size:11px; color:var(--text-muted); margin-top:6px; }
 
-/* Input */
+/* Input — единое поле как у других агентов: textarea + иконка-отправки (внутри)
+   + скрепка (снаружи справа). Базовая раскладка через .gc-input-row из _shared.js. */
 .input-area { padding: 0 20px 20px; flex-shrink: 0; }
-.input-wrapper { display:flex; gap:10px; max-width:100%; align-items:flex-end; }
-.input-wrapper textarea { flex:1; padding:12px 16px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:10px; color:var(--text-primary); font-size:14px; resize:none; outline:none; font-family:inherit; min-height:48px; max-height:150px; line-height:1.5; transition:border-color .2s; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+.input-wrapper { display:flex; gap:8px; max-width:100%; align-items:center; }
+.input-wrapper textarea { flex:1; padding:14px 18px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:10px; color:var(--text-primary); font-size:15px; resize:none; outline:none; font-family:inherit; min-height:48px; max-height:150px; line-height:1.5; transition:border-color .2s; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
 .input-wrapper textarea::-webkit-scrollbar { width:4px; }
 .input-wrapper textarea::-webkit-scrollbar-track { background:transparent; }
 .input-wrapper textarea::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
 .input-wrapper textarea:focus { border-color:var(--accent); }
+.input-wrapper textarea:disabled { opacity:0.4; }
 .input-wrapper textarea::placeholder { color:var(--text-muted); }
-.btn-send { padding:12px 20px; background:var(--accent); color:#fff; border:none; border-radius:10px; cursor:pointer; font-size:14px; font-weight:500; transition:all .2s; align-self:flex-end; flex-shrink:0; white-space:nowrap; }
-.btn-send:hover { background:var(--accent-hover); transform:scale(1.02); }
-.btn-send:disabled { background:var(--bg-tertiary); color:var(--text-muted); cursor:not-allowed; transform:none; }
 
 /* ============ КНОПКА ТЕМЫ ============ */
 .theme-toggle {
@@ -242,7 +241,6 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 :root[data-theme="light"] .input-area { /* без фона/рамки — как у других агентов */ }
 :root[data-theme="light"] .input-wrapper textarea { background: #ffffff; border-color: var(--border); color: var(--text-primary); }
 :root[data-theme="light"] .input-wrapper textarea::placeholder { color: var(--text-muted); }
-:root[data-theme="light"] .btn-send:disabled { background: var(--bg-tertiary); color: var(--text-muted); }
 :root[data-theme="light"] .theme-toggle { border-color: rgba(212, 175, 55, 0.35); color: #8a7754; }
 :root[data-theme="light"] .theme-toggle:hover { border-color: rgba(212, 175, 55, 0.7); color: #2d2416; box-shadow: 0 0 16px rgba(212, 175, 55, 0.25); }
 :root[data-theme="light"] .theme-toggle .theme-icon-sun { display: none; }
@@ -294,12 +292,14 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 
   <div class="input-area">
     <div class="gc-attach-chips" id="attachChips"></div>
-    <div class="input-wrapper">
+    <div class="input-wrapper gc-input-row">
       <div class="gc-input-wrap">
         <textarea id="userInput" placeholder="Опишите подробно, какой промпт нужен — задачу, контекст, требования, формат ответа. Текст может быть длинным." rows="1"></textarea>
-        <span id="attachBtn"></span>
+        <button class="gc-send-icon" id="btnSend" onclick="sendMessage()" aria-label="Отправить" title="Отправить">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+        </button>
       </div>
-      <button class="btn-send" id="btnSend" onclick="sendMessage()">Отправить</button>
+      <span id="attachBtn"></span>
     </div>
   </div>
 </div>
@@ -518,6 +518,11 @@ async function sendMessage() {
   if (sessionStore.getInflight(activeSessionId)) return;
 
   const sendSessionId = activeSessionId;
+
+  const fileNamesSnapshot = hasFiles
+    ? attachment.getFiles().map(f => f.name)
+    : [];
+
   input.disabled = true;
   document.getElementById('btnSend').disabled = true;
   if (attachment) attachment.setDisabled(true);
@@ -525,28 +530,49 @@ async function sendMessage() {
   input.style.height = 'auto';
   sessionStore.clearDraft(sendSessionId);
 
+  // Пушим user-сообщение СРАЗУ + setInflight ДО любых await. Это единый
+  // источник правды что сессия занята; onSwitch при возврате увидит inflight
+  // и оставит скрепку заблокированной.
+  const userMsg = { role: 'user', content: text };
+  if (fileNamesSnapshot.length > 0) {
+    userMsg.attachments = fileNamesSnapshot.map(n => ({ fileName: n, error: false }));
+  }
+  pushToSession(sendSessionId, userMsg);
+  sessionStore.setInflight(sendSessionId, hasFiles ? 'Извлекаю файлы' : 'Генерирую промпт');
+
   let messageForAgent = text;
   let extractedList = [];
-  let attachmentsForUI = [];
 
   function abortAndRestore() {
+    sessionStore.clearInflight(sendSessionId);
+    const msgs = sessionStore.state.displayMessages;
+    if (msgs.length && msgs[msgs.length - 1].role === 'user') {
+      msgs.pop();
+      sessionStore.saveSnapshot();
+    }
     if (activeSessionId === sendSessionId) {
       input.disabled = false;
       document.getElementById('btnSend').disabled = false;
       if (attachment) attachment.setDisabled(false);
       input.value = text;
       input.focus();
+      renderChat();
     }
   }
 
   if (hasFiles) {
-    const nFiles = attachment.getFiles().length;
-    const extractId = appendLoading(nFiles > 1 ? ('Извлекаю текст из ' + nFiles + ' файлов') : 'Извлекаю текст из файла', true);
     let cancelled = false;
-    const cancelBtn = document.getElementById('cancel-' + extractId);
-    if (cancelBtn) cancelBtn.onclick = () => { cancelled = true; attachment.cancel(); };
+    const inflightLoader = document.querySelector('.gc-inflight-loader');
+    if (inflightLoader) {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'btn-export';
+      cancelBtn.style.cssText = 'padding:2px 10px;margin-left:8px';
+      cancelBtn.textContent = 'Отмена';
+      cancelBtn.onclick = () => { cancelled = true; attachment.cancel(); };
+      inflightLoader.appendChild(cancelBtn);
+    }
     extractedList = await attachment.extract();
-    removeLoading(extractId);
     if (cancelled) { abortAndRestore(); return; }
     let totalLen = 0;
     for (const ex of extractedList) totalLen += (ex.text || '').length;
@@ -556,14 +582,16 @@ async function sendMessage() {
     }
     const built = GigaChat.buildMessageWithAttachment(text, extractedList);
     messageForAgent = built.messageForAgent;
-    attachmentsForUI = built.attachments;
+    const msgs2 = sessionStore.state.displayMessages;
+    for (let j = msgs2.length - 1; j >= 0; j--) {
+      if (msgs2[j].role === 'user') {
+        msgs2[j].attachments = built.attachments;
+        break;
+      }
+    }
+    sessionStore.saveSnapshot();
+    sessionStore.setInflight(sendSessionId, 'Генерирую промпт');
   }
-
-  const userMsg = { role: 'user', content: text };
-  if (attachmentsForUI.length > 0) userMsg.attachments = attachmentsForUI;
-  pushToSession(sendSessionId, userMsg);
-
-  sessionStore.setInflight(sendSessionId, 'Генерирую промпт');
 
   try {
     const data = await fetchWithRetry(WEBHOOK_URL, {

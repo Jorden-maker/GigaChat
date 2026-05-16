@@ -135,7 +135,9 @@
         .error { background: #2a1020; border: 1px solid #cc4444; color: #ff8888; padding: 12px 16px; border-radius: 10px; margin: 10px 0; font-size: 13px; }
         .timer { font-family: Consolas, monospace; font-size: 11px; color: var(--text-secondary); margin-left: 8px; }
         .bottom-area { padding: 0 20px 20px; flex-shrink: 0; }
-        #input-area { display: flex; gap: 10px; align-items: flex-end; }
+        /* Поле ввода: textarea + иконка-отправки (внутри) + скрепка (снаружи).
+           Базовая раскладка задаётся классом .gc-input-row в _shared.js. */
+        #input-area { display: flex; gap: 8px; align-items: center; }
         #msg {
             flex: 1; padding: 14px 18px; border-radius: 10px; border: 1px solid var(--border);
             background: var(--bg-input); color: var(--text-primary);
@@ -149,13 +151,6 @@
         #msg:focus { border-color: var(--accent); }
         #msg:disabled { opacity: 0.4; }
         #msg::placeholder { color: #445566; }
-        #send {
-            padding: 14px 24px; background: var(--accent); color: #fff; border: none; border-radius: 10px;
-            cursor: pointer; font-family: Segoe UI, Tahoma, sans-serif; font-size: 14px; font-weight: 600;
-            letter-spacing: 0.5px; transition: background 0.2s; align-self: flex-end; flex-shrink: 0;
-        }
-        #send:hover { background: var(--accent-hover); }
-        #send:disabled { opacity: 0.4; cursor: not-allowed; }
         .empty-chat { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #445566; font-size: 14px; gap: 8px; }
         .empty-chat .memory-note { font-size: 12px; color: var(--text-secondary); opacity: 0.6; }
         .history-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: 14px; font-style: italic; }
@@ -256,12 +251,14 @@
         <div id="chat"><div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="memory-note">История хранится на сервере — агент помнит весь диалог</span></div></div>
         <div class="bottom-area">
             <div class="gc-attach-chips" id="attachChips"></div>
-            <div id="input-area">
+            <div id="input-area" class="gc-input-row">
                 <div class="gc-input-wrap">
                     <textarea id="msg" rows="1" placeholder="Напишите сообщение..." disabled></textarea>
-                    <span id="attachBtn"></span>
+                    <button id="send" class="gc-send-icon" onclick="sendMsg()" disabled aria-label="Отправить" title="Отправить">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                    </button>
                 </div>
-                <button id="send" onclick="sendMsg()" disabled>Отправить</button>
+                <span id="attachBtn"></span>
             </div>
         </div>
     </div>
@@ -431,40 +428,78 @@
             // Источник правды «идёт ли обработка в этой сессии» — inflight маркер.
             if (sessionStore.getInflight(activeSessionId)) return;
             var sendSessionId = activeSessionId;
+
+            // Снимок имён файлов ДО clear/extract — нужно для чипов в user-сообщении.
+            var fileNamesSnapshot = hasFiles
+                ? attachment.getFiles().map(function (f) { return f.name; })
+                : [];
+
+            // Блокируем UI + помечаем сессию занятой ОДНОВРЕМЕННО. setInflight
+            // живёт в localStorage и читается onSwitch — после этого вызова
+            // никакое переключение сессий не может «разблокировать» скрепку,
+            // даже если в это время идёт await на извлечение файлов.
             input.disabled = true; btn.disabled = true;
             if (attachment) attachment.setDisabled(true);
             input.value = '';
             input.style.height = 'auto';
             sessionStore.clearDraft(sendSessionId);
 
+            // Пушим user-сообщение СРАЗУ (до await на извлечение). Юзер видит
+            // что сообщение принято; чипы файлов рендерим по именам — статус
+            // ошибок (если будут) проставим после extract.
+            var userMsg = { role: 'user', content: text };
+            if (fileNamesSnapshot.length > 0) {
+                userMsg.attachments = fileNamesSnapshot.map(function (n) {
+                    return { fileName: n, error: false };
+                });
+            }
+            pushToSession(sendSessionId, userMsg);
+
+            // setInflight ДО любых await — единый источник правды о состоянии
+            // сессии. Бывший баг: между «input.disabled=true» и setInflight был
+            // await на extract, и если юзер переключался туда-обратно, onSwitch
+            // видел getInflight()=null и снимал блокировку со скрепки.
+            sessionStore.setInflight(sendSessionId, hasFiles ? 'Извлекаю файлы' : 'Думаю');
+
             var messageForAgent = text;
             var extractedList = [];
-            var attachmentsForUI = [];
 
             // Откат: вернуть текст в input и снять блокировку — только если юзер
             // всё ещё в этой сессии. Если он ушёл в другую — там state свой,
             // не трогаем чужой input.
             function abortAndRestore() {
+                sessionStore.clearInflight(sendSessionId);
+                // Убираем уже запушенное user-сообщение (отмена до отправки агенту).
+                var msgs = sessionStore.state.displayMessages;
+                if (msgs.length && msgs[msgs.length - 1].role === 'user') {
+                    msgs.pop();
+                    sessionStore.saveSnapshot();
+                }
                 if (activeSessionId === sendSessionId) {
                     input.disabled = false; btn.disabled = false;
                     if (attachment) attachment.setDisabled(false);
                     input.value = text;
                     input.focus();
+                    renderChat();
                 }
             }
 
             // Этап 1 — извлечение текста из всех прикреплённых файлов (параллельно)
             if (hasFiles) {
-                var nFiles = attachment.getFiles().length;
-                var extractId = appendLoading(nFiles > 1 ? ('Извлекаю текст из ' + nFiles + ' файлов') : 'Извлекаю текст из файла', true);
                 var cancelled = false;
-                var cancelBtn = document.getElementById('cancel-' + extractId);
-                if (cancelBtn) cancelBtn.onclick = function () {
-                    cancelled = true;
-                    attachment.cancel();
-                };
+                // Кнопка «Отмена» поверх loader'а inflight.
+                // Делаем её через DOM-инъекцию в уже отрендеренный спиннер.
+                var inflightLoader = document.querySelector('.gc-inflight-loader');
+                if (inflightLoader) {
+                    var cancelBtn = document.createElement('button');
+                    cancelBtn.type = 'button';
+                    cancelBtn.className = 'btn-export';
+                    cancelBtn.style.cssText = 'padding:2px 10px;margin-left:8px';
+                    cancelBtn.textContent = 'Отмена';
+                    cancelBtn.onclick = function () { cancelled = true; attachment.cancel(); };
+                    inflightLoader.appendChild(cancelBtn);
+                }
                 extractedList = await attachment.extract();
-                removeLoading(extractId);
                 if (cancelled) { abortAndRestore(); return; }
                 // Суммарная длина — предупреждение
                 var totalLen = 0;
@@ -475,19 +510,18 @@
                 }
                 var built = GigaChat.buildMessageWithAttachment(text, extractedList);
                 messageForAgent = built.messageForAgent;
-                attachmentsForUI = built.attachments;
+                // Обновляем чипы в уже запушенном user-сообщении (ошибки извлечения).
+                var msgs2 = sessionStore.state.displayMessages;
+                for (var j = msgs2.length - 1; j >= 0; j--) {
+                    if (msgs2[j].role === 'user') {
+                        msgs2[j].attachments = built.attachments;
+                        break;
+                    }
+                }
+                sessionStore.saveSnapshot();
+                // Переключаем лейбл спиннера на «Думаю».
+                sessionStore.setInflight(sendSessionId, 'Думаю');
             }
-
-            // Этап 2 — пользовательское сообщение в UI (с массивом чипов если есть)
-            var userMsg = { role: 'user', content: text };
-            if (attachmentsForUI.length > 0) {
-                userMsg.attachments = attachmentsForUI;
-            }
-            pushToSession(sendSessionId, userMsg);
-
-            // Этап 3 — запрос к агенту. Inflight-маркер живёт в localStorage,
-            // поэтому если юзер уйдёт в другую сессию и вернётся — увидит спиннер.
-            sessionStore.setInflight(sendSessionId, 'Думаю');
 
             try {
                 var res = await fetchWithRetry(WEBHOOK_URL, {

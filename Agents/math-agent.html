@@ -263,7 +263,9 @@
             margin-left: 8px;
         }
         .bottom-area { padding: 0 20px 20px; flex-shrink: 0; }
-        #input-area { display: flex; gap: 10px; align-items: flex-end; }
+        /* Поле ввода: textarea + иконка-отправки (внутри) + скрепка (снаружи).
+           Базовая раскладка задаётся классом .gc-input-row в _shared.js. */
+        #input-area { display: flex; gap: 8px; align-items: center; }
         #msg {
             flex: 1; padding: 14px 18px;
             border-radius: 10px; border: 1px solid var(--border);
@@ -280,15 +282,6 @@
         #msg:focus { border-color: var(--accent); }
         #msg:disabled { opacity: 0.4; }
         #msg::placeholder { color: #445566; }
-        #send {
-            padding: 14px 24px; background: var(--accent);
-            color: white; border: none; border-radius: 10px;
-            cursor: pointer; font-family: Segoe UI, Tahoma, sans-serif;
-            font-size: 14px; font-weight: 600;
-            letter-spacing: 0.5px; transition: background 0.2s; align-self: flex-end; flex-shrink: 0;
-        }
-        #send:hover { background: var(--accent-hover); }
-        #send:disabled { opacity: 0.4; cursor: not-allowed; }
         .empty-chat {
             display: flex; align-items: center; justify-content: center;
             height: 100%; color: #445566; font-size: 14px;
@@ -397,12 +390,14 @@
         </div>
         <div class="bottom-area">
             <div class="gc-attach-chips" id="attachChips"></div>
-            <div id="input-area">
+            <div id="input-area" class="gc-input-row">
                 <div class="gc-input-wrap">
                     <textarea id="msg" rows="1" placeholder="Введите математическую задачу..." disabled></textarea>
-                    <span id="attachBtn"></span>
+                    <button id="send" class="gc-send-icon" onclick="sendMsg()" disabled aria-label="Решить" title="Решить">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                    </button>
                 </div>
-                <button id="send" onclick="sendMsg()" disabled>Решить</button>
+                <span id="attachBtn"></span>
             </div>
         </div>
     </div>
@@ -559,33 +554,61 @@
             if (!text && !hasFiles) return;
             if (sessionStore.getInflight(activeSessionId)) return;
             var sendSessionId = activeSessionId;
+
+            var fileNamesSnapshot = hasFiles
+                ? attachment.getFiles().map(function (f) { return f.name; })
+                : [];
+
             input.disabled = true; btn.disabled = true;
             if (attachment) attachment.setDisabled(true);
             input.value = '';
             input.style.height = 'auto';
             sessionStore.clearDraft(sendSessionId);
 
+            // Пушим user-сообщение СРАЗУ + setInflight ДО любых await. Это
+            // единый источник правды что сессия занята; onSwitch при возврате
+            // увидит inflight и оставит скрепку заблокированной.
+            var userMsg = { role: 'user', content: text };
+            if (fileNamesSnapshot.length > 0) {
+                userMsg.attachments = fileNamesSnapshot.map(function (n) {
+                    return { fileName: n, error: false };
+                });
+            }
+            pushToSession(sendSessionId, userMsg);
+            sessionStore.setInflight(sendSessionId, hasFiles ? 'Извлекаю файлы' : 'Считаю');
+
             var messageForAgent = text;
             var extractedList = [];
-            var attachmentsForUI = [];
 
             function abortAndRestore() {
+                sessionStore.clearInflight(sendSessionId);
+                var msgs = sessionStore.state.displayMessages;
+                if (msgs.length && msgs[msgs.length - 1].role === 'user') {
+                    msgs.pop();
+                    sessionStore.saveSnapshot();
+                }
                 if (activeSessionId === sendSessionId) {
                     input.disabled = false; btn.disabled = false;
                     if (attachment) attachment.setDisabled(false);
                     input.value = text;
                     input.focus();
+                    renderChat();
                 }
             }
 
             if (hasFiles) {
-                var nFiles = attachment.getFiles().length;
-                var extractId = appendLoading(nFiles > 1 ? ('Извлекаю текст из ' + nFiles + ' файлов') : 'Извлекаю текст из файла', true);
                 var cancelled = false;
-                var cancelBtn = document.getElementById('cancel-' + extractId);
-                if (cancelBtn) cancelBtn.onclick = function () { cancelled = true; attachment.cancel(); };
+                var inflightLoader = document.querySelector('.gc-inflight-loader');
+                if (inflightLoader) {
+                    var cancelBtn = document.createElement('button');
+                    cancelBtn.type = 'button';
+                    cancelBtn.className = 'btn-export';
+                    cancelBtn.style.cssText = 'padding:2px 10px;margin-left:8px';
+                    cancelBtn.textContent = 'Отмена';
+                    cancelBtn.onclick = function () { cancelled = true; attachment.cancel(); };
+                    inflightLoader.appendChild(cancelBtn);
+                }
                 extractedList = await attachment.extract();
-                removeLoading(extractId);
                 if (cancelled) { abortAndRestore(); return; }
                 var totalLen = 0;
                 for (var i = 0; i < extractedList.length; i++) totalLen += (extractedList[i].text || '').length;
@@ -595,14 +618,16 @@
                 }
                 var built = GigaChat.buildMessageWithAttachment(text, extractedList);
                 messageForAgent = built.messageForAgent;
-                attachmentsForUI = built.attachments;
+                var msgs2 = sessionStore.state.displayMessages;
+                for (var j = msgs2.length - 1; j >= 0; j--) {
+                    if (msgs2[j].role === 'user') {
+                        msgs2[j].attachments = built.attachments;
+                        break;
+                    }
+                }
+                sessionStore.saveSnapshot();
+                sessionStore.setInflight(sendSessionId, 'Считаю');
             }
-
-            var userMsg = { role: 'user', content: text };
-            if (attachmentsForUI.length > 0) userMsg.attachments = attachmentsForUI;
-            pushToSession(sendSessionId, userMsg);
-
-            sessionStore.setInflight(sendSessionId, 'Считаю');
 
             try {
                 var res = await fetchWithRetry(WEBHOOK_URL, {
