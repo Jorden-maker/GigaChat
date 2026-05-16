@@ -5,17 +5,17 @@
     <title>GigaChat Auto</title>
     <style>
         :root {
-            --bg-primary: #1f1c19;
-            --bg-secondary: #181614;
-            --bg-input: #2a2724;
-            --bg-user: rgba(200, 155, 108, 0.10);
-            --bg-bot: #181614;
-            --border: #332f2a;
-            --text-primary: #d4d0c8;
-            --text-secondary: #8a857d;
-            --text-muted: #5a564e;
-            --accent: #c89b6c;
-            --accent-hover: #b88a5c;
+            --bg-primary: #1c1c1c;
+            --bg-secondary: #181818;
+            --bg-input: #262626;
+            --bg-user: rgba(212, 165, 116, 0.10);
+            --bg-bot: #181818;
+            --border: #2d2d2d;
+            --text-primary: #d4d4d4;
+            --text-secondary: #8a8a8a;
+            --text-muted: #5a5a5a;
+            --accent: #d4a574;
+            --accent-hover: #c08a5a;
             --sidebar-width: 220px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -89,7 +89,7 @@
         header .status .dot.offline { background: #cc4444; box-shadow: 0 0 8px rgba(204,68,68,0.4); animation: none; }
         header .status .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
         .btn-export { padding:6px 16px; background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-secondary); border-radius:6px; cursor:pointer; font-size:12px; transition:all .2s; }
-        .btn-export:hover { background:rgba(200,155,108,0.15); color:var(--accent); border-color:var(--accent); }
+        .btn-export:hover { background:rgba(212,165,116,0.15); color:var(--accent); border-color:var(--accent); }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         /* Чат-лента в стиле Claude Code: всё слева, без центрирования и лейблов.
            User — компактный блок с лёгкой подложкой. Bot — чистый текст без обёртки. */
@@ -111,7 +111,7 @@
         .bot .agent-badge {
             display: inline-block; margin-bottom: 6px;
             padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
-            background: rgba(200,155,108,0.15); color: var(--accent);
+            background: rgba(212,165,116,0.15); color: var(--accent);
             text-transform: uppercase; letter-spacing: 0.5px;
         }
         .bot b { color: var(--text-primary); }
@@ -152,7 +152,7 @@
             font-family: inherit;
         }
         .custom-select-trigger:hover { border-color: var(--accent); }
-        .custom-select.open .custom-select-trigger { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(200,155,108,0.2); }
+        .custom-select.open .custom-select-trigger { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(212,165,116,0.2); }
         .custom-select-arrow {
             width: 12px; height: 12px;
             stroke: var(--accent); fill: none;
@@ -184,7 +184,7 @@
             color: var(--text-primary);
             transition: background 0.15s, color 0.15s;
         }
-        .custom-select-option:hover { background: rgba(200,155,108,0.12); color: var(--accent); }
+        .custom-select-option:hover { background: rgba(212,165,116,0.12); color: var(--accent); }
         .custom-select-option.selected { background: var(--accent); color: #fff; }
         .agent-hint .change-hint { color: var(--text-secondary); margin-left: auto; font-style: italic; opacity: 0.7; }
         /* Поле ввода: textarea + иконка-отправки (внутри) + скрепка (снаружи).
@@ -701,7 +701,7 @@
         var escapeHtml = GigaChat.escapeHtml;
         function formatResponse(text) {
             // formatMarkdown сам вызывает formatMarkdownTable внутри — не оборачиваем повторно.
-            return GigaChat.formatMarkdown(text, '#c89b6c');
+            return GigaChat.formatMarkdown(text, '#d4a574');
         }
         // Контроллер вложений инициализируем ДО switchTo: иначе onSwitch при
         // загрузке страницы (юзер перезагрузил пока шёл LLM-запрос) не сможет
