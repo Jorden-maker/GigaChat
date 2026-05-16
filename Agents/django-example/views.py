@@ -117,3 +117,19 @@ def ai_ask(request):
     if isinstance(result, str):
         return JsonResponse({"response": result})
     return JsonResponse(result)
+
+
+# ===================== HEALTH ENDPOINT =====================
+# Дашборд GigaChat пингует этот URL чтобы знать «подключён ли наш проект».
+# CORS не нужен — дашборд использует no-cors fetch, читать тело не пытается,
+# достаточно факта что запрос дошёл и сервер ответил.
+
+def health(request):
+    """GET /giga/health — простой liveness-check.
+    Отвечает 200 OK + JSON {status: ok, app: giga, prefix: ...}.
+    """
+    return JsonResponse({
+        "status": "ok",
+        "app": "giga",
+        "prefix": getattr(settings, "GIGACHAT_PREFIX", "external"),
+    })

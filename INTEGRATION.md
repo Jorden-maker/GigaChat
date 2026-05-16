@@ -109,7 +109,10 @@ chat_1747234567_abc123   ← такой формат у GigaChat HTML, не ис
    path('giga/', include('giga.urls')),
    ```
 
-Готово. Endpoint `POST /giga/ask` доступен — стучитесь в него из вашего HTML.
+Готово. Endpoints доступны:
+- `POST /giga/ask` — для запросов к агентам из вашего HTML.
+- `GET /giga/health` — liveness для дашборда GigaChat (админ может добавить
+  ваш проект в реестр и видеть онлайн/офлайн).
 POST на `/giga/ask` — JSON API.
 
 Работает на Django 3.x / 4.x / 5.x. Поддерживает CSRF, Django auth,

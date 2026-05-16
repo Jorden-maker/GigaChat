@@ -69,6 +69,14 @@ urlpatterns = [
 | URL | Что |
 |---|---|
 | `POST /giga/ask` | JSON API. Body: `{"message": "...", "agent": "chat\|rag\|sql\|math\|route\|prompt"}`. Ответ: `{"response": "..."}` (для math/route/prompt — расширенный JSON со специфичными полями). |
+| `GET /giga/health` | Liveness-check. Возвращает `{"status":"ok","app":"giga","prefix":"..."}`. Дашборд GigaChat пингует этот URL и показывает админу «подключён ли ваш проект сейчас». |
+
+## Добавление в дашборд GigaChat
+
+После того как у вас запустится сервер, скажите админу GigaChat URL вашего
+health endpoint — например `http://192.168.1.20/giga/health`. Админ
+добавит ваш проект в реестр в дашборде, и вы появитесь в списке подключённых
+со статусом онлайн/офлайн.
 
 ## Использование из своего HTML/JS
 
