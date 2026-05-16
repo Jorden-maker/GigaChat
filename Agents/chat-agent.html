@@ -279,18 +279,15 @@
         var statusDot = document.getElementById('statusDot');
         var statusText = document.getElementById('statusText');
 
-        var isProcessing = false;
-
-        // SessionStore из _shared.js — управляет сессиями, сайдбаром, snapshot'ами,
-        // переименованием и удалением. Раньше тут было ~170 строк дубликата —
-        // сейчас единая реализация в GigaChat.createSessionStore.
+        // SessionStore: единая точка правды.
+        // «Идёт ли обработка в сессии X» — sessionStore.getInflight(X). Не глобальный флаг.
         var sessionStore = GigaChat.createSessionStore({
             prefix: 'chat',
             idPrefix: 'chat_',
             namePrefix: 'Чат-',
             sessionList: sessionList,
             renderMessages: function () { renderChat(); },
-            isProcessing: function () { return isProcessing; },
+            // isProcessing — не передаём, sessionStore сам читает getInflight.
             onAttachmentClear: function () {
                 if (attachment) { attachment.cancel(); attachment.clear(); attachment.setDisabled(false); }
             },
@@ -302,15 +299,20 @@
                 // Восстанавливаем draft (текст, который юзер начал писать в этой сессии).
                 var draft = sessionStore.getDraft(sid) || '';
                 input.value = draft;
-                // Если draft пустой — снимаем inline-style, чтобы textarea
-                // вернулась к CSS-дефолту (min-height 48px). Иначе высота
-                // могла «застыть» от прошлого многострочного ввода.
                 input.style.height = '';
                 if (draft) {
                     input.style.height = Math.min(input.scrollHeight, 150) + 'px';
                 }
-                input.disabled = false; btn.disabled = false;
-                input.focus();
+                // Состояние input/btn зависит от того, идёт ли обработка В ЭТОЙ сессии.
+                // Если идёт — заблокировать ввод (юзер не должен иметь возможности
+                // отправить второй запрос в ту же сессию пока ответ не пришёл).
+                // Если не идёт — input активен независимо от того, что происходит
+                // в других сессиях.
+                var processing = !!sessionStore.getInflight(sid);
+                input.disabled = processing;
+                btn.disabled = processing;
+                if (attachment) attachment.setDisabled(processing);
+                if (!processing) input.focus();
             },
             loadHistory: async function (sid) {
                 if (!sessionStore.state.displayMessages.length) {
@@ -426,26 +428,29 @@
             var text = input.value.trim();
             var hasFiles = attachment && attachment.hasFiles();
             if (!text && !hasFiles) return;
-            if (isProcessing) return;
-            isProcessing = true;
+            // Источник правды «идёт ли обработка в этой сессии» — inflight маркер.
+            if (sessionStore.getInflight(activeSessionId)) return;
             var sendSessionId = activeSessionId;
             input.disabled = true; btn.disabled = true;
             if (attachment) attachment.setDisabled(true);
             input.value = '';
             input.style.height = 'auto';
-            // Draft этой сессии больше не нужен — сообщение уходит.
             sessionStore.clearDraft(sendSessionId);
 
             var messageForAgent = text;
             var extractedList = [];
             var attachmentsForUI = [];
 
+            // Откат: вернуть текст в input и снять блокировку — только если юзер
+            // всё ещё в этой сессии. Если он ушёл в другую — там state свой,
+            // не трогаем чужой input.
             function abortAndRestore() {
-                isProcessing = false;
-                input.disabled = false; btn.disabled = false;
-                if (attachment) attachment.setDisabled(false);
-                input.value = text;
-                input.focus();
+                if (activeSessionId === sendSessionId) {
+                    input.disabled = false; btn.disabled = false;
+                    if (attachment) attachment.setDisabled(false);
+                    input.value = text;
+                    input.focus();
+                }
             }
 
             // Этап 1 — извлечение текста из всех прикреплённых файлов (параллельно)
@@ -501,14 +506,17 @@
                 pushToSession(sendSessionId, { role: 'assistant', content: 'Ошибка: ' + e.message });
                 statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
             }
-            isProcessing = false;
-            input.disabled = false; btn.disabled = false;
-            if (attachment) {
-                attachment.setDisabled(false);
-                attachment.clear();
+            // UI ресетим только если юзер всё ещё в той же сессии, откуда отправлял.
+            // Иначе он сейчас в другой сессии — там свой state, не трогаем.
+            if (activeSessionId === sendSessionId) {
+                input.disabled = false; btn.disabled = false;
+                if (attachment) {
+                    attachment.setDisabled(false);
+                    attachment.clear();
+                }
+                input.focus();
+                chat.scrollTop = chat.scrollHeight;
             }
-            input.focus();
-            if (activeSessionId === sendSessionId) chat.scrollTop = chat.scrollHeight;
         }
         function exportChat() {
             if (!activeSessionId || displayMessages.length === 0) {

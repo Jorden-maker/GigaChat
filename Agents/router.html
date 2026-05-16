@@ -361,7 +361,6 @@
         var statusText = document.getElementById('statusText');
         var agentHint = document.getElementById('agentHint');
 
-        var isProcessing = false;
         var currentAgent = 'chat'; // выбранный агент для отправки
 
         // Лейблы агентов для бейджей в ответе
@@ -512,7 +511,6 @@
             namePrefix: 'Поток-',
             sessionList: sessionList,
             renderMessages: function () { renderChat(); },
-            isProcessing: function () { return isProcessing; },
             onAttachmentClear: function () {
                 if (attachment) { attachment.cancel(); attachment.clear(); attachment.setDisabled(false); }
             },
@@ -529,7 +527,11 @@
                     input.style.height = Math.min(input.scrollHeight, 150) + 'px';
                 }
                 agentHint.style.display = 'none';
-                input.disabled = false; btn.disabled = false; input.focus();
+                var processing = !!sessionStore.getInflight(sid);
+                input.disabled = processing;
+                btn.disabled = processing;
+                if (attachment) attachment.setDisabled(processing);
+                if (!processing) input.focus();
             },
             loadHistory: async function (sid) {
                 if (!sessionStore.state.displayMessages.length) {
@@ -640,8 +642,7 @@
             var text = input.value.trim();
             var hasFiles = attachment && attachment.hasFiles();
             if (!text && !hasFiles) return;
-            if (isProcessing) return;
-            isProcessing = true;
+            if (sessionStore.getInflight(activeSessionId)) return;
             var sendSessionId = activeSessionId;
             var agent = currentAgent;
             var agentUrl = GigaChat.webhookUrl(agent);
@@ -657,11 +658,12 @@
             var attachmentsForUI = [];
 
             function abortAndRestore() {
-                isProcessing = false;
-                input.disabled = false; btn.disabled = false;
-                if (attachment) attachment.setDisabled(false);
-                input.value = text;
-                input.focus();
+                if (activeSessionId === sendSessionId) {
+                    input.disabled = false; btn.disabled = false;
+                    if (attachment) attachment.setDisabled(false);
+                    input.value = text;
+                    input.focus();
+                }
             }
 
             if (hasFiles) {
@@ -707,14 +709,15 @@
                 pushToSession(sendSessionId, { role: 'assistant', content: 'Ошибка: ' + e.message, agent: agent });
                 statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
             }
-            isProcessing = false;
-            input.disabled = false; btn.disabled = false;
-            if (attachment) {
-                attachment.setDisabled(false);
-                attachment.clear();
+            if (activeSessionId === sendSessionId) {
+                input.disabled = false; btn.disabled = false;
+                if (attachment) {
+                    attachment.setDisabled(false);
+                    attachment.clear();
+                }
+                input.focus();
+                chat.scrollTop = chat.scrollHeight;
             }
-            input.focus();
-            if (activeSessionId === sendSessionId) chat.scrollTop = chat.scrollHeight;
         }
         function exportChat() {
             if (!activeSessionId || displayMessages.length === 0) {

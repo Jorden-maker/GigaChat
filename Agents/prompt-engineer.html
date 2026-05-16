@@ -308,18 +308,17 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 const WEBHOOK_URL = GigaChat.webhookUrl('prompt-engineer');
 const HISTORY_URL = GigaChat.webhookUrl('history');
 
-let isProcessing = false;
 let serverOnline = false;
 const WELCOME_HTML = '<div class="welcome"><p>Создайте новую сессию для начала работы</p></div>';
 try { localStorage.removeItem('pe_histories'); } catch (e) {}
 
+// SessionStore: «идёт обработка в сессии X» = sessionStore.getInflight(X).
 const sessionStore = GigaChat.createSessionStore({
   prefix: 'pe',
   idPrefix: 'pe_',
   namePrefix: 'Промпт-',
   sessionList: document.getElementById('sessionList'),
   renderMessages: function () { renderChat(); },
-  isProcessing: function () { return isProcessing; },
   onAttachmentClear: function () {
     if (typeof attachment !== 'undefined' && attachment) {
       attachment.cancel(); attachment.clear(); attachment.setDisabled(false);
@@ -338,9 +337,11 @@ const sessionStore = GigaChat.createSessionStore({
     if (draft) {
       userInput.style.height = Math.min(userInput.scrollHeight, 200) + 'px';
     }
-    userInput.disabled = false;
-    document.getElementById('btnSend').disabled = false;
-    userInput.focus();
+    const processing = !!sessionStore.getInflight(sid);
+    userInput.disabled = processing;
+    document.getElementById('btnSend').disabled = processing;
+    if (typeof attachment !== 'undefined' && attachment) attachment.setDisabled(processing);
+    if (!processing) userInput.focus();
   },
   loadHistory: async function (sid) {
     const container = document.getElementById('chatContainer');
@@ -514,10 +515,10 @@ async function sendMessage() {
   const text = input.value.trim();
   const hasFiles = attachment && attachment.hasFiles();
   if (!text && !hasFiles) return;
-  if (isProcessing) return;
+  if (sessionStore.getInflight(activeSessionId)) return;
 
-  isProcessing = true;
   const sendSessionId = activeSessionId;
+  input.disabled = true;
   document.getElementById('btnSend').disabled = true;
   if (attachment) attachment.setDisabled(true);
   input.value = '';
@@ -529,11 +530,13 @@ async function sendMessage() {
   let attachmentsForUI = [];
 
   function abortAndRestore() {
-    isProcessing = false;
-    document.getElementById('btnSend').disabled = false;
-    if (attachment) attachment.setDisabled(false);
-    input.value = text;
-    input.focus();
+    if (activeSessionId === sendSessionId) {
+      input.disabled = false;
+      document.getElementById('btnSend').disabled = false;
+      if (attachment) attachment.setDisabled(false);
+      input.value = text;
+      input.focus();
+    }
   }
 
   if (hasFiles) {
@@ -583,13 +586,15 @@ async function sendMessage() {
     });
   }
 
-  isProcessing = false;
-  document.getElementById('btnSend').disabled = false;
-  if (attachment) {
-    attachment.setDisabled(false);
-    attachment.clear();
+  if (activeSessionId === sendSessionId) {
+    input.disabled = false;
+    document.getElementById('btnSend').disabled = false;
+    if (attachment) {
+      attachment.setDisabled(false);
+      attachment.clear();
+    }
+    input.focus();
   }
-  input.focus();
 }
 
 async function fetchWithRetry(url, options, retries = 2) {

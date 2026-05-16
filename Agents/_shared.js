@@ -806,7 +806,12 @@
     var sessionList = opts.sessionList;
     var renderMessages = opts.renderMessages || function () {};
     var loadHistory = opts.loadHistory || null;
-    var isProcessing = opts.isProcessing || function () { return false; };
+    // isProcessing определяется per-session через getInflight маркер.
+    // Опция-callback можно переопределить для legacy-кода, но дефолт смотрит
+    // в localStorage — единый источник правды «идёт ли в сессии обработка».
+    var isProcessing = opts.isProcessing || function () {
+      return !!getInflight(store.activeSessionId);
+    };
     var onAttachmentClear = opts.onAttachmentClear || function () {};
     var onEmpty = opts.onEmpty || function () {};
     var onSwitch = opts.onSwitch || function () {};
