@@ -383,6 +383,15 @@ function pushToSession(sid, msg) { sessionStore.pushToSession(sid, msg); }
 
 // --- Init ---
 function init() {
+  // Контроллер вложений инициализируем ДО switchTo: иначе onSwitch при
+  // загрузке страницы (юзер перезагрузил пока шёл LLM-запрос) не сможет
+  // заблокировать скрепку — `if (attachment)` тихо пропустит вызов.
+  attachment = GigaChat.setupAttachment({
+    buttonContainer: document.getElementById('attachBtn'),
+    chipsContainer: document.getElementById('attachChips'),
+    inputElement: document.getElementById('userInput')
+  });
+
   sessionStore.load();
   if (sessionStore.state.activeSessionId && !sessionStore.findSession(sessionStore.state.activeSessionId)) {
     sessionStore.state.activeSessionId = null;
@@ -396,12 +405,6 @@ function init() {
     document.getElementById('btnSend').disabled = true;
     sessionStore.renderList();
   }
-  // Контроллер вложений (скрепка справа от input, чип над input)
-  attachment = GigaChat.setupAttachment({
-    buttonContainer: document.getElementById('attachBtn'),
-    chipsContainer: document.getElementById('attachChips'),
-    inputElement: document.getElementById('userInput')
-  });
   checkServerStatus();
   setInterval(checkServerStatus, 30000);
 }

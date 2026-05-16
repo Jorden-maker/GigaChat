@@ -575,6 +575,15 @@
         function formatResponse(text) {
             return GigaChat.formatMarkdown(text, '#0ea5e9');
         }
+        // Контроллер вложений инициализируем ДО switchTo: иначе onSwitch при
+        // загрузке страницы (юзер перезагрузил пока шёл LLM-запрос) не сможет
+        // заблокировать скрепку — `if (attachment)` тихо пропустит вызов.
+        attachment = GigaChat.setupAttachment({
+            buttonContainer: document.getElementById('attachBtn'),
+            chipsContainer: document.getElementById('attachChips'),
+            inputElement: input
+        });
+
         sessionStore.load();
         if (sessionStore.state.activeSessionId && !sessionStore.findSession(sessionStore.state.activeSessionId)) {
             sessionStore.state.activeSessionId = null;
@@ -584,12 +593,6 @@
             var targetId = sessionStore.state.activeSessionId || sessionStore.state.sessions[sessionStore.state.sessions.length - 1].id;
             sessionStore.switchTo(targetId);
         }
-        // Контроллер вложений (скрепка справа от input, чип над input)
-        attachment = GigaChat.setupAttachment({
-            buttonContainer: document.getElementById('attachBtn'),
-            chipsContainer: document.getElementById('attachChips'),
-            inputElement: input
-        });
 
         // Обработчики input: keydown (Enter — отправить, Shift+Enter — перенос)
         // и oninput (autosize + сохранение draft per-session).

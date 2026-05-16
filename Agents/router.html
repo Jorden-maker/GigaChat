@@ -776,6 +776,15 @@
             // formatMarkdown сам вызывает formatMarkdownTable внутри — не оборачиваем повторно.
             return GigaChat.formatMarkdown(text, '#d4af37');
         }
+        // Контроллер вложений инициализируем ДО switchTo: иначе onSwitch при
+        // загрузке страницы (юзер перезагрузил пока шёл LLM-запрос) не сможет
+        // заблокировать скрепку — `if (attachment)` тихо пропустит вызов.
+        attachment = GigaChat.setupAttachment({
+            buttonContainer: document.getElementById('attachBtn'),
+            chipsContainer: document.getElementById('attachChips'),
+            inputElement: input
+        });
+
         sessionStore.load();
         if (sessionStore.state.activeSessionId && !sessionStore.findSession(sessionStore.state.activeSessionId)) {
             sessionStore.state.activeSessionId = null;
@@ -785,12 +794,6 @@
             var targetId = sessionStore.state.activeSessionId || sessionStore.state.sessions[sessionStore.state.sessions.length - 1].id;
             sessionStore.switchTo(targetId);
         }
-        // Контроллер вложений (скрепка справа от input, чип над input)
-        attachment = GigaChat.setupAttachment({
-            buttonContainer: document.getElementById('attachBtn'),
-            chipsContainer: document.getElementById('attachChips'),
-            inputElement: input
-        });
 
         input.addEventListener('keydown', function (e) {
             if (e.key === 'Enter' && !e.shiftKey) {
