@@ -175,7 +175,7 @@
                 <button class="btn-export" onclick="exportChat()">Экспорт</button>
             </div>
         </header>
-        <div id="chat"><div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="memory-note">История хранится на сервере — агент помнит весь диалог</span></div></div>
+        <div id="chat"><div class="empty-chat"><span>Создайте новую сессию для начала работы</span></div></div>
         <div class="bottom-area">
             <div class="gc-attach-chips" id="attachChips"></div>
             <div id="input-area" class="gc-input-row">
@@ -216,7 +216,7 @@
                 if (attachment) { attachment.cancel(); attachment.clear(); attachment.setDisabled(false); }
             },
             onEmpty: function () {
-                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="memory-note">История хранится на сервере — агент помнит весь диалог</span></div>';
+                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span></div>';
                 input.disabled = true; btn.disabled = true;
                 if (attachment) attachment.setDisabled(true);
             },
@@ -283,7 +283,7 @@
         }
         function renderChat() {
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) {
-                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="memory-note">История хранится на сервере — агент помнит весь диалог</span></div>'; return;
+                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span></div>'; return;
             }
             var html = '';
             for (var i = 0; i < displayMessages.length; i++) {

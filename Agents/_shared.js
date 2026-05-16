@@ -446,7 +446,7 @@
       + '.gc-input-wrap{position:relative;flex:1;display:flex;align-items:stretch;min-width:0}'
       + '.gc-input-wrap > textarea{flex:1;width:100%;padding-right:48px !important}'
       // Кнопка-отправка как иконка внутри поля: квадратная, акцентный фон, ↵.
-      + '.gc-send-icon{position:absolute;right:8px;bottom:8px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--text-secondary);border:none;border-radius:8px;cursor:pointer;padding:0;transition:color .15s,background .15s,opacity .15s;z-index:2}'
+      + '.gc-send-icon{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--text-secondary);border:none;border-radius:8px;cursor:pointer;padding:0;transition:color .15s,background .15s,opacity .15s;z-index:2}'
       + '.gc-send-icon:hover:not(:disabled){color:var(--accent);background:rgba(255,255,255,0.06)}'
       + '.gc-send-icon:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}'
       + '.gc-send-icon svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
