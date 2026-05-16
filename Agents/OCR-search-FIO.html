@@ -34,6 +34,8 @@ body {
 .btn-home { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; margin:10px 12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; color:var(--text-secondary); text-decoration:none; flex-shrink:0; transition:background .15s,color .15s,border-color .15s; }
 .btn-home:hover { background:var(--bg-input); color:var(--text-primary); border-color:var(--text-muted); }
 .btn-home svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.header-left { display:flex; align-items:center; gap:14px; }
+header .btn-home { margin: 0; }
 
 header {
     display: flex;
@@ -41,7 +43,6 @@ header {
     justify-content: space-between;
     padding: 14px 20px;
     flex-shrink: 0;
-    border-bottom: 1px solid var(--border);
 }
 header h1 {
     font-family: Consolas, monospace;
@@ -257,10 +258,8 @@ main {
 </head>
 <body>
 
-<a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
-
 <header>
-    <h1>Поиск ФИО — GigaChat</h1>
+    <div class="header-left"><a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a><h1>Поиск ФИО</h1></div>
     <div class="header-right">
         <div class="status-bar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
     </div>

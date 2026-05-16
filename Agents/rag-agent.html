@@ -39,7 +39,7 @@
             display: flex; flex-direction: column; flex-shrink: 0;
             overflow: hidden;
         }
-        .sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
+        .sidebar-header { padding: 20px 16px 12px; }
         .sidebar-header h3 { font-size: 13px; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
         .sidebar-add { padding: 10px 16px; border-bottom: 1px solid var(--border); }
         .sidebar-add button {
@@ -75,10 +75,10 @@
             padding: 4px 6px; border-radius: 4px;
             outline: none; font-family: inherit;
         }
-        .main { flex: 1; display: flex; flex-direction: column; height: 100vh; }
+        .main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; }
         header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 20px; flex-shrink: 0; border-bottom: 1px solid var(--border);
+            padding: 10px 20px; flex-shrink: 0;
         }
         .header-left { display:flex; align-items:center; gap:12px; }
         .header-right { display:flex; align-items:center; gap:12px; }
@@ -301,8 +301,17 @@
             chat.innerHTML = html;
             chat.scrollTop = chat.scrollHeight;
         }
-        function fetchWithRetry(url, options, retries) {
-            return GigaChat.fetchWithRetry(url, options, { timeout: FETCH_TIMEOUT_MS, retries: retries, retryDelay: RETRY_DELAY_MS });
+        function fetchWithRetry(url, options, optsOrRetries) {
+            // optsOrRetries: число retries (legacy) или объект { retries, signal }.
+            var opts = (typeof optsOrRetries === 'number')
+                ? { retries: optsOrRetries }
+                : (optsOrRetries || {});
+            return GigaChat.fetchWithRetry(url, options, {
+                timeout: FETCH_TIMEOUT_MS,
+                retries: opts.retries,
+                retryDelay: RETRY_DELAY_MS,
+                signal: opts.signal
+            });
         }
         // Контроллер вложений: создаётся после загрузки сессий ниже
         var attachment = null;
