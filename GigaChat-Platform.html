@@ -587,8 +587,16 @@
         :root[data-theme="light"] .gateway-modal-body code { color: #8a6914; background: #fdf6e3; }
         .gateway-url-row { display: flex; gap: 8px; align-items: center; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-family: Consolas, monospace; font-size: 13px; }
         .gateway-url-row code { background: none; padding: 0; color: var(--glow-cyan); flex: 1; word-break: break-all; }
-        .gateway-copy-btn { padding: 4px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); cursor: pointer; font-size: 12px; font-family: inherit; transition: all 0.15s; flex-shrink: 0; }
+        .gateway-copy-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; padding: 0;
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+            color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
+            transition: all 0.15s;
+        }
         .gateway-copy-btn:hover { border-color: var(--glow-cyan); color: var(--glow-cyan); }
+        .gateway-copy-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .gateway-copy-btn.copied { color: var(--glow-green); border-color: var(--glow-green); }
 
         /* Реестр сторонних проектов */
         .gateway-clients-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
@@ -623,9 +631,11 @@
 
         /* Список агентов */
         .gateway-agents-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-top: 8px; }
-        .gateway-agent-item { display: flex; gap: 8px; padding: 6px 10px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; align-items: center; }
+        .gateway-agent-item { display: flex; gap: 8px; padding: 6px 8px 6px 10px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; align-items: center; }
         .gateway-agent-item code { background: none; padding: 0; color: var(--glow-cyan); flex-shrink: 0; font-size: 11.5px; }
-        .gateway-agent-item .desc { color: var(--text-secondary); font-size: 11.5px; }
+        .gateway-agent-item .desc { color: var(--text-secondary); font-size: 11.5px; flex: 1; }
+        .gateway-agent-item .gateway-copy-btn { width: 24px; height: 24px; }
+        .gateway-agent-item .gateway-copy-btn svg { width: 12px; height: 12px; }
     </style>
     <script src="Agents/_config.js"></script>
     <script src="Agents/_shared.js"></script>
@@ -803,11 +813,12 @@
       <h3>URL шлюза</h3>
       <div class="gateway-url-row">
         <code id="gatewayBaseUrl">—</code>
-        <button class="gateway-copy-btn" onclick="copyText(document.getElementById('gatewayBaseUrl').textContent)">Копировать</button>
+        <button class="gateway-copy-btn" onclick="copyFromElement(this, 'gatewayBaseUrl')" title="Копировать URL">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
       </div>
 
       <h3>Подключённые проекты</h3>
-      <p class="gateway-help">Соседние сервисы которые ходят в шлюз. Health-пинг каждые 30 сек. Чтобы подключить новый — см. <code>INTEGRATION.md</code>.</p>
       <div id="gatewayClientsBox"></div>
       <button class="gateway-add-trigger" onclick="toggleAddClientForm()">+ Добавить проект</button>
       <div class="gateway-add-form" id="gatewayAddForm">
@@ -821,12 +832,12 @@
 
       <h3>Доступные агенты</h3>
       <div class="gateway-agents-list">
-        <div class="gateway-agent-item"><code>/webhook/router</code><span class="desc">авто-маршрутизация</span></div>
-        <div class="gateway-agent-item"><code>/webhook/chat-agent</code><span class="desc">универсальный чат</span></div>
-        <div class="gateway-agent-item"><code>/webhook/rag-agent</code><span class="desc">по документам</span></div>
-        <div class="gateway-agent-item"><code>/webhook/sql-agent</code><span class="desc">база данных</span></div>
-        <div class="gateway-agent-item"><code>/webhook/math-agent</code><span class="desc">вычисления</span></div>
-        <div class="gateway-agent-item"><code>/webhook/prompt-engineer</code><span class="desc">промпт-инженер</span></div>
+        <div class="gateway-agent-item"><code>/webhook/router</code><span class="desc">авто-маршрутизация</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/router')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/chat-agent</code><span class="desc">универсальный чат</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/chat-agent')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/rag-agent</code><span class="desc">по документам</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/rag-agent')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/sql-agent</code><span class="desc">база данных</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/sql-agent')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/math-agent</code><span class="desc">вычисления</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/math-agent')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/prompt-engineer</code><span class="desc">промпт-инженер</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/prompt-engineer')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
       </div>
 
     </div>
@@ -1105,6 +1116,25 @@
             try { document.execCommand('copy'); } catch (_) {}
             ta.remove();
         }
+    }
+
+    // Визуальное подтверждение копирования: кнопка зеленеет на 1.2 сек.
+    function flashCopied(btn) {
+        if (!btn) return;
+        btn.classList.add('copied');
+        setTimeout(function () { btn.classList.remove('copied'); }, 1200);
+    }
+
+    function copyFromElement(btn, elementId) {
+        var el = document.getElementById(elementId);
+        if (!el) return;
+        copyText(el.textContent);
+        flashCopied(btn);
+    }
+
+    function copyAgentUrl(btn, path) {
+        copyText(gatewayBase() + path);
+        flashCopied(btn);
     }
 
     // Закрытие по Escape
