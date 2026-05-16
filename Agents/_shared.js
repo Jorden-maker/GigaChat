@@ -467,10 +467,14 @@
       + '.gc-input-wrap{position:relative;flex:1;display:flex;align-items:stretch;min-width:0}'
       + '.gc-input-wrap > textarea{flex:1;width:100%;padding-right:48px !important}'
       // Кнопка-отправка как иконка внутри поля: квадратная, акцентный фон, ↵.
-      + '.gc-send-icon{position:absolute;right:11px;bottom:8px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--text-secondary);border:none;border-radius:8px;cursor:pointer;padding:0;transition:color .15s,background .15s,opacity .15s;z-index:2}'
+      + '.gc-send-icon{position:absolute;right:11px;bottom:6px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--text-secondary);border:none;border-radius:8px;cursor:pointer;padding:0;transition:color .15s,background .15s,opacity .15s;z-index:2}'
       + '.gc-send-icon:hover:not(:disabled){color:var(--accent);background:rgba(255,255,255,0.06)}'
       + '.gc-send-icon:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}'
+      // Стрелка — только stroke, fill принудительно none (чтобы не была
+      // белой при возможных hover-стилях). Stop-квадрат рисуется тем же
+      // currentColor через fill (отдельное правило ниже).
       + '.gc-send-icon svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
+      + '.gc-send-icon svg rect{fill:currentColor;stroke:none}'
       // Внешний контейнер всего ряда: [wrap с textarea+send] + [скрепка].
       // align-items:center — скрепка выровнена по центру высоты поля.
       + '.gc-input-row{display:flex;gap:8px;align-items:center;width:100%}'
@@ -607,12 +611,14 @@
       var style = document.createElement('style');
       style.id = 'gc-sidebar-resize-css';
       style.textContent =
-        // Широкая 14px hot-zone у правого края с явным dot-grip посередине
-        // (3 точки вертикально через repeating-gradient). Курсор col-resize
-        // на всей зоне. Юзер видит точки → понимает, что можно тянуть.
-        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:14px;cursor:col-resize;z-index:10;background:transparent;display:flex;align-items:center;justify-content:center}' +
-        '.gc-sidebar-resize-handle::after{content:"";display:block;width:3px;height:28px;background:radial-gradient(circle 1.5px at 50% 4px, var(--text-secondary) 99%, transparent 100%) 0 0/3px 10px repeat-y;opacity:0.6;transition:opacity .15s,background .15s}' +
-        '.gc-sidebar-resize-handle:hover::after,.gc-sidebar-resize-handle.dragging::after{opacity:1;background:radial-gradient(circle 1.5px at 50% 4px, var(--accent) 99%, transparent 100%) 0 0/3px 10px repeat-y}';
+        // Sidebar — позиционируется как parent для handle.
+        '.sidebar{position:relative}' +
+        // Hot-zone 24px у правого края (внутри sidebar). Всегда видна
+        // peach-вертикальная линия 2px по центру (opacity 0.6), на hover
+        // насыщенный peach (opacity 1) + ширина 3px.
+        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:24px;cursor:col-resize;z-index:100;background:transparent;user-select:none}' +
+        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:25%;right:0;bottom:25%;width:2px;background:var(--accent);opacity:0.55;transition:opacity .15s,width .15s}' +
+        '.gc-sidebar-resize-handle:hover::after,.gc-sidebar-resize-handle.dragging::after{opacity:1;width:3px}';
       document.head.appendChild(style);
     }
 
@@ -794,7 +800,7 @@
           var x = document.createElement('span');
           x.className = 'x';
           x.textContent = '×';
-          x.title = 'Убрать файл';
+          x.setAttribute('aria-label', 'Убрать файл');
           x.addEventListener('click', function () {
             selectedFiles.splice(idx, 1);
             renderChips();
@@ -1189,7 +1195,12 @@
       if (!sid) return;
       try { localStorage.removeItem(KEY_INFLIGHT + sid); } catch (e) {}
       stopInflightTicker();
-      renderMessages(store.displayMessages);
+      // Удаляем loader из DOM напрямую вместо полного renderMessages —
+      // иначе chat.innerHTML=html перестраивает весь чат и вызывает
+      // визуальный «рывок» (особенно при отмене запроса). Следующий
+      // push (assistant msg в успехе) сам триггерит renderMessages.
+      var loaders = document.querySelectorAll('.gc-inflight-loader');
+      for (var i = 0; i < loaders.length; i++) loaders[i].remove();
     }
     function getInflight(sid) {
       if (!sid) return null;
@@ -1372,7 +1383,7 @@
 
           var edit = document.createElement('span');
           edit.className = 'edit';
-          edit.title = 'Переименовать';
+          edit.setAttribute('aria-label', 'Переименовать');
           edit.innerHTML = PENCIL_SVG;
           (function (sess) {
             edit.addEventListener('click', function (e) { e.stopPropagation(); startRename(sess.id); });
@@ -1381,7 +1392,7 @@
 
           var close = document.createElement('span');
           close.className = 'close';
-          close.title = 'Удалить';
+          close.setAttribute('aria-label', 'Удалить');
           close.textContent = '×';
           (function (sess) {
             close.addEventListener('click', function (e) { e.stopPropagation(); remove(sess.id); });

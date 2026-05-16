@@ -44,7 +44,7 @@
             flex-shrink: 0;
             overflow: hidden;
         }
-        .sidebar-header { padding: 10px 16px 12px; }
+        .sidebar-header { padding: 0 16px 12px; }
         .sidebar-header h3 {
             font-size: 13px;
             color: var(--text-secondary);
@@ -64,6 +64,7 @@
             border-radius: 6px;
             cursor: pointer;
             font-size: 13px;
+        text-align: center;
         }
         .sidebar-add button:hover {
             border-color: var(--accent);
@@ -112,7 +113,7 @@
         .session-item:hover .edit { opacity: 0.8; }
         .session-item .edit:hover { background: var(--bg-secondary); color: var(--accent); opacity: 1; }
         .session-item .edit svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-        .session-item .close:hover { background: #2a2a4a; color: #ff6666; opacity: 1; }
+        .session-item .close:hover { background: var(--bg-secondary); color: var(--accent); opacity: 1; }
         .session-item .name-edit {
             flex: 1; min-width: 0;
             background: var(--bg-input); border: 1px solid var(--accent);
@@ -141,14 +142,7 @@
             color: var(--accent);
             letter-spacing: 2px;
         }
-        header .status {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 11px;
-            color: var(--text-secondary);
-            letter-spacing: 0.5px;
-        }
+        header .status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; line-height: 1; color: var(--text-secondary); letter-spacing: 0.5px; }
         header .status .dot {
             width: 6px; height: 6px;
             border-radius: 50%;
@@ -296,7 +290,7 @@
         <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
         <div class="sidebar-header"><h3>Сессии</h3></div>
         <div class="sidebar-add">
-            <button onclick="createNewSession()">+ Новая сессия</button>
+            <button onclick="createNewSession()">Новая сессия</button>
         </div>
         <div class="session-list" id="sessionList"></div>
     </div>
