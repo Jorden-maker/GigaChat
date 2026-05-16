@@ -157,20 +157,16 @@
     return html;
   }
 
-  // Применяет тему highlight.js (две предзагруженные CSS-темы переключаются
-  // через disabled). Если highlight.js не подключён — тихо ничего не делает.
-  function syncHljsTheme(themeName) {
+  // Единая корпоративная тема — светлая (бежевая + золотой акцент). Тёмная
+  // тема и переключатель удалены, но эти функции остаются как no-op для
+  // обратной совместимости (на случай если внешний код вызывает их).
+  function syncHljsTheme() {
     var dark = document.getElementById('hljs-theme-dark');
     var light = document.getElementById('hljs-theme-light');
-    if (!dark || !light) return;
-    if (themeName === 'dark') {
-      dark.disabled = false;
-      light.disabled = true;
-    } else {
-      dark.disabled = true;
-      light.disabled = false;
-    }
+    if (dark) dark.disabled = true;
+    if (light) light.disabled = false;
   }
+  function toggleTheme() { /* no-op: тёмная тема удалена */ }
 
   // Применить подсветку синтаксиса ко всем неподсвеченным <pre><code> внутри
   // контейнера (либо ко всему документу если container не передан).
@@ -184,25 +180,13 @@
     }
   }
 
-  // Переключение темы: меняет атрибут data-theme на <html> и сохраняет выбор.
-  // Раннее применение темы делается inline-скриптом в <head> каждой страницы.
-  function toggleTheme() {
-    var current = document.documentElement.getAttribute('data-theme') || 'light';
-    var next = current === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    try { localStorage.setItem('giga_theme', next); } catch (e) {}
-    syncHljsTheme(next);
-  }
-
-  // На загрузке страницы синхронизируем тему hljs с текущим data-theme.
-  // Раннее применение темы делается inline-скриптом, но hljs CSS подключается
-  // позже, поэтому делаем это после DOMContentLoaded.
+  // На загрузке страницы включаем светлую тему hljs (если оба CSS-link'а
+  // присутствуют). hljs CSS подключается из HTML позже, поэтому делаем это
+  // после DOMContentLoaded.
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () {
-      syncHljsTheme(document.documentElement.getAttribute('data-theme') || 'light');
-    });
+    document.addEventListener('DOMContentLoaded', syncHljsTheme);
   } else {
-    syncHljsTheme(document.documentElement.getAttribute('data-theme') || 'light');
+    syncHljsTheme();
   }
 
   // ============================================================
