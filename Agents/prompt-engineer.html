@@ -27,9 +27,9 @@
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg-primary); color:var(--text-primary); height:100vh; display:flex; overflow:hidden; }
 
-.btn-home { display:block; padding:10px 16px; background:#0c0a07; border-bottom:1px solid var(--border); color:#8a8a8a; text-decoration:none; font-size:13px; transition:color .2s; }
-.btn-home:hover { color:var(--accent); }
-.btn-home .arrow { margin-right:6px; }
+.btn-home { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; margin:10px 12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; color:var(--text-secondary); text-decoration:none; flex-shrink:0; transition:background .15s,color .15s,border-color .15s; }
+.btn-home:hover { background:var(--bg-input); color:var(--text-primary); border-color:var(--text-muted); }
+.btn-home svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 
 /* Sidebar — единый стиль с остальными агентами */
 .sidebar {
@@ -42,7 +42,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 .sidebar-add { padding: 10px 16px; border-bottom: 1px solid var(--border); }
 .sidebar-add button {
     width: 100%; padding: 8px;
-    background: var(--bg-secondary); border: 1px dashed var(--border);
+    background: var(--bg-secondary); border: 1px solid var(--border);
     color: var(--text-secondary); border-radius: 6px;
     cursor: pointer; font-size: 13px;
 }
@@ -54,7 +54,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
     cursor: pointer; font-size: 13px; color: var(--text-secondary); transition: background 0.15s;
 }
 .session-item:hover { background: var(--bg-secondary); }
-.session-item.active { background: var(--bg-secondary); color: var(--accent); border: 1px solid var(--border); }
+.session-item.active { background: var(--bg-secondary); color: var(--text-primary); }
 .session-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-item .close, .session-item .edit {
     width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
@@ -94,8 +94,8 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 .status-dot.offline { background:#cc4444; box-shadow:0 0 8px rgba(204,68,68,0.4); animation:none; }
 .status-dot.checking { background:#f0ad4e; animation:pulse 1s infinite; }
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
-.btn-export { padding:6px 14px; background:var(--bg-tertiary); border:1px solid var(--border); color:var(--text-secondary); border-radius:6px; cursor:pointer; font-size:12px; transition:all .2s; }
-.btn-export:hover { background:var(--accent-light); color:var(--text-primary); border-color:var(--accent); }
+.btn-export { padding:6px 16px; background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-secondary); border-radius:6px; cursor:pointer; font-size:12px; transition:all .2s; }
+.btn-export:hover { background:rgba(212,165,116,0.15); color:var(--accent); border-color:var(--accent); }
 
 /* Chat */
 /* Чат-лента в стиле Claude Code: всё слева, без центрирования и лейблов.
@@ -176,7 +176,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 
 <!-- Sidebar -->
 <div class="sidebar">
-  <a class="btn-home" href="../GigaChat-Platform.html"><span class="arrow">&#8592;</span>GigaChat</a>
+  <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></a>
   <div class="sidebar-header"><h3>Сессии</h3></div>
   <div class="sidebar-add"><button onclick="createNewSession()">+ Новая сессия</button></div>
   <div class="session-list" id="sessionList"></div>
@@ -513,12 +513,13 @@ async function sendMessage() {
     sessionStore.setInflight(sendSessionId, 'Генерирую промпт');
   }
 
+  const sendCtrl = GigaChat.makeCancellableSend(document.getElementById('btnSend'));
   try {
     const data = await fetchWithRetry(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify({ message: messageForAgent, session_id: sendSessionId })
-    });
+    }, { retries: 2, signal: sendCtrl.signal });
     sessionStore.clearInflight(sendSessionId);
 
     GigaChat.typewriteAssistant(sessionStore, sendSessionId, {
@@ -528,10 +529,14 @@ async function sendMessage() {
     }, { cps: 100 });
   } catch (err) {
     sessionStore.clearInflight(sendSessionId);
-    pushToSession(sendSessionId, {
-      role: 'assistant',
-      content: 'Ошибка: ' + err.message
-    });
+    if (!sendCtrl.aborted()) {
+      pushToSession(sendSessionId, {
+        role: 'assistant',
+        content: 'Ошибка: ' + err.message
+      });
+    }
+  } finally {
+    sendCtrl.restore();
   }
 
   if (activeSessionId === sendSessionId) {
@@ -545,8 +550,12 @@ async function sendMessage() {
   }
 }
 
-async function fetchWithRetry(url, options, retries = 2) {
-  const resp = await GigaChat.fetchWithRetry(url, options, { retries });
+async function fetchWithRetry(url, options, optsOrRetries = 2) {
+  // optsOrRetries: число retries (legacy) или объект { retries, signal }
+  const opts = (typeof optsOrRetries === 'number')
+    ? { retries: optsOrRetries }
+    : (optsOrRetries || {});
+  const resp = await GigaChat.fetchWithRetry(url, options, { retries: opts.retries, signal: opts.signal });
   if (!resp.ok) {
     const errText = await resp.text().catch(() => 'Unknown error');
     throw new Error(`Сервер ответил ${resp.status}: ${errText}`);

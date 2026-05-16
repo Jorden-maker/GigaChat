@@ -28,18 +28,39 @@
     var timeout = opts.timeout || FETCH_TIMEOUT_MS;
     var retries = (opts.retries == null) ? MAX_RETRIES : opts.retries;
     var retryDelay = opts.retryDelay || RETRY_DELAY_MS;
+    var externalSignal = opts.signal || null;
 
     var lastErr = null;
     for (var attempt = 0; attempt <= retries; attempt++) {
       var controller = new AbortController();
       var tid = setTimeout(function () { controller.abort(); }, timeout);
+      // Внешний signal (например юзер нажал «отмена») → внутренний controller
+      // тоже abort'ится, fetch падает с AbortError. Если уже aborted на старте —
+      // сразу abort внутренний.
+      var onExternalAbort = null;
+      if (externalSignal) {
+        if (externalSignal.aborted) {
+          controller.abort();
+        } else {
+          onExternalAbort = function () { controller.abort(); };
+          externalSignal.addEventListener('abort', onExternalAbort);
+        }
+      }
       try {
         var res = await fetch(url, Object.assign({}, options, { signal: controller.signal }));
         clearTimeout(tid);
+        if (onExternalAbort) externalSignal.removeEventListener('abort', onExternalAbort);
         return res;
       } catch (e) {
         clearTimeout(tid);
+        if (onExternalAbort) externalSignal.removeEventListener('abort', onExternalAbort);
         lastErr = e;
+        // Юзер отменил — пробрасываем как есть, ретраи не делаем.
+        if (externalSignal && externalSignal.aborted) {
+          var abortErr = new Error('Запрос отменён');
+          abortErr.name = 'AbortError';
+          throw abortErr;
+        }
         // Таймаут — сразу выходим, не плодим параллельные запросы.
         if (e.name === 'AbortError') {
           throw new Error('Сервер не ответил за ' + (timeout / 1000) + ' сек.');
@@ -477,6 +498,46 @@
   // Иконка отправки (Feather corner-down-left — стрелка ↵). Используется как
   // содержимое .gc-send-icon кнопки внутри поля ввода.
   var SEND_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+
+  // Иконка «стоп» — квадратик. Показывается на месте стрелки отправки во
+  // время LLM-запроса; клик отменяет запрос.
+  var STOP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/></svg>';
+
+  // Переключает кнопку отправки в режим «отмена»: меняет иконку на квадрат,
+  // снимает disabled, вешает onclick → controller.abort(). Возвращает
+  // объект с методами signal/aborted/restore для использования в sendMsg.
+  //
+  // Использование:
+  //   var sendCtrl = GigaChat.makeCancellableSend(btn);
+  //   try {
+  //     var res = await fetchWithRetry(url, opts, { signal: sendCtrl.signal });
+  //   } catch (e) {
+  //     if (sendCtrl.aborted()) { /* user cancelled */ }
+  //     else { /* real error */ }
+  //   } finally {
+  //     sendCtrl.restore();
+  //   }
+  function makeCancellableSend(btn) {
+    var controller = new AbortController();
+    var prevHtml = btn.innerHTML;
+    var prevOnclick = btn.onclick;
+    var prevDisabled = btn.disabled;
+    btn.disabled = false;
+    btn.innerHTML = STOP_ICON_SVG;
+    btn.onclick = function (ev) {
+      if (ev) ev.preventDefault();
+      controller.abort();
+    };
+    return {
+      signal: controller.signal,
+      aborted: function () { return controller.signal.aborted; },
+      restore: function () {
+        btn.disabled = prevDisabled;
+        btn.innerHTML = prevHtml;
+        btn.onclick = prevOnclick;
+      }
+    };
+  }
 
   // Создаёт контроллер вложений (поддерживает несколько файлов одновременно).
   // Возвращает объект:
@@ -1348,7 +1409,9 @@
     applyHighlight: applyHighlight,
     syncHljsTheme: syncHljsTheme,
     SEND_ICON_SVG: SEND_ICON_SVG,
+    STOP_ICON_SVG: STOP_ICON_SVG,
     PAPERCLIP_SVG: PAPERCLIP_SVG,
+    makeCancellableSend: makeCancellableSend,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,
     RETRY_DELAY_MS: RETRY_DELAY_MS

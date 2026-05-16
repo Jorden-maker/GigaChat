@@ -31,9 +31,9 @@ body {
     flex-direction: column;
 }
 
-.btn-home { display:block; padding:10px 16px; background:#0c0a07; border-bottom:1px solid var(--border); color:#8a8a8a; text-decoration:none; font-size:13px; transition:color .2s; }
-.btn-home:hover { color: var(--accent); }
-.btn-home .arrow { margin-right:6px; }
+.btn-home { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; margin:10px 12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; color:var(--text-secondary); text-decoration:none; flex-shrink:0; transition:background .15s,color .15s,border-color .15s; }
+.btn-home:hover { background:var(--bg-input); color:var(--text-primary); border-color:var(--text-muted); }
+.btn-home svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 
 header {
     display: flex;
@@ -314,7 +314,7 @@ main {
 </head>
 <body>
 
-<a class="btn-home" href="../GigaChat-Platform.html"><span class="arrow">&#8592;</span>GigaChat</a>
+<a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></a>
 
 <header>
     <h1>Объединение Word — GigaChat</h1>
