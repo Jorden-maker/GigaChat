@@ -1,29 +1,55 @@
-# GigaChat — готовый Django app
+# Подключение Django-проекта к GigaChat
 
-Этот каталог — **готовый Django app** для подключения соседнего Python/Django
-проекта к GigaChat. Скопируйте папку в свой Django-проект, добавьте 3 строки
-конфига — получите рабочий API-endpoint `/giga/ask` для обращения к 6 агентам
-GigaChat из любого места своего проекта.
+Эта инструкция для разработчика соседнего офисного Django-проекта.
+После выполнения 3 шагов ваше приложение сможет дёргать 6 AI-агентов GigaChat
+(чат, поиск по документам, SQL, математика и др.) из своего фронта одной
+fetch-функцией.
 
-Работает на любой версии Django 3.x / 4.x / 5.x. Sync-only — без async,
-никаких настроек ASGI.
+Работает на Django **3.x / 4.x / 5.x**. Без async, без правок ASGI, без CORS.
+
+---
+
+## Быстрый старт (30 секунд)
+
+```
+1. cp -r django-example /path/to/your-project/giga
+2. pip install httpx
+3. settings.py: INSTALLED_APPS = [..., 'giga']
+                GIGACHAT_BASE = "http://192.168.1.10:5678"
+                GIGACHAT_PREFIX = "myproject"
+   urls.py:     path('giga/', include('giga.urls'))
+```
+
+Из вашего HTML:
+```js
+fetch('/giga/ask', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+  body: JSON.stringify({ message: 'Привет, кто ты?', agent: 'chat' })
+}).then(r => r.json()).then(data => console.log(data.response));
+```
+
+Готово. Дальше — детали.
+
+---
 
 ## Установка — 3 шага
 
-### Шаг 1: скопировать папку
+### Шаг 1. Скопировать папку в свой проект
 
 ```bash
 cp -r django-example /path/to/your-django-project/giga
 ```
 
-Структура которая должна получиться:
+Должно получиться:
+
 ```
 your-django-project/
 ├── manage.py
 ├── myproject/
 │   ├── settings.py
 │   └── urls.py
-└── giga/                       ← эта папка
+└── giga/                       ← вот эта папка
     ├── __init__.py
     ├── apps.py
     ├── views.py
@@ -31,84 +57,123 @@ your-django-project/
     └── giga_client.py
 ```
 
-### Шаг 2: установить зависимость
+### Шаг 2. Установить httpx
 
 ```bash
 pip install httpx
 ```
 
-### Шаг 3: подключить в `settings.py` и корневой `urls.py`
+Если используете `requirements.txt` — добавьте `httpx>=0.27`.
 
-**`myproject/settings.py`:**
+### Шаг 3. Конфигурация Django
+
+**`myproject/settings.py`** (3 строки конфига и регистрация app):
+
 ```python
 INSTALLED_APPS = [
-    # ... ваше ...
+    # ... ваши apps ...
     'giga',
 ]
 
-# URL вашего GigaChat-сервера (узнайте у админа)
-GIGACHAT_BASE = "http://192.168.1.10:5678"
-GIGACHAT_PREFIX = "myproject"   # ваш префикс — изоляция сессий
-GIGACHAT_TIMEOUT = 120
+# URL вашего GigaChat-сервера в локальной сети
+GIGACHAT_BASE = "http://192.168.1.10:5678"   # ← узнайте у админа GigaChat
+GIGACHAT_PREFIX = "myproject"                # ← уникальный префикс вашего проекта
+GIGACHAT_TIMEOUT = 120                       # секунд, не меньше 60
 ```
 
-**`myproject/urls.py`:**
+**`myproject/urls.py`** (одна строка):
+
 ```python
 from django.urls import path, include
 
 urlpatterns = [
-    # ... ваше ...
+    # ... ваши маршруты ...
     path('giga/', include('giga.urls')),
 ]
 ```
 
-Готово. Endpoint `POST /giga/ask` доступен.
+**Готово.** Перезапустите Django — два endpoint'а ниже доступны.
 
-## Что вы получаете
+---
 
-| URL | Что |
-|---|---|
-| `POST /giga/ask` | JSON API. Body: `{"message": "...", "agent": "chat\|rag\|sql\|math\|route\|prompt"}`. Ответ: `{"response": "..."}` (для math/route/prompt — расширенный JSON со специфичными полями). |
-| `GET /giga/health` | Liveness-check. Возвращает `{"status":"ok","app":"giga","prefix":"..."}`. Дашборд GigaChat пингует этот URL и показывает админу «подключён ли ваш проект сейчас». |
+## Что вы получили
 
-## Добавление в дашборд GigaChat
+| URL | Метод | Зачем |
+|---|---|---|
+| `/giga/ask` | POST | Спросить агента GigaChat. Body: `{message, agent}` → ответ JSON. |
+| `/giga/health` | GET | Проверка «живо ли подключение». Дашборд GigaChat это пингует. |
 
-После того как у вас запустится сервер, скажите админу GigaChat URL вашего
-health endpoint — например `http://192.168.1.20/giga/health`. Админ
-добавит ваш проект в реестр в дашборде, и вы появитесь в списке подключённых
-со статусом онлайн/офлайн.
+---
 
-## Использование из своего HTML/JS
+## Использование из вашего фронта
 
-У вас уже есть свой UI чата — стучитесь в `/giga/ask` из вашего фронта:
+### Базовый шаблон
 
-```js
-async function askGiga(message, agent = 'chat') {
-  const res = await fetch("/giga/ask", {
-    method: "POST",
+```html
+<!-- В любом вашем Django-шаблоне -->
+{% csrf_token %}
+
+<button onclick="askGiga()">Спросить</button>
+<div id="answer"></div>
+
+<script>
+async function askGiga() {
+  const res = await fetch('/giga/ask', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
-      "X-CSRFToken": getCsrfToken()   // стандарт Django
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrfToken()
     },
-    body: JSON.stringify({ message, agent })
+    body: JSON.stringify({
+      message: 'Расскажи о возможностях Python',
+      agent: 'chat'
+    })
   });
-  if (!res.ok) throw new Error("HTTP " + res.status);
   const data = await res.json();
-  return data.response;   // для chat/rag/sql
-  // для math/route/prompt — data содержит дополнительные поля
+  document.getElementById('answer').textContent = data.response;
 }
 
 function getCsrfToken() {
   const m = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
   return m ? decodeURIComponent(m[2]) : '';
 }
+</script>
 ```
 
-В вашем HTML-шаблоне должен быть `{% csrf_token %}` — Django генерит cookie.
+### Какой `agent` для какой задачи
 
-## Использование из своих views (программно)
+| `agent` | Когда использовать | Пример вопроса |
+|---|---|---|
+| `chat` | Универсальный диалог, общие вопросы | «Расскажи про Python», «Привет» |
+| `rag` | Поиск ответов в загруженных документах | «Найди в инструкции раздел про отпуск» |
+| `sql` | Запросы к базе данных естественным языком | «Сколько клиентов из Москвы за месяц?» |
+| `math` | Вычисления через Python-код | «Корень из 2», «Решить x² + 5x + 6 = 0» |
+| `route` | Не знаете какой агент нужен — система выберет сама | Любой вопрос, агент определится автоматически |
+| `prompt` | Генерация и улучшение промптов для LLM | «Напиши промпт для классификатора email» |
 
-Если хотите дёргать GigaChat прямо из своих Django views:
+### Что возвращается
+
+**Для `chat`, `rag`, `sql`:**
+```json
+{ "response": "Ответ агента строкой" }
+```
+
+**Для `math`:**
+```json
+{ "response": "Ответ", "code": "Python-код", "raw_result": "результат вычисления" }
+```
+
+**Для `route`:**
+```json
+{ "response": "Ответ", "agent": "имя выбранного агента" }
+```
+
+**Для `prompt`:**
+```json
+{ "response": "Объяснение", "prompt": "Готовый промпт" }
+```
+
+### Вызов из своего Django view (программно)
 
 ```python
 from giga.giga_client import GigaChatClient
@@ -116,102 +181,152 @@ from django.conf import settings
 
 giga = GigaChatClient(
     base=settings.GIGACHAT_BASE,
-    prefix=settings.GIGACHAT_PREFIX
+    prefix=settings.GIGACHAT_PREFIX,
 )
 
 def my_existing_view(request):
-    answer = giga.chat_sync("Привет", user_id=str(request.user.id))
-    # Доступны: chat_sync, rag_sync, sql_sync, math_sync, route_sync, prompt_sync
+    answer = giga.chat_sync("Расскажи про нейросети", user_id=str(request.user.id))
     return JsonResponse({"answer": answer})
 ```
 
-## Изоляция сессий
+Методы клиента: `chat_sync`, `rag_sync`, `sql_sync`, `math_sync`, `route_sync`, `prompt_sync`.
 
-`session_id` в GigaChat собирается автоматически как:
+---
+
+## Чеклист «как понять что подключение работает»
+
+1. **Django запускается без ошибок?**
+   ```bash
+   python manage.py runserver
+   ```
+   Если падает на `from giga.giga_client import ...` — папка `giga` не на одном уровне с `manage.py` или нет `__init__.py`.
+
+2. **Health endpoint живой?**
+   В браузере открыть: `http://localhost:8000/giga/health`
+   Должно вернуть JSON:
+   ```json
+   { "status": "ok", "app": "giga", "prefix": "myproject" }
+   ```
+
+3. **Запрос проходит?**
+   В консоли браузера (F12) на любой странице вашего сайта:
+   ```js
+   fetch('/giga/ask', {
+     method: 'POST',
+     headers: {
+       'Content-Type': 'application/json',
+       'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)[1]
+     },
+     body: JSON.stringify({ message: 'тест', agent: 'chat' })
+   }).then(r => r.json()).then(console.log);
+   ```
+   Через 1-5 секунд в консоли должен появиться JSON с ответом.
+
+4. **Дашборд GigaChat видит вас?**
+   Скажите админу GigaChat URL вашего health: `http://<ваш-сервер>/giga/health`
+   Админ откроет дашборд → «Шлюз API» → добавит ваш проект → увидит «онлайн».
+
+---
+
+## Где взять `GIGACHAT_BASE`
+
+- **Спросить у админа GigaChat** (рекомендуемый способ)
+- Или открыть **дашборд GigaChat** → кнопка «Шлюз API» вверху страницы → URL шлюза показан вверху окна.
+
+---
+
+## Изоляция сессий — важно
+
+Каждый ваш запрос автоматически получает `session_id` вида:
 ```
-{prefix}_{agent}_{user_id}
+{GIGACHAT_PREFIX}_{agent}_{user_id}
 ```
 
-Например `myproject_chat_42`. Чужие проекты с другим префиксом
-не пересекаются с вашими.
+Например: `myproject_chat_42`. Это нужно чтобы:
+- Сессии вашего проекта **не пересекались** с сессиями GigaChat HTML и других проектов
+- У каждого вашего пользователя была **своя память** в чате
 
-User ID берётся:
-- Залогиненный → `request.user.pk`
-- Аноним → `anon_<session_key первые 12 символов>`
+**`GIGACHAT_PREFIX` в settings.py должен быть уникальным** для вашего проекта. Согласуйте с админом GigaChat.
 
-Можете переопределить логику в `views.py:_user_id()` — например,
-использовать username вместо ID.
+`user_id` берётся из:
+- `request.user.pk` если пользователь залогинен
+- `anon_<session_key>` если аноним (у каждого анонима свой ID)
+
+Можете переопределить логику в `views.py` функция `_user_id()`.
+
+---
 
 ## Безопасность
 
-- **CSRF** — используется стандарт Django через cookie + `X-CSRFToken`
-  при каждом POST из вашего JS. НЕ отключайте `@csrf_exempt` без
-  необходимости.
-- **Авторизация** — если хотите ограничить только залогиненным,
-  добавьте `@login_required` в `views.py`:
-  ```python
-  from django.contrib.auth.decorators import login_required
+### CSRF — Django стандарт
 
-  @login_required
-  @require_POST
-  def ai_ask(request):
-      ...
-  ```
-- **Rate limit** — на больших нагрузках рекомендую `django-ratelimit`:
-  ```bash
-  pip install django-ratelimit
-  ```
-  ```python
-  from django_ratelimit.decorators import ratelimit
-
-  @ratelimit(key='user', rate='30/m', block=True)
-  @require_POST
-  def ai_ask(request):
-      ...
-  ```
-
-## Логирование
-
-В `views.py` уже встроено через стандартный `logging`:
-
-```python
-log = logging.getLogger("giga")
-log.info("giga.chat user=42 ms=1234")
+`/giga/ask` защищён CSRF. Из вашего JS нужно передавать токен:
+```js
+headers: { 'X-CSRFToken': csrftoken }
 ```
 
-Чтобы увидеть логи — добавьте в `settings.py`:
+В HTML-шаблоне должен быть `{% csrf_token %}` — он создаёт cookie.
+
+**НЕ ОТКЛЮЧАЙТЕ** `@csrf_exempt` без понимания последствий.
+
+### Только для залогиненных
+
+Если хотите ограничить — добавьте `@login_required` в `views.py`:
 ```python
-LOGGING = {
-    'version': 1,
-    'handlers': {'console': {'class': 'logging.StreamHandler'}},
-    'loggers': {
-        'giga': {'handlers': ['console'], 'level': 'INFO'},
-    },
-}
+from django.contrib.auth.decorators import login_required
+
+@login_required
+@require_POST
+def ai_ask(request):
+    ...
 ```
 
-## Проблемы
+### Защита от спама
 
-**`ModuleNotFoundError: No module named 'giga'`**
-→ папка `giga` не на уровне `manage.py`, или нет `__init__.py`.
+Если возможны зацикленные запросы — установите `django-ratelimit`:
+```bash
+pip install django-ratelimit
+```
+```python
+from django_ratelimit.decorators import ratelimit
 
-**`403 Forbidden` при POST `/giga/ask`**
-→ забыт CSRF-токен. Проверьте что в HTML-шаблоне есть `{% csrf_token %}`
-и JS отправляет `X-CSRFToken` заголовок (см. пример выше).
+@ratelimit(key='user', rate='30/m', block=True)
+@require_POST
+def ai_ask(request):
+    ...
+```
 
-**`504 GigaChat не ответил вовремя`**
-→ либо GigaChat-сервер недоступен по сети, либо ответ дольше 120 сек.
-Проверьте `GIGACHAT_BASE` в `settings.py`, увеличьте `GIGACHAT_TIMEOUT`.
+---
 
-**`502 GigaChat вернул XXX`**
-→ webhook на стороне GigaChat выдал ошибку. Откройте дашборд
-GigaChat → кнопка «Шлюз API» → вкладка «Тест», попробуйте тот же
-запрос. Если падает — баг в n8n workflow.
+## Решение проблем
 
-## Что НЕ делать
+### `ModuleNotFoundError: No module named 'giga'`
+Папка `giga` не на уровне с `manage.py`, или внутри нет `__init__.py`.
 
-- Не использовать `@csrf_exempt` если не понимаете последствий
-  (открывается риск CSRF-атак).
-- Не хардкодить `GIGACHAT_BASE` в коде — выносить в settings/env.
-- Не использовать одинаковые `prefix` в нескольких проектах — сессии
-  смешаются.
+### `403 Forbidden` при POST `/giga/ask`
+Забыт CSRF-токен. В HTML должен быть `{% csrf_token %}`, в JS — заголовок `X-CSRFToken`.
+
+### `504 Gateway не ответил вовремя`
+Либо GigaChat-сервер недоступен по сети, либо запрос дольше 120 сек.
+Проверьте `GIGACHAT_BASE` в settings. Откройте URL вручную в браузере — он должен отвечать (хотя бы 404).
+
+### `502 GigaChat вернул XXX`
+Webhook на стороне GigaChat вернул ошибку. Откройте дашборд GigaChat,
+проверьте что нужный агент (chat/rag/sql/...) работает напрямую в HTML.
+Если работает там, но не у вас — проблема в payload вашего запроса.
+
+### Пустой `response` в ответе
+Сервер вернул JSON без поля `response` — значит agent кинул ошибку.
+Посмотрите логи на стороне GigaChat в n8n.
+
+### Ответ приходит, но в HTML не отображается
+Проверьте что вы парсите JSON: `await res.json()`, а не `res.text()`.
+
+---
+
+## Что НЕ нужно делать
+
+- Не дёргайте webhook'и GigaChat **напрямую** из вашего HTML — теряете CSRF, авторизацию, можете утечь URL n8n
+- Не используйте `@csrf_exempt`
+- Не хардкодьте `GIGACHAT_BASE` в коде — выносите в settings/env
+- Не используйте один `GIGACHAT_PREFIX` в разных проектах — сессии смешаются
