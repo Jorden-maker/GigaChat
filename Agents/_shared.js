@@ -611,13 +611,12 @@
       var style = document.createElement('style');
       style.id = 'gc-sidebar-resize-css';
       style.textContent =
-        // Sidebar — позиционируется как parent для handle.
         '.sidebar{position:relative}' +
-        // Hot-zone 24px у правого края (внутри sidebar). Всегда видна
-        // peach-вертикальная линия 2px по центру (opacity 0.6), на hover
-        // насыщенный peach (opacity 1) + ширина 3px.
-        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:24px;cursor:col-resize;z-index:100;background:transparent;user-select:none}' +
-        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:25%;right:0;bottom:25%;width:2px;background:var(--accent);opacity:0.55;transition:opacity .15s,width .15s}' +
+        // Hot-zone 30px высоты, центрирован вертикально, прижат к правому
+        // контуру (16px ширина). Только при наведении внутри неё появляется
+        // peach-индикатор (2px line по центру, 30px высота).
+        '.gc-sidebar-resize-handle{position:absolute;top:50%;right:0;transform:translateY(-50%);height:30px;width:16px;cursor:col-resize;z-index:100;background:transparent;user-select:none}' +
+        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:0;right:0;bottom:0;width:2px;background:var(--accent);opacity:0;transition:opacity .15s,width .15s}' +
         '.gc-sidebar-resize-handle:hover::after,.gc-sidebar-resize-handle.dragging::after{opacity:1;width:3px}';
       document.head.appendChild(style);
     }
@@ -662,6 +661,35 @@
   // время LLM-запроса; клик отменяет запрос.
   var STOP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/></svg>';
 
+  // Реестр активных AbortController'ов по session_id. Нужен чтобы при
+  // переключении сессий sync'ать состояние кнопки отправки: если в
+  // целевой сессии есть активный запрос — показать квадрат-стоп, иначе
+  // стрелку. Closure makeCancellableSend изолирует controller, и без
+  // реестра onSwitch не может узнать состояние других сессий.
+  var __gcActive = {}; // sid -> AbortController
+
+  function registerSendController(sid, controller) {
+    if (sid) __gcActive[sid] = controller;
+  }
+  function unregisterSendController(sid) {
+    if (sid) delete __gcActive[sid];
+  }
+  function getSendController(sid) {
+    return sid ? __gcActive[sid] : null;
+  }
+
+  // Синхронизирует иконку кнопки с состоянием inflight у session_id.
+  // Если в сессии есть активный запрос — квадрат-стоп; иначе стрелка.
+  // disabled-состояние не трогает (его выставляет агентский onSwitch).
+  function syncSendButton(btn, sid) {
+    if (!btn) return;
+    if (__gcActive[sid]) {
+      btn.innerHTML = STOP_ICON_SVG;
+    } else {
+      btn.innerHTML = SEND_ICON_SVG;
+    }
+  }
+
   // Переключает кнопку отправки в режим «отмена»: меняет иконку на квадрат,
   // снимает disabled, вешает onclick → controller.abort(). Возвращает
   // объект с методами signal/aborted/restore для использования в sendMsg.
@@ -676,24 +704,22 @@
   //   } finally {
   //     sendCtrl.restore();
   //   }
-  function makeCancellableSend(btn) {
+  function makeCancellableSend(btn, sid) {
     var controller = new AbortController();
-    var prevHtml = btn.innerHTML;
-    var prevOnclick = btn.onclick;
-    var prevDisabled = btn.disabled;
     btn.disabled = false;
     btn.innerHTML = STOP_ICON_SVG;
-    btn.onclick = function (ev) {
-      if (ev) ev.preventDefault();
-      controller.abort();
-    };
+    // ВАЖНО: onclick НЕ переписываем (он остаётся=sendMsg). sendMsg в
+    // начале проверяет getSendController(activeSessionId) — если есть,
+    // вызывает abort(). Так клик по стоп-кнопке работает в любой сессии
+    // и не ломается при переключении.
+    if (sid) registerSendController(sid, controller);
     return {
       signal: controller.signal,
       aborted: function () { return controller.signal.aborted; },
       restore: function () {
-        btn.disabled = prevDisabled;
-        btn.innerHTML = prevHtml;
-        btn.onclick = prevOnclick;
+        if (sid) unregisterSendController(sid);
+        btn.disabled = false;
+        btn.innerHTML = SEND_ICON_SVG;
       }
     };
   }
@@ -1576,6 +1602,8 @@
     STOP_ICON_SVG: STOP_ICON_SVG,
     PAPERCLIP_SVG: PAPERCLIP_SVG,
     makeCancellableSend: makeCancellableSend,
+    syncSendButton: syncSendButton,
+    getSendController: getSendController,
     initSidebarResize: initSidebarResize,
     initHeaderShadowOnScroll: initHeaderShadowOnScroll,
     attachCopyButtons: attachCopyButtons,

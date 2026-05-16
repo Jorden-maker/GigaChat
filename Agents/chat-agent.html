@@ -241,7 +241,8 @@
                 // в других сессиях.
                 var processing = !!sessionStore.getInflight(sid);
                 input.disabled = processing;
-                btn.disabled = processing;
+                btn.disabled = false; // кнопка всегда clickable: send или stop
+                GigaChat.syncSendButton(btn, sid);
                 if (attachment) attachment.setDisabled(processing);
                 if (!processing) input.focus();
             },
@@ -366,6 +367,9 @@
 
         async function sendMsg() {
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) return;
+            // Если в текущей сессии уже идёт запрос — клик по стоп-кнопке абортит и выходим.
+            var __existing = GigaChat.getSendController(activeSessionId);
+            if (__existing) { __existing.abort(); return; }
             var text = input.value.trim();
             var hasFiles = attachment && attachment.hasFiles();
             if (!text && !hasFiles) return;

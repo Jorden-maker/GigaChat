@@ -223,7 +223,8 @@
                 }
                 var processing = !!sessionStore.getInflight(sid);
                 input.disabled = processing;
-                btn.disabled = processing;
+                btn.disabled = false;
+                GigaChat.syncSendButton(btn, sid);
                 if (attachment) attachment.setDisabled(processing);
                 if (!processing) input.focus();
             },
@@ -341,6 +342,8 @@
 
         async function sendMsg() {
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) return;
+            var __existing = GigaChat.getSendController(activeSessionId);
+            if (__existing) { __existing.abort(); return; }
             var text = input.value.trim();
             var hasFiles = attachment && attachment.hasFiles();
             if (!text && !hasFiles) return;

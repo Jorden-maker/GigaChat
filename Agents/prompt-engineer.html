@@ -261,7 +261,9 @@ const sessionStore = GigaChat.createSessionStore({
     }
     const processing = !!sessionStore.getInflight(sid);
     userInput.disabled = processing;
-    document.getElementById('btnSend').disabled = processing;
+    const btnSend = document.getElementById('btnSend');
+    btnSend.disabled = false;
+    GigaChat.syncSendButton(btnSend, sid);
     if (typeof attachment !== 'undefined' && attachment) attachment.setDisabled(processing);
     if (!processing) userInput.focus();
   },
@@ -315,7 +317,7 @@ function init() {
   });
   GigaChat.initSidebarResize({
     sidebar: document.querySelector('.sidebar'),
-    initialWidth: 280,  // 260 + 20
+    initialWidth: 300,  // 260 + 20
     minWidth: 260, maxWidth: 520,
     storageKey: 'giga_prompt_sidebar_w'
   });
@@ -446,6 +448,8 @@ function removeLoading(id) {
 
 async function sendMessage() {
   if (!activeSessionId || !sessions.find(s => s.id === activeSessionId)) return;
+  const __existing = GigaChat.getSendController(activeSessionId);
+  if (__existing) { __existing.abort(); return; }
   const input = document.getElementById('userInput');
   const text = input.value.trim();
   const hasFiles = attachment && attachment.hasFiles();
@@ -528,7 +532,7 @@ async function sendMessage() {
     sessionStore.setInflight(sendSessionId, 'Генерирую промпт');
   }
 
-  const sendCtrl = GigaChat.makeCancellableSend(document.getElementById('btnSend'));
+  const sendCtrl = GigaChat.makeCancellableSend(document.getElementById('btnSend'), sendSessionId);
   try {
     const data = await fetchWithRetry(WEBHOOK_URL, {
       method: 'POST',
