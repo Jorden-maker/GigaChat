@@ -6,17 +6,17 @@
     <title>GigaChat — Панель управления</title>
     <style>
         :root {
-            --bg-primary: #181b22;
-            --bg-secondary: #14171d;
-            --bg-card: #14171d;
+            --bg-primary: #1f1c19;
+            --bg-secondary: #181614;
+            --bg-card: #181614;
             --bg-card-hover: #1c2028;
-            --border: #2a2e38;
-            --border-hover: #7c8ce4;
-            --text-primary: #d4d6dc;
-            --text-secondary: #8b8e96;
-            --text-muted: #5a5d65;
-            --accent: #7c8ce4;
-            --accent-hover: #6677d0;
+            --border: #332f2a;
+            --border-hover: #c89b6c;
+            --text-primary: #d4d0c8;
+            --text-secondary: #8a857d;
+            --text-muted: #5a564e;
+            --accent: #c89b6c;
+            --accent-hover: #b88a5c;
             --glow-green: #10b981;
             --glow-red: #ef4444;
         }
@@ -45,11 +45,11 @@
             position: absolute; inset: -50%;
             width: 200%; height: 200%;
             background:
-                radial-gradient(ellipse 600px 600px at 20% 20%, rgba(124,140,228,0.08), transparent 70%),
-                radial-gradient(ellipse 500px 500px at 80% 30%, rgba(124,140,228,0.06), transparent 70%),
-                radial-gradient(ellipse 700px 700px at 60% 80%, rgba(124,140,228,0.05), transparent 70%),
-                radial-gradient(ellipse 400px 400px at 10% 70%, rgba(124,140,228,0.04), transparent 70%),
-                radial-gradient(ellipse 500px 500px at 90% 90%, rgba(124,140,228,0.04), transparent 70%);
+                radial-gradient(ellipse 600px 600px at 20% 20%, rgba(200,155,108,0.08), transparent 70%),
+                radial-gradient(ellipse 500px 500px at 80% 30%, rgba(200,155,108,0.06), transparent 70%),
+                radial-gradient(ellipse 700px 700px at 60% 80%, rgba(200,155,108,0.05), transparent 70%),
+                radial-gradient(ellipse 400px 400px at 10% 70%, rgba(200,155,108,0.04), transparent 70%),
+                radial-gradient(ellipse 500px 500px at 90% 90%, rgba(200,155,108,0.04), transparent 70%);
             animation: bgDrift 25s ease-in-out infinite alternate;
         }
 
@@ -58,9 +58,9 @@
             position: absolute; inset: -50%;
             width: 200%; height: 200%;
             background:
-                radial-gradient(ellipse 550px 550px at 70% 15%, rgba(124,140,228,0.06), transparent 65%),
-                radial-gradient(ellipse 450px 450px at 30% 60%, rgba(124,140,228,0.05), transparent 65%),
-                radial-gradient(ellipse 600px 600px at 50% 50%, rgba(124,140,228,0.04), transparent 60%);
+                radial-gradient(ellipse 550px 550px at 70% 15%, rgba(200,155,108,0.06), transparent 65%),
+                radial-gradient(ellipse 450px 450px at 30% 60%, rgba(200,155,108,0.05), transparent 65%),
+                radial-gradient(ellipse 600px 600px at 50% 50%, rgba(200,155,108,0.04), transparent 60%);
             animation: bgDrift2 30s ease-in-out infinite alternate;
         }
 
@@ -81,9 +81,9 @@
             pointer-events: none;
             background-image:
                 /* Ближний слой — крупные яркие точки */
-                radial-gradient(circle, rgba(124,140,228,0.16) 1.5px, transparent 2px),
+                radial-gradient(circle, rgba(200,155,108,0.16) 1.5px, transparent 2px),
                 /* Дальний слой — мелкие тусклые точки */
-                radial-gradient(circle, rgba(124,140,228,0.07) 1px, transparent 1.5px);
+                radial-gradient(circle, rgba(200,155,108,0.07) 1px, transparent 1.5px);
             background-size: 60px 60px, 30px 30px;
             background-position: 0 0, 15px 15px;
         }
@@ -241,7 +241,7 @@
 
         /* Card accent colors — единый лавандовый акцент */
         .card::before { background: linear-gradient(90deg, var(--accent), var(--accent-hover)); }
-        .card:hover { box-shadow: 0 8px 40px rgba(124,140,228,0.14); border-color: var(--accent); }
+        .card:hover { box-shadow: 0 8px 40px rgba(200,155,108,0.14); border-color: var(--accent); }
 
         .card-icon {
             width: 48px; height: 48px;
@@ -261,7 +261,7 @@
             stroke-linejoin: round;
         }
 
-        .card .card-icon { background: linear-gradient(135deg, rgba(124,140,228,0.15), rgba(102,119,208,0.15)); color: var(--accent); }
+        .card .card-icon { background: linear-gradient(135deg, rgba(200,155,108,0.15), rgba(184,138,92,0.15)); color: var(--accent); }
 
         .card-title {
             font-size: 17px;
@@ -289,7 +289,7 @@
             font-weight: 500;
         }
 
-        .card .card-tag { background: rgba(124,140,228,0.10); color: var(--accent); border: 1px solid rgba(124,140,228,0.25); }
+        .card .card-tag { background: rgba(200,155,108,0.10); color: var(--accent); border: 1px solid rgba(200,155,108,0.25); }
 
         .card-arrow {
             position: absolute;
@@ -362,7 +362,7 @@
         }
         .gateway-btn:hover {
             border-color: var(--accent); color: var(--accent);
-            box-shadow: 0 0 18px rgba(124, 140, 228, 0.3);
+            box-shadow: 0 0 18px rgba(200, 155, 108, 0.3);
         }
         .gateway-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
