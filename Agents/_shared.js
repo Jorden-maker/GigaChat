@@ -446,10 +446,10 @@
       + '.gc-input-wrap{position:relative;flex:1;display:flex;align-items:stretch;min-width:0}'
       + '.gc-input-wrap > textarea{flex:1;width:100%;padding-right:48px !important}'
       // Кнопка-отправка как иконка внутри поля: квадратная, акцентный фон, ↵.
-      + '.gc-send-icon{position:absolute;right:8px;bottom:8px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;padding:0;transition:background .15s,opacity .15s;z-index:2}'
-      + '.gc-send-icon:hover:not(:disabled){background:var(--accent-hover,var(--accent));filter:brightness(1.08)}'
+      + '.gc-send-icon{position:absolute;right:8px;bottom:8px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--text-secondary);border:none;border-radius:8px;cursor:pointer;padding:0;transition:color .15s,background .15s,opacity .15s;z-index:2}'
+      + '.gc-send-icon:hover:not(:disabled){color:var(--accent);background:rgba(255,255,255,0.06)}'
       + '.gc-send-icon:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}'
-      + '.gc-send-icon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}'
+      + '.gc-send-icon svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
       // Внешний контейнер всего ряда: [wrap с textarea+send] + [скрепка].
       // align-items:center — скрепка выровнена по центру высоты поля.
       + '.gc-input-row{display:flex;gap:8px;align-items:center;width:100%}'
@@ -520,7 +520,7 @@
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'gc-attach-btn';
-    btn.title = 'Прикрепить файл(ы)';
+    btn.setAttribute('aria-label', 'Прикрепить файл(ы)');
     btn.innerHTML = PAPERCLIP_SVG;
     btn.addEventListener('click', function () { fileInput.click(); });
     buttonContainer.appendChild(btn);
