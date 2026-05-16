@@ -229,12 +229,26 @@
       var style = document.createElement('style');
       style.id = 'gc-theme-toggle-css';
       style.textContent =
-        '#gc-theme-toggle{position:fixed;top:14px;right:14px;z-index:9999;' +
+        // --bg-hover — фон для hover-state на иконках (скрепка, отправка,
+        // карандаш, крестик). Меняется по теме: на тёмной — белый 6%,
+        // на светлой — чёрный 5%, чтобы оставаться видимым.
+        ':root{--bg-hover:rgba(255,255,255,0.06)}' +
+        ':root[data-theme="light"]{--bg-hover:rgba(0,0,0,0.05)}' +
+        // Резерв места под кнопку темы в header'ах агентов и tool-страниц,
+        // чтобы Экспорт/статус не уходили под кнопку.
+        'header{padding-right:60px !important}' +
+        // Hover на карандаш/крест внутри session-item: используем bg-hover,
+        // он гарантированно отличается от bg-secondary (фон самого item на hover).
+        '.session-item .edit:hover,.session-item .close:hover{background:var(--bg-hover) !important;color:var(--accent) !important;opacity:1 !important}' +
+        // Сама плавающая кнопка — top:10 right:14 на всех страницах
+        // одинаково (пиксельно). Центр Y≈26 — близко к центру Экспорта
+        // в чат-агентах (~23) и статуса в tool-страницах (~21).
+        '#gc-theme-toggle{position:fixed;top:10px;right:14px;z-index:9999;' +
         'width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;' +
         'background:var(--bg-secondary);border:1px solid var(--border);border-radius:50%;' +
         'color:var(--text-secondary);cursor:pointer;padding:0;' +
         'transition:background .15s,color .15s,border-color .15s,transform .15s}' +
-        '#gc-theme-toggle:hover{background:var(--bg-input);color:var(--accent);' +
+        '#gc-theme-toggle:hover{background:var(--bg-hover);color:var(--accent);' +
         'border-color:var(--accent);transform:rotate(15deg)}' +
         '#gc-theme-toggle svg{width:16px;height:16px;stroke:currentColor;fill:none;' +
         'stroke-width:2;stroke-linecap:round;stroke-linejoin:round}';
@@ -523,7 +537,7 @@
       //
       // Скрепка плоская, без рамки, маленькая.
       + '.gc-attach-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:transparent;border:none;border-radius:8px;color:var(--text-secondary);cursor:pointer;transition:all .15s;flex-shrink:0;padding:0}'
-      + '.gc-attach-btn:hover:not(:disabled){color:var(--accent);background:rgba(255,255,255,0.06)}'
+      + '.gc-attach-btn:hover:not(:disabled){color:var(--accent);background:var(--bg-hover)}'
       // pointer-events:none — гарантия что disabled-кнопка вообще не реагирует
       // на клики/тапы. На случай если CSS внешнего агента переопределит cursor.
       + '.gc-attach-btn:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}'
@@ -535,7 +549,7 @@
       + '.gc-input-wrap > textarea{flex:1;width:100%;padding-right:48px !important}'
       // Кнопка-отправка как иконка внутри поля: квадратная, акцентный фон, ↵.
       + '.gc-send-icon{position:absolute;right:11px;bottom:6px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--text-secondary);border:none;border-radius:8px;cursor:pointer;padding:0;transition:color .15s,background .15s,opacity .15s;z-index:2}'
-      + '.gc-send-icon:hover:not(:disabled){color:var(--accent);background:rgba(255,255,255,0.06)}'
+      + '.gc-send-icon:hover:not(:disabled){color:var(--accent);background:var(--bg-hover)}'
       + '.gc-send-icon:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}'
       // Стрелка — только stroke, fill принудительно none (чтобы не была
       // белой при возможных hover-стилях). Stop-квадрат рисуется тем же
@@ -555,7 +569,7 @@
       + '.gc-attach-chip .x{cursor:pointer;color:var(--text-secondary);font-size:14px;line-height:1;padding:0 2px}'
       + '.gc-attach-chip .x:hover{color:#ff6666}'
       + '.gc-attach-chip.error{border-color:#cc4444;color:#ff8888}'
-      + '.gc-attach-chip.bot{background:rgba(255,255,255,0.06)}'
+      + '.gc-attach-chip.bot{background:var(--bg-hover)}'
       // Переносы строк в user-сообщении должны сохраняться визуально.
       + '.msg.user, .msg-user-body{white-space:pre-wrap;word-wrap:break-word}'
       // Таймер в loader'е с отступом 10px от точек.

@@ -104,6 +104,11 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+        :root[data-theme="light"] .header h1 {
+            background: linear-gradient(135deg, #1f1f1e 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
 
         .header-sub {
             color: var(--text-secondary);
@@ -284,7 +289,7 @@
             z-index: 5;
             display: inline-flex; align-items: center; gap: 8px;
             padding: 10px 16px; background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 24px;
+            border: 1px solid var(--border); border-radius: 24px;
             cursor: pointer; color: var(--text-secondary);
             font-family: inherit; font-size: 13px; font-weight: 500;
             transition: all 0.25s ease;
