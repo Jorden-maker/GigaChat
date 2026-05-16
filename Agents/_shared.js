@@ -485,6 +485,16 @@
       + '.gc-attach-chip.bot{background:rgba(255,255,255,0.06)}'
       // Переносы строк в user-сообщении должны сохраняться визуально.
       + '.msg.user, .msg-user-body{white-space:pre-wrap;word-wrap:break-word}'
+      // Таймер в loader'е справа (label убран, остались только точки слева
+      // и таймер справа).
+      + '.loading .timer{margin-left:auto}'
+      // Copy-кнопка на user-сообщении — без фона, появляется при hover.
+      + '.msg.user{position:relative}'
+      + '.gc-msg-copy{position:absolute;left:0;bottom:-28px;display:inline-flex;align-items:center;gap:4px;padding:2px 6px;background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-size:11px;opacity:0;transition:opacity .15s,color .15s;font-family:inherit}'
+      + '.msg.user:hover .gc-msg-copy{opacity:1}'
+      + '.gc-msg-copy:hover{color:var(--accent)}'
+      + '.gc-msg-copy svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
+      + '.gc-msg-copy.copied{color:var(--accent);opacity:1}'
       + '';
     var style = document.createElement('style');
     style.setAttribute('data-gc-attach', '1');
@@ -498,6 +508,80 @@
   // Иконка отправки (Feather corner-down-left — стрелка ↵). Используется как
   // содержимое .gc-send-icon кнопки внутри поля ввода.
   var SEND_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+
+  // Добавляет copy-кнопку под каждым user-сообщением (появляется при hover).
+  // Иконка clipboard внутри элемента .msg.user, клик → копирует data-content
+  // (берётся либо из data-attribute, либо из textContent самого блока).
+  // Делается через MutationObserver — каждый раз когда renderMessages
+  // перерисовывает чат, новые .msg.user получают кнопку.
+  var COPY_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  var COPIED_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+
+  function attachCopyButtons(root) {
+    var scope = root || document;
+    var msgs = scope.querySelectorAll('.msg.user');
+    for (var i = 0; i < msgs.length; i++) {
+      var msg = msgs[i];
+      if (msg.querySelector('.gc-msg-copy')) continue;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'gc-msg-copy';
+      btn.setAttribute('aria-label', 'Копировать');
+      btn.innerHTML = COPY_ICON_SVG;
+      msg.appendChild(btn);
+    }
+  }
+
+  // Глобальный делегат: один listener на body, обрабатывает клики по
+  // любой .gc-msg-copy. Текст берётся из родительского .msg.user
+  // (исключая саму кнопку) через cloneNode + removeChild подход.
+  if (!global.__gcCopyDelegate) {
+    global.__gcCopyDelegate = true;
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('.gc-msg-copy');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var parent = btn.closest('.msg.user');
+      if (!parent) return;
+      var clone = parent.cloneNode(true);
+      var copyEl = clone.querySelector('.gc-msg-copy');
+      if (copyEl) copyEl.remove();
+      var text = (clone.textContent || '').trim();
+      if (!text || !navigator.clipboard) return;
+      navigator.clipboard.writeText(text).then(function () {
+        btn.innerHTML = COPIED_ICON_SVG;
+        btn.classList.add('copied');
+        setTimeout(function () {
+          btn.innerHTML = COPY_ICON_SVG;
+          btn.classList.remove('copied');
+        }, 1200);
+      });
+    });
+  }
+
+  // Включает «расплывчатую тень» под хедером только когда чат прокручен.
+  // Сам хедер по умолчанию без тени; на scroll #chat ставим класс scrolled.
+  // Так визуально между шапкой и чатом нет жёсткой границы, но при скролле
+  // появляется мягкая разделительная тень.
+  function initHeaderShadowOnScroll(opts) {
+    var headerEl = opts.header;
+    var scrollEl = opts.scrollable;
+    if (!headerEl || !scrollEl) return;
+    if (!document.getElementById('gc-header-shadow-css')) {
+      var style = document.createElement('style');
+      style.id = 'gc-header-shadow-css';
+      style.textContent =
+        'header.gc-scrolled, .header.gc-scrolled{box-shadow:0 6px 10px -6px rgba(0,0,0,0.55)}';
+      document.head.appendChild(style);
+    }
+    function update() {
+      if (scrollEl.scrollTop > 4) headerEl.classList.add('gc-scrolled');
+      else headerEl.classList.remove('gc-scrolled');
+    }
+    scrollEl.addEventListener('scroll', update, { passive: true });
+    update();
+  }
 
   // Делает сайдбар агента ресайзабельным. Создаёт невидимую полоску у
   // правого края, за которую можно тащить мышью. Ширина сохраняется в
@@ -522,9 +606,12 @@
       var style = document.createElement('style');
       style.id = 'gc-sidebar-resize-css';
       style.textContent =
-        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:6px;cursor:col-resize;z-index:10;background:transparent;transition:background .15s}' +
-        '.gc-sidebar-resize-handle:hover{background:rgba(212,165,116,0.25)}' +
-        '.gc-sidebar-resize-handle.dragging{background:rgba(212,165,116,0.45)}';
+        // Чтобы зону ресайза было видно/легко поймать — широкая 10px полоса
+        // у правого края, на hover подсвечивается peach-линией.
+        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:10px;cursor:col-resize;z-index:10;background:transparent;transition:background .15s}' +
+        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:0;right:0;bottom:0;width:2px;background:transparent;transition:background .15s}' +
+        '.gc-sidebar-resize-handle:hover::after{background:var(--accent)}' +
+        '.gc-sidebar-resize-handle.dragging::after{background:var(--accent)}';
       document.head.appendChild(style);
     }
 
@@ -1478,6 +1565,8 @@
     PAPERCLIP_SVG: PAPERCLIP_SVG,
     makeCancellableSend: makeCancellableSend,
     initSidebarResize: initSidebarResize,
+    initHeaderShadowOnScroll: initHeaderShadowOnScroll,
+    attachCopyButtons: attachCopyButtons,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,
     RETRY_DELAY_MS: RETRY_DELAY_MS

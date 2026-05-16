@@ -34,8 +34,18 @@
         }
 
         /* Animated multi-layer radial gradient background */
-        /* Декоративные градиенты убраны — корпоративный сдержанный фон. */
-        .bg-layers, .bg-dots, .bg-noise { display: none; }
+        /* Анимированные градиенты + noise убраны, но точечная сетка
+           возвращена для лёгкого «3D» ощущения объёма. */
+        .bg-layers, .bg-noise { display: none; }
+        .bg-dots {
+            position: fixed; inset: 0; z-index: 0;
+            pointer-events: none;
+            background-image:
+                radial-gradient(circle, rgba(212,165,116,0.10) 1.5px, transparent 2px),
+                radial-gradient(circle, rgba(212,165,116,0.05) 1px, transparent 1.5px);
+            background-size: 60px 60px, 30px 30px;
+            background-position: 0 0, 15px 15px;
+        }
 
         /* Layout */
         .container {
@@ -87,24 +97,6 @@
         }
 
         /* Status bar */
-        .status-bar {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 20px;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-        .status-bar .dot {
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            background: #f0ad4e;
-            animation: pulse 1s infinite;
-        }
-        .status-bar .dot.online { background: #4caf50; box-shadow: 0 0 8px rgba(76,175,80,0.5); animation: pulse 2s infinite; }
-        .status-bar .dot.offline { background: #cc4444; box-shadow: 0 0 8px rgba(204,68,68,0.4); animation: none; }
-        .status-bar .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
         /* Cards grid */
@@ -219,14 +211,14 @@
         /* Card status dots */
         .card-status {
             position: absolute;
-            top: 28px; right: 44px;
-            width: 8px; height: 8px;
+            top: 28px; right: 28px;
+            width: 6px; height: 6px;
             border-radius: 50%;
             background: #f0ad4e;
             animation: pulse 1s infinite;
         }
-        .card-status.online { background: #4caf50; box-shadow: 0 0 8px rgba(76,175,80,0.5); animation: pulse 2s infinite; }
-        .card-status.offline { background: #cc4444; box-shadow: 0 0 8px rgba(204,68,68,0.4); animation: none; }
+        .card-status.online { background: #4caf50; box-shadow: 0 0 6px rgba(76,175,80,0.5); animation: pulse 2s infinite; }
+        .card-status.offline { background: #cc4444; box-shadow: 0 0 6px rgba(204,68,68,0.4); animation: none; }
         .card-status.checking { background: #f0ad4e; animation: pulse 1s infinite; }
 
         /* Footer */
@@ -378,10 +370,6 @@
         </div>
         <div class="header-sub">ПЛАТФОРМА</div>
         <div class="header-line"></div>
-        <div class="status-bar">
-            <span class="dot checking" id="globalDot"></span>
-            <span id="globalStatus">проверка сервера...</span>
-        </div>
     </div>
 
     <div class="cards-section-title">Агенты</div>
@@ -578,39 +566,11 @@
     }
 
     function checkAll() {
-        var globalDot = document.getElementById('globalDot');
-        var globalStatus = document.getElementById('globalStatus');
-        globalDot.className = 'dot checking';
-        globalStatus.textContent = 'проверка сервера...';
-
+        // .status-bar удалена из шапки — каждый агент сам показывает своё
+        // состояние через .card-status. Глобальный пинг больше не нужен.
         for (var i = 0; i < AGENTS.length; i++) {
             checkAgent(AGENTS[i]);
         }
-
-        // Общий статус через основной вебхук
-        var controller = new AbortController();
-        var timeout = setTimeout(function() { controller.abort(); }, 5000);
-        fetch(AGENTS[0].webhook, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: '{"message":"ping"}',
-            signal: controller.signal
-        })
-        .then(function(res) {
-            clearTimeout(timeout);
-            if (res.ok || res.status > 0) {
-                globalDot.className = 'dot online';
-                globalStatus.textContent = 'n8n онлайн';
-            } else {
-                globalDot.className = 'dot offline';
-                globalStatus.textContent = 'n8n офлайн';
-            }
-        })
-        .catch(function() {
-            clearTimeout(timeout);
-            globalDot.className = 'dot offline';
-            globalStatus.textContent = 'n8n офлайн';
-        });
     }
 
     checkAll();
