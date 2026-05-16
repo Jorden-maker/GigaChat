@@ -550,12 +550,7 @@
                     var inflBadge = agentLabel
                         ? '<span class="inflight-agent-badge">' + escapeHtml(agentLabel) + '</span>'
                         : '';
-                    // data-copy-text — полный текст с extracted content вложений,
-                    // используется copy-кнопкой через делегат в _shared.js.
-                    var copyAttr = m.copyText
-                        ? ' data-copy-text="' + GigaChat.escapeAttr(m.copyText) + '"'
-                        : '';
-                    html += '<div class="msg user" data-ts="' + (m.ts || 0) + '"' + copyAttr + '>'+ userBody + inflBadge + '</div>';
+                    html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">'+ userBody + inflBadge + '</div>';
                 } else {
                     // Бэйдж агента теперь прикреплён к user-msg (см. выше),
                     // поэтому в bot-msg его не дублируем.
@@ -694,10 +689,6 @@
                 for (var j = msgs2.length - 1; j >= 0; j--) {
                     if (msgs2[j].role === 'user') {
                         msgs2[j].attachments = built.attachments;
-                        // copyText — полный текст с extracted content,
-                        // для copy-кнопки (иначе скопируется только
-                        // видимый текст без содержимого файлов).
-                        msgs2[j].copyText = built.messageForAgent;
                         break;
                     }
                 }
