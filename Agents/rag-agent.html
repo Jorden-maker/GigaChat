@@ -284,7 +284,7 @@
                         var spacing = userBody ? 'margin-top:8px' : '';
                         userBody += '<div style="' + spacing + ';display:flex;flex-wrap:wrap;gap:6px">' + chipsHtml + '</div>';
                     }
-                    html += '<div class="msg user">' + userBody + '</div>';
+                    html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">'+ userBody + '</div>';
                 } else {
                     html += '<div class="msg bot">' + formatResponse(m.content) + '</div>';
                 }
@@ -359,7 +359,7 @@
             // Пушим user-сообщение СРАЗУ + setInflight ДО любых await. Это
             // единый источник правды что сессия занята; onSwitch при возврате
             // увидит inflight и оставит скрепку заблокированной.
-            var userMsg = { role: 'user', content: text };
+            var userMsg = { role: 'user', content: text, ts: Date.now() };
             if (fileNamesSnapshot.length > 0) {
                 userMsg.attachments = fileNamesSnapshot.map(function (n) {
                     return { fileName: n, error: false };

@@ -505,6 +505,10 @@
       + '.gc-msg-copy:hover{background:var(--bg-user)}'
       + '.gc-msg-copy svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
       + '.gc-msg-copy.copied{opacity:1}'
+      // Время «N сек/мин назад» правее copy-btn на 10px. Показывается
+      // тоже только на hover (как и copy). Цвет = text-muted, мелкий шрифт.
+      + '.gc-msg-time{position:absolute;right:-77px;bottom:2px;font-size:11px;color:var(--text-muted);opacity:0;transition:opacity .15s;white-space:nowrap;pointer-events:none}'
+      + '.msg.user:hover .gc-msg-time{opacity:1}'
       + '';
     var style = document.createElement('style');
     style.setAttribute('data-gc-attach', '1');
@@ -527,19 +531,51 @@
   var COPY_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   var COPIED_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 
+  // Форматирует «время назад» в коротком формате: «5 сек», «3 мин», «2 ч».
+  function formatTimeSince(ts) {
+    if (!ts) return '';
+    var diff = Math.floor((Date.now() - ts) / 1000);
+    if (diff < 60) return diff + ' сек';
+    if (diff < 3600) return Math.floor(diff / 60) + ' мин';
+    if (diff < 86400) return Math.floor(diff / 3600) + ' ч';
+    return Math.floor(diff / 86400) + ' дн';
+  }
+
   function attachCopyButtons(root) {
     var scope = root || document;
     var msgs = scope.querySelectorAll('.msg.user');
     for (var i = 0; i < msgs.length; i++) {
       var msg = msgs[i];
-      if (msg.querySelector('.gc-msg-copy')) continue;
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'gc-msg-copy';
-      btn.setAttribute('aria-label', 'Копировать');
-      btn.innerHTML = COPY_ICON_SVG;
-      msg.appendChild(btn);
+      if (!msg.querySelector('.gc-msg-copy')) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'gc-msg-copy';
+        btn.setAttribute('aria-label', 'Копировать');
+        btn.innerHTML = COPY_ICON_SVG;
+        msg.appendChild(btn);
+      }
+      // Если есть data-ts — добавляем .gc-msg-time правее copy-btn.
+      var ts = parseInt(msg.getAttribute('data-ts'), 10);
+      if (ts && !msg.querySelector('.gc-msg-time')) {
+        var time = document.createElement('span');
+        time.className = 'gc-msg-time';
+        time.setAttribute('data-ts', String(ts));
+        time.textContent = formatTimeSince(ts);
+        msg.appendChild(time);
+      }
     }
+  }
+
+  // Глобальный тикер для .gc-msg-time — обновляет текст каждые 30 сек,
+  // чтобы «5 сек» превратилось в «1 мин» без перезагрузки. Один на страницу.
+  if (!global.__gcMsgTimeTicker) {
+    global.__gcMsgTimeTicker = setInterval(function () {
+      var times = document.querySelectorAll('.gc-msg-time[data-ts]');
+      for (var i = 0; i < times.length; i++) {
+        var t = parseInt(times[i].getAttribute('data-ts'), 10);
+        if (t) times[i].textContent = formatTimeSince(t);
+      }
+    }, 30000);
   }
 
   // Глобальный делегат: один listener на body, обрабатывает клики по

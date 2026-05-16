@@ -245,7 +245,7 @@ main {
     font-family: inherit;
     transition: all 0.2s;
 }
-.reset-btn button:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+.reset-btn button:hover { background: rgba(212,165,116,0.15); color: var(--accent); border-color: var(--accent); }
 
 .history {
     background: var(--bg-card);
@@ -360,6 +360,7 @@ main {
 
 <script>
     var WEBHOOK_URL = GigaChat.webhookUrl('upload-doc');
+    var escapeHtml = GigaChat.escapeHtml; // ДО любых вызовов renderHistory
 
     var FETCH_TIMEOUT_MS = 300000;
     var selectedFile = null;
@@ -599,7 +600,6 @@ main {
         }
     }
 
-    var escapeHtml = GigaChat.escapeHtml;
 </script>
 </body>
 </html>

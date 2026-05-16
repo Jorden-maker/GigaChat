@@ -191,7 +191,7 @@
             transition: background 0.15s, color 0.15s;
         }
         .custom-select-option:hover { background: rgba(212,165,116,0.12); color: var(--accent); }
-        .custom-select-option.selected { background: var(--accent); color: #fff; }
+        .custom-select-option.selected { background: rgba(212,165,116,0.18); color: var(--accent); }
         .agent-hint .change-hint { color: var(--text-secondary); margin-left: auto; font-style: italic; opacity: 0.7; }
         /* Поле ввода: textarea + иконка-отправки (внутри) + скрепка (снаружи).
            Базовая раскладка задаётся классом .gc-input-row в _shared.js. */
@@ -213,8 +213,6 @@
         #msg:focus { border-color: var(--accent); }
         #msg:disabled { opacity: 0.4; }
         #msg::placeholder { color: var(--text-secondary); opacity: 0.5; }
-        /* Единый лавандовый акцент — белая иконка отправки читается хорошо. */
-        #send.gc-send-icon { color: #fff; }
         .empty-chat { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: 14px; gap: 8px; padding: 20px; text-align: center; }
         .empty-chat .hint { font-size: 12px; opacity: 0.7; max-width: 400px; line-height: 1.5; }
         .history-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: 14px; font-style: italic; }
@@ -527,7 +525,7 @@
                         var spacing = userBody ? 'margin-top:8px' : '';
                         userBody += '<div style="' + spacing + ';display:flex;flex-wrap:wrap;gap:6px">' + chipsHtml + '</div>';
                     }
-                    html += '<div class="msg user">' + userBody + '</div>';
+                    html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">'+ userBody + '</div>';
                 } else {
                     var badge = m.agent ? '<div class="agent-badge">' + escapeHtml(AGENT_LABELS[m.agent] || m.agent) + '</div>' : '';
                     html += '<div class="msg bot">' + badge + formatResponse(m.content) + '</div>';
@@ -536,7 +534,13 @@
             var inflight = sessionStore.getInflight(activeSessionId);
             if (inflight) {
                 var elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
+                // В Auto показываем выбранный агент в загрузчике (badge перед
+                // точками) — юзер видит куда ушёл его запрос.
+                var agentBadge = inflight.label
+                    ? '<span class="agent-badge">' + escapeHtml(inflight.label) + '</span>'
+                    : '';
                 html += '<div class="loading gc-inflight-loader" data-started-at="' + inflight.startedAt + '">' +
+                    agentBadge +
                     '<span class="dots"><span></span><span></span><span></span></span>' +
                     '<span class="timer">' + elapsed + ' сек</span></div>';
             }
@@ -606,14 +610,14 @@
             // Пушим user-сообщение СРАЗУ + setInflight ДО любых await. Это
             // единый источник правды что сессия занята; onSwitch при возврате
             // увидит inflight и оставит скрепку заблокированной.
-            var userMsg = { role: 'user', content: text };
+            var userMsg = { role: 'user', content: text, ts: Date.now() };
             if (fileNamesSnapshot.length > 0) {
                 userMsg.attachments = fileNamesSnapshot.map(function (n) {
                     return { fileName: n, error: false };
                 });
             }
             pushToSession(sendSessionId, userMsg);
-            sessionStore.setInflight(sendSessionId, hasFiles ? 'Извлекаю файлы' : (AGENT_LABELS[agent] || agent) + ' обрабатывает');
+            sessionStore.setInflight(sendSessionId, hasFiles ? 'Извлекаю файлы' : (AGENT_LABELS[agent] || agent));
 
             var messageForAgent = text;
             var extractedList = [];
@@ -664,7 +668,7 @@
                     }
                 }
                 sessionStore.saveSnapshot();
-                sessionStore.setInflight(sendSessionId, (AGENT_LABELS[agent] || agent) + ' обрабатывает');
+                sessionStore.setInflight(sendSessionId, (AGENT_LABELS[agent] || agent));
             }
 
             var sendCtrl = GigaChat.makeCancellableSend(btn, sendSessionId);

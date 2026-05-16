@@ -374,7 +374,7 @@ function renderChat() {
         const spacing = userBody ? 'margin-top:8px' : '';
         userBody += `<div style="${spacing};display:flex;flex-wrap:wrap;gap:6px">${chipsHtml}</div>`;
       }
-      html += `<div class="msg user">${userBody}</div>`;
+      html += `<div class="msg user" data-ts="${m.ts || 0}">${userBody}</div>`;
     } else {
       const extras = m.extras || {};
       const prompt = extras.prompt || m.prompt || '';
@@ -473,7 +473,7 @@ async function sendMessage() {
   // Пушим user-сообщение СРАЗУ + setInflight ДО любых await. Это единый
   // источник правды что сессия занята; onSwitch при возврате увидит inflight
   // и оставит скрепку заблокированной.
-  const userMsg = { role: 'user', content: text };
+  const userMsg = { role: 'user', content: text, ts: Date.now() };
   if (fileNamesSnapshot.length > 0) {
     userMsg.attachments = fileNamesSnapshot.map(n => ({ fileName: n, error: false }));
   }
