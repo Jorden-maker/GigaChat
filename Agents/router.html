@@ -443,6 +443,7 @@
             onEmpty: function () {
                 chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">GigaChat Auto автоматически направит запрос нужному агенту.</span></div>';
                 input.disabled = true; btn.disabled = true;
+                if (attachment) attachment.setDisabled(true);
                 agentHint.style.display = 'none';
             },
             onSwitch: function (sid) {
@@ -720,6 +721,8 @@
             sessionStore.renderList();
             var targetId = sessionStore.state.activeSessionId || sessionStore.state.sessions[sessionStore.state.sessions.length - 1].id;
             sessionStore.switchTo(targetId);
+        } else {
+            attachment.setDisabled(true);
         }
 
         input.addEventListener('keydown', function (e) {

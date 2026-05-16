@@ -145,8 +145,8 @@
         #msg::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
         #msg:focus { border-color: var(--accent); }
         #msg:disabled { opacity: 0.4; }
-        #msg::placeholder { color: #445566; }
-        .empty-chat { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #445566; font-size: 14px; gap: 8px; }
+        #msg::placeholder { color: #5a5a5a; }
+        .empty-chat { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #5a5a5a; font-size: 14px; gap: 8px; }
         .empty-chat .memory-note { font-size: 12px; color: var(--text-secondary); opacity: 0.6; }
         .history-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: 14px; font-style: italic; }
     </style>
@@ -218,6 +218,7 @@
             onEmpty: function () {
                 chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="memory-note">История хранится на сервере — агент помнит весь диалог</span></div>';
                 input.disabled = true; btn.disabled = true;
+                if (attachment) attachment.setDisabled(true);
             },
             onSwitch: function (sid) {
                 // Восстанавливаем draft (текст, который юзер начал писать в этой сессии).
@@ -519,6 +520,11 @@
             sessionStore.renderList();
             var targetId = sessionStore.state.activeSessionId || sessionStore.state.sessions[sessionStore.state.sessions.length - 1].id;
             sessionStore.switchTo(targetId);
+        } else {
+            // Сессий нет — скрепка должна быть заблокирована (input/btn уже
+            // отключены через атрибут disabled в HTML, но attachment создаётся
+            // включённой).
+            attachment.setDisabled(true);
         }
 
         // Обработчики input: keydown (Enter — отправить, Shift+Enter — перенос)

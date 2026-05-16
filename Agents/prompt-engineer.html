@@ -104,7 +104,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 #chatContainer::-webkit-scrollbar { width:5px; }
 #chatContainer::-webkit-scrollbar-track { background:transparent; }
 #chatContainer::-webkit-scrollbar-thumb { background:var(--border); border-radius:10px; }
-.welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#445566; font-size:14px; gap:8px; }
+.welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#5a5a5a; font-size:14px; gap:8px; }
 .welcome p { color:var(--text-muted); font-size:14px; max-width:500px; margin:0; line-height:1.6; text-align:center; }
 
 .msg { animation:fadeIn 0.25s ease; line-height:1.55; font-size:14px; color:var(--text-primary); word-wrap:break-word; overflow-wrap:anywhere; }
@@ -243,6 +243,7 @@ const sessionStore = GigaChat.createSessionStore({
     document.getElementById('chatContainer').innerHTML = WELCOME_HTML;
     document.getElementById('userInput').disabled = true;
     document.getElementById('btnSend').disabled = true;
+    if (attachment) attachment.setDisabled(true);
   },
   onSwitch: function (sid) {
     const userInput = document.getElementById('userInput');
@@ -318,6 +319,7 @@ function init() {
   } else {
     document.getElementById('userInput').disabled = true;
     document.getElementById('btnSend').disabled = true;
+    if (attachment) attachment.setDisabled(true);
     sessionStore.renderList();
   }
   checkServerStatus();
