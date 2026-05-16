@@ -31,9 +31,13 @@
         .btn-home:hover { background:var(--bg-input); color:var(--text-primary); border-color:var(--text-muted); }
         .btn-home svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
         .sidebar {
-            width: var(--sidebar-width); height: 100vh;
-            background: #262626; border-right: 1px solid var(--border);
+            width: var(--sidebar-width); height: calc(100vh - 24px);
+            margin: 12px 0 12px 12px;
+            background: #262626;
+            border: 1px solid var(--border);
+            border-radius: 12px;
             display: flex; flex-direction: column; flex-shrink: 0;
+            overflow: hidden;
         }
         .sidebar-header { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
         .sidebar-header h3 { font-size: 13px; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
@@ -222,7 +226,7 @@
 </head>
 <body>
     <div class="sidebar">
-        <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></a>
+        <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
         <div class="sidebar-header"><h3>Сессии</h3></div>
         <div class="sidebar-add"><button onclick="createNewSession()">+ Новая сессия</button></div>
         <div class="session-list" id="sessionList"></div>
