@@ -485,16 +485,19 @@
       + '.gc-attach-chip.bot{background:rgba(255,255,255,0.06)}'
       // Переносы строк в user-сообщении должны сохраняться визуально.
       + '.msg.user, .msg-user-body{white-space:pre-wrap;word-wrap:break-word}'
-      // Таймер в loader'е справа (label убран, остались только точки слева
-      // и таймер справа).
-      + '.loading .timer{margin-left:auto}'
-      // Copy-кнопка на user-сообщении — без фона, появляется при hover.
-      + '.msg.user{position:relative}'
-      + '.gc-msg-copy{position:absolute;left:0;bottom:-28px;display:inline-flex;align-items:center;gap:4px;padding:2px 6px;background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-size:11px;opacity:0;transition:opacity .15s,color .15s;font-family:inherit}'
+      // Таймер в loader'е справа от точек с отступом 30px (чтобы copy-btn
+      // на hover не залазил на таймер).
+      + '.loading .timer{margin-left:30px}'
+      // Copy-кнопка живёт ВНУТРИ .msg.user в правом нижнем углу.
+      // Изначально цвет = текст запроса (peach). Hover — фон bg-user.
+      // Маленький размер 22x22, иконка 12px. Не выходит за пределы msg
+      // → не залазит на текст ответа.
+      + '.msg.user{position:relative;padding-bottom:14px}'
+      + '.gc-msg-copy{position:absolute;right:4px;bottom:4px;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;background:transparent;border:none;border-radius:4px;color:var(--accent);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}'
       + '.msg.user:hover .gc-msg-copy{opacity:1}'
-      + '.gc-msg-copy:hover{color:var(--accent)}'
-      + '.gc-msg-copy svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
-      + '.gc-msg-copy.copied{color:var(--accent);opacity:1}'
+      + '.gc-msg-copy:hover{background:rgba(212,165,116,0.20)}'
+      + '.gc-msg-copy svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
+      + '.gc-msg-copy.copied{opacity:1}'
       + '';
     var style = document.createElement('style');
     style.setAttribute('data-gc-attach', '1');
@@ -560,27 +563,22 @@
     });
   }
 
-  // Включает «расплывчатую тень» под хедером только когда чат прокручен.
-  // Сам хедер по умолчанию без тени; на scroll #chat ставим класс scrolled.
-  // Так визуально между шапкой и чатом нет жёсткой границы, но при скролле
-  // появляется мягкая разделительная тень.
+  // Плавный переход между шапкой и чатом через mask-image fade:
+  // верхние 24px скролл-контейнера плавно прозрачные → плавное
+  // увеличение прозрачности контента к шапке. Никаких теней или линий.
+  // Принимает только { scrollable } — сам хедер без изменений.
   function initHeaderShadowOnScroll(opts) {
-    var headerEl = opts.header;
     var scrollEl = opts.scrollable;
-    if (!headerEl || !scrollEl) return;
-    if (!document.getElementById('gc-header-shadow-css')) {
+    if (!scrollEl) return;
+    if (!document.getElementById('gc-header-fade-css')) {
       var style = document.createElement('style');
-      style.id = 'gc-header-shadow-css';
+      style.id = 'gc-header-fade-css';
       style.textContent =
-        'header.gc-scrolled, .header.gc-scrolled{box-shadow:0 6px 10px -6px rgba(0,0,0,0.55)}';
+        // Маска делает первые 24px контента прогрессивно прозрачными.
+        '.gc-chat-fade{-webkit-mask-image:linear-gradient(to bottom, transparent 0, black 24px, black 100%);mask-image:linear-gradient(to bottom, transparent 0, black 24px, black 100%)}';
       document.head.appendChild(style);
     }
-    function update() {
-      if (scrollEl.scrollTop > 4) headerEl.classList.add('gc-scrolled');
-      else headerEl.classList.remove('gc-scrolled');
-    }
-    scrollEl.addEventListener('scroll', update, { passive: true });
-    update();
+    scrollEl.classList.add('gc-chat-fade');
   }
 
   // Делает сайдбар агента ресайзабельным. Создаёт невидимую полоску у
@@ -606,12 +604,13 @@
       var style = document.createElement('style');
       style.id = 'gc-sidebar-resize-css';
       style.textContent =
-        // Чтобы зону ресайза было видно/легко поймать — широкая 10px полоса
-        // у правого края, на hover подсвечивается peach-линией.
-        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:10px;cursor:col-resize;z-index:10;background:transparent;transition:background .15s}' +
-        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:0;right:0;bottom:0;width:2px;background:transparent;transition:background .15s}' +
-        '.gc-sidebar-resize-handle:hover::after{background:var(--accent)}' +
-        '.gc-sidebar-resize-handle.dragging::after{background:var(--accent)}';
+        // Hot-zone 10px у правого края + всегда-видимый peach «pill»
+        // индикатор по центру (60% высоты, 3px ширины). Юзер видит за
+        // что можно тянуть. На hover/drag индикатор насыщеннее.
+        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:10px;cursor:col-resize;z-index:10;background:transparent}' +
+        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:20%;right:0;bottom:20%;width:3px;border-radius:2px 0 0 2px;background:var(--accent);opacity:0.35;transition:opacity .15s}' +
+        '.gc-sidebar-resize-handle:hover::after{opacity:1}' +
+        '.gc-sidebar-resize-handle.dragging::after{opacity:1}';
       document.head.appendChild(style);
     }
 
