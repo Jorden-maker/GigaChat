@@ -536,6 +536,79 @@
         .theme-toggle .theme-icon-moon { display: none; }
         :root[data-theme="light"] .theme-toggle .theme-icon-sun { display: none; }
         :root[data-theme="light"] .theme-toggle .theme-icon-moon { display: inline-flex; }
+
+        /* ================ ШЛЮЗ API (кнопка + модалка) ================ */
+        .gateway-btn {
+            position: fixed; top: 20px; left: 30px; z-index: 10;
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 16px; background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 24px;
+            cursor: pointer; color: var(--text-secondary);
+            font-family: inherit; font-size: 13px; font-weight: 500;
+            transition: all 0.25s ease;
+        }
+        .gateway-btn:hover {
+            border-color: var(--glow-cyan); color: var(--glow-cyan);
+            box-shadow: 0 0 18px rgba(110, 193, 228, 0.3);
+        }
+        .gateway-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        :root[data-theme="light"] .gateway-btn { border-color: rgba(212, 175, 55, 0.35); color: #8a7754; }
+        :root[data-theme="light"] .gateway-btn:hover { border-color: rgba(212, 175, 55, 0.7); color: #2d2416; box-shadow: 0 0 18px rgba(212, 175, 55, 0.3); }
+
+        .gateway-modal-overlay {
+            position: fixed; inset: 0; z-index: 100;
+            background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .gateway-modal-overlay.show { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .gateway-modal {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+            width: min(900px, 92vw); max-height: 85vh; display: flex; flex-direction: column;
+            box-shadow: 0 20px 80px rgba(0, 0, 0, 0.6);
+            animation: modalSlide 0.25s ease;
+        }
+        @keyframes modalSlide { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .gateway-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); }
+        .gateway-modal-header h2 { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+        .gateway-modal-close { background: none; border: none; color: var(--text-secondary); font-size: 22px; cursor: pointer; line-height: 1; padding: 0 6px; }
+        .gateway-modal-close:hover { color: var(--text-primary); }
+        .gateway-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
+        .gateway-tab { padding: 12px 18px; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 13px; font-family: inherit; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; }
+        .gateway-tab:hover { color: var(--text-primary); }
+        .gateway-tab.active { color: var(--glow-cyan); border-bottom-color: var(--glow-cyan); }
+        :root[data-theme="light"] .gateway-tab.active { color: #8a6914; border-bottom-color: #8a6914; }
+        .gateway-tab-content { padding: 20px 24px; overflow-y: auto; flex: 1; }
+        .gateway-tab-content[hidden] { display: none; }
+        .gateway-tab-content h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); margin: 0 0 10px 0; }
+        .gateway-tab-content h3:not(:first-child) { margin-top: 22px; }
+        .gateway-tab-content p { font-size: 13.5px; line-height: 1.6; color: var(--text-primary); margin-bottom: 10px; }
+        .gateway-tab-content ul { padding-left: 20px; font-size: 13.5px; line-height: 1.7; color: var(--text-primary); }
+        .gateway-tab-content code { background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 12.5px; color: var(--glow-cyan); }
+        :root[data-theme="light"] .gateway-tab-content code { color: #8a6914; background: #fdf6e3; }
+        .gateway-url-row { display: flex; gap: 8px; align-items: center; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-family: Consolas, monospace; font-size: 13px; color: var(--text-primary); }
+        .gateway-url-row code { background: none; padding: 0; color: var(--glow-cyan); flex: 1; word-break: break-all; }
+        .gateway-copy-btn { padding: 4px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); cursor: pointer; font-size: 12px; font-family: inherit; transition: all 0.15s; flex-shrink: 0; }
+        .gateway-copy-btn:hover { border-color: var(--glow-cyan); color: var(--glow-cyan); }
+        .gateway-agents-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-top: 8px; }
+        .gateway-agent-item { display: flex; gap: 10px; padding: 8px 10px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+        .gateway-agent-item code { background: none; padding: 0; color: var(--glow-cyan); flex-shrink: 0; }
+        .gateway-agent-item .desc { color: var(--text-secondary); }
+        .gateway-code-block { position: relative; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin: 8px 0 16px; font-family: Consolas, monospace; font-size: 12.5px; line-height: 1.5; color: var(--text-primary); overflow-x: auto; white-space: pre; }
+        .gateway-code-block .gateway-copy-btn { position: absolute; top: 8px; right: 8px; }
+        .gateway-tab-content button.gateway-action { padding: 8px 14px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 13px; font-family: inherit; margin-right: 8px; transition: all 0.15s; }
+        .gateway-tab-content button.gateway-action:hover { border-color: var(--glow-cyan); color: var(--glow-cyan); }
+        .gateway-test-form { display: flex; flex-direction: column; gap: 10px; }
+        .gateway-test-form label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .gateway-test-form select, .gateway-test-form textarea, .gateway-test-form input { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text-primary); font-family: inherit; font-size: 13.5px; outline: none; }
+        .gateway-test-form select:focus, .gateway-test-form textarea:focus, .gateway-test-form input:focus { border-color: var(--glow-cyan); }
+        .gateway-test-form textarea { min-height: 70px; resize: vertical; font-family: inherit; }
+        .gateway-test-btn { padding: 10px 20px; background: var(--glow-cyan); color: #0a0a0f; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: opacity 0.15s; }
+        .gateway-test-btn:hover { opacity: 0.85; }
+        .gateway-test-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .gateway-test-output { margin-top: 12px; padding: 14px 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; font-family: Consolas, monospace; font-size: 12.5px; line-height: 1.55; color: var(--text-primary); white-space: pre-wrap; word-wrap: break-word; min-height: 50px; max-height: 280px; overflow-y: auto; }
+        .gateway-test-output.error { border-color: rgba(233, 69, 96, 0.5); color: #ff8888; }
     </style>
     <script src="Agents/_config.js"></script>
     <script src="Agents/_shared.js"></script>
@@ -545,6 +618,11 @@
 <div class="bg-layers"></div>
 <div class="bg-dots"></div>
 <div class="bg-noise"></div>
+
+<button class="gateway-btn" onclick="openGateway()" title="API для внешних проектов">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12h6"/><path d="M12 9v6"/><circle cx="12" cy="12" r="9"/></svg>
+    Шлюз API
+</button>
 
 <button class="theme-toggle" onclick="toggleTheme()" title="Сменить тему" aria-label="Сменить тему">
     <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
@@ -696,6 +774,113 @@
 
 </div>
 
+<!-- ============ ШЛЮЗ API: модальное окно ============ -->
+<div class="gateway-modal-overlay" id="gatewayModal" onclick="if(event.target===this)closeGateway()">
+  <div class="gateway-modal">
+    <div class="gateway-modal-header">
+      <h2>Шлюз API для внешних проектов</h2>
+      <button class="gateway-modal-close" onclick="closeGateway()" aria-label="Закрыть">&times;</button>
+    </div>
+    <div class="gateway-tabs">
+      <button class="gateway-tab active" data-tab="overview" onclick="switchGatewayTab('overview')">Обзор</button>
+      <button class="gateway-tab" data-tab="connect" onclick="switchGatewayTab('connect')">Подключение</button>
+      <button class="gateway-tab" data-tab="test" onclick="switchGatewayTab('test')">Тест</button>
+    </div>
+
+    <!-- Вкладка: Обзор -->
+    <div class="gateway-tab-content" data-content="overview">
+      <h3>Базовый URL шлюза</h3>
+      <div class="gateway-url-row">
+        <code id="gatewayBaseUrl">—</code>
+        <button class="gateway-copy-btn" onclick="copyText(document.getElementById('gatewayBaseUrl').textContent)">Копировать</button>
+      </div>
+      <p style="margin-top:8px;color:var(--text-secondary);font-size:12.5px">Используется внешними проектами как корневой URL. Все запросы идут на <code>&lt;base&gt;/webhook/&lt;agent&gt;</code>.</p>
+
+      <h3>Доступные агенты</h3>
+      <div class="gateway-agents-list">
+        <div class="gateway-agent-item"><code>/webhook/router</code><span class="desc">Авто-маршрутизация — определит нужного агента</span></div>
+        <div class="gateway-agent-item"><code>/webhook/chat-agent</code><span class="desc">Универсальный чат-агент</span></div>
+        <div class="gateway-agent-item"><code>/webhook/rag-agent</code><span class="desc">Поиск ответов в загруженных документах</span></div>
+        <div class="gateway-agent-item"><code>/webhook/sql-agent</code><span class="desc">Запросы к базе данных на естественном языке</span></div>
+        <div class="gateway-agent-item"><code>/webhook/math-agent</code><span class="desc">Математические вычисления, Python-код</span></div>
+        <div class="gateway-agent-item"><code>/webhook/prompt-engineer</code><span class="desc">Генерация и улучшение промптов</span></div>
+      </div>
+
+      <h3>Формат запроса</h3>
+      <div class="gateway-code-block">POST &lt;base&gt;/webhook/&lt;agent&gt;
+Content-Type: application/json
+
+{
+  "message": "Текст вопроса",
+  "session_id": "myproject_user42_chat"
+}</div>
+
+      <h3>Формат ответа</h3>
+      <div class="gateway-code-block">{
+  "response": "Ответ агента"
+}</div>
+
+      <h3>Изоляция сессий — ВАЖНО</h3>
+      <p>Каждый внешний проект должен добавлять свой префикс к <code>session_id</code>, иначе сессии пересекутся с GigaChat HTML:</p>
+      <ul>
+        <li><code>myproject_user42_chat</code> — внешний проект «myproject»</li>
+        <li><code>otherapp_admin_rag</code> — другой проект</li>
+        <li><code>chat_1747234567_abc123</code> — формат GigaChat HTML, не использовать</li>
+      </ul>
+    </div>
+
+    <!-- Вкладка: Подключение -->
+    <div class="gateway-tab-content" data-content="connect" hidden>
+      <h3>Python (httpx) — рекомендую</h3>
+      <div class="gateway-code-block" id="snippetPython"></div>
+      <button class="gateway-action" onclick="copyText(document.getElementById('snippetPython').textContent)">Копировать</button>
+      <button class="gateway-action" onclick="downloadClient()">Скачать giga-client.py</button>
+
+      <h3>JavaScript (fetch)</h3>
+      <div class="gateway-code-block" id="snippetJs"></div>
+      <button class="gateway-action" onclick="copyText(document.getElementById('snippetJs').textContent)">Копировать</button>
+
+      <h3>curl (терминал)</h3>
+      <div class="gateway-code-block" id="snippetCurl"></div>
+      <button class="gateway-action" onclick="copyText(document.getElementById('snippetCurl').textContent)">Копировать</button>
+
+      <h3>Полная инструкция</h3>
+      <p>В корне репозитория лежит <code>INTEGRATION.md</code> — описывает все варианты подключения, обработку ошибок, изоляцию сессий и развёртывание.</p>
+    </div>
+
+    <!-- Вкладка: Тест -->
+    <div class="gateway-tab-content" data-content="test" hidden>
+      <p style="margin-bottom:14px;color:var(--text-secondary);font-size:13px">Отправь тестовый запрос напрямую в шлюз — увидишь ответ как его получит внешний проект.</p>
+      <div class="gateway-test-form">
+        <label>Агент</label>
+        <select id="gatewayTestAgent">
+          <option value="router">router — авто-маршрутизация</option>
+          <option value="chat-agent" selected>chat-agent — универсальный чат</option>
+          <option value="rag-agent">rag-agent — поиск по документам</option>
+          <option value="sql-agent">sql-agent — база данных</option>
+          <option value="math-agent">math-agent — вычисления</option>
+          <option value="prompt-engineer">prompt-engineer — промпт-инженер</option>
+        </select>
+
+        <label>Session ID (с префиксом проекта)</label>
+        <input type="text" id="gatewayTestSession" value="gateway_test_user1">
+
+        <label>Сообщение</label>
+        <textarea id="gatewayTestMessage" placeholder="Напишите что-нибудь...">Привет, кто ты?</textarea>
+
+        <div>
+          <button class="gateway-test-btn" id="gatewayTestBtn" onclick="runGatewayTest()">Отправить</button>
+        </div>
+
+        <div>
+          <label>Ответ</label>
+          <div class="gateway-test-output" id="gatewayTestOutput">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
     var AGENTS = [
         { id: 'router', webhook: GigaChat.webhookUrl('router') },
@@ -784,6 +969,131 @@
 
     checkAll();
     setInterval(checkAll, 30000);
+
+    // ================ ШЛЮЗ API ================
+    function gatewayBase() {
+        // Берём базу n8n из общего config — она же используется агентами.
+        return (GigaChat.config.N8N_BASE || 'http://localhost:5678').replace(/\/$/, '');
+    }
+
+    function openGateway() {
+        // Подставляем URL и сниппеты при каждом открытии (URL может зависеть от config).
+        var base = gatewayBase();
+        document.getElementById('gatewayBaseUrl').textContent = base;
+
+        document.getElementById('snippetPython').textContent =
+'import httpx\n' +
+'\n' +
+'BASE = "' + base + '"\n' +
+'PREFIX = "myproject"  # ваш префикс\n' +
+'\n' +
+'async def ask_giga(message: str, user_id: str, agent: str = "chat-agent") -> str:\n' +
+'    sid = f"{PREFIX}_{agent.split(\'-\')[0]}_{user_id}"\n' +
+'    async with httpx.AsyncClient(timeout=120) as client:\n' +
+'        r = await client.post(f"{BASE}/webhook/{agent}",\n' +
+'            json={"message": message, "session_id": sid})\n' +
+'        r.raise_for_status()\n' +
+'        return r.json().get("response", "")';
+
+        document.getElementById('snippetJs').textContent =
+'const BASE = "' + base + '";\n' +
+'const PREFIX = "myproject";\n' +
+'\n' +
+'async function askGiga(message, userId, agent = "chat-agent") {\n' +
+'  const sid = `${PREFIX}_${agent.split("-")[0]}_${userId}`;\n' +
+'  const res = await fetch(`${BASE}/webhook/${agent}`, {\n' +
+'    method: "POST",\n' +
+'    headers: { "Content-Type": "application/json" },\n' +
+'    body: JSON.stringify({ message, session_id: sid })\n' +
+'  });\n' +
+'  if (!res.ok) throw new Error("HTTP " + res.status);\n' +
+'  const data = await res.json();\n' +
+'  return data.response;\n' +
+'}';
+
+        document.getElementById('snippetCurl').textContent =
+'curl -X POST "' + base + '/webhook/chat-agent" \\\n' +
+'  -H "Content-Type: application/json" \\\n' +
+'  -d \'{"message":"Привет","session_id":"myproject_chat_user1"}\'';
+
+        document.getElementById('gatewayModal').classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeGateway() {
+        document.getElementById('gatewayModal').classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    function switchGatewayTab(name) {
+        var tabs = document.querySelectorAll('.gateway-tab');
+        for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle('active', tabs[i].dataset.tab === name);
+        var contents = document.querySelectorAll('.gateway-tab-content');
+        for (var j = 0; j < contents.length; j++) contents[j].hidden = contents[j].dataset.content !== name;
+    }
+
+    function copyText(text) {
+        try {
+            navigator.clipboard.writeText(text);
+        } catch (e) {
+            // fallback для старых браузеров
+            var ta = document.createElement('textarea');
+            ta.value = text; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); } catch (_) {}
+            ta.remove();
+        }
+    }
+
+    function downloadClient() {
+        // Качаем готовый Python-клиент из репозитория.
+        var a = document.createElement('a');
+        a.href = 'Agents/giga-client.py';
+        a.download = 'giga-client.py';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
+    async function runGatewayTest() {
+        var btn = document.getElementById('gatewayTestBtn');
+        var out = document.getElementById('gatewayTestOutput');
+        var agent = document.getElementById('gatewayTestAgent').value;
+        var session = document.getElementById('gatewayTestSession').value.trim() || ('gateway_test_' + Date.now());
+        var message = document.getElementById('gatewayTestMessage').value.trim();
+        if (!message) { out.textContent = 'Введите сообщение'; out.classList.add('error'); return; }
+
+        btn.disabled = true; out.classList.remove('error'); out.textContent = 'Запрос отправлен...';
+        var startTime = Date.now();
+        try {
+            var res = await fetch(gatewayBase() + '/webhook/' + agent, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message, session_id: session })
+            });
+            var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            var raw;
+            try { raw = await res.json(); } catch (_) { raw = await res.text(); }
+            if (!res.ok) {
+                out.classList.add('error');
+                out.textContent = 'HTTP ' + res.status + ' (' + elapsed + ' сек)\n\n' + JSON.stringify(raw, null, 2);
+            } else {
+                out.textContent = '✓ ' + elapsed + ' сек\n\n' + JSON.stringify(raw, null, 2);
+            }
+        } catch (e) {
+            out.classList.add('error');
+            out.textContent = 'Сетевая ошибка: ' + e.message;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // Закрытие по Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            var modal = document.getElementById('gatewayModal');
+            if (modal && modal.classList.contains('show')) closeGateway();
+        }
+    });
 </script>
 </body>
 </html>
