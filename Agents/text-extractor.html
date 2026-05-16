@@ -265,7 +265,14 @@ main {
     resize: vertical;
     outline: none;
     tab-size: 4;
+    /* Scrollbar в тон темы — приглушённый, peach на hover. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
 }
+#resultText::-webkit-scrollbar { width: 8px; }
+#resultText::-webkit-scrollbar-track { background: transparent; }
+#resultText::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+#resultText::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 .reset-btn {
     display: none;
@@ -284,7 +291,7 @@ main {
     font-family: inherit;
     transition: all 0.2s;
 }
-.reset-btn button:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+.reset-btn button:hover { background: rgba(212,165,116,0.15); color: var(--accent); border-color: var(--accent); }
 
 .status-bar {
     display: flex;
@@ -503,8 +510,8 @@ main {
                     lastFileName = selectedFile.name;
                     resultText.value = displayText;
                     var elapsed = Math.floor((Date.now() - startTime) / 1000);
-                    var sourceLabel = (ext === 'docx') ? 'Word (без OCR)'
-                                    : (ext === 'xlsx' || ext === 'xlsm') ? 'Excel (без OCR)'
+                    var sourceLabel = (ext === 'docx') ? 'Word'
+                                    : (ext === 'xlsx' || ext === 'xlsm') ? 'Excel'
                                     : (ext === 'csv') ? 'CSV'
                                     : 'Текстовый файл';
                     var lengthLabel = displayText.length.toLocaleString('ru-RU') + ' символов';

@@ -612,11 +612,12 @@
       style.id = 'gc-sidebar-resize-css';
       style.textContent =
         '.sidebar{position:relative}' +
-        // Hot-zone 30px высоты, центрирован вертикально, прижат к правому
-        // контуру (16px ширина). Только при наведении внутри неё появляется
-        // peach-индикатор (2px line по центру, 30px высота).
-        '.gc-sidebar-resize-handle{position:absolute;top:50%;right:0;transform:translateY(-50%);height:30px;width:16px;cursor:col-resize;z-index:100;background:transparent;user-select:none}' +
-        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:0;right:0;bottom:0;width:2px;background:var(--accent);opacity:0;transition:opacity .15s,width .15s}' +
+        // Hot-zone — ВЕСЬ правый контур (full-height, 16px ширина), drag и
+        // hover работают на любой точке. Индикатор (peach line) виден всегда
+        // по центру 30px, насыщеннее при hover/drag. Юзер сразу понимает где
+        // тянуть, и тянуть можно с любого места правого края.
+        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:16px;cursor:col-resize;z-index:100;background:transparent;user-select:none}' +
+        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:50%;right:0;transform:translateY(-50%);height:30px;width:2px;background:var(--accent);opacity:0;transition:opacity .15s,width .15s}' +
         '.gc-sidebar-resize-handle:hover::after,.gc-sidebar-resize-handle.dragging::after{opacity:1;width:3px}';
       document.head.appendChild(style);
     }

@@ -90,7 +90,7 @@
             color: var(--accent); letter-spacing: 2px;
         }
         header .status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; line-height: 1; color: var(--text-secondary); letter-spacing: 0.5px; }
-        header .status .dot { width: 6px; height: 6px; border-radius: 50%; background: #f0ad4e; animation: pulse 1s infinite; }
+        header .status .dot { width: 5px; height: 5px; border-radius: 50%; background: #f0ad4e; transform: translate(-4px, 2px); animation: pulse 1s infinite; }
         header .status .dot.online { background: #4caf50; box-shadow: 0 0 8px rgba(76,175,80,0.5); animation: pulse 2s infinite; }
         header .status .dot.offline { background: #cc4444; box-shadow: 0 0 8px rgba(204,68,68,0.4); animation: none; }
         header .status .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
@@ -429,7 +429,7 @@
                 sessionStore.setInflight(sendSessionId, 'Выполняю запрос');
             }
 
-            var sendCtrl = GigaChat.makeCancellableSend(btn);
+            var sendCtrl = GigaChat.makeCancellableSend(btn, sendSessionId);
             try {
                 var res = await fetchWithRetry(WEBHOOK_URL, {
                     method: 'POST',
