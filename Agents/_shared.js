@@ -1101,9 +1101,13 @@
         if (a) store.activeSessionId = a || null;
         if (c) store.sessionCounter = parseInt(c, 10) || 0;
       } catch (e) {}
-      // Чистим stale inflight-маркеры (старше 10 минут) — реликты закрытой
-      // вкладки. Иначе юзер при возврате видит вечный loader и не может ни
-      // отправить, ни отменить (controller потерян со страницей).
+    }
+    // Чистка stale inflight-маркеров. Вынесена ОТДЕЛЬНО от load() — её нужно
+    // делать ТОЛЬКО при инициальной загрузке страницы (вызов load() из
+    // агентского кода). НЕ из handleStorageEvent, иначе при переименовании
+    // сессии в одной вкладке мы могли бы убить активный inflight в другой
+    // вкладке (если запрос идёт >10 мин — реалистично для длинных OCR).
+    function pruneStaleInflightMarkers() {
       var STALE_INFLIGHT_MS = 10 * 60 * 1000;
       var now = Date.now();
       var toRemove = [];
@@ -1122,6 +1126,9 @@
         try { localStorage.removeItem(toRemove[j]); } catch (e) {}
       }
     }
+    // Запускаем ОДИН раз при создании сессии-стора (по сути при загрузке
+    // страницы) — реликты вкладок, закрытых без clearInflight, очистятся.
+    pruneStaleInflightMarkers();
 
     // Сохранение snapshot с защитой от переполнения localStorage.
     // Стратегия при QuotaExceededError:
@@ -1225,6 +1232,10 @@
       inflightTimer = setInterval(tickInflightDom, 1000);
     }
     function stopInflightTicker() {
+      // Не останавливаем тикер если в активной сессии ещё есть inflight
+      // (multi-tab/multi-session: clearInflight чужой сессии не должен
+      // ломать счётчик активного loader'а).
+      if (store.activeSessionId && getInflight(store.activeSessionId)) return;
       if (inflightTimer) { clearInterval(inflightTimer); inflightTimer = null; }
     }
     function setInflight(sid, label) {
@@ -1281,24 +1292,24 @@
 
     // Утилита: пуш сообщения в активную сессию ИЛИ в snapshot чужой
     // (если юзер ушёл в другую сессию, пока шла обработка).
-    // Если сессия удалена пока шёл запрос — push игнорируется (иначе
-    // orphan-snapshot записывается в localStorage).
+    // Возвращает true если push реально применён; false если сессия
+    // была удалена. typewriteAssistant использует это чтобы НЕ начинать
+    // печатать в чужой DOM, когда последний .msg.bot — не наш.
     function pushToSession(sid, msg) {
-      if (!sid) return;
-      if (!findSession(sid)) return; // сессия удалена — игнорируем
+      if (!sid) return false;
+      if (!findSession(sid)) return false; // сессия удалена — игнорируем
       if (sid === store.activeSessionId) {
         store.displayMessages.push(msg);
         saveSnapshot();
         renderMessages(store.displayMessages);
-        // После рендеринга — подсвечиваем code-блоки.
         applyHighlight();
       } else {
-        // Чужая сессия: используем тот же quota-fallback что и saveSnapshot.
         var snap = loadSnapshot(sid) || [];
         snap.push(msg);
         if (snap.length > MAX_SNAPSHOT_MESSAGES) snap = snap.slice(-MAX_SNAPSHOT_MESSAGES);
         trySaveSnapshotTo(sid, snap);
       }
+      return true;
     }
 
     function findSession(id) {
@@ -1317,9 +1328,12 @@
 
     async function switchTo(id, switchOpts) {
       switchOpts = switchOpts || {};
+      var sameSession = (id === store.activeSessionId);
       store.activeSessionId = id;
-      // Скрепку трогаем только если в фоне НЕ идёт обработка.
-      if (!isProcessing()) onAttachmentClear();
+      // Скрепку трогаем ТОЛЬКО если это переход в ДРУГУЮ сессию И
+      // в фоне нет обработки. Иначе клик по уже-активной сессии в
+      // сайдбаре терял прицепленный файл.
+      if (!sameSession && !isProcessing()) onAttachmentClear();
       store.displayMessages = loadSnapshot(id) || [];
       renderList();
       save();
@@ -1557,7 +1571,11 @@
 
     // 1) Положить в snapshot и отрисовать. После этого последний .msg.bot
     //    содержит финальный HTML (markdown отрендерен).
-    sessionStore.pushToSession(sid, msg);
+    // Если pushToSession вернул false — сессия удалена пока шёл запрос,
+    // НЕЛЬЗЯ ничего печатать (lastBot в DOM принадлежит другой активной
+    // сессии, мы напечатаем ответ удалённой сессии поверх чужого ответа).
+    var pushed = sessionStore.pushToSession(sid, msg);
+    if (!pushed) return null;
 
     // 2) Если сессия не активна — анимация не нужна.
     if (sid !== sessionStore.state.activeSessionId) return null;

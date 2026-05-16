@@ -115,7 +115,7 @@
         }
         .msg.bot { padding: 0 4px; font-size: 14px; display: block; }
         .bot .agent-badge {
-            display: inline-block; margin-bottom: 6px;
+            display: block; width: fit-content; margin-bottom: 8px;
             padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
             background: rgba(212,165,116,0.15); color: var(--accent);
             text-transform: uppercase; letter-spacing: 0.5px;
@@ -475,11 +475,7 @@
                     chat.innerHTML = '<div class="history-loading">Загружаю историю...</div>';
                 }
                 try {
-                    var res = await fetch(HISTORY_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-                        body: JSON.stringify({ session_id: sid })
-                    });
+                    var res = await GigaChat.fetchWithRetry(HISTORY_URL, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ session_id: sid }) }, { timeout: 30000, retries: 0 });
                     if (!res.ok) throw new Error('Сервер ответил ' + res.status);
                     var data = await res.json();
                     return (data.messages || []).map(function (m) {

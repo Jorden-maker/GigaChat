@@ -273,11 +273,11 @@ const sessionStore = GigaChat.createSessionStore({
       container.innerHTML = '<div class="welcome"><p>Загружаю историю...</p></div>';
     }
     try {
-      const res = await fetch(HISTORY_URL, {
+      const res = await GigaChat.fetchWithRetry(HISTORY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({ session_id: sid })
-      });
+      }, { timeout: 30000, retries: 0 });
       if (!res.ok) throw new Error('Сервер ответил ' + res.status);
       const data = await res.json();
       return (data.messages || []).map(m => ({
