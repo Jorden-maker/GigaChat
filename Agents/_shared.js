@@ -535,8 +535,10 @@
       // (правый нижний угол), а скрепка ВЫНЕСЕНА справа от поля и
       // выровнена по центру высоты. См. inputs section ниже.
       //
-      // Скрепка плоская, без рамки, маленькая.
-      + '.gc-attach-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:transparent;border:none;border-radius:8px;color:var(--text-secondary);cursor:pointer;transition:all .15s;flex-shrink:0;padding:0}'
+      // Скрепка плоская, без рамки, маленькая. Размеры 32×32 + margin-bottom:6px
+      // зеркально с .gc-send-icon (bottom:6px внутри wrap), чтобы центры
+      // обеих иконок совпадали по вертикали при flex-end в .gc-input-row.
+      + '.gc-attach-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin-bottom:6px;background:transparent;border:none;border-radius:8px;color:var(--text-secondary);cursor:pointer;transition:all .15s;flex-shrink:0;padding:0}'
       + '.gc-attach-btn:hover:not(:disabled){color:var(--accent);background:var(--bg-hover)}'
       // pointer-events:none — гарантия что disabled-кнопка вообще не реагирует
       // на клики/тапы. На случай если CSS внешнего агента переопределит cursor.
