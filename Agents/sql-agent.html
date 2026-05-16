@@ -304,9 +304,10 @@
                     '<span class="dots"><span></span><span></span><span></span></span>' +
                     '<span class="timer">' + elapsed + ' сек</span></div>';
             }
+            var __wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 30;
             chat.innerHTML = html;
             GigaChat.attachCopyButtons(chat);
-            chat.scrollTop = chat.scrollHeight;
+            if (__wasAtBottom) chat.scrollTop = chat.scrollHeight;
         }
         function fetchWithRetry(url, options, optsOrRetries) {
             // optsOrRetries: число retries (legacy) или объект { retries, signal }.

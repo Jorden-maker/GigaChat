@@ -357,7 +357,7 @@
 <div class="bg-dots"></div>
 <div class="bg-noise"></div>
 
-<button class="gateway-btn" onclick="openGateway()" title="API для внешних проектов">
+<button class="gateway-btn" onclick="openGateway()" aria-label="API для внешних проектов">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12h6"/><path d="M12 9v6"/><circle cx="12" cy="12" r="9"/></svg>
     Шлюз API
 </button>
@@ -491,7 +491,7 @@
       <h3>URL шлюза</h3>
       <div class="gateway-url-row">
         <code id="gatewayBaseUrl">—</code>
-        <button class="gateway-copy-btn" onclick="copyFromElement(this, 'gatewayBaseUrl')" title="Копировать URL">
+        <button class="gateway-copy-btn" onclick="copyFromElement(this, 'gatewayBaseUrl')" aria-label="Копировать URL">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         </button>
       </div>
@@ -510,12 +510,12 @@
 
       <h3>Доступные агенты</h3>
       <div class="gateway-agents-list">
-        <div class="gateway-agent-item"><code>/webhook/router</code><span class="desc">авто-маршрутизация</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/router')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-        <div class="gateway-agent-item"><code>/webhook/chat-agent</code><span class="desc">универсальный чат</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/chat-agent')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-        <div class="gateway-agent-item"><code>/webhook/rag-agent</code><span class="desc">по документам</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/rag-agent')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-        <div class="gateway-agent-item"><code>/webhook/sql-agent</code><span class="desc">база данных</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/sql-agent')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-        <div class="gateway-agent-item"><code>/webhook/math-agent</code><span class="desc">вычисления</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/math-agent')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-        <div class="gateway-agent-item"><code>/webhook/prompt-engineer</code><span class="desc">промпт-инженер</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/prompt-engineer')" title="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/router</code><span class="desc">авто-маршрутизация</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/router')" aria-label="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/chat-agent</code><span class="desc">универсальный чат</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/chat-agent')" aria-label="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/rag-agent</code><span class="desc">по документам</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/rag-agent')" aria-label="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/sql-agent</code><span class="desc">база данных</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/sql-agent')" aria-label="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/math-agent</code><span class="desc">вычисления</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/math-agent')" aria-label="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+        <div class="gateway-agent-item"><code>/webhook/prompt-engineer</code><span class="desc">промпт-инженер</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/prompt-engineer')" aria-label="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
       </div>
 
     </div>

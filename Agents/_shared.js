@@ -467,7 +467,7 @@
       + '.gc-input-wrap{position:relative;flex:1;display:flex;align-items:stretch;min-width:0}'
       + '.gc-input-wrap > textarea{flex:1;width:100%;padding-right:48px !important}'
       // Кнопка-отправка как иконка внутри поля: квадратная, акцентный фон, ↵.
-      + '.gc-send-icon{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--text-secondary);border:none;border-radius:8px;cursor:pointer;padding:0;transition:color .15s,background .15s,opacity .15s;z-index:2}'
+      + '.gc-send-icon{position:absolute;right:11px;bottom:8px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--text-secondary);border:none;border-radius:8px;cursor:pointer;padding:0;transition:color .15s,background .15s,opacity .15s;z-index:2}'
       + '.gc-send-icon:hover:not(:disabled){color:var(--accent);background:rgba(255,255,255,0.06)}'
       + '.gc-send-icon:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}'
       + '.gc-send-icon svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
@@ -485,17 +485,20 @@
       + '.gc-attach-chip.bot{background:rgba(255,255,255,0.06)}'
       // Переносы строк в user-сообщении должны сохраняться визуально.
       + '.msg.user, .msg-user-body{white-space:pre-wrap;word-wrap:break-word}'
-      // Таймер в loader'е справа от точек с отступом 30px (чтобы copy-btn
-      // на hover не залазил на таймер).
-      + '.loading .timer{margin-left:30px}'
-      // Copy-кнопка живёт ВНУТРИ .msg.user в правом нижнем углу.
-      // Изначально цвет = текст запроса (peach). Hover — фон bg-user.
-      // Маленький размер 22x22, иконка 12px. Не выходит за пределы msg
-      // → не залазит на текст ответа.
-      + '.msg.user{position:relative;padding-bottom:14px}'
-      + '.gc-msg-copy{position:absolute;right:4px;bottom:4px;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;background:transparent;border:none;border-radius:4px;color:var(--accent);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}'
+      // Таймер в loader'е с отступом 10px от точек.
+      + '.loading .timer{margin-left:10px}'
+      // Copy-кнопка живёт ВНЕ .msg.user — справа от неё, 5px gap, низ
+      // выровнен с низом .msg.user. Цвет иконки = текст в запросе (peach),
+      // hover background = фон запроса (bg-user). Появляется при hover
+      // на .msg.user. Возможно из-за position:absolute right:-27px она
+      // выходит за пределы .msg.user — overflow:visible на родителях
+      // позволяет это (но #chat имеет overflow-y:auto и overflow-x:visible
+      // по умолчанию). На случай переполнения по ширине — padding-right
+      // у #chat достаточный.
+      + '.msg.user{position:relative}'
+      + '.gc-msg-copy{position:absolute;right:-27px;bottom:0;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;background:transparent;border:none;border-radius:4px;color:var(--accent);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}'
       + '.msg.user:hover .gc-msg-copy{opacity:1}'
-      + '.gc-msg-copy:hover{background:rgba(212,165,116,0.20)}'
+      + '.gc-msg-copy:hover{background:var(--bg-user)}'
       + '.gc-msg-copy svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
       + '.gc-msg-copy.copied{opacity:1}'
       + '';
@@ -604,13 +607,12 @@
       var style = document.createElement('style');
       style.id = 'gc-sidebar-resize-css';
       style.textContent =
-        // Hot-zone 10px у правого края + всегда-видимый peach «pill»
-        // индикатор по центру (60% высоты, 3px ширины). Юзер видит за
-        // что можно тянуть. На hover/drag индикатор насыщеннее.
-        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:10px;cursor:col-resize;z-index:10;background:transparent}' +
-        '.gc-sidebar-resize-handle::after{content:"";position:absolute;top:20%;right:0;bottom:20%;width:3px;border-radius:2px 0 0 2px;background:var(--accent);opacity:0.35;transition:opacity .15s}' +
-        '.gc-sidebar-resize-handle:hover::after{opacity:1}' +
-        '.gc-sidebar-resize-handle.dragging::after{opacity:1}';
+        // Широкая 14px hot-zone у правого края с явным dot-grip посередине
+        // (3 точки вертикально через repeating-gradient). Курсор col-resize
+        // на всей зоне. Юзер видит точки → понимает, что можно тянуть.
+        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:14px;cursor:col-resize;z-index:10;background:transparent;display:flex;align-items:center;justify-content:center}' +
+        '.gc-sidebar-resize-handle::after{content:"";display:block;width:3px;height:28px;background:radial-gradient(circle 1.5px at 50% 4px, var(--text-secondary) 99%, transparent 100%) 0 0/3px 10px repeat-y;opacity:0.6;transition:opacity .15s,background .15s}' +
+        '.gc-sidebar-resize-handle:hover::after,.gc-sidebar-resize-handle.dragging::after{opacity:1;background:radial-gradient(circle 1.5px at 50% 4px, var(--accent) 99%, transparent 100%) 0 0/3px 10px repeat-y}';
       document.head.appendChild(style);
     }
 
