@@ -31,16 +31,14 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* НИКАКИХ overflow на html/body — иначе они становятся scroll-container'ом
+           и position:fixed элементы плывут. Горизонтальное переполнение обрезается
+           на конкретных декоративных элементах (.bg-layers имеет overflow:hidden). */
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
-            /* clip — обрезает горизонтальный overflow БЕЗ создания собственного
-               scroll-container. С hidden в WebKit/Blink body становится scroller'ом,
-               и position:fixed элементы (.gateway-btn, .theme-toggle, .bg-layers)
-               начинают «плыть» при вертикальной прокрутке. */
-            overflow-x: clip;
         }
 
         /* Animated multi-layer radial gradient background */
