@@ -34,68 +34,8 @@
         }
 
         /* Animated multi-layer radial gradient background */
-        .bg-layers {
-            position: fixed; inset: 0; z-index: 0;
-            pointer-events: none;
-            overflow: hidden;
-        }
-
-        .bg-layers::before {
-            content: '';
-            position: absolute; inset: -50%;
-            width: 200%; height: 200%;
-            background:
-                radial-gradient(ellipse 600px 600px at 20% 20%, rgba(212,165,116,0.08), transparent 70%),
-                radial-gradient(ellipse 500px 500px at 80% 30%, rgba(212,165,116,0.06), transparent 70%),
-                radial-gradient(ellipse 700px 700px at 60% 80%, rgba(212,165,116,0.05), transparent 70%),
-                radial-gradient(ellipse 400px 400px at 10% 70%, rgba(212,165,116,0.04), transparent 70%),
-                radial-gradient(ellipse 500px 500px at 90% 90%, rgba(212,165,116,0.04), transparent 70%);
-            animation: bgDrift 25s ease-in-out infinite alternate;
-        }
-
-        .bg-layers::after {
-            content: '';
-            position: absolute; inset: -50%;
-            width: 200%; height: 200%;
-            background:
-                radial-gradient(ellipse 550px 550px at 70% 15%, rgba(212,165,116,0.06), transparent 65%),
-                radial-gradient(ellipse 450px 450px at 30% 60%, rgba(212,165,116,0.05), transparent 65%),
-                radial-gradient(ellipse 600px 600px at 50% 50%, rgba(212,165,116,0.04), transparent 60%);
-            animation: bgDrift2 30s ease-in-out infinite alternate;
-        }
-
-        @keyframes bgDrift {
-            0%   { transform: translate(0, 0) scale(1); }
-            33%  { transform: translate(3%, -2%) scale(1.02); }
-            66%  { transform: translate(-2%, 3%) scale(0.98); }
-            100% { transform: translate(1%, -1%) scale(1.01); }
-        }
-        @keyframes bgDrift2 {
-            0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
-            50%  { transform: translate(-3%, 2%) rotate(3deg) scale(1.03); }
-            100% { transform: translate(2%, -3%) rotate(-2deg) scale(0.97); }
-        }
-
-        .bg-dots {
-            position: fixed; inset: 0; z-index: 0;
-            pointer-events: none;
-            background-image:
-                /* Ближний слой — крупные яркие точки */
-                radial-gradient(circle, rgba(212,165,116,0.16) 1.5px, transparent 2px),
-                /* Дальний слой — мелкие тусклые точки */
-                radial-gradient(circle, rgba(212,165,116,0.07) 1px, transparent 1.5px);
-            background-size: 60px 60px, 30px 30px;
-            background-position: 0 0, 15px 15px;
-        }
-
-        .bg-noise {
-            position: fixed; inset: 0; z-index: 0;
-            opacity: 0.015;
-            pointer-events: none;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-            background-repeat: repeat;
-            background-size: 256px 256px;
-        }
+        /* Декоративные градиенты убраны — корпоративный сдержанный фон. */
+        .bg-layers, .bg-dots, .bg-noise { display: none; }
 
         /* Layout */
         .container {

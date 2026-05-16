@@ -499,6 +499,71 @@
   // содержимое .gc-send-icon кнопки внутри поля ввода.
   var SEND_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
 
+  // Делает сайдбар агента ресайзабельным. Создаёт невидимую полоску у
+  // правого края, за которую можно тащить мышью. Ширина сохраняется в
+  // localStorage по ключу storageKey — у каждого агента свой ключ.
+  //
+  // opts:
+  //   sidebar      (Element)   — .sidebar
+  //   initialWidth (number)    — стартовая ширина если сохранённой нет (по умолч. 240)
+  //   minWidth     (number)    — минимум при перетаскивании (по умолч. 220)
+  //   maxWidth     (number)    — максимум (по умолч. 2 × min)
+  //   storageKey   (string)    — localStorage ключ для сохранения ширины
+  function initSidebarResize(opts) {
+    var sidebar = opts.sidebar;
+    if (!sidebar) return;
+    var initialW = opts.initialWidth || 240;
+    var minW = opts.minWidth || 220;
+    var maxW = opts.maxWidth || (minW * 2);
+    var storageKey = opts.storageKey || 'giga_sidebar_w';
+
+    // CSS инжектится один раз для всех агентов на странице.
+    if (!document.getElementById('gc-sidebar-resize-css')) {
+      var style = document.createElement('style');
+      style.id = 'gc-sidebar-resize-css';
+      style.textContent =
+        '.gc-sidebar-resize-handle{position:absolute;top:0;right:0;bottom:0;width:6px;cursor:col-resize;z-index:10;background:transparent;transition:background .15s}' +
+        '.gc-sidebar-resize-handle:hover{background:rgba(212,165,116,0.25)}' +
+        '.gc-sidebar-resize-handle.dragging{background:rgba(212,165,116,0.45)}';
+      document.head.appendChild(style);
+    }
+
+    // Восстанавливаем сохранённую ширину или применяем initial.
+    var saved = parseInt(localStorage.getItem(storageKey), 10);
+    var startWidth = (saved && saved >= minW && saved <= maxW) ? saved : initialW;
+    sidebar.style.width = startWidth + 'px';
+
+    // Хэндл создаём как ребёнка sidebar. У sidebar overflow:hidden (для
+    // border-radius), поэтому хэндл должен лежать ВНУТРИ правого края.
+    var handle = document.createElement('div');
+    handle.className = 'gc-sidebar-resize-handle';
+    handle.setAttribute('aria-hidden', 'true');
+    sidebar.appendChild(handle);
+
+    handle.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      var startX = e.clientX;
+      var startW = sidebar.offsetWidth;
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      function onMove(ev) {
+        var newW = Math.max(minW, Math.min(maxW, startW + (ev.clientX - startX)));
+        sidebar.style.width = newW + 'px';
+      }
+      function onUp() {
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        try { localStorage.setItem(storageKey, String(sidebar.offsetWidth)); } catch (err) {}
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
   // Иконка «стоп» — квадратик. Показывается на месте стрелки отправки во
   // время LLM-запроса; клик отменяет запрос.
   var STOP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/></svg>';
@@ -1412,6 +1477,7 @@
     STOP_ICON_SVG: STOP_ICON_SVG,
     PAPERCLIP_SVG: PAPERCLIP_SVG,
     makeCancellableSend: makeCancellableSend,
+    initSidebarResize: initSidebarResize,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,
     RETRY_DELAY_MS: RETRY_DELAY_MS

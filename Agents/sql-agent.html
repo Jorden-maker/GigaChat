@@ -81,7 +81,7 @@
         .main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; }
         header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 20px; flex-shrink: 0;
+            padding: 10px 20px; flex-shrink: 0; position: relative; z-index: 2; box-shadow: 0 6px 10px -6px rgba(0,0,0,0.45);
         }
         .header-left { display:flex; align-items:center; gap:12px; }
         .header-right { display:flex; align-items:center; gap:12px; }
@@ -108,6 +108,7 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .msg.user {
             background: var(--bg-user);
+            color: var(--accent);
             padding: 10px 14px; border-radius: 8px;
             font-size: 14px;
             display: inline-block;
@@ -486,6 +487,11 @@
             buttonContainer: document.getElementById('attachBtn'),
             chipsContainer: document.getElementById('attachChips'),
             inputElement: input
+        });
+        GigaChat.initSidebarResize({
+            sidebar: document.querySelector('.sidebar'),
+            initialWidth: 240, minWidth: 220, maxWidth: 440,
+            storageKey: 'giga_sql_sidebar_w'
         });
 
         sessionStore.load();

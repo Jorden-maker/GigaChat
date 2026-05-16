@@ -82,7 +82,7 @@
         .main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; }
         header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 20px; flex-shrink: 0;
+            padding: 10px 20px; flex-shrink: 0; position: relative; z-index: 2; box-shadow: 0 6px 10px -6px rgba(0,0,0,0.45);
         }
         .header-left { display:flex; align-items:center; gap:12px; }
         .header-right { display:flex; align-items:center; gap:12px; }
@@ -109,6 +109,7 @@
            обёртку: контейнер .msg.user остаётся block, а внутри inline-block. */
         .msg.user {
             background: var(--bg-user);
+            color: var(--accent);
             padding: 10px 14px; border-radius: 8px;
             font-size: 14px;
             display: inline-block;
@@ -532,6 +533,13 @@
             buttonContainer: document.getElementById('attachBtn'),
             chipsContainer: document.getElementById('attachChips'),
             inputElement: input
+        });
+        // Ресайз сайдбара (мышью за правый край).
+        GigaChat.initSidebarResize({
+            sidebar: document.querySelector('.sidebar'),
+            initialWidth: 240,  // 220 + 20
+            minWidth: 220, maxWidth: 440,
+            storageKey: 'giga_chat_sidebar_w'
         });
 
         sessionStore.load();
