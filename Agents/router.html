@@ -120,6 +120,16 @@
             background: rgba(212,165,116,0.15); color: var(--accent);
             text-transform: uppercase; letter-spacing: 0.5px;
         }
+        /* Inflight badge — справа от user-msg, top-aligned, та же высота
+           что и .msg.user (padding 10px 14px чтобы совпали верхние границы). */
+        .inflight-agent-badge {
+            position: absolute; top: 0; left: calc(100% + 8px);
+            padding: 10px 14px; border-radius: 8px;
+            background: var(--bg-user); color: var(--accent);
+            font-size: 11px; font-weight: 500;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            white-space: nowrap; pointer-events: none;
+        }
         .bot b { color: var(--text-primary); }
         .bot i { color: var(--text-secondary); }
         .bot p { margin: 0 0 12px 0; }
@@ -197,7 +207,7 @@
            Базовая раскладка задаётся классом .gc-input-row в _shared.js. */
         #input-area { display: flex; gap: 8px; align-items: center; }
         #msg {
-            flex: 1; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border);
+            flex: 1; padding: 10px 16px; word-break: break-word; overflow-wrap: anywhere; border-radius: 10px; border: 1px solid var(--border);
             background: var(--bg-input); color: var(--text-primary);
             font-family: Segoe UI, Tahoma, sans-serif; font-size: 15px; outline: none;
             transition: border-color 0.2s;
@@ -507,6 +517,15 @@
                 chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">GigaChat Auto автоматически направит запрос нужному агенту.</span></div>';
                 return;
             }
+            // Найдём индекс последнего user-сообщения — к нему прикрепим
+            // inflight badge (имя выбранного агента) справа сверху.
+            var inflightLocal = sessionStore.getInflight(activeSessionId);
+            var lastUserIdx = -1;
+            if (inflightLocal && inflightLocal.label) {
+                for (var li = displayMessages.length - 1; li >= 0; li--) {
+                    if (displayMessages[li].role === 'user') { lastUserIdx = li; break; }
+                }
+            }
             var html = '';
             for (var i = 0; i < displayMessages.length; i++) {
                 var m = displayMessages[i];
@@ -525,7 +544,12 @@
                         var spacing = userBody ? 'margin-top:8px' : '';
                         userBody += '<div style="' + spacing + ';display:flex;flex-wrap:wrap;gap:6px">' + chipsHtml + '</div>';
                     }
-                    html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">'+ userBody + '</div>';
+                    // Inflight-badge с именем агента прикрепляется к последнему
+                    // user-сообщению справа сверху (top-aligned, bg = bg-user).
+                    var inflBadge = (i === lastUserIdx)
+                        ? '<span class="inflight-agent-badge">' + escapeHtml(inflightLocal.label) + '</span>'
+                        : '';
+                    html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">'+ userBody + inflBadge + '</div>';
                 } else {
                     var badge = m.agent ? '<div class="agent-badge">' + escapeHtml(AGENT_LABELS[m.agent] || m.agent) + '</div>' : '';
                     html += '<div class="msg bot">' + badge + formatResponse(m.content) + '</div>';
@@ -534,13 +558,9 @@
             var inflight = sessionStore.getInflight(activeSessionId);
             if (inflight) {
                 var elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
-                // В Auto показываем выбранный агент в загрузчике (badge перед
-                // точками) — юзер видит куда ушёл его запрос.
-                var agentBadge = inflight.label
-                    ? '<span class="agent-badge">' + escapeHtml(inflight.label) + '</span>'
-                    : '';
+                // Loader: только точки + таймер (имя агента уже прикреплено
+                // к user-сообщению справа).
                 html += '<div class="loading gc-inflight-loader" data-started-at="' + inflight.startedAt + '">' +
-                    agentBadge +
                     '<span class="dots"><span></span><span></span><span></span></span>' +
                     '<span class="timer">' + elapsed + ' сек</span></div>';
             }

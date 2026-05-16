@@ -31,7 +31,13 @@
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
         }
+        body::-webkit-scrollbar { width: 6px; }
+        body::-webkit-scrollbar-track { background: transparent; }
+        body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        body::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
         /* Animated multi-layer radial gradient background */
         /* Анимированные градиенты + noise убраны, но точечная сетка

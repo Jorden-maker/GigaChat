@@ -709,10 +709,10 @@
       document.head.appendChild(style);
     }
 
-    // Восстанавливаем сохранённую ширину или применяем initial.
-    var saved = parseInt(localStorage.getItem(storageKey), 10);
-    var startWidth = (saved && saved >= minW && saved <= maxW) ? saved : initialW;
-    sidebar.style.width = startWidth + 'px';
+    // Каждое открытие страницы — стартуем с дефолтной ширины. Если юзер
+    // растянул в этой сессии и ушёл/вернулся, ширина возвращается к
+    // initialW. localStorage не используем (юзер хочет именно сброс).
+    sidebar.style.width = initialW + 'px';
 
     // Хэндл создаём как ребёнка sidebar. У sidebar overflow:hidden (для
     // border-radius), поэтому хэндл должен лежать ВНУТРИ правого края.
@@ -738,7 +738,8 @@
         document.body.style.userSelect = '';
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
-        try { localStorage.setItem(storageKey, String(sidebar.offsetWidth)); } catch (err) {}
+        // Не сохраняем в localStorage — при следующем открытии страницы
+        // ширина возвращается к initialW.
       }
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
