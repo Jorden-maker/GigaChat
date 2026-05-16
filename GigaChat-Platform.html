@@ -127,22 +127,6 @@
             margin-bottom: 16px;
         }
 
-        .logo-icon {
-            width: 56px; height: 56px;
-            background: linear-gradient(135deg, var(--glow-blue), var(--glow-purple));
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            box-shadow: 0 0 30px rgba(77,159,255,0.25);
-            animation: logoPulse 3s ease-in-out infinite;
-        }
-        @keyframes logoPulse {
-            0%, 100% { box-shadow: 0 0 30px rgba(77,159,255,0.25); }
-            50% { box-shadow: 0 0 50px rgba(77,159,255,0.4); }
-        }
-
         .header h1 {
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: 42px;
@@ -464,18 +448,7 @@
                 radial-gradient(circle, rgba(212,175,55,0.10) 1px, transparent 1.5px);
         }
 
-        /* Логотип и заголовок — золотой градиент */
-        :root[data-theme="light"] .logo-icon {
-            background: linear-gradient(135deg, #d4af37, #f5d76e);
-            box-shadow: 0 0 30px rgba(212,175,55,0.35);
-        }
-        @keyframes logoPulseLight {
-            0%, 100% { box-shadow: 0 0 30px rgba(212,175,55,0.35); }
-            50% { box-shadow: 0 0 55px rgba(245,215,110,0.55); }
-        }
-        :root[data-theme="light"] .logo-icon {
-            animation: logoPulseLight 3s ease-in-out infinite;
-        }
+        /* Заголовок — золотой градиент */
         :root[data-theme="light"] .header h1 {
             background: linear-gradient(135deg, #2d2416 0%, #d4af37 50%, #f5d76e 100%);
             -webkit-background-clip: text;
@@ -672,10 +645,9 @@
 
     <div class="header">
         <div class="header-logo">
-            <div class="logo-icon">G</div>
             <h1>GigaChat</h1>
         </div>
-        <div class="header-sub">ИИ-ПЛАТФОРМА</div>
+        <div class="header-sub">ПЛАТФОРМА</div>
         <div class="header-line"></div>
         <div class="status-bar">
             <span class="dot checking" id="globalDot"></span>
@@ -796,7 +768,7 @@
     </div>
 
     <div class="footer">
-        GigaChat &middot; ИИ-ПЛАТФОРМА &middot; <span id="currentYear"></span>
+        GigaChat &middot; ПЛАТФОРМА &middot; <span id="currentYear"></span>
     </div>
 
 </div>
