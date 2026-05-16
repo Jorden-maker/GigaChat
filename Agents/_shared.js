@@ -157,6 +157,33 @@
     return html;
   }
 
+  // Применяет тему highlight.js (две предзагруженные CSS-темы переключаются
+  // через disabled). Если highlight.js не подключён — тихо ничего не делает.
+  function syncHljsTheme(themeName) {
+    var dark = document.getElementById('hljs-theme-dark');
+    var light = document.getElementById('hljs-theme-light');
+    if (!dark || !light) return;
+    if (themeName === 'dark') {
+      dark.disabled = false;
+      light.disabled = true;
+    } else {
+      dark.disabled = true;
+      light.disabled = false;
+    }
+  }
+
+  // Применить подсветку синтаксиса ко всем неподсвеченным <pre><code> внутри
+  // контейнера (либо ко всему документу если container не передан).
+  // Если highlight.js не подключён — тихо пропускаем.
+  function applyHighlight(container) {
+    if (typeof global.hljs === 'undefined') return;
+    var scope = container || document;
+    var blocks = scope.querySelectorAll('pre code:not(.hljs)');
+    for (var i = 0; i < blocks.length; i++) {
+      try { global.hljs.highlightElement(blocks[i]); } catch (e) {}
+    }
+  }
+
   // Переключение темы: меняет атрибут data-theme на <html> и сохраняет выбор.
   // Раннее применение темы делается inline-скриптом в <head> каждой страницы.
   function toggleTheme() {
@@ -164,6 +191,18 @@
     var next = current === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', next);
     try { localStorage.setItem('giga_theme', next); } catch (e) {}
+    syncHljsTheme(next);
+  }
+
+  // На загрузке страницы синхронизируем тему hljs с текущим data-theme.
+  // Раннее применение темы делается inline-скриптом, но hljs CSS подключается
+  // позже, поэтому делаем это после DOMContentLoaded.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      syncHljsTheme(document.documentElement.getAttribute('data-theme') || 'light');
+    });
+  } else {
+    syncHljsTheme(document.documentElement.getAttribute('data-theme') || 'light');
   }
 
   // ============================================================
@@ -968,6 +1007,8 @@
         store.displayMessages.push(msg);
         saveSnapshot();
         renderMessages(store.displayMessages);
+        // После рендеринга — подсвечиваем code-блоки.
+        applyHighlight();
       } else {
         try {
           var snap = loadSnapshot(sid) || [];
@@ -1000,6 +1041,7 @@
       renderList();
       save();
       renderMessages(store.displayMessages);
+      applyHighlight();
       // Если в новой сессии есть inflight (обработка в фоне) — запускаем тикер
       // для живого «X сек», иначе останавливаем (бережём CPU).
       if (getInflight(id)) startInflightTicker();
@@ -1022,6 +1064,7 @@
               store.displayMessages = msgs;
               saveSnapshot();
               renderMessages(store.displayMessages);
+              applyHighlight();
             }
           }
         } catch (e) {
@@ -1254,6 +1297,8 @@
         clearInterval(intervalId);
         lastBot.innerHTML = finalHtml;
         lastBot.classList.remove('gc-typewriting');
+        // Подсвечиваем code-блоки в финальном HTML.
+        applyHighlight(lastBot);
         return;
       }
       i = Math.min(i + charsPerTick, plainText.length);
@@ -1266,6 +1311,7 @@
         if (lastBot && lastBot.isConnected) {
           lastBot.innerHTML = finalHtml;
           lastBot.classList.remove('gc-typewriting');
+          applyHighlight(lastBot);
         }
       }
     };
@@ -1292,6 +1338,8 @@
     createSessionStore: createSessionStore,
     typewriteAssistant: typewriteAssistant,
     tsvBlocksToMarkdownTables: tsvBlocksToMarkdownTables,
+    applyHighlight: applyHighlight,
+    syncHljsTheme: syncHljsTheme,
     FETCH_TIMEOUT_MS: FETCH_TIMEOUT_MS,
     MAX_RETRIES: MAX_RETRIES,
     RETRY_DELAY_MS: RETRY_DELAY_MS
