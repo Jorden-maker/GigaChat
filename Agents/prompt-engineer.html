@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Агент по промпт-инженерии — GigaChat</title>
+<title>GigaChat Prompt</title>
 <script>
     (function () {
         var t = localStorage.getItem('giga_theme') || 'light';
@@ -268,7 +268,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
   <div class="header">
     <div class="header-left">
       <div class="header-info">
-        <h1>Агент по промпт-инженерии — GigaChat</h1>
+        <h1>GigaChat Prompt</h1>
       </div>
     </div>
     <div class="header-right">
@@ -316,7 +316,7 @@ try { localStorage.removeItem('pe_histories'); } catch (e) {}
 const sessionStore = GigaChat.createSessionStore({
   prefix: 'pe',
   idPrefix: 'pe_',
-  namePrefix: 'Промпт-',
+  namePrefix: 'Prompt-',
   sessionList: document.getElementById('sessionList'),
   renderMessages: function () { renderChat(); },
   onAttachmentClear: function () {
@@ -648,7 +648,7 @@ async function checkServerStatus() {
 function exportChat() {
   if (!activeSessionId) { alert('Нет активной сессии'); return; }
   if (displayMessages.length === 0) { alert('Нет сообщений для экспорта'); return; }
-  let text = 'Агент по промпт-инженерии — GigaChat\nЭкспорт: ' + new Date().toLocaleString('ru-RU') + '\n' + '='.repeat(50) + '\n\n';
+  let text = 'GigaChat Prompt\nЭкспорт: ' + new Date().toLocaleString('ru-RU') + '\n' + '='.repeat(50) + '\n\n';
   for (const m of displayMessages) {
     const content = m.content || m.text || '';
     const extras = m.extras || {};
@@ -656,7 +656,7 @@ function exportChat() {
     if (m.role === 'user') {
       text += 'Вы:\n' + content + '\n\n';
     } else {
-      text += 'Агент по промпт-инженерии:\n' + content + '\n';
+      text += 'GigaChat Prompt:\n' + content + '\n';
       if (prompt) text += '\n--- ПРОМПТ ---\n' + prompt + '\n--- /ПРОМПТ ---\n';
       text += '\n';
     }

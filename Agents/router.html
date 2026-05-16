@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Поток — GigaChat</title>
+    <title>GigaChat Auto</title>
     <script>
         (function () {
             var t = localStorage.getItem('giga_theme') || 'light';
@@ -298,7 +298,7 @@
     </div>
     <div class="main">
         <header>
-            <div class="header-left"><h1>Поток — GigaChat</h1></div>
+            <div class="header-left"><h1>GigaChat Auto</h1></div>
             <div class="header-right">
                 <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
                 <button class="btn-export" onclick="exportChat()">Экспорт</button>
@@ -311,7 +311,7 @@
         <div id="chat">
             <div class="empty-chat">
                 <span>Создайте новую сессию для начала работы</span>
-                <span class="hint">Поток автоматически направит запрос нужному агенту. Если выбор неверен — измените его в выпадающем списке перед отправкой.</span>
+                <span class="hint">GigaChat Auto автоматически направит запрос нужному агенту. Если выбор неверен — измените его в выпадающем списке перед отправкой.</span>
             </div>
         </div>
         <div class="bottom-area">
@@ -320,15 +320,15 @@
                 <span>Отправлю в:</span>
                 <div class="custom-select" id="targetAgentSelect">
                     <button class="custom-select-trigger" type="button" onclick="toggleAgentDropdown(event)" aria-haspopup="listbox">
-                        <span class="custom-select-label">Чат-Агент</span>
+                        <span class="custom-select-label">GigaChat Talk</span>
                         <svg class="custom-select-arrow" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                     </button>
                     <div class="custom-select-panel" role="listbox">
-                        <div class="custom-select-option" data-value="sql" onclick="setTargetAgent('sql')" role="option">Агент по базе данных</div>
-                        <div class="custom-select-option" data-value="rag" onclick="setTargetAgent('rag')" role="option">Агент по документам</div>
-                        <div class="custom-select-option" data-value="math" onclick="setTargetAgent('math')" role="option">Математический агент</div>
-                        <div class="custom-select-option" data-value="prompt-engineer" onclick="setTargetAgent('prompt-engineer')" role="option">Агент по промпт-инженерии</div>
-                        <div class="custom-select-option selected" data-value="chat" onclick="setTargetAgent('chat')" role="option">Чат-Агент</div>
+                        <div class="custom-select-option" data-value="sql" onclick="setTargetAgent('sql')" role="option">GigaChat Data</div>
+                        <div class="custom-select-option" data-value="rag" onclick="setTargetAgent('rag')" role="option">GigaChat Docs</div>
+                        <div class="custom-select-option" data-value="math" onclick="setTargetAgent('math')" role="option">GigaChat Math</div>
+                        <div class="custom-select-option" data-value="prompt-engineer" onclick="setTargetAgent('prompt-engineer')" role="option">GigaChat Prompt</div>
+                        <div class="custom-select-option selected" data-value="chat" onclick="setTargetAgent('chat')" role="option">GigaChat Talk</div>
                     </div>
                 </div>
                 <span class="change-hint">можно изменить</span>
@@ -364,11 +364,11 @@
 
         // Лейблы агентов для бейджей в ответе
         var AGENT_LABELS = {
-            sql: 'Агент по базе данных',
-            rag: 'Агент по документам',
-            math: 'Математический агент',
-            'prompt-engineer': 'Агент по промпт-инженерии',
-            chat: 'Чат-Агент'
+            sql: 'GigaChat Data',
+            rag: 'GigaChat Docs',
+            math: 'GigaChat Math',
+            'prompt-engineer': 'GigaChat Prompt',
+            chat: 'GigaChat Talk'
         };
 
         // ============ KEYWORD-КЛАССИФИКАТОР ============
@@ -507,14 +507,14 @@
         var sessionStore = GigaChat.createSessionStore({
             prefix: 'router',
             idPrefix: 'router_',
-            namePrefix: 'Поток-',
+            namePrefix: 'Auto-',
             sessionList: sessionList,
             renderMessages: function () { renderChat(); },
             onAttachmentClear: function () {
                 if (attachment) { attachment.cancel(); attachment.clear(); attachment.setDisabled(false); }
             },
             onEmpty: function () {
-                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">Поток автоматически направит запрос нужному агенту.</span></div>';
+                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">GigaChat Auto автоматически направит запрос нужному агенту.</span></div>';
                 input.disabled = true; btn.disabled = true;
                 agentHint.style.display = 'none';
             },
@@ -572,7 +572,7 @@
         }
         function renderChat() {
             if (!activeSessionId || !sessions.find(function (s) { return s.id === activeSessionId; })) {
-                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">Поток автоматически направит запрос нужному агенту.</span></div>';
+                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">GigaChat Auto автоматически направит запрос нужному агенту.</span></div>';
                 return;
             }
             var html = '';

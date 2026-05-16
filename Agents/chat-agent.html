@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Чат-Агент — GigaChat</title>
+    <title>GigaChat Talk</title>
     <script>
         (function () {
             var t = localStorage.getItem('giga_theme') || 'light';
@@ -236,7 +236,7 @@
     <div class="main">
         <header>
             <div class="header-left">
-                <h1>Чат-Агент — GigaChat</h1>
+                <h1>GigaChat Talk</h1>
 
             </div>
             <div class="header-right">
@@ -281,7 +281,7 @@
         var sessionStore = GigaChat.createSessionStore({
             prefix: 'chat',
             idPrefix: 'chat_',
-            namePrefix: 'Чат-',
+            namePrefix: 'Talk-',
             sessionList: sessionList,
             renderMessages: function () { renderChat(); },
             // isProcessing — не передаём, sessionStore сам читает getInflight.
@@ -562,7 +562,7 @@
             }
             var lines = ['=== ' + sessionName + ' ===', 'Экспорт: ' + new Date().toLocaleString('ru-RU'), ''];
             for (var j = 0; j < displayMessages.length; j++) {
-                lines.push('[' + (displayMessages[j].role === 'user' ? 'Вы' : 'Чат-Агент') + ']');
+                lines.push('[' + (displayMessages[j].role === 'user' ? 'Вы' : 'GigaChat Talk') + ']');
                 lines.push(displayMessages[j].content); lines.push('');
             }
             var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });

@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Математический агент - GigaChat</title>
+    <title>GigaChat Math</title>
     <script>
         (function () {
             var t = localStorage.getItem('giga_theme') || 'light';
@@ -371,7 +371,7 @@
     <div class="main">
         <header>
             <div class="header-left">
-                <h1>Математический агент - GigaChat</h1>
+                <h1>GigaChat Math</h1>
             </div>
             <div class="header-right">
                 <div class="status" id="statusBar">
@@ -421,7 +421,7 @@
         var sessionStore = GigaChat.createSessionStore({
             prefix: 'math',
             idPrefix: 'math_',
-            namePrefix: 'Вычисление-',
+            namePrefix: 'Math-',
             sessionList: sessionList,
             renderMessages: function () { renderChat(); },
             onAttachmentClear: function () {
@@ -696,7 +696,7 @@
                 var extras = m.extras || {};
                 var code = extras.code || m.code || '';
                 var raw = extras.raw_result || m.raw_result || '';
-                lines.push('[' + (m.role === 'user' ? 'Вы' : 'Мат. агент') + ']');
+                lines.push('[' + (m.role === 'user' ? 'Вы' : 'GigaChat Math') + ']');
                 if (code) { lines.push('Код: ' + code); }
                 if (raw) { lines.push('Результат: ' + raw); }
                 lines.push(m.content); lines.push('');
