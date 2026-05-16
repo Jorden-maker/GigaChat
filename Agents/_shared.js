@@ -235,8 +235,10 @@
         ':root{--bg-hover:rgba(255,255,255,0.06)}' +
         ':root[data-theme="light"]{--bg-hover:rgba(0,0,0,0.05)}' +
         // Резерв места под кнопку темы в header'ах агентов и tool-страниц,
-        // чтобы Экспорт/статус не уходили под кнопку.
-        'header{padding-right:60px !important}' +
+        // чтобы Экспорт/статус не уходили под кнопку. prompt-engineer
+        // использует <div class="header"> внутри .main вместо <header> —
+        // покрываем оба варианта.
+        'header,.main > .header{padding-right:60px !important}' +
         // Hover на карандаш/крест внутри session-item: используем bg-hover,
         // он гарантированно отличается от bg-secondary (фон самого item на hover).
         '.session-item .edit:hover,.session-item .close:hover{background:var(--bg-hover) !important;color:var(--accent) !important;opacity:1 !important}' +
