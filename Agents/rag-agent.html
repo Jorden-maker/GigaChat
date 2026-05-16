@@ -229,7 +229,7 @@
                 if (!processing) input.focus();
             },
             loadHistory: async function (sid) {
-                if (!sessionStore.state.displayMessages.length) {
+                if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
                     chat.innerHTML = '<div class="empty-chat">Загружаю историю...</div>';
                 }
                 try {
@@ -244,7 +244,7 @@
                         return { role: m.role, content: m.content, extras: m.extras };
                     });
                 } catch (e) {
-                    if (!sessionStore.state.displayMessages.length) {
+                    if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
                         chat.innerHTML = '<div class="empty-chat">Не удалось загрузить историю.</div>';
                     }
                     return null;

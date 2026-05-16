@@ -247,7 +247,7 @@
                 if (!processing) input.focus();
             },
             loadHistory: async function (sid) {
-                if (!sessionStore.state.displayMessages.length) {
+                if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
                     chat.innerHTML = '<div class="history-loading">Загружаю историю...</div>';
                 }
                 try {
@@ -263,7 +263,7 @@
                     });
                 } catch (e) {
                     // Если кэш есть — оставляем его видимым; иначе пустота.
-                    if (!sessionStore.state.displayMessages.length) {
+                    if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
                         chat.innerHTML = '<div class="empty-chat"><span>Не удалось загрузить историю.</span><span class="memory-note">Можно продолжить общение — новые сообщения сохранятся</span></div>';
                     }
                     return null;

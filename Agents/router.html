@@ -466,9 +466,12 @@
                 GigaChat.syncSendButton(btn, sid);
                 if (attachment) attachment.setDisabled(processing);
                 if (!processing) input.focus();
+                // Если есть восстановленный draft — пересчитать выбор агента,
+                // иначе юзер видит текст и не знает в какой агент уйдёт.
+                if (draft) onInput();
             },
             loadHistory: async function (sid) {
-                if (!sessionStore.state.displayMessages.length) {
+                if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
                     chat.innerHTML = '<div class="history-loading">Загружаю историю...</div>';
                 }
                 try {
@@ -483,7 +486,7 @@
                         return { role: m.role, content: m.content, extras: m.extras || null };
                     });
                 } catch (e) {
-                    if (!sessionStore.state.displayMessages.length) {
+                    if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
                         chat.innerHTML = '<div class="empty-chat"><span>Не удалось загрузить историю.</span></div>';
                     }
                     return null;

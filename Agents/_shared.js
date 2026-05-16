@@ -601,6 +601,8 @@
   function initSidebarResize(opts) {
     var sidebar = opts.sidebar;
     if (!sidebar) return;
+    // Защита от повторной инициализации: handle уже есть → выходим.
+    if (sidebar.querySelector('.gc-sidebar-resize-handle')) return;
     var initialW = opts.initialWidth || 240;
     var minW = opts.minWidth || 220;
     var maxW = opts.maxWidth || (minW * 2);
@@ -1099,6 +1101,26 @@
         if (a) store.activeSessionId = a || null;
         if (c) store.sessionCounter = parseInt(c, 10) || 0;
       } catch (e) {}
+      // Чистим stale inflight-маркеры (старше 10 минут) — реликты закрытой
+      // вкладки. Иначе юзер при возврате видит вечный loader и не может ни
+      // отправить, ни отменить (controller потерян со страницей).
+      var STALE_INFLIGHT_MS = 10 * 60 * 1000;
+      var now = Date.now();
+      var toRemove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (!k || k.indexOf(KEY_INFLIGHT) !== 0) continue;
+        try {
+          var raw = localStorage.getItem(k);
+          var data = raw ? JSON.parse(raw) : null;
+          if (data && data.startedAt && (now - data.startedAt > STALE_INFLIGHT_MS)) {
+            toRemove.push(k);
+          }
+        } catch (e) {}
+      }
+      for (var j = 0; j < toRemove.length; j++) {
+        try { localStorage.removeItem(toRemove[j]); } catch (e) {}
+      }
     }
 
     // Сохранение snapshot с защитой от переполнения localStorage.
@@ -1109,17 +1131,19 @@
     //   3) Если и это не помогло — оставляем последние 20 сообщений.
     //   4) Если уж совсем — тихо отказываемся (next saveSnapshot повторит).
     var MAX_SNAPSHOT_MESSAGES = 100;
-    function trySaveSnapshot(messages) {
+    // Базовая запись для конкретной сессии — используется и для активной,
+    // и для чужой через pushToSession.
+    function trySaveSnapshotTo(sid, messages) {
       try {
-        localStorage.setItem(KEY_VIEW + store.activeSessionId, JSON.stringify(messages));
+        localStorage.setItem(KEY_VIEW + sid, JSON.stringify(messages));
         return true;
       } catch (e) {
         return false;
       }
     }
-    function pruneOtherSnapshots() {
+    function pruneOtherSnapshots(keepSid) {
       var prefixView = KEY_VIEW;
-      var current = KEY_VIEW + store.activeSessionId;
+      var current = KEY_VIEW + keepSid;
       var toRemove = [];
       for (var i = 0; i < localStorage.length; i++) {
         var k = localStorage.key(i);
@@ -1131,28 +1155,25 @@
     }
     function saveSnapshot() {
       if (!store.activeSessionId) return;
+      var sid = store.activeSessionId;
       var msgs = store.displayMessages;
-      // Превентивный лимит: длинные сессии обрезаются ДО попытки записи.
       if (msgs.length > MAX_SNAPSHOT_MESSAGES) {
         msgs = msgs.slice(-MAX_SNAPSHOT_MESSAGES);
         store.displayMessages = msgs;
       }
-      if (trySaveSnapshot(msgs)) return;
-      // Quota exceeded — пробуем урезать сильнее.
+      if (trySaveSnapshotTo(sid, msgs)) return;
       var trimmed = msgs.slice(-50);
-      if (trySaveSnapshot(trimmed)) {
+      if (trySaveSnapshotTo(sid, trimmed)) {
         store.displayMessages = trimmed;
         return;
       }
-      // Чистим snapshot'ы других сессий.
-      pruneOtherSnapshots();
-      if (trySaveSnapshot(trimmed)) {
+      pruneOtherSnapshots(sid);
+      if (trySaveSnapshotTo(sid, trimmed)) {
         store.displayMessages = trimmed;
         return;
       }
-      // Самый крайний — последние 20 сообщений.
       var minimal = msgs.slice(-20);
-      if (trySaveSnapshot(minimal)) {
+      if (trySaveSnapshotTo(sid, minimal)) {
         store.displayMessages = minimal;
         return;
       }
@@ -1260,8 +1281,11 @@
 
     // Утилита: пуш сообщения в активную сессию ИЛИ в snapshot чужой
     // (если юзер ушёл в другую сессию, пока шла обработка).
+    // Если сессия удалена пока шёл запрос — push игнорируется (иначе
+    // orphan-snapshot записывается в localStorage).
     function pushToSession(sid, msg) {
       if (!sid) return;
+      if (!findSession(sid)) return; // сессия удалена — игнорируем
       if (sid === store.activeSessionId) {
         store.displayMessages.push(msg);
         saveSnapshot();
@@ -1269,11 +1293,11 @@
         // После рендеринга — подсвечиваем code-блоки.
         applyHighlight();
       } else {
-        try {
-          var snap = loadSnapshot(sid) || [];
-          snap.push(msg);
-          localStorage.setItem(KEY_VIEW + sid, JSON.stringify(snap));
-        } catch (e) {}
+        // Чужая сессия: используем тот же quota-fallback что и saveSnapshot.
+        var snap = loadSnapshot(sid) || [];
+        snap.push(msg);
+        if (snap.length > MAX_SNAPSHOT_MESSAGES) snap = snap.slice(-MAX_SNAPSHOT_MESSAGES);
+        trySaveSnapshotTo(sid, snap);
       }
     }
 
@@ -1333,6 +1357,12 @@
     }
 
     function remove(id) {
+      // Если в удаляемой сессии активный AbortController — отменяем fetch
+      // и снимаем регистрацию, иначе pushToSession после resolve запишет
+      // orphan-snapshot в удалённую сессию.
+      var ctrl = getSendController(id);
+      if (ctrl) { try { ctrl.abort(); } catch (e) {} }
+      unregisterSendController(id);
       store.sessions = store.sessions.filter(function (s) { return s.id !== id; });
       clearSnapshot(id);
       clearInflight(id);
@@ -1460,6 +1490,21 @@
         // Активная сессия — её snapshot изменился в другой вкладке.
         store.displayMessages = loadSnapshot(store.activeSessionId) || [];
         renderMessages(store.displayMessages);
+      } else if (e.key.indexOf(KEY_INFLIGHT) === 0) {
+        // Inflight-маркер изменился в другой вкладке. Реагируем только если
+        // это активная сессия — иначе loader просто появится при switchTo.
+        var iSid = e.key.substring(KEY_INFLIGHT.length);
+        if (iSid !== store.activeSessionId) return;
+        if (e.newValue === null) {
+          // Запрос завершён/отменён в другой вкладке → убираем loader и тикер.
+          stopInflightTicker();
+          var loaders = document.querySelectorAll('.gc-inflight-loader');
+          for (var i = 0; i < loaders.length; i++) loaders[i].remove();
+        } else {
+          // Запрос начался в другой вкладке → перерисовываем чат (loader появится).
+          renderMessages(store.displayMessages);
+          startInflightTicker();
+        }
       }
     }
     window.addEventListener('storage', handleStorageEvent);

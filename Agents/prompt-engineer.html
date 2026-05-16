@@ -269,7 +269,7 @@ const sessionStore = GigaChat.createSessionStore({
   },
   loadHistory: async function (sid) {
     const container = document.getElementById('chatContainer');
-    if (!sessionStore.state.displayMessages.length) {
+    if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
       container.innerHTML = '<div class="welcome"><p>Загружаю историю...</p></div>';
     }
     try {
@@ -286,7 +286,7 @@ const sessionStore = GigaChat.createSessionStore({
         extras: m.extras || null
       }));
     } catch (e) {
-      if (!sessionStore.state.displayMessages.length) {
+      if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
         container.innerHTML = '<div class="welcome"><p>Не удалось загрузить историю.</p></div>';
       }
       return null;
@@ -546,6 +546,8 @@ async function sendMessage() {
       content: data.response || 'Ответ получен',
       extras: { prompt: data.prompt || '' }
     }, { cps: 100 });
+    document.getElementById('statusDot').className = 'status-dot online';
+    document.getElementById('statusText').textContent = 'Онлайн';
   } catch (err) {
     sessionStore.clearInflight(sendSessionId);
     if (!sendCtrl.aborted()) {
@@ -553,6 +555,8 @@ async function sendMessage() {
         role: 'assistant',
         content: 'Ошибка: ' + err.message
       });
+      document.getElementById('statusDot').className = 'status-dot offline';
+      document.getElementById('statusText').textContent = 'Офлайн';
     }
   } finally {
     sendCtrl.restore();
@@ -566,6 +570,8 @@ async function sendMessage() {
       attachment.clear();
     }
     input.focus();
+    const container = document.getElementById('chatContainer');
+    container.scrollTop = container.scrollHeight;
   }
 }
 
