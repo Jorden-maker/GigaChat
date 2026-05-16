@@ -374,7 +374,8 @@ function renderChat() {
         const spacing = userBody ? 'margin-top:8px' : '';
         userBody += `<div style="${spacing};display:flex;flex-wrap:wrap;gap:6px">${chipsHtml}</div>`;
       }
-      html += `<div class="msg user" data-ts="${m.ts || 0}">${userBody}</div>`;
+      const copyAttr = m.copyText ? ` data-copy-text="${GigaChat.escapeAttr(m.copyText)}"` : '';
+      html += `<div class="msg user" data-ts="${m.ts || 0}"${copyAttr}>${userBody}</div>`;
     } else {
       const extras = m.extras || {};
       const prompt = extras.prompt || m.prompt || '';
@@ -527,6 +528,8 @@ async function sendMessage() {
     for (let j = msgs2.length - 1; j >= 0; j--) {
       if (msgs2[j].role === 'user') {
         msgs2[j].attachments = built.attachments;
+        // copyText — полный текст с extracted content для copy-кнопки.
+        msgs2[j].copyText = built.messageForAgent;
         break;
       }
     }

@@ -18,6 +18,12 @@
     div.textContent = String(text);
     return div.innerHTML;
   }
+  // escapeAttr: для значений HTML-атрибутов в двойных кавычках. escapeHtml
+  // экранирует < > & но НЕ кавычки (валидные в text-узлах), а внутри
+  // value="..." двойная кавычка сломает парсинг.
+  function escapeAttr(text) {
+    return escapeHtml(text).replace(/"/g, '&quot;');
+  }
 
   // fetch с таймаутом и повторами. opts: { timeout, retries, retryDelay }
   // ВАЖНО: при AbortError (таймаут) НЕ повторяем — сервер уже мог принять запрос
@@ -476,8 +482,10 @@
       + '.gc-send-icon svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
       + '.gc-send-icon svg rect{fill:currentColor;stroke:none}'
       // Внешний контейнер всего ряда: [wrap с textarea+send] + [скрепка].
-      // align-items:center — скрепка выровнена по центру высоты поля.
-      + '.gc-input-row{display:flex;gap:8px;align-items:center;width:100%}'
+      // align-items:flex-end — скрепка пришпилена к нижнему краю поля
+      // (на одном уровне с кнопкой отправки), чтобы при растягивании
+      // textarea она не уплывала в середину.
+      + '.gc-input-row{display:flex;gap:8px;align-items:flex-end;width:100%}'
       // Чипы с именами файлов над input-area.
       + '.gc-attach-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 8px 0}'
       + '.gc-attach-chips:empty{display:none}'
@@ -579,8 +587,14 @@
   }
 
   // Глобальный делегат: один listener на body, обрабатывает клики по
-  // любой .gc-msg-copy. Текст берётся из родительского .msg.user
-  // (исключая саму кнопку) через cloneNode + removeChild подход.
+  // любой .gc-msg-copy.
+  // Приоритет источника текста:
+  //   1) data-copy-text на .msg.user — полный текст, отправленный агенту
+  //      (включая extracted-content вложений: [ВЛОЖЕНИЕ:...]...[/ВЛОЖЕНИЕ]).
+  //      Используется когда у сообщения были attachments — иначе copy
+  //      вернул бы только видимый текст без содержимого файлов.
+  //   2) textContent клонированного .msg.user без служебных элементов:
+  //      copy-кнопки, time-бэйджа, inflight-агент-бэйджа, attachment-чипов.
   if (!global.__gcCopyDelegate) {
     global.__gcCopyDelegate = true;
     document.addEventListener('click', function (e) {
@@ -590,10 +604,18 @@
       e.stopPropagation();
       var parent = btn.closest('.msg.user');
       if (!parent) return;
-      var clone = parent.cloneNode(true);
-      var copyEl = clone.querySelector('.gc-msg-copy');
-      if (copyEl) copyEl.remove();
-      var text = (clone.textContent || '').trim();
+      var text = '';
+      var overrideText = parent.getAttribute('data-copy-text');
+      if (overrideText) {
+        text = overrideText;
+      } else {
+        var clone = parent.cloneNode(true);
+        // Срезаем всё что не является сообщением юзера: copy-кнопку,
+        // time-бэйдж, inflight-agent-бэйдж, чипы прикреплённых файлов.
+        var junk = clone.querySelectorAll('.gc-msg-copy, .gc-msg-time, .inflight-agent-badge, .gc-attach-chip');
+        for (var ji = 0; ji < junk.length; ji++) junk[ji].remove();
+        text = (clone.textContent || '').trim();
+      }
       if (!text || !navigator.clipboard) return;
       navigator.clipboard.writeText(text).then(function () {
         btn.innerHTML = COPIED_ICON_SVG;
@@ -1730,6 +1752,7 @@
     config: cfg,
     webhookUrl: webhookUrl,
     escapeHtml: escapeHtml,
+    escapeAttr: escapeAttr,
     fetchWithRetry: fetchWithRetry,
     checkServerStatus: checkServerStatus,
     formatMarkdown: formatMarkdown,
