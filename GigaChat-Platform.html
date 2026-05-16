@@ -844,6 +844,9 @@ Content-Type: application/json
       <div class="gateway-code-block" id="snippetCurl"></div>
       <button class="gateway-action" onclick="copyText(document.getElementById('snippetCurl').textContent)">Копировать</button>
 
+      <h3>Готовый Django app</h3>
+      <p>Для соседних проектов на Django — в репозитории есть готовая папка <code>Agents/django-example/</code>. Скопируйте её в Django-проект как app <code>giga</code>, добавьте в <code>INSTALLED_APPS</code> и подключите <code>path('giga/', include('giga.urls'))</code>. Получите рабочий endpoint <code>/giga/ask</code> и виджет <code>/giga/chat</code> без правок кода. Работает на Django 3.x / 4.x / 5.x.</p>
+
       <h3>Полная инструкция</h3>
       <p>В корне репозитория лежит <code>INTEGRATION.md</code> — описывает все варианты подключения, обработку ошибок, изоляцию сессий и развёртывание.</p>
     </div>
@@ -1046,9 +1049,10 @@ Content-Type: application/json
 
     function downloadClient() {
         // Качаем готовый Python-клиент из репозитория.
+        // Имя файла с подчёркиванием — иначе Python не сможет его импортировать.
         var a = document.createElement('a');
-        a.href = 'Agents/giga-client.py';
-        a.download = 'giga-client.py';
+        a.href = 'Agents/giga_client.py';
+        a.download = 'giga_client.py';
         document.body.appendChild(a);
         a.click();
         a.remove();

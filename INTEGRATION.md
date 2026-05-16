@@ -86,9 +86,38 @@ chat_1747234567_abc123   ← такой формат у GigaChat HTML, не ис
 
 Рекомендуемый формат: `{ваш_проект}_{короткое_имя_агента}_{id_пользователя}`.
 
-## Способ 1: готовый Python-клиент (рекомендую)
+## Способ 0: для Django-проектов — готовый app (самый быстрый)
 
-В корне репозитория есть `Agents/giga-client.py`. Скопируйте этот файл
+Если ваш проект на Django — есть готовая папка `Agents/django-example/`,
+её достаточно скопировать и подключить как обычное Django-приложение.
+3 шага:
+
+1. Скопировать папку в свой проект:
+   ```bash
+   cp -r django-example /path/to/your-project/giga
+   ```
+
+2. В `settings.py`:
+   ```python
+   INSTALLED_APPS = [..., 'giga']
+   GIGACHAT_BASE = "http://192.168.1.10:5678"
+   GIGACHAT_PREFIX = "myproject"
+   ```
+
+3. В корневом `urls.py`:
+   ```python
+   path('giga/', include('giga.urls')),
+   ```
+
+Готово. Открыть `http://localhost:8000/giga/chat` — рабочий чат-виджет.
+POST на `/giga/ask` — JSON API.
+
+Работает на Django 3.x / 4.x / 5.x. Поддерживает CSRF, Django auth,
+любые шаблоны. Полная инструкция: `Agents/django-example/README.md`.
+
+## Способ 1: готовый Python-клиент (для не-Django Python-проектов)
+
+В корне репозитория есть `Agents/giga_client.py`. Скопируйте этот файл
 в свой проект.
 
 ```bash
@@ -200,7 +229,7 @@ curl -X POST "http://192.168.1.10:5678/webhook/chat-agent" \
 | 5xx | Внутренняя ошибка n8n или GigaChat API | Повторить запрос, потом эскалировать |
 | таймаут | Долгий ответ (>120s) | Большой запрос или GigaChat перегружен |
 
-В `giga-client.py` ошибки оборачиваются в `GigaChatError`,
+В `giga_client.py` ошибки оборачиваются в `GigaChatError`,
 `GigaChatTimeout`, `GigaChatHTTPError`.
 
 ## Таймаут и долгие ответы
@@ -269,5 +298,6 @@ async def ai_chat(req, user = Depends(current_user)):
 ## Контакты
 
 - Репозиторий: https://github.com/Jorden-maker/GigaChat
-- Python-клиент: `Agents/giga-client.py`
+- Готовый Django app: `Agents/django-example/`
+- Python-клиент (общий): `Agents/giga_client.py`
 - Дашборд GigaChat: `http://<gigachat-server>/GigaChat-Platform.html`
