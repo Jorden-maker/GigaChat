@@ -1,25 +1,24 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="light">
+<html lang="ru" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GigaChat — Панель управления</title>
     <style>
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121c;
-            --bg-card: #161625;
-            --bg-card-hover: #1c1c30;
-            --border: #252540;
-            --border-hover: #3a3a60;
-            --text-primary: #e8e8f0;
-            --text-secondary: #8888aa;
-            --text-muted: #555570;
-            --glow-blue: #4d9fff;
-            --glow-red: #e94560;
-            --glow-purple: #7c3aed;
-            --glow-cyan: #6ec1e4;
+            --bg-primary: #181b22;
+            --bg-secondary: #14171d;
+            --bg-card: #14171d;
+            --bg-card-hover: #1c2028;
+            --border: #2a2e38;
+            --border-hover: #7c8ce4;
+            --text-primary: #d4d6dc;
+            --text-secondary: #8b8e96;
+            --text-muted: #5a5d65;
+            --accent: #7c8ce4;
+            --accent-hover: #6677d0;
             --glow-green: #10b981;
+            --glow-red: #ef4444;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -46,11 +45,11 @@
             position: absolute; inset: -50%;
             width: 200%; height: 200%;
             background:
-                radial-gradient(ellipse 600px 600px at 20% 20%, rgba(77,159,255,0.08), transparent 70%),
-                radial-gradient(ellipse 500px 500px at 80% 30%, rgba(124,58,237,0.07), transparent 70%),
-                radial-gradient(ellipse 700px 700px at 60% 80%, rgba(110,193,228,0.06), transparent 70%),
-                radial-gradient(ellipse 400px 400px at 10% 70%, rgba(233,69,96,0.05), transparent 70%),
-                radial-gradient(ellipse 500px 500px at 90% 90%, rgba(16,185,129,0.05), transparent 70%);
+                radial-gradient(ellipse 600px 600px at 20% 20%, rgba(124,140,228,0.08), transparent 70%),
+                radial-gradient(ellipse 500px 500px at 80% 30%, rgba(124,140,228,0.06), transparent 70%),
+                radial-gradient(ellipse 700px 700px at 60% 80%, rgba(124,140,228,0.05), transparent 70%),
+                radial-gradient(ellipse 400px 400px at 10% 70%, rgba(124,140,228,0.04), transparent 70%),
+                radial-gradient(ellipse 500px 500px at 90% 90%, rgba(124,140,228,0.04), transparent 70%);
             animation: bgDrift 25s ease-in-out infinite alternate;
         }
 
@@ -59,9 +58,9 @@
             position: absolute; inset: -50%;
             width: 200%; height: 200%;
             background:
-                radial-gradient(ellipse 550px 550px at 70% 15%, rgba(124,58,237,0.06), transparent 65%),
-                radial-gradient(ellipse 450px 450px at 30% 60%, rgba(77,159,255,0.06), transparent 65%),
-                radial-gradient(ellipse 600px 600px at 50% 50%, rgba(110,193,228,0.04), transparent 60%);
+                radial-gradient(ellipse 550px 550px at 70% 15%, rgba(124,140,228,0.06), transparent 65%),
+                radial-gradient(ellipse 450px 450px at 30% 60%, rgba(124,140,228,0.05), transparent 65%),
+                radial-gradient(ellipse 600px 600px at 50% 50%, rgba(124,140,228,0.04), transparent 60%);
             animation: bgDrift2 30s ease-in-out infinite alternate;
         }
 
@@ -82,9 +81,9 @@
             pointer-events: none;
             background-image:
                 /* Ближний слой — крупные яркие точки */
-                radial-gradient(circle, rgba(77,159,255,0.22) 1.5px, transparent 2px),
+                radial-gradient(circle, rgba(124,140,228,0.16) 1.5px, transparent 2px),
                 /* Дальний слой — мелкие тусклые точки */
-                radial-gradient(circle, rgba(110,193,228,0.10) 1px, transparent 1.5px);
+                radial-gradient(circle, rgba(124,140,228,0.07) 1px, transparent 1.5px);
             background-size: 60px 60px, 30px 30px;
             background-position: 0 0, 15px 15px;
         }
@@ -125,7 +124,7 @@
             font-size: 42px;
             font-weight: 700;
             letter-spacing: 6px;
-            background: linear-gradient(135deg, #fff 0%, var(--glow-blue) 50%, var(--glow-purple) 100%);
+            background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -143,7 +142,7 @@
             width: 120px;
             height: 2px;
             margin: 20px auto 0;
-            background: linear-gradient(90deg, transparent, var(--glow-blue), transparent);
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
             border-radius: 1px;
         }
 
@@ -240,36 +239,9 @@
 
         .card:active { transform: translateY(-2px); }
 
-        /* Card accent colors */
-        .card-router::before { background: linear-gradient(90deg, #d4af37, #f5d76e); }
-        .card-router:hover { box-shadow: 0 8px 40px rgba(212,175,55,0.18); }
-
-        .card-sql::before { background: linear-gradient(90deg, var(--glow-green), #34d399); }
-        .card-sql:hover { box-shadow: 0 8px 40px rgba(16,185,129,0.12); }
-
-        .card-rag::before { background: linear-gradient(90deg, var(--glow-cyan), var(--glow-blue)); }
-        .card-rag:hover { box-shadow: 0 8px 40px rgba(110,193,228,0.12); }
-
-        .card-math::before { background: linear-gradient(90deg, var(--glow-red), #ff6b6b); }
-        .card-math:hover { box-shadow: 0 8px 40px rgba(233,69,96,0.12); }
-
-        .card-prompt::before { background: linear-gradient(90deg, var(--glow-purple), #a855f7); }
-        .card-prompt:hover { box-shadow: 0 8px 40px rgba(124,58,237,0.12); }
-
-        .card-ocr::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-        .card-ocr:hover { box-shadow: 0 8px 40px rgba(245,158,11,0.12); }
-
-        .card-chat::before { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
-        .card-chat:hover { box-shadow: 0 8px 40px rgba(14,165,233,0.12); }
-
-        .card-docs::before { background: linear-gradient(90deg, #14b8a6, #2dd4bf); }
-        .card-docs:hover { box-shadow: 0 8px 40px rgba(20,184,166,0.14); }
-        .card-extract::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-        .card-extract:hover { box-shadow: 0 8px 40px rgba(245,158,11,0.12); }
-        .card-merger-excel::before { background: linear-gradient(90deg, #16a34a, #22c55e); }
-        .card-merger-excel:hover { box-shadow: 0 8px 40px rgba(22,163,74,0.14); }
-        .card-merger-word::before { background: linear-gradient(90deg, #2563eb, #3b82f6); }
-        .card-merger-word:hover { box-shadow: 0 8px 40px rgba(37,99,235,0.14); }
+        /* Card accent colors — единый лавандовый акцент */
+        .card::before { background: linear-gradient(90deg, var(--accent), var(--accent-hover)); }
+        .card:hover { box-shadow: 0 8px 40px rgba(124,140,228,0.14); border-color: var(--accent); }
 
         .card-icon {
             width: 48px; height: 48px;
@@ -289,17 +261,7 @@
             stroke-linejoin: round;
         }
 
-        .card-router .card-icon { background: linear-gradient(135deg, rgba(212,175,55,0.20), rgba(245,215,110,0.20)); color: #d4af37; }
-        .card-sql .card-icon { background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(52,211,153,0.15)); color: var(--glow-green); }
-        .card-rag .card-icon { background: linear-gradient(135deg, rgba(110,193,228,0.15), rgba(77,159,255,0.15)); color: var(--glow-cyan); }
-        .card-math .card-icon { background: linear-gradient(135deg, rgba(233,69,96,0.15), rgba(255,107,107,0.15)); color: var(--glow-red); }
-        .card-prompt .card-icon { background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(168,85,247,0.15)); color: var(--glow-purple); }
-        .card-ocr .card-icon { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.15)); color: #f59e0b; }
-        .card-chat .card-icon { background: linear-gradient(135deg, rgba(14,165,233,0.15), rgba(56,189,248,0.15)); color: #0ea5e9; }
-        .card-docs .card-icon { background: linear-gradient(135deg, rgba(20,184,166,0.15), rgba(45,212,191,0.15)); color: #14b8a6; }
-        .card-extract .card-icon { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.15)); color: #f59e0b; }
-        .card-merger-excel .card-icon { background: linear-gradient(135deg, rgba(22,163,74,0.15), rgba(34,197,94,0.15)); color: #16a34a; }
-        .card-merger-word .card-icon { background: linear-gradient(135deg, rgba(37,99,235,0.15), rgba(59,130,246,0.15)); color: #2563eb; }
+        .card .card-icon { background: linear-gradient(135deg, rgba(124,140,228,0.15), rgba(102,119,208,0.15)); color: var(--accent); }
 
         .card-title {
             font-size: 17px;
@@ -308,17 +270,7 @@
             letter-spacing: 0.3px;
         }
 
-        .card-router .card-title { color: #d4af37; }
-        .card-sql .card-title { color: var(--glow-green); }
-        .card-rag .card-title { color: var(--glow-cyan); }
-        .card-math .card-title { color: var(--glow-red); }
-        .card-prompt .card-title { color: var(--glow-purple); }
-        .card-ocr .card-title { color: #f59e0b; }
-        .card-chat .card-title { color: #0ea5e9; }
-        .card-docs .card-title { color: #14b8a6; }
-        .card-extract .card-title { color: #f59e0b; }
-        .card-merger-excel .card-title { color: #16a34a; }
-        .card-merger-word .card-title { color: #2563eb; }
+        .card .card-title { color: var(--accent); }
 
         .card-desc {
             font-size: 13px;
@@ -337,17 +289,7 @@
             font-weight: 500;
         }
 
-        .card-router .card-tag { background: rgba(212,175,55,0.12); color: #b8941f; border: 1px solid rgba(212,175,55,0.30); }
-        .card-sql .card-tag { background: rgba(16,185,129,0.1); color: var(--glow-green); border: 1px solid rgba(16,185,129,0.2); }
-        .card-rag .card-tag { background: rgba(110,193,228,0.1); color: var(--glow-cyan); border: 1px solid rgba(110,193,228,0.2); }
-        .card-math .card-tag { background: rgba(233,69,96,0.1); color: var(--glow-red); border: 1px solid rgba(233,69,96,0.2); }
-        .card-prompt .card-tag { background: rgba(124,58,237,0.1); color: var(--glow-purple); border: 1px solid rgba(124,58,237,0.2); }
-        .card-ocr .card-tag { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
-        .card-chat .card-tag { background: rgba(14,165,233,0.1); color: #0ea5e9; border: 1px solid rgba(14,165,233,0.2); }
-        .card-docs .card-tag { background: rgba(20,184,166,0.1); color: #14b8a6; border: 1px solid rgba(20,184,166,0.2); }
-        .card-extract .card-tag { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
-        .card-merger-excel .card-tag { background: rgba(22,163,74,0.1); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); }
-        .card-merger-word .card-tag { background: rgba(37,99,235,0.1); color: #2563eb; border: 1px solid rgba(37,99,235,0.2); }
+        .card .card-tag { background: rgba(124,140,228,0.10); color: var(--accent); border: 1px solid rgba(124,140,228,0.25); }
 
         .card-arrow {
             position: absolute;
@@ -387,7 +329,7 @@
         }
 
         .footer a {
-            color: var(--glow-blue);
+            color: var(--accent);
             text-decoration: none;
         }
 
@@ -407,61 +349,6 @@
             .header h1 { font-size: 26px; }
         }
 
-        /* ================== LIGHT THEME ================== */
-        :root[data-theme="light"] {
-            --bg-primary: #faf6ee;       /* кремовый фон */
-            --bg-secondary: #f5efe1;     /* чуть теплее */
-            --bg-card: #ffffff;          /* белые карточки */
-            --bg-card-hover: #fffbf2;    /* hover — тёплый белый */
-            --border: #e8dcc1;           /* мягкий золотистый */
-            --border-hover: #d4af37;     /* классическое золото */
-            --text-primary: #2d2416;     /* тёмно-коричневый */
-            --text-secondary: #8a7754;   /* тёплый серо-коричневый */
-            --text-muted: #b8a576;       /* светлая охра */
-        }
-
-        /* Светлая тема — насыщенный золотой градиент на фоне */
-        :root[data-theme="light"] .bg-layers::before {
-            background:
-                radial-gradient(ellipse 600px 600px at 20% 20%, rgba(212,175,55,0.32), transparent 70%),
-                radial-gradient(ellipse 500px 500px at 80% 30%, rgba(245,215,110,0.28), transparent 70%),
-                radial-gradient(ellipse 700px 700px at 60% 80%, rgba(232,180,90,0.24), transparent 70%),
-                radial-gradient(ellipse 400px 400px at 10% 70%, rgba(255,195,100,0.20), transparent 70%),
-                radial-gradient(ellipse 500px 500px at 90% 90%, rgba(218,165,32,0.22), transparent 70%);
-        }
-        :root[data-theme="light"] .bg-layers::after {
-            background:
-                radial-gradient(ellipse 550px 550px at 70% 15%, rgba(212,175,55,0.26), transparent 65%),
-                radial-gradient(ellipse 450px 450px at 30% 60%, rgba(245,215,110,0.24), transparent 65%),
-                radial-gradient(ellipse 600px 600px at 50% 50%, rgba(232,180,90,0.18), transparent 60%);
-        }
-        :root[data-theme="light"] .bg-dots {
-            background-image:
-                radial-gradient(circle, rgba(184,148,31,0.22) 1.5px, transparent 2px),
-                radial-gradient(circle, rgba(212,175,55,0.10) 1px, transparent 1.5px);
-        }
-
-        /* Заголовок — золотой градиент */
-        :root[data-theme="light"] .header h1 {
-            background: linear-gradient(135deg, #2d2416 0%, #d4af37 50%, #f5d76e 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        :root[data-theme="light"] .header-line {
-            background: linear-gradient(90deg, transparent, #d4af37, transparent);
-        }
-
-        /* Карточки в светлой теме — белые с золотистой обводкой при наведении */
-        :root[data-theme="light"] .card { background: var(--bg-card); }
-        :root[data-theme="light"] .card:hover {
-            background: var(--bg-card-hover);
-            border-color: #d4af37;
-            box-shadow: 0 8px 30px rgba(212,175,55,0.18);
-        }
-        :root[data-theme="light"] .footer { border-top-color: rgba(212,175,55,0.2); }
-        :root[data-theme="light"] .footer a { color: #b8941f; }
-
         /* ================ ШЛЮЗ API (кнопка + модалка) ================ */
         .gateway-btn {
             position: absolute; top: 20px; left: 30px;
@@ -474,12 +361,10 @@
             transition: all 0.25s ease;
         }
         .gateway-btn:hover {
-            border-color: var(--glow-cyan); color: var(--glow-cyan);
-            box-shadow: 0 0 18px rgba(110, 193, 228, 0.3);
+            border-color: var(--accent); color: var(--accent);
+            box-shadow: 0 0 18px rgba(124, 140, 228, 0.3);
         }
         .gateway-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-        :root[data-theme="light"] .gateway-btn { border-color: rgba(212, 175, 55, 0.35); color: #8a7754; }
-        :root[data-theme="light"] .gateway-btn:hover { border-color: rgba(212, 175, 55, 0.7); color: #2d2416; box-shadow: 0 0 18px rgba(212, 175, 55, 0.3); }
 
         /* Модалка «Шлюз API» — минимум: URL шлюза + реестр сторонних проектов
            с health-пингом + список доступных агентов. */
@@ -506,10 +391,9 @@
         .gateway-modal-body h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); margin: 0 0 10px 0; font-weight: 600; }
         .gateway-modal-body h3:not(:first-child) { margin-top: 22px; }
         .gateway-modal-body p, .gateway-modal-body .gateway-help { font-size: 12.5px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 8px; }
-        .gateway-modal-body code { background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 12.5px; color: var(--glow-cyan); }
-        :root[data-theme="light"] .gateway-modal-body code { color: #8a6914; background: #fdf6e3; }
+        .gateway-modal-body code { background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 12.5px; color: var(--accent); }
         .gateway-url-row { display: flex; gap: 8px; align-items: center; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-family: Consolas, monospace; font-size: 13px; }
-        .gateway-url-row code { background: none; padding: 0; color: var(--glow-cyan); flex: 1; word-break: break-all; }
+        .gateway-url-row code { background: none; padding: 0; color: var(--accent); flex: 1; word-break: break-all; }
         .gateway-copy-btn {
             display: inline-flex; align-items: center; justify-content: center;
             width: 28px; height: 28px; padding: 0;
@@ -517,7 +401,7 @@
             color: var(--text-secondary); cursor: pointer; flex-shrink: 0;
             transition: all 0.15s;
         }
-        .gateway-copy-btn:hover { border-color: var(--glow-cyan); color: var(--glow-cyan); }
+        .gateway-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
         .gateway-copy-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         .gateway-copy-btn.copied { color: var(--glow-green); border-color: var(--glow-green); }
 
@@ -543,19 +427,19 @@
         .gateway-add-form { display: none; gap: 8px; margin-top: 10px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; flex-direction: column; }
         .gateway-add-form.show { display: flex; }
         .gateway-add-form input { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text-primary); font-family: inherit; font-size: 13px; outline: none; }
-        .gateway-add-form input:focus { border-color: var(--glow-cyan); }
+        .gateway-add-form input:focus { border-color: var(--accent); }
         .gateway-add-form-buttons { display: flex; gap: 8px; justify-content: flex-end; }
-        .gateway-btn-primary { padding: 6px 14px; background: var(--glow-cyan); color: #0a0a0f; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; }
+        .gateway-btn-primary { padding: 6px 14px; background: var(--accent); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit; }
         .gateway-btn-primary:hover { opacity: 0.85; }
         .gateway-btn-secondary { padding: 6px 14px; background: transparent; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 12px; font-family: inherit; }
         .gateway-btn-secondary:hover { color: var(--text-primary); }
         .gateway-add-trigger { padding: 6px 12px; background: var(--bg-secondary); border: 1px dashed var(--border); border-radius: 6px; color: var(--text-secondary); cursor: pointer; font-size: 12px; font-family: inherit; margin-top: 8px; }
-        .gateway-add-trigger:hover { border-color: var(--glow-cyan); color: var(--glow-cyan); }
+        .gateway-add-trigger:hover { border-color: var(--accent); color: var(--accent); }
 
         /* Список агентов */
         .gateway-agents-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-top: 8px; }
         .gateway-agent-item { display: flex; gap: 8px; padding: 6px 8px 6px 10px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; align-items: center; }
-        .gateway-agent-item code { background: none; padding: 0; color: var(--glow-cyan); flex-shrink: 0; font-size: 11.5px; }
+        .gateway-agent-item code { background: none; padding: 0; color: var(--accent); flex-shrink: 0; font-size: 11.5px; }
         .gateway-agent-item .desc { color: var(--text-secondary); font-size: 11.5px; flex: 1; }
         .gateway-agent-item .gateway-copy-btn { width: 24px; height: 24px; }
         .gateway-agent-item .gateway-copy-btn svg { width: 12px; height: 12px; }

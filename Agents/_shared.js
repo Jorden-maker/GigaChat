@@ -157,16 +157,16 @@
     return html;
   }
 
-  // Единая корпоративная тема — светлая (бежевая + золотой акцент). Тёмная
-  // тема и переключатель удалены, но эти функции остаются как no-op для
+  // Единая корпоративная тема — тёмная (Claude Code: тёмный сланец + лавандовый акцент).
+  // Светлая тема и переключатель удалены, но эти функции остаются как no-op для
   // обратной совместимости (на случай если внешний код вызывает их).
   function syncHljsTheme() {
     var dark = document.getElementById('hljs-theme-dark');
     var light = document.getElementById('hljs-theme-light');
-    if (dark) dark.disabled = true;
-    if (light) light.disabled = false;
+    if (dark) dark.disabled = false;
+    if (light) light.disabled = true;
   }
-  function toggleTheme() { /* no-op: тёмная тема удалена */ }
+  function toggleTheme() { /* no-op: светлая тема удалена */ }
 
   // Применить подсветку синтаксиса ко всем неподсвеченным <pre><code> внутри
   // контейнера (либо ко всему документу если container не передан).
@@ -180,7 +180,7 @@
     }
   }
 
-  // На загрузке страницы включаем светлую тему hljs (если оба CSS-link'а
+  // На загрузке страницы включаем тёмную тему hljs (если оба CSS-link'а
   // присутствуют). hljs CSS подключается из HTML позже, поэтому делаем это
   // после DOMContentLoaded.
   if (document.readyState === 'loading') {

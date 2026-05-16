@@ -1,22 +1,22 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="light">
+<html lang="ru" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Поиск ФИО — GigaChat</title>
 <style>
 :root {
-    --bg-primary: #0a0e15;
-    --bg-secondary: #131820;
-    --bg-input: #1b2230;
-    --bg-card: #131820;
-    --border: #283040;
-    --text-primary: #e6e8ec;
-    --text-secondary: #8a98a8;
-    --text-muted: #5a6878;
-    --accent: #f59e0b;
-    --accent-hover: #d97706;
-    --accent-light: rgba(245, 158, 11, 0.12);
+    --bg-primary: #181b22;
+    --bg-secondary: #14171d;
+    --bg-input: #20242c;
+    --bg-card: #14171d;
+    --border: #2a2e38;
+    --text-primary: #d4d6dc;
+    --text-secondary: #8b8e96;
+    --text-muted: #5a5d65;
+    --accent: #7c8ce4;
+    --accent-hover: #6677d0;
+    --accent-light: rgba(124, 140, 228, 0.12);
     --success: #10b981;
     --warning: #f59e0b;
     --error: #ef4444;
@@ -51,22 +51,6 @@ header h1 {
     letter-spacing: 2px;
 }
 .header-right { display: flex; align-items: center; gap: 12px; }
-
-.theme-toggle {
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 50%;
-    width: 36px; height: 36px;
-    cursor: pointer; padding: 0;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.25s ease;
-    color: var(--text-secondary);
-    flex-shrink: 0;
-}
-.theme-toggle:hover { border-color: rgba(255, 255, 255, 0.4); color: var(--text-primary); transform: scale(1.08); }
-.theme-toggle svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.theme-toggle .theme-icon-sun { display: inline-flex; }
-.theme-toggle .theme-icon-moon { display: none; }
 
 main {
     flex: 1;
@@ -267,40 +251,6 @@ main {
 .status-bar .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* ============ СВЕТЛАЯ ТЕМА ============ */
-:root[data-theme="light"] {
-    --bg-primary: #faf6ee;
-    --bg-secondary: #f5efe1;
-    --bg-input: #f0e8d4;
-    --bg-card: #ffffff;
-    --accent-light: rgba(245, 158, 11, 0.10);
-    --text-primary: #2d2416;
-    --text-secondary: #6b5a3c;
-    --text-muted: #b8a576;
-    --border: #e2dcc8;
-}
-:root[data-theme="light"] body { background: var(--bg-primary); color: var(--text-primary); }
-:root[data-theme="light"] .btn-home { background: #f0e8d4; color: var(--text-muted); border-bottom-color: var(--border); }
-:root[data-theme="light"] .btn-home:hover { color: var(--accent); }
-:root[data-theme="light"] header { background: var(--bg-secondary); border-bottom-color: var(--border); }
-:root[data-theme="light"] .intro { background: var(--bg-card); border-color: var(--border); }
-:root[data-theme="light"] .intro p { color: var(--text-secondary); }
-:root[data-theme="light"] .intro code { background: var(--bg-input); color: var(--accent); }
-:root[data-theme="light"] .drop-zone { background: var(--bg-card); border-color: var(--border); }
-:root[data-theme="light"] .drop-zone:hover, :root[data-theme="light"] .drop-zone.dragging { border-color: var(--accent); background: var(--accent-light); }
-:root[data-theme="light"] .drop-zone .title { color: var(--text-primary); }
-:root[data-theme="light"] .drop-zone .hint { color: var(--text-muted); }
-:root[data-theme="light"] .btn-primary { color: #1a1a1a; }
-:root[data-theme="light"] .loading { background: var(--bg-card); border-color: var(--border); color: var(--text-secondary); }
-:root[data-theme="light"] #result.success { background: rgba(16, 185, 129, 0.08); color: #065f46; }
-:root[data-theme="light"] #result.error { background: rgba(239, 68, 68, 0.08); color: #b91c1c; }
-:root[data-theme="light"] .reset-btn button { background: transparent; color: var(--text-secondary); border-color: var(--border); }
-:root[data-theme="light"] .reset-btn button:hover { color: var(--text-primary); border-color: var(--text-secondary); }
-:root[data-theme="light"] .status-bar { color: var(--text-secondary); }
-:root[data-theme="light"] .theme-toggle { border-color: rgba(212, 175, 55, 0.35); color: #8a7754; }
-:root[data-theme="light"] .theme-toggle:hover { border-color: rgba(212, 175, 55, 0.7); color: #2d2416; box-shadow: 0 0 16px rgba(212, 175, 55, 0.25); }
-:root[data-theme="light"] .theme-toggle .theme-icon-sun { display: none; }
-:root[data-theme="light"] .theme-toggle .theme-icon-moon { display: inline-flex; }
 </style>
 <script src="_config.js"></script>
 <script src="_shared.js"></script>

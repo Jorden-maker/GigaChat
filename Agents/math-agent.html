@@ -1,22 +1,23 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="light">
+<html lang="ru" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <title>GigaChat Math</title>
     <style>
         :root {
-            --bg-primary: #0a0e15;
-            --bg-secondary: #131820;
-            --bg-input: #1b2230;
-            --bg-user: rgba(233, 69, 96, 0.12);
-            --bg-bot: #131820;
-            --border: #283040;
-            --text-primary: #e6e8ec;
-            --text-secondary: #8a98a8;
-            --accent: #e94560;
-            --accent-hover: #d63851;
-            --code-bg: #0e131c;
-            --code-text: #7ee787;
+            --bg-primary: #181b22;
+            --bg-secondary: #14171d;
+            --bg-input: #20242c;
+            --bg-user: rgba(124, 140, 228, 0.10);
+            --bg-bot: #14171d;
+            --border: #2a2e38;
+            --text-primary: #d4d6dc;
+            --text-secondary: #8b8e96;
+            --text-muted: #5a5d65;
+            --accent: #7c8ce4;
+            --accent-hover: #6677d0;
+            --code-bg: #14171d;
+            --code-text: #d4d6dc;
             --sidebar-width: 220px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -29,7 +30,7 @@
             overflow: hidden;
         }
         .btn-home { display:block; padding:10px 16px; background:#070a10; border-bottom:1px solid var(--border); color:#7a8a9a; text-decoration:none; font-size:13px; transition:color .2s; }
-        .btn-home:hover { color:#e94560; }
+        .btn-home:hover { color:var(--accent); }
         .btn-home .arrow { margin-right:6px; }
         .sidebar {
             width: var(--sidebar-width);
@@ -158,7 +159,7 @@
         header .status .dot.offline { background: #cc4444; box-shadow: 0 0 8px rgba(204,68,68,0.4); animation: none; }
         header .status .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
         .btn-export { padding:6px 16px; background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-secondary); border-radius:6px; cursor:pointer; font-size:12px; transition:all .2s; }
-        .btn-export:hover { background:rgba(77,171,255,0.15); color:var(--accent); border-color:var(--accent); }
+        .btn-export:hover { background:rgba(124,140,228,0.15); color:var(--accent); border-color:var(--accent); }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         /* Чат-лента в стиле Claude Code: всё слева, без центрирования и лейблов.
            User — компактный блок с лёгкой подложкой. Bot — чистый текст без обёртки. */
@@ -179,7 +180,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .msg.user {
-            background: rgba(233, 69, 96, 0.06);
+            background: var(--bg-user);
             padding: 10px 14px; border-radius: 8px;
             font-size: 14px;
             display: inline-block;
@@ -280,75 +281,10 @@
             display: flex; align-items: center; justify-content: center;
             height: 100%; color: #445566; font-size: 14px;
         }
-
-        /* ============ КНОПКА ТЕМЫ ============ */
-        .theme-toggle {
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            border-radius: 50%;
-            width: 36px; height: 36px;
-            cursor: pointer; padding: 0;
-            display: flex; align-items: center; justify-content: center;
-            transition: all 0.25s ease;
-            color: var(--text-secondary);
-            flex-shrink: 0;
-        }
-        .theme-toggle:hover { border-color: rgba(255, 255, 255, 0.4); color: var(--text-primary); transform: scale(1.08); }
-        .theme-toggle svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-        .theme-toggle .theme-icon-sun { display: inline-flex; }
-        .theme-toggle .theme-icon-moon { display: none; }
-
-        /* ============ СВЕТЛАЯ ТЕМА ============ */
-        :root[data-theme="light"] {
-            --bg-primary: #faf6ee;
-            --bg-secondary: #f5efe1;
-            --bg-input: #ffffff;
-            --bg-user: rgba(233, 69, 96, 0.10);
-            --bg-bot: #ffffff;
-            --border: #e2dcc8;
-            --text-primary: #2d2416;
-            --text-secondary: #8a7754;
-            --code-bg: #fdf6e3;
-            --code-text: #2d4a18;
-        }
-        :root[data-theme="light"] body { background: var(--bg-primary); color: var(--text-primary); }
-        :root[data-theme="light"] .btn-home { background: #f0e8d4; color: var(--text-secondary); border-bottom-color: var(--border); }
-        :root[data-theme="light"] .btn-home:hover { color: var(--accent); }
-        :root[data-theme="light"] .sidebar { background: #f0e8d4; border-right-color: var(--border); }
-        :root[data-theme="light"] .sidebar-header, :root[data-theme="light"] .sidebar-add { border-bottom-color: var(--border); }
-        :root[data-theme="light"] .sidebar-add button { background: #ffffff; border-color: var(--border); color: var(--text-secondary); }
-        :root[data-theme="light"] .sidebar-add button:hover { border-color: var(--accent); color: var(--accent); }
-        :root[data-theme="light"] .session-item:hover { background: #ffffff; }
-        :root[data-theme="light"] .session-item.active { background: #ffffff; color: var(--accent); border-color: var(--accent); }
-        :root[data-theme="light"] .session-item .close { color: #b8a576; }
-        :root[data-theme="light"] .session-item .close:hover { background: #f5efe1; color: #dc2626; }
-        :root[data-theme="light"] header { border-bottom-color: var(--border); }
-        :root[data-theme="light"] .btn-export { background: #ffffff; border-color: var(--border); color: var(--text-secondary); }
-        :root[data-theme="light"] .btn-export:hover { background: rgba(233,69,96,0.10); border-color: var(--accent); color: var(--accent); }
-        :root[data-theme="light"] #chat::-webkit-scrollbar-thumb { background: var(--border); }
-        :root[data-theme="light"] .msg.user { background: rgba(233, 69, 96, 0.08); color: var(--text-primary); }
-        :root[data-theme="light"] .msg { color: var(--text-primary); }
-        :root[data-theme="light"] .bot b { color: var(--text-primary); }
-        :root[data-theme="light"] .bot pre { background: #fdf6e3; color: #2d2416; border-color: var(--border); }
-        :root[data-theme="light"] .bot pre code { color: #2d2416; background: transparent; }
-        :root[data-theme="light"] .code-block { background: var(--code-bg); border-color: var(--border); color: var(--code-text); }
-        :root[data-theme="light"] .code-block .copy-btn { background: #f5efe1; color: var(--text-secondary); }
-        :root[data-theme="light"] .code-block .copy-btn:hover { background: var(--accent); color: #ffffff; }
-        :root[data-theme="light"] .raw-result { background: #fff8e4; color: #8a6914; border-left-color: var(--accent); }
-        :root[data-theme="light"] .loading { color: var(--text-secondary); }
-        :root[data-theme="light"] .error { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
-        :root[data-theme="light"] .timer { color: var(--text-secondary); }
-        :root[data-theme="light"] #msg { background: var(--bg-input); color: var(--text-primary); border-color: var(--border); }
-        :root[data-theme="light"] #msg::placeholder { color: #b8a576; }
-        :root[data-theme="light"] .empty-chat { color: #b8a576; }
-        :root[data-theme="light"] .theme-toggle { border-color: rgba(212, 175, 55, 0.35); color: #8a7754; }
-        :root[data-theme="light"] .theme-toggle:hover { border-color: rgba(212, 175, 55, 0.7); color: #2d2416; box-shadow: 0 0 16px rgba(212, 175, 55, 0.25); }
-        :root[data-theme="light"] .theme-toggle .theme-icon-sun { display: none; }
-        :root[data-theme="light"] .theme-toggle .theme-icon-moon { display: inline-flex; }
     </style>
     <script src="_config.js"></script>
-    <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark" disabled>
-    <link rel="stylesheet" href="lib/hljs-light.min.css" id="hljs-theme-light">
+    <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark">
+    <link rel="stylesheet" href="lib/hljs-light.min.css" id="hljs-theme-light" disabled>
     <script src="lib/highlight.min.js"></script>
     <script src="_shared.js"></script>
     <script src="lib/jszip.min.js"></script>
