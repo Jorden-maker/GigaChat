@@ -25,7 +25,6 @@ import time
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseBadRequest
-from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
 from .giga_client import GigaChatClient, GigaChatError, GigaChatTimeout, GigaChatHTTPError
@@ -118,12 +117,3 @@ def ai_ask(request):
     if isinstance(result, str):
         return JsonResponse({"response": result})
     return JsonResponse(result)
-
-
-# ===================== СТРАНИЦА-ВИДЖЕТ =====================
-
-def chat_page(request):
-    """GET /giga/chat — простая HTML-страница с виджетом чата.
-    Используйте как пример или встройте chat.html в свой шаблон.
-    """
-    return render(request, "giga/chat.html")

@@ -539,7 +539,9 @@
 
         /* ================ ШЛЮЗ API (кнопка + модалка) ================ */
         .gateway-btn {
-            position: fixed; top: 20px; left: 30px; z-index: 10;
+            position: fixed; top: 20px; left: 30px;
+            z-index: 50;                 /* выше любых карточек/decor'а, ниже модалки (z=100) */
+            will-change: transform;      /* подсказка браузеру держать на отдельном composited-слое */
             display: inline-flex; align-items: center; gap: 8px;
             padding: 10px 16px; background: transparent;
             border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 24px;
@@ -845,7 +847,7 @@ Content-Type: application/json
       <button class="gateway-action" onclick="copyText(document.getElementById('snippetCurl').textContent)">Копировать</button>
 
       <h3>Готовый Django app</h3>
-      <p>Для соседних проектов на Django — в репозитории есть готовая папка <code>Agents/django-example/</code>. Скопируйте её в Django-проект как app <code>giga</code>, добавьте в <code>INSTALLED_APPS</code> и подключите <code>path('giga/', include('giga.urls'))</code>. Получите рабочий endpoint <code>/giga/ask</code> и виджет <code>/giga/chat</code> без правок кода. Работает на Django 3.x / 4.x / 5.x.</p>
+      <p>Для соседних проектов на Django — в репозитории есть готовая папка <code>Agents/django-example/</code>. Скопируйте её в Django-проект как app <code>giga</code>, добавьте в <code>INSTALLED_APPS</code> и подключите <code>path('giga/', include('giga.urls'))</code>. Получите endpoint <code>POST /giga/ask</code> для вызова любого из 6 агентов из вашего HTML. Работает на Django 3.x / 4.x / 5.x.</p>
 
       <h3>Полная инструкция</h3>
       <p>В корне репозитория лежит <code>INTEGRATION.md</code> — описывает все варианты подключения, обработку ошибок, изоляцию сессий и развёртывание.</p>

@@ -1,8 +1,9 @@
 # GigaChat — готовый Django app
 
-Этот каталог — **готовый Django app** для подключения соседнего проекта
-к GigaChat. Скопируйте папку в свой Django-проект и сделайте 3 правки —
-получите рабочий чат-виджет и API-endpoint.
+Этот каталог — **готовый Django app** для подключения соседнего Python/Django
+проекта к GigaChat. Скопируйте папку в свой Django-проект, добавьте 3 строки
+конфига — получите рабочий API-endpoint `/giga/ask` для обращения к 6 агентам
+GigaChat из любого места своего проекта.
 
 Работает на любой версии Django 3.x / 4.x / 5.x. Sync-only — без async,
 никаких настроек ASGI.
@@ -27,8 +28,7 @@ your-django-project/
     ├── apps.py
     ├── views.py
     ├── urls.py
-    ├── giga_client.py
-    └── templates/giga/chat.html
+    └── giga_client.py
 ```
 
 ### Шаг 2: установить зависимость
@@ -62,41 +62,58 @@ urlpatterns = [
 ]
 ```
 
-Готово. Откройте `http://localhost:8000/giga/chat` — увидите рабочий чат.
+Готово. Endpoint `POST /giga/ask` доступен.
 
 ## Что вы получаете
 
 | URL | Что |
 |---|---|
-| `GET /giga/chat` | Демо-страница виджета чата. Можно встроить в iframe или взять `templates/giga/chat.html` как пример. |
-| `POST /giga/ask` | JSON API. Body: `{"message": "...", "agent": "chat\|rag\|sql\|math\|route\|prompt"}`. Ответ: `{"response": "..."}` (для math/route/prompt — расширенный JSON). |
+| `POST /giga/ask` | JSON API. Body: `{"message": "...", "agent": "chat\|rag\|sql\|math\|route\|prompt"}`. Ответ: `{"response": "..."}` (для math/route/prompt — расширенный JSON со специфичными полями). |
 
-## Использование из своего кода
+## Использование из своего HTML/JS
 
-### Через готовые views (просто)
-
-Подключили urls — пользуйтесь через `/giga/ask` из любой страницы:
+У вас уже есть свой UI чата — стучитесь в `/giga/ask` из вашего фронта:
 
 ```js
-fetch("/giga/ask", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "X-CSRFToken": getCsrfToken()   // стандарт Django
-  },
-  body: JSON.stringify({ message: "Привет", agent: "chat" })
-}).then(r => r.json()).then(data => console.log(data.response));
+async function askGiga(message, agent = 'chat') {
+  const res = await fetch("/giga/ask", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCsrfToken()   // стандарт Django
+    },
+    body: JSON.stringify({ message, agent })
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const data = await res.json();
+  return data.response;   // для chat/rag/sql
+  // для math/route/prompt — data содержит дополнительные поля
+}
+
+function getCsrfToken() {
+  const m = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[2]) : '';
+}
 ```
 
-### Из своих views (программно)
+В вашем HTML-шаблоне должен быть `{% csrf_token %}` — Django генерит cookie.
+
+## Использование из своих views (программно)
+
+Если хотите дёргать GigaChat прямо из своих Django views:
 
 ```python
 from giga.giga_client import GigaChatClient
+from django.conf import settings
 
-giga = GigaChatClient(base="http://192.168.1.10:5678", prefix="myproject")
+giga = GigaChatClient(
+    base=settings.GIGACHAT_BASE,
+    prefix=settings.GIGACHAT_PREFIX
+)
 
-def my_view(request):
+def my_existing_view(request):
     answer = giga.chat_sync("Привет", user_id=str(request.user.id))
+    # Доступны: chat_sync, rag_sync, sql_sync, math_sync, route_sync, prompt_sync
     return JsonResponse({"answer": answer})
 ```
 
@@ -120,7 +137,8 @@ User ID берётся:
 ## Безопасность
 
 - **CSRF** — используется стандарт Django через cookie + `X-CSRFToken`
-  (см. `chat.html`). НЕ отключайте `@csrf_exempt` без необходимости.
+  при каждом POST из вашего JS. НЕ отключайте `@csrf_exempt` без
+  необходимости.
 - **Авторизация** — если хотите ограничить только залогиненным,
   добавьте `@login_required` в `views.py`:
   ```python
@@ -164,25 +182,14 @@ LOGGING = {
 }
 ```
 
-## Темплейт виджета
-
-`templates/giga/chat.html` — самодостаточная HTML-страница со стилями
-и JS. Не зависит ни от чего, кроме CSRF-куки Django.
-
-Можете:
-- **Открыть как есть** на `/giga/chat`.
-- **Встроить через iframe** в свою страницу.
-- **Скопировать стили и логику** в свой шаблон.
-- **Изменить цвета** — есть `:root` переменные сверху.
-
 ## Проблемы
 
 **`ModuleNotFoundError: No module named 'giga'`**
 → папка `giga` не на уровне `manage.py`, или нет `__init__.py`.
 
 **`403 Forbidden` при POST `/giga/ask`**
-→ забыт CSRF-токен. Проверьте что в HTML есть `{% csrf_token %}`
-и JS отправляет `X-CSRFToken`.
+→ забыт CSRF-токен. Проверьте что в HTML-шаблоне есть `{% csrf_token %}`
+и JS отправляет `X-CSRFToken` заголовок (см. пример выше).
 
 **`504 GigaChat не ответил вовремя`**
 → либо GigaChat-сервер недоступен по сети, либо ответ дольше 120 сек.

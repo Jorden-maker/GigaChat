@@ -109,7 +109,7 @@ chat_1747234567_abc123   ← такой формат у GigaChat HTML, не ис
    path('giga/', include('giga.urls')),
    ```
 
-Готово. Открыть `http://localhost:8000/giga/chat` — рабочий чат-виджет.
+Готово. Endpoint `POST /giga/ask` доступен — стучитесь в него из вашего HTML.
 POST на `/giga/ask` — JSON API.
 
 Работает на Django 3.x / 4.x / 5.x. Поддерживает CSRF, Django auth,

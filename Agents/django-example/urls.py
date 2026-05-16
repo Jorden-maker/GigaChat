@@ -8,9 +8,8 @@
         path('giga/', include('giga.urls')),
     ]
 
-Получаются endpoint'ы:
-    POST /giga/ask     — основной (агент в теле)
-    GET  /giga/chat    — демо-страница виджета
+Получается endpoint:
+    POST /giga/ask  — JSON API, агент выбирается параметром body.agent
 """
 from django.urls import path
 from . import views
@@ -19,5 +18,4 @@ app_name = "giga"
 
 urlpatterns = [
     path("ask", views.ai_ask, name="ask"),
-    path("chat", views.chat_page, name="chat"),
 ]
