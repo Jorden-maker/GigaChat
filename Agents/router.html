@@ -198,7 +198,6 @@
         }
         .custom-select-option:hover { background: rgba(212,165,116,0.12); color: var(--accent); }
         .custom-select-option.selected { background: rgba(212,165,116,0.18); color: var(--accent); }
-        .agent-hint .change-hint { color: var(--text-secondary); margin-left: auto; font-style: italic; opacity: 0.7; }
         /* Поле ввода: textarea + иконка-отправки (внутри) + скрепка (снаружи).
            Базовая раскладка задаётся классом .gc-input-row в _shared.js. */
         #input-area { display: flex; gap: 8px; align-items: flex-end; }
@@ -268,7 +267,6 @@
                         <div class="custom-select-option selected" data-value="chat" onclick="setTargetAgent('chat')" role="option">GigaChat Talk</div>
                     </div>
                 </div>
-                <span class="change-hint">можно изменить</span>
             </div>
             <div class="gc-attach-chips" id="attachChips"></div>
             <div id="input-area" class="gc-input-row">
