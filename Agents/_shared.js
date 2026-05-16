@@ -768,15 +768,14 @@
   }
 
   // Синхронизирует иконку кнопки с состоянием inflight у session_id.
-  // Если в сессии есть активный запрос — квадрат-стоп; иначе стрелка.
-  // disabled-состояние не трогает (его выставляет агентский onSwitch).
-  function syncSendButton(btn, sid) {
+  // Если controller активен в ЭТОЙ вкладке (фактический запрос) ИЛИ
+  // isInflight=true (есть маркер в localStorage, запрос в другой вкладке
+  // или повис без controller'а) — показываем STOP. Иначе ARROW.
+  // Клик по STOP без локального controller'а обрабатывается в sendMsg
+  // через clearInflight (signals другую вкладку).
+  function syncSendButton(btn, sid, isInflight) {
     if (!btn) return;
-    if (__gcActive[sid]) {
-      btn.innerHTML = STOP_ICON_SVG;
-    } else {
-      btn.innerHTML = SEND_ICON_SVG;
-    }
+    btn.innerHTML = (__gcActive[sid] || isInflight) ? STOP_ICON_SVG : SEND_ICON_SVG;
   }
 
   // Переключает кнопку отправки в режим «отмена»: меняет иконку на квадрат,

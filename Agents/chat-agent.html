@@ -111,6 +111,7 @@
             background: var(--bg-user);
             color: var(--accent);
             padding: 10px 14px; border-radius: 8px;
+            word-break: break-all;
             font-size: 14px;
             display: block;
             width: fit-content;
@@ -242,7 +243,7 @@
                 var processing = !!sessionStore.getInflight(sid);
                 input.disabled = processing;
                 btn.disabled = false; // кнопка всегда clickable: send или stop
-                GigaChat.syncSendButton(btn, sid);
+                GigaChat.syncSendButton(btn, sid, !!sessionStore.getInflight(sid));
                 if (attachment) attachment.setDisabled(processing);
                 if (!processing) input.focus();
             },
@@ -366,6 +367,9 @@
             // Если в текущей сессии уже идёт запрос — клик по стоп-кнопке абортит и выходим.
             var __existing = GigaChat.getSendController(activeSessionId);
             if (__existing) { __existing.abort(); return; }
+            // Inflight marker без локального controller (запрос в другой
+            // вкладке или повис) → click stop = clearInflight, без abort.
+            if (sessionStore.getInflight(activeSessionId)) { sessionStore.clearInflight(activeSessionId); return; }
             var text = input.value.trim();
             var hasFiles = attachment && attachment.hasFiles();
             if (!text && !hasFiles) return;

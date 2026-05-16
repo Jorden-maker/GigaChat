@@ -110,6 +110,7 @@
             background: var(--bg-user);
             color: var(--accent);
             padding: 10px 14px; border-radius: 8px;
+            word-break: break-all;
             font-size: 14px;
             display: block;
             width: fit-content;
@@ -229,7 +230,7 @@
                 var processing = !!sessionStore.getInflight(sid);
                 input.disabled = processing;
                 btn.disabled = false;
-                GigaChat.syncSendButton(btn, sid);
+                GigaChat.syncSendButton(btn, sid, !!sessionStore.getInflight(sid));
                 if (attachment) attachment.setDisabled(processing);
                 if (!processing) input.focus();
             },
@@ -345,6 +346,9 @@
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) return;
             var __existing = GigaChat.getSendController(activeSessionId);
             if (__existing) { __existing.abort(); return; }
+            // Inflight marker без локального controller (запрос в другой
+            // вкладке или повис) → click stop = clearInflight, без abort.
+            if (sessionStore.getInflight(activeSessionId)) { sessionStore.clearInflight(activeSessionId); return; }
             var text = input.value.trim();
             var hasFiles = attachment && attachment.hasFiles();
             if (!text && !hasFiles) return;
