@@ -617,7 +617,7 @@
                     role: 'assistant',
                     content: data.response || 'Пустой ответ',
                     extras: { code: data.code || '', raw_result: data.raw_result || '' }
-                }, { cps: 60 });
+                }, { cps: 100 });
                 statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
             } catch (e) {
                 sessionStore.clearInflight(sendSessionId);

@@ -574,7 +574,7 @@ async function sendMessage() {
       role: 'assistant',
       content: data.response || 'Ответ получен',
       extras: { prompt: data.prompt || '' }
-    }, { cps: 60 });
+    }, { cps: 100 });
   } catch (err) {
     sessionStore.clearInflight(sendSessionId);
     pushToSession(sendSessionId, {
