@@ -2298,7 +2298,10 @@
       // @keyframes gcBlink — в injectStatusDotCss (выше) чтобы tool-страницы тоже имели.
       // .error box
       '.error{background:rgba(239,68,68,.10);border:1px solid #cc4444;color:#cc4444;padding:12px 16px;border-radius:10px;margin:10px 0;font-size:13px}' +
-      '.timer{font-family:Consolas,monospace;font-size:11px;color:var(--text-secondary);margin-left:8px}';
+      '.timer{font-family:Consolas,monospace;font-size:11px;color:var(--text-secondary);margin-left:8px}' +
+      // .history-loading — состояние "Загружаю историю...". Используется дефолтным
+      // historyLoadingHtml фабрики; раньше дублировался per-page в 2 файлах.
+      '.history-loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);font-size:14px;font-style:italic}';
     var style = document.createElement('style');
     style.setAttribute('data-gc-agent-css', '1');
     style.textContent = css;
