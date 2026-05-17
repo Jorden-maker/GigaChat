@@ -20,6 +20,54 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-ping-ocr",
+              "leftValue": "={{ $json.query?.ping || $json.body?.ping || ($json.body?.message === 'ping' ? '1' : '') }}",
+              "rightValue": "1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        140,
+        100
+      ],
+      "id": "ocr-ping-if-0001",
+      "name": "Ping?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response: 'pong'}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        420,
+        100
+      ],
+      "id": "ocr-ping-resp-0001",
+      "name": "Ответ: pong"
+    },
+    {
+      "parameters": {
         "jsCode": "// Проверяем, что файл загружен (binary data есть)\nconst item = $input.first();\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  return [{ json: { valid: false, error: 'Файл не загружен. Прикрепите документ или изображение.' } }];\n}\n\nconst key = Object.keys(binary)[0];\nconst info = binary[key];\n\nreturn [{\n  json: {\n    valid: true,\n    binaryKey: key,\n    fileName: info.fileName || 'unknown',\n    mimeType: info.mimeType || 'unknown'\n  },\n  binary: binary\n}];"
       },
       "type": "n8n-nodes-base.code",
@@ -244,7 +292,7 @@
       "main": [
         [
           {
-            "node": "Валидация файла",
+            "node": "Ping?",
             "type": "main",
             "index": 0
           }
@@ -336,6 +384,24 @@
         [
           {
             "node": "Ответ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping?": {
+      "main": [
+        [
+          {
+            "node": "Ответ: pong",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Валидация файла",
             "type": "main",
             "index": 0
           }

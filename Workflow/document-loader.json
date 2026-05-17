@@ -22,6 +22,54 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-ping-dl",
+              "leftValue": "={{ $json.query?.ping || $json.body?.ping || ($json.body?.message === 'ping' ? '1' : '') }}",
+              "rightValue": "1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        140,
+        100
+      ],
+      "id": "dl-ping-if-0001",
+      "name": "Ping?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response: 'pong'}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        420,
+        100
+      ],
+      "id": "dl-ping-resp-0001",
+      "name": "Ответ: pong"
+    },
+    {
+      "parameters": {
         "jsCode": "// Определяем что пришло: уже извлечённый текст (от браузера) или бинарный файл.\n// n8n webhook кладёт JSON-body в $json.body, а form-data поля в корень.\n// Поэтому ищем text и в .body, и в корне для надёжности.\n\nconst item = $input.first();\nconst root = item.json || {};\nconst body = (root.body && typeof root.body === 'object') ? root.body : {};\nconst binary = item.binary || {};\nconst binaryKeys = Object.keys(binary);\n\nfunction pick(field) {\n  if (typeof body[field] === 'string' && body[field].length > 0) return body[field];\n  if (typeof root[field] === 'string' && root[field].length > 0) return root[field];\n  return null;\n}\n\nconst text = pick('text');\nconst fileName = pick('fileName') || 'document.txt';\nconst source = pick('source') || 'browser';\n\n// Браузерный путь: JSON с готовым текстом\nif (text && text.trim().length > 0) {\n  return [{\n    json: {\n      has_text: true,\n      text: text,\n      fileName: fileName,\n      source: source\n    }\n  }];\n}\n\n// Файловый путь: есть binary\nif (binaryKeys.length > 0) {\n  const key = binaryKeys[0];\n  const info = binary[key];\n  const realFileName = info.fileName || 'unknown';\n  const fileSize = info.fileSize || 0;\n\n  if (fileSize > 50 * 1024 * 1024) {\n    return [{ json: { has_text: false, has_file: false, error: 'Файл слишком большой (макс. 50 МБ).' } }];\n  }\n\n  return [{\n    json: {\n      has_text: false,\n      has_file: true,\n      binaryKey: key,\n      fileName: realFileName,\n      mimeType: info.mimeType || 'unknown'\n    },\n    binary: binary\n  }];\n}\n\n// Ничего не пришло — лог что было в root для отладки\nconst rootKeys = Object.keys(root).slice(0, 10).join(',');\nreturn [{ json: { has_text: false, has_file: false, error: 'Файл не загружен и текст не передан. (Получено: root=[' + rootKeys + '])' } }];"
       },
       "type": "n8n-nodes-base.code",
@@ -307,7 +355,7 @@
       "main": [
         [
           {
-            "node": "Определить вход",
+            "node": "Ping?",
             "type": "main",
             "index": 0
           }
@@ -450,6 +498,24 @@
         [
           {
             "node": "Ответ: Успех",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping?": {
+      "main": [
+        [
+          {
+            "node": "Ответ: pong",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Определить вход",
             "type": "main",
             "index": 0
           }

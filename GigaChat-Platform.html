@@ -575,38 +575,56 @@
     var mergerWordDot = document.getElementById('status-merger-word');
     if (mergerWordDot) mergerWordDot.className = 'card-status online';
 
-    // Один health-check на n8n (через /healthz, mode:'no-cors'), результат
-    // применяется ко всем карточкам. Раньше каждая карточка слала POST
-    // {"message":"ping"} на свой webhook — это РЕАЛЬНО запускало workflow
-    // агента с мусорным payload каждые 30 сек. См. _shared.js:80 — там
-    // подробно расписано почему пинговать webhook'и плохо.
-    function setAllCardStatus(cls) {
-        for (var i = 0; i < AGENTS.length; i++) {
-            var dot = document.getElementById('status-' + AGENTS[i].id);
-            if (dot) dot.className = cls;
-        }
-    }
+    // Per-agent health-check: каждая карточка пингует СВОЙ webhook через
+    // POST ?ping=1 с body {"message":"ping"}. Это покрывает оба варианта
+    // ping-обработчика — body-based (chat-агенты с if (message==='ping'))
+    // и query-based (4 tool-workflow'а с Ping?-IF нодой после Webhook).
+    // Router возвращает pong на любой POST.
+    //
+    // Логика по статус-кодам:
+    //   200 → workflow активен → online
+    //   404 → workflow отключен или не зарегистрирован → offline
+    //   сетевая ошибка / таймаут → n8n офлайн или DNS не отвечает → offline
+    //
+    // Раньше пинговали /healthz n8n-ядра — один пинг на всех. Но индикатор
+    // показывал «здоровье сервера», не «активность конкретного workflow».
+    // Теперь каждая карточка реально отражает свой workflow.
+    function checkCard(agent) {
+        var dot = document.getElementById('status-' + agent.id);
+        if (!dot) return;
+        dot.className = 'card-status checking';
 
-    function checkAll() {
-        setAllCardStatus('card-status checking');
-        var base = (GigaChat.config.N8N_BASE || 'http://localhost:5678').replace(/\/$/, '');
         function pingOnce() {
             var controller = new AbortController();
             var timeout = setTimeout(function () { controller.abort(); }, 5000);
-            return fetch(base + '/healthz', { method: 'GET', mode: 'no-cors', signal: controller.signal })
-                .then(function () { clearTimeout(timeout); return true; })
+            var pingUrl = agent.webhook + (agent.webhook.indexOf('?') >= 0 ? '&' : '?') + 'ping=1';
+            return fetch(pingUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                body: '{"message":"ping"}',
+                signal: controller.signal
+            })
+                .then(function (res) { clearTimeout(timeout); return res.ok; })
                 .catch(function (e) { clearTimeout(timeout); throw e; });
         }
-        // Один retry через 2 сек на случай сетевой моргнулки (как в
-        // GigaChat.checkServerStatus). На AbortError не retry'им — таймаут
-        // = сервер реально мёртв, +2 сек только усугубят UX.
+
+        // Один retry через 2 сек на случай сетевой моргнулки. На AbortError
+        // и res.ok===false не retry'им — реальный отказ, повтор не поможет.
         pingOnce()
             .catch(function (err) {
                 if (err && err.name === 'AbortError') throw err;
                 return new Promise(function (r) { setTimeout(r, 2000); }).then(pingOnce);
             })
-            .then(function () { setAllCardStatus('card-status online'); })
-            .catch(function () { setAllCardStatus('card-status offline'); });
+            .then(function (ok) {
+                dot.className = ok ? 'card-status online' : 'card-status offline';
+            })
+            .catch(function () {
+                dot.className = 'card-status offline';
+            });
+    }
+
+    function checkAll() {
+        for (var i = 0; i < AGENTS.length; i++) checkCard(AGENTS[i]);
     }
 
     checkAll();

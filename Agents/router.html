@@ -341,7 +341,10 @@
 
         // ============ FACTORY-CALL ============
         GigaChat.createChatAgent({
-            // webhookPath НЕ передаём — URL вычисляется динамически по currentAgent.
+            // webhookPath используется ТОЛЬКО для health-check'а (пинг /webhook/router
+            // на «жив ли router-workflow»). Для sendMsg URL вычисляется динамически
+            // через resolveSendUrl по currentAgent.
+            webhookPath: 'router',
             historyPath: 'history',
             prefix: 'router',
             idPrefix: 'router_',

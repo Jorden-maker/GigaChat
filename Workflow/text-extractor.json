@@ -20,6 +20,54 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-ping-te",
+              "leftValue": "={{ $json.query?.ping || $json.body?.ping || ($json.body?.message === 'ping' ? '1' : '') }}",
+              "rightValue": "1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        140,
+        100
+      ],
+      "id": "te-ping-if-0001",
+      "name": "Ping?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response: 'pong'}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        420,
+        100
+      ],
+      "id": "te-ping-resp-0001",
+      "name": "Ответ: pong"
+    },
+    {
+      "parameters": {
         "jsCode": "// Определяем тип файла, валидируем размер.\n// Маршруты:\n//   ocr     — image/* | pdf | doc | docx | rtf | odt   (через OCR-сервис)\n//   text    — text/plain, .txt, .md, .log              (читаем как есть)\n//   csv     — .csv (отдельная ветка: авто-детект delimiter и encoding)\n//   xlsx    — .xlsx, .xls                              (Spreadsheet File node)\nconst item = $input.first();\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  return [{ json: { valid: false, error: 'Файл не загружен. Прикрепите файл.', route: 'error' } }];\n}\n\nconst key = Object.keys(binary)[0];\nconst info = binary[key];\nconst fileName = info.fileName || 'unknown';\nconst mimeType = (info.mimeType || '').toLowerCase();\nconst fileSize = info.fileSize || 0;\n\nif (fileSize > 50 * 1024 * 1024) {\n  return [{ json: { valid: false, error: 'Файл слишком большой (макс. 50 МБ).', route: 'error' } }];\n}\n\nconst ext = (fileName.split('.').pop() || '').toLowerCase();\n\nlet route = 'ocr';\nif (mimeType.startsWith('text/plain') || ['txt','md','log'].includes(ext)) {\n  route = 'text';\n} else if (ext === 'csv' || mimeType.includes('csv')) {\n  route = 'csv';\n} else if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || ['xlsx','xls'].includes(ext)) {\n  route = 'xlsx';\n} else if (mimeType.startsWith('image/') || mimeType.includes('pdf') || mimeType.includes('msword') || mimeType.includes('wordprocessing') || mimeType.includes('officedocument.wordprocessing') || ['pdf','doc','docx','rtf','odt','jpg','jpeg','png','tiff','tif','bmp','webp','gif','heic'].includes(ext)) {\n  route = 'ocr';\n} else {\n  // По умолчанию пытаемся OCR — он покрывает большинство типовых документов.\n  route = 'ocr';\n}\n\nreturn [{\n  json: {\n    valid: true,\n    binaryKey: key,\n    fileName: fileName,\n    mimeType: mimeType,\n    fileSize: fileSize,\n    extension: ext,\n    route: route\n  },\n  binary: binary\n}];"
       },
       "type": "n8n-nodes-base.code",
@@ -322,7 +370,7 @@
       "main": [
         [
           {
-            "node": "Валидация и тип",
+            "node": "Ping?",
             "type": "main",
             "index": 0
           }
@@ -461,6 +509,24 @@
         [
           {
             "node": "Форматировать таблицу",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping?": {
+      "main": [
+        [
+          {
+            "node": "Ответ: pong",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Валидация и тип",
             "type": "main",
             "index": 0
           }

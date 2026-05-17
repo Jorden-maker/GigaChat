@@ -77,50 +77,72 @@
     throw lastErr || new Error('fetchWithRetry: исчерпаны попытки');
   }
 
-  // Health-check сервера. URL webhook'а игнорируется — пингуем общий /healthz
-  // самого n8n. Долгая история «почему не webhook»:
-  //   - POST с {"message":"ping"} запускал workflow с непредсказуемым payload'ом
-  //     (table-merger ждёт multipart → 500 → ложный «Офлайн»).
-  //   - GET на POST-only webhook возвращает 404 без CORS-заголовков → блок.
-  //   - OPTIONS для workflow с «Allow OPTIONS» в Webhook-ноде попадает внутрь
-  //     workflow, который падает на пустом body → 500 без CORS → блок.
-  // Решение: пинговать /healthz через mode:'no-cors'. Это endpoint n8n core
-  // (workflow не запускается), а no-cors превращает любой network-ответ в
-  // opaque resolve — браузер не блокирует ответ из-за отсутствия CORS-заголовков.
-  // Резолв = сервер ответил = онлайн. Catch = сеть/таймаут = реальный офлайн.
+  // Health-check конкретного workflow'а через его webhook. Каждый агент
+  // и инструмент имеет свой ping-обработчик: либо ранний возврат в коде
+  // валидации (chat-агенты с if (message==='ping')), либо отдельная
+  // Ping?-IF нода после Webhook (4 tool-workflow'а: OCR, document-loader,
+  // text-extractor, table-merger-excel). Router возвращает pong на любой POST.
+  //
+  // Шлём: POST {webhookUrl}?ping=1 с body {"message":"ping"} — оба
+  // условия покрывают любой ping-обработчик. n8n возвращает:
+  //   - 200 + JSON, если workflow активен (response может быть 'pong'
+  //     или строкой ошибки валидации — нам важен только статус)
+  //   - 404, если workflow отключен/не зарегистрирован
+  //   - сетевая ошибка / таймаут, если n8n офлайн или DNS не отвечает
+  //
+  // Раньше пинговали /healthz n8n-ядра. Это работало, но не отражало
+  // статус конкретного workflow'а: пользователь отключал math-workflow,
+  // а индикатор по-прежнему «онлайн». Теперь каждый агент знает свой
+  // реальный статус.
   function checkServerStatus(url, dotEl, textEl, opts) {
     opts = opts || {};
     var labels = opts.labels || { online: 'Онлайн', offline: 'Офлайн', checking: 'проверка...' };
     var dotClass = opts.dotClass || 'dot';
     if (dotEl) dotEl.className = dotClass + ' checking';
     if (textEl) textEl.textContent = labels.checking;
-    var healthUrl = cfg.N8N_BASE.replace(/\/$/, '') + '/healthz';
+
+    if (!url) {
+      // Без webhook'а пинговать нечего — считаем оффлайн.
+      if (dotEl) dotEl.className = dotClass + ' offline';
+      if (textEl) textEl.textContent = labels.offline;
+      return Promise.resolve(false);
+    }
 
     function pingOnce() {
       var controller = new AbortController();
       var tid = setTimeout(function () { controller.abort(); }, PING_TIMEOUT_MS);
-      // /healthz — core-endpoint n8n, всегда отвечает 200 если сервер жив.
-      // mode:'no-cors' — браузер не блокирует opaque-ответ из-за отсутствия
-      // CORS-заголовков на /healthz; резолв = сервер ответил.
-      return fetch(healthUrl, { method: 'GET', mode: 'no-cors', signal: controller.signal })
-        .then(function () { clearTimeout(tid); return true; })
+      var pingUrl = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'ping=1';
+      return fetch(pingUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: '{"message":"ping"}',
+        signal: controller.signal
+      })
+        .then(function (res) { clearTimeout(tid); return res.ok; })
         .catch(function (e) { clearTimeout(tid); throw e; });
     }
 
     // Один retry через 2 сек на случай сетевой моргнулки. Без него одна
     // потерянная пакета → "Офлайн" на весь 30-секундный интервал между
-    // следующими ping'ами → юзер думает, что сервер упал.
+    // следующими ping'ами → юзер думает, что workflow упал.
     // НО: на AbortError (таймаут 5 сек) не retry'им — сервер реально
     // мёртв или сильно перегружен, retry просто добавит +2 сек к "Офлайн".
+    // На res.ok===false (404) тоже не retry'им — workflow отключен,
+    // повтор ничего не изменит.
     return pingOnce()
       .catch(function (err) {
         if (err && err.name === 'AbortError') throw err;
         return new Promise(function (r) { setTimeout(r, 2000); }).then(pingOnce);
       })
-      .then(function () {
-        if (dotEl) dotEl.className = dotClass + ' online';
-        if (textEl) textEl.textContent = labels.online;
-        return true;
+      .then(function (ok) {
+        if (ok) {
+          if (dotEl) dotEl.className = dotClass + ' online';
+          if (textEl) textEl.textContent = labels.online;
+          return true;
+        }
+        if (dotEl) dotEl.className = dotClass + ' offline';
+        if (textEl) textEl.textContent = labels.offline;
+        return false;
       })
       .catch(function () {
         if (dotEl) dotEl.className = dotClass + ' offline';

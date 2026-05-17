@@ -22,6 +22,54 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-ping-tme",
+              "leftValue": "={{ $json.query?.ping || $json.body?.ping || ($json.body?.message === 'ping' ? '1' : '') }}",
+              "rightValue": "1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        140,
+        100
+      ],
+      "id": "tme-ping-if-0001",
+      "name": "Ping?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response: 'pong'}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        420,
+        100
+      ],
+      "id": "tme-ping-resp-0001",
+      "name": "Ответ: pong"
+    },
+    {
+      "parameters": {
         "jsCode": "// Webhook с multipart складывает все файлы в одно item.binary с ключами\n// data, data_0, data_1, ... Для последующего Spreadsheet File нужно, чтобы\n// каждый файл был отдельным item с одним фиксированным binary-ключом «data».\n//\n// Binary получаем через helpers.getBinaryDataBuffer/prepareBinaryData, а не\n// копированием meta-объекта — иначе в filesystem-mode n8n ссылка на исходный\n// файл может потеряться.\n//\n// При любой ошибке валидации возвращаем один item с success:false, чтобы\n// IF-нода ниже перенаправила в JSON-ответ с кодом 400.\n\nconst input = $input.first();\nconst binary = input.binary || {};\nconst keys = Object.keys(binary);\n\nif (keys.length === 0) {\n  return [{ json: { success: false, error: 'Не загружено ни одного файла.' } }];\n}\n\nconst items = [];\nlet fileIndex = 0;\nfor (const key of keys) {\n  const meta = binary[key] || {};\n  const fileName = meta.fileName || ('file-' + fileIndex + '.xlsx');\n  const lower = fileName.toLowerCase();\n  if (!(lower.endsWith('.xlsx') || lower.endsWith('.xlsm'))) {\n    return [{ json: { success: false, error: 'Файл «' + fileName + '» имеет неподдерживаемое расширение. Принимаются только .xlsx и .xlsm.' } }];\n  }\n\n  // Читаем буфер явно и пересоздаём binary entry — это надёжнее, чем передавать meta\n  let buf;\n  try {\n    buf = await this.helpers.getBinaryDataBuffer(0, key);\n  } catch (e) {\n    return [{ json: { success: false, error: 'Не удалось прочитать файл «' + fileName + '»: ' + (e.message || e) } }];\n  }\n  const binaryData = await this.helpers.prepareBinaryData(\n    Buffer.from(buf),\n    fileName,\n    meta.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'\n  );\n\n  items.push({\n    json: { fileIndex: fileIndex, fileName: fileName, success: true },\n    binary: { data: binaryData }\n  });\n  fileIndex++;\n}\n\nreturn items;"
       },
       "type": "n8n-nodes-base.code",
@@ -202,7 +250,7 @@
       "main": [
         [
           {
-            "node": "Разбить на items",
+            "node": "Ping?",
             "type": "main",
             "index": 0
           }
@@ -294,6 +342,24 @@
         [
           {
             "node": "Ответ: файл",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping?": {
+      "main": [
+        [
+          {
+            "node": "Ответ: pong",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Разбить на items",
             "type": "main",
             "index": 0
           }
