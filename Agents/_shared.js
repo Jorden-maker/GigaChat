@@ -110,8 +110,11 @@
     // Один retry через 2 сек на случай сетевой моргнулки. Без него одна
     // потерянная пакета → "Офлайн" на весь 30-секундный интервал между
     // следующими ping'ами → юзер думает, что сервер упал.
+    // НО: на AbortError (таймаут 5 сек) не retry'им — сервер реально
+    // мёртв или сильно перегружен, retry просто добавит +2 сек к "Офлайн".
     return pingOnce()
-      .catch(function () {
+      .catch(function (err) {
+        if (err && err.name === 'AbortError') throw err;
         return new Promise(function (r) { setTimeout(r, 2000); }).then(pingOnce);
       })
       .then(function () {
@@ -346,6 +349,14 @@
     // Игнорируем ошибки с других origin'ов (cross-origin scripts) — для них
     // e.message обычно "Script error." и нам нечего сообщить юзеру.
     if (!e || e.message === 'Script error.') return;
+    // Игнорируем ошибки из расширений браузера (chrome-extension://, etc.)
+    // и сторонних доменов — это не наш баг, юзер ничего сделать не сможет.
+    if (e.filename) {
+      var fname = String(e.filename);
+      var ourOrigin = location.origin;
+      var sameOrigin = fname.indexOf(ourOrigin) === 0 || fname.indexOf('://') === -1;
+      if (!sameOrigin) return;
+    }
     reportError('window.error', e.error || e.message);
   });
   global.addEventListener('unhandledrejection', function (e) {
@@ -369,8 +380,8 @@
       style.textContent =
         '#gc-toast-stack{position:fixed;bottom:20px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;max-width:calc(100vw - 40px)}' +
         '.gc-toast{background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:10px 16px;font-size:13px;line-height:1.4;box-shadow:0 4px 12px rgba(0,0,0,0.15);pointer-events:auto;max-width:380px;animation:gcToastIn .2s ease}' +
-        '.gc-toast.warn{border-left-color:#f59e0b}' +
-        '.gc-toast.error{border-left-color:#ef4444}' +
+        '.gc-toast.warn{border-left-color:#f59e0b;background:rgba(245,158,11,0.08)}' +
+        '.gc-toast.error{border-left-color:#ef4444;background:rgba(239,68,68,0.08)}' +
         '.gc-toast.fade{opacity:0;transition:opacity .25s}' +
         '@keyframes gcToastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';
       document.head.appendChild(style);
@@ -673,10 +684,10 @@
       + '.gc-attach-chip.error{border-color:#cc4444;color:#ff8888}'
       + '.gc-attach-chip.bot{background:var(--bg-hover)}'
       // Подсветка drop-зоны: пунктирная рамка peach + псевдо-overlay
-      // с подсказкой. Появляется только когда юзер тащит файл (класс
-      // .gc-drop-active навешивается из drop-listener'а).
-      + '.gc-drop-active{position:relative}'
-      + '.gc-drop-active::after{content:"Отпустите, чтобы прикрепить файл";position:absolute;inset:8px;border:2px dashed var(--accent);border-radius:12px;background:var(--bg-hover);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:14px;font-weight:500;pointer-events:none;z-index:50;letter-spacing:0.3px}'
+      // с подсказкой. position:fixed (не absolute), чтобы оверлей не
+      // уезжал со скроллом контейнера и не обрезался overflow'ом
+      // родителя (#chat имеет overflow-y:auto).
+      + '.gc-drop-active::after{content:"Отпустите, чтобы прикрепить файл";position:fixed;top:20px;left:20px;right:20px;bottom:20px;border:2px dashed var(--accent);border-radius:12px;background:var(--bg-hover);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:14px;font-weight:500;pointer-events:none;z-index:9998;letter-spacing:0.3px}'
       // Переносы строк в user-сообщении должны сохраняться визуально.
       + '.msg.user, .msg-user-body{white-space:pre-wrap;word-wrap:break-word}'
       // Таймер в loader'е с отступом 10px от точек.
@@ -1449,36 +1460,38 @@
     // страницы) — реликты вкладок, закрытых без clearInflight, очистятся.
     pruneStaleInflightMarkers();
 
-    // Чистка orphan-ключей: snapshot/draft/inflight записи от сессий,
-    // которых уже нет в KEY_SESSIONS (удалили в другой вкладке, или
-    // localStorage был частично сброшен). Без этой чистки localStorage
-    // постепенно накапливает мусор и упирается в quota при больших
-    // длинных сессиях.
-    function pruneOrphanedKeys() {
+    // Чистка orphan snapshot'ов: KEY_VIEW записи от сессий, которых уже
+    // нет в KEY_SESSIONS. Без чистки localStorage накапливает мусор и
+    // упирается в quota при больших длинных сессиях.
+    //
+    // ВАЖНО: чистим ТОЛЬКО KEY_VIEW. KEY_INFLIGHT и KEY_DRAFT — короткоживущие
+    // и могут быть установлены другой вкладкой в момент между чтением
+    // KEY_SESSIONS и iteration (race). Стирать их орфановыми — рискованно
+    // и почти не даёт экономии места. Snapshot — тяжёлый (десятки KB) и
+    // долгоживущий, его уборка реально полезна.
+    function pruneOrphanedSnapshots() {
       try {
         var rawSessions = localStorage.getItem(KEY_SESSIONS);
         var sessions = rawSessions ? JSON.parse(rawSessions) : [];
         var valid = {};
         for (var i = 0; i < sessions.length; i++) valid[sessions[i].id] = true;
-        var prefixes = [KEY_VIEW, KEY_DRAFT, KEY_INFLIGHT];
         var toRemove = [];
         for (var j = 0; j < localStorage.length; j++) {
           var k = localStorage.key(j);
-          if (!k) continue;
-          for (var p = 0; p < prefixes.length; p++) {
-            if (k.indexOf(prefixes[p]) === 0) {
-              var sid = k.slice(prefixes[p].length);
-              if (sid && !valid[sid]) toRemove.push(k);
-              break;
-            }
-          }
+          if (!k || k.indexOf(KEY_VIEW) !== 0) continue;
+          var sid = k.slice(KEY_VIEW.length);
+          if (sid && !valid[sid]) toRemove.push(k);
         }
         for (var r = 0; r < toRemove.length; r++) {
           try { localStorage.removeItem(toRemove[r]); } catch (e) {}
         }
       } catch (e) {}
     }
-    pruneOrphanedKeys();
+    // Откладываем в idle-callback (или setTimeout) чтобы не блокировать
+    // init createSessionStore — обход всего localStorage может занять
+    // десяток ms при много открытых вкладок с большим storage.
+    var deferIdle = global.requestIdleCallback || function (fn) { return setTimeout(fn, 0); };
+    deferIdle(pruneOrphanedSnapshots);
 
     // Сохранение snapshot с защитой от переполнения localStorage.
     // Стратегия при QuotaExceededError:

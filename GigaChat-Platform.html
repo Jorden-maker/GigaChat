@@ -592,12 +592,24 @@
 
     function checkAll() {
         setAllCardStatus('card-status checking');
-        var controller = new AbortController();
-        var timeout = setTimeout(function () { controller.abort(); }, 5000);
         var base = (GigaChat.config.N8N_BASE || 'http://localhost:5678').replace(/\/$/, '');
-        fetch(base + '/healthz', { method: 'GET', mode: 'no-cors', signal: controller.signal })
-            .then(function () { clearTimeout(timeout); setAllCardStatus('card-status online'); })
-            .catch(function () { clearTimeout(timeout); setAllCardStatus('card-status offline'); });
+        function pingOnce() {
+            var controller = new AbortController();
+            var timeout = setTimeout(function () { controller.abort(); }, 5000);
+            return fetch(base + '/healthz', { method: 'GET', mode: 'no-cors', signal: controller.signal })
+                .then(function () { clearTimeout(timeout); return true; })
+                .catch(function (e) { clearTimeout(timeout); throw e; });
+        }
+        // Один retry через 2 сек на случай сетевой моргнулки (как в
+        // GigaChat.checkServerStatus). На AbortError не retry'им — таймаут
+        // = сервер реально мёртв, +2 сек только усугубят UX.
+        pingOnce()
+            .catch(function (err) {
+                if (err && err.name === 'AbortError') throw err;
+                return new Promise(function (r) { setTimeout(r, 2000); }).then(pingOnce);
+            })
+            .then(function () { setAllCardStatus('card-status online'); })
+            .catch(function () { setAllCardStatus('card-status offline'); });
     }
 
     checkAll();

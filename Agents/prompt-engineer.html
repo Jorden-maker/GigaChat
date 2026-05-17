@@ -340,8 +340,7 @@ function init() {
   GigaChat.initSidebarResize({
     sidebar: document.querySelector('.sidebar'),
     initialWidth: 300,  // 260 + 20
-    minWidth: 260, maxWidth: 520,
-    storageKey: 'giga_prompt_sidebar_w'
+    minWidth: 260, maxWidth: 520
   });
   GigaChat.initHeaderShadowOnScroll({ scrollable: document.getElementById('chatContainer') });
   GigaChat.initScrollToBottomButton({ scrollable: document.getElementById('chatContainer'), inputArea: document.querySelector('.input-area') });
