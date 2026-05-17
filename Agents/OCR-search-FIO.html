@@ -44,6 +44,14 @@ body {
     display: flex;
     flex-direction: column;
 }
+html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+html::-webkit-scrollbar { width: 5px; }
+html::-webkit-scrollbar-track { background: transparent; }
+html::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+html::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 .btn-home { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; margin:10px 12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; color:var(--text-secondary); text-decoration:none; flex-shrink:0; transition:background .15s,color .15s,border-color .15s; }
 .btn-home:hover { background:var(--bg-input); color:var(--text-primary); border-color:var(--text-muted); }
