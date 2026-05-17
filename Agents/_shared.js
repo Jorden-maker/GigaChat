@@ -2001,18 +2001,26 @@
   }
 
   // ============================================================
-  // ПСЕВДО-СТРИМИНГ (TYPEWRITER) ответа агента
+  // ПСЕВДО-СТРИМИНГ (TYPEWRITER) ответа агента — markdown-aware
   // ============================================================
   // Универсальный паттерн для всех агентов:
   //   GigaChat.typewriteAssistant(sessionStore, sid, msg, { cps, containerSelector })
-  // - msg сразу пушится в snapshot (для возврата в сессию с полным ответом).
-  // - В DOM последний `.msg.bot` (или указанный containerSelector) очищается,
-  //   и текст из msg.content постепенно «печатается» plain-text'ом со скоростью
-  //   ~cps символов/сек (по умолчанию 60).
-  // - В конце innerHTML восстанавливается из ранее отрендеренного finalHtml —
-  //   полностью с markdown, code-блоками, extras и т.п.
-  // - Если юзер переключился на другую сессию во время typewriter — печать
-  //   прерывается тихо; при возврате он увидит полный текст (snapshot содержит).
+  //
+  // Поведение:
+  // 1. msg сразу пушится в snapshot и отрисовывается через formatBotHtml.
+  //    Сохраняем результат как finalHtml (нужен в конце для extras: code-block
+  //    у math, prompt-block у prompt-engineer, корректный highlight code).
+  // 2. Очищаем DOM последнего .msg.bot и каждый тик 30fps пересобираем
+  //    innerHTML через formatMarkdown(plainText.substring(0, i)).
+  //    Незакрытые блоки (```code без закрытия, |table| без data-row,
+  //    **bold без закрытия) отрисуются как raw text — это нормально,
+  //    как только блок завершён в потоке, regex сразу его подхватит и
+  //    отрендерит как настоящий HTML (таблицу, code-блок и т.п.).
+  // 3. В конце i >= length — финальный swap на finalHtml (с extras и
+  //    подсветкой синтаксиса через applyHighlight).
+  //
+  // Если юзер переключился на другую сессию во время typewriter — печать
+  // прерывается тихо; при возврате он увидит полный текст из snapshot.
   function typewriteAssistant(sessionStore, sid, msg, options) {
     options = options || {};
     var cps = options.cps || 60;
@@ -2022,14 +2030,9 @@
     var charsPerTick = Math.max(1, Math.round(cps / tickFps));
 
     // 1) Положить в snapshot и отрисовать. После этого последний .msg.bot
-    //    содержит финальный HTML (markdown отрендерен).
-    // Если pushToSession вернул false — сессия удалена пока шёл запрос,
-    // НЕЛЬЗЯ ничего печатать (lastBot в DOM принадлежит другой активной
-    // сессии, мы напечатаем ответ удалённой сессии поверх чужого ответа).
+    //    содержит финальный HTML (markdown отрендерен, extras на месте).
     var pushed = sessionStore.pushToSession(sid, msg);
     if (!pushed) return null;
-
-    // 2) Если сессия не активна — анимация не нужна.
     if (sid !== sessionStore.state.activeSessionId) return null;
 
     var botEls = document.querySelectorAll(containerSelector);
@@ -2043,40 +2046,46 @@
     lastBot.innerHTML = '';
     lastBot.classList.add('gc-typewriting');
 
-    // Каретка-курсор внутри блока во время печати (мягкий мигающий блок).
+    // Каретка-курсор после конца текста (мягкий мигающий блок).
     if (!document.querySelector('style[data-gc-typewriter]')) {
       var style = document.createElement('style');
       style.setAttribute('data-gc-typewriter', '1');
       style.textContent =
-        '.gc-typewriting{white-space:pre-wrap}' +
-        '.gc-typewriting::after{content:"\\258B";display:inline-block;margin-left:1px;color:var(--accent);animation:gcCaret 1s steps(2) infinite}' +
+        '.gc-typewriting::after{content:"\\258B";display:inline-block;margin-left:1px;color:var(--accent);animation:gcCaret 1s steps(2) infinite;vertical-align:baseline}' +
         '@keyframes gcCaret{50%{opacity:0}}';
       document.head.appendChild(style);
     }
 
     var i = 0;
+    // Кеш последнего отрендеренного префикса — re-render только при изменении
+    // i (избегаем лишних innerHTML записей если ничего не накопилось за тик).
+    var lastRendered = -1;
     var intervalId = setInterval(function () {
-      // Юзер ушёл — тихо прерываемся (при возврате он увидит полный текст
-      // из snapshot через renderMessages).
       if (sid !== sessionStore.state.activeSessionId) {
         clearInterval(intervalId);
         return;
       }
-      // Если узел потерян (renderMessages перерисовал чат) — прерываемся.
       if (!lastBot.isConnected) {
         clearInterval(intervalId);
         return;
       }
       if (i >= plainText.length) {
         clearInterval(intervalId);
+        // Финальный swap: переключаемся на finalHtml который содержит extras
+        // (code-block у math, prompt-block у prompt-engineer) + готовый
+        // markdown. applyHighlight подсвечивает синтаксис в code-блоках.
         lastBot.innerHTML = finalHtml;
         lastBot.classList.remove('gc-typewriting');
-        // Подсвечиваем code-блоки в финальном HTML.
         applyHighlight(lastBot);
         return;
       }
       i = Math.min(i + charsPerTick, plainText.length);
-      lastBot.textContent = plainText.substring(0, i);
+      if (i === lastRendered) return;
+      lastRendered = i;
+      // Прогрессивный markdown: каждый тик парсим префикс заново. Таблицы,
+      // bold, italic, headers, code-блоки появляются live по мере того как
+      // блок завершается в потоке (Claude-style streaming).
+      lastBot.innerHTML = formatMarkdown(plainText.substring(0, i));
     }, tickIntervalMs);
 
     return {
