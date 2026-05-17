@@ -83,7 +83,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 .session-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-item .close, .session-item .edit {
     width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
-    border-radius: 4px; color: #556; font-size: 14px; flex-shrink: 0; margin-left: 4px;
+    border-radius: 4px; color: var(--text-secondary); font-size: 14px; flex-shrink: 0; margin-left: 4px;
     cursor: pointer; opacity: 0.7; transition: opacity .15s, background .15s, color .15s;
 }
 .session-item .edit { opacity: 0; }
@@ -129,7 +129,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 #chatContainer::-webkit-scrollbar { width:5px; }
 #chatContainer::-webkit-scrollbar-track { background:transparent; }
 #chatContainer::-webkit-scrollbar-thumb { background:var(--border); border-radius:10px; }
-.welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#5a5a5a; font-size:14px; gap:8px; }
+.welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:14px; gap:8px; }
 .welcome p { color:var(--text-muted); font-size:14px; max-width:500px; margin:0; line-height:1.6; text-align:center; }
 
 .msg { animation:fadeIn 0.25s ease; line-height:1.55; font-size:14px; color:var(--text-primary); word-wrap:break-word; overflow-wrap:anywhere; }
@@ -169,7 +169,7 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 .prompt-block-header span { font-size:11px; color:var(--text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.5px; }
 .btn-copy { padding:4px 10px; background:var(--accent-light); border:1px solid var(--accent); color:var(--accent); border-radius:4px; cursor:pointer; font-size:11px; transition:all .2s; }
 .btn-copy:hover { background:var(--accent); color:#fff; }
-.prompt-block pre { padding:14px; font-family:'Cascadia Code','Fira Code',monospace; font-size:13px; line-height:1.6; color:#c9d1d9; overflow-x:auto; white-space:pre-wrap; word-break:break-word; }
+.prompt-block pre { padding:14px; font-family:'Cascadia Code','Fira Code',monospace; font-size:13px; line-height:1.6; color:var(--text-primary); overflow-x:auto; white-space:pre-wrap; word-break:break-word; }
 
 /* Evaluation block */
 .eval-block { background:var(--eval-bg); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:0 8px 8px 0; margin:12px 0; padding:14px; }
