@@ -155,6 +155,95 @@
     <script>
         var escapeHtml = GigaChat.escapeHtml;
 
+        // ============ PYODIDE (исполнение Python в браузере) ============
+        // GigaChat — «тупой» LLM, поэтому полагаться на его арифметику нельзя.
+        // Решение: LLM пишет Python-код, фронт исполняет в Pyodide
+        // (Python → WebAssembly, ~10 МБ), забирает реальный результат и просит
+        // LLM написать только пояснение. Число всегда из настоящего Python.
+        //
+        // Загрузка ленивая — пока пользователь не задаст математическую задачу,
+        // ничего не качается. После первого вызова pyodideReady кэшируется.
+        // URL по умолчанию — jsDelivr CDN; для офлайн-LAN положите бандл рядом
+        // (lib/pyodide/) и пропишите PYODIDE_URL/PYODIDE_INDEX_URL в _config.js.
+        var PYODIDE_DEFAULT_VERSION = 'v0.26.4';
+        var PYODIDE_URL = (window.GIGACHAT_CONFIG && window.GIGACHAT_CONFIG.PYODIDE_URL) ||
+            'https://cdn.jsdelivr.net/pyodide/' + PYODIDE_DEFAULT_VERSION + '/full/pyodide.js';
+        var PYODIDE_INDEX_URL = (window.GIGACHAT_CONFIG && window.GIGACHAT_CONFIG.PYODIDE_INDEX_URL) ||
+            'https://cdn.jsdelivr.net/pyodide/' + PYODIDE_DEFAULT_VERSION + '/full/';
+
+        var pyodidePromise = null;
+        function getPyodide() {
+            if (pyodidePromise) return pyodidePromise;
+            pyodidePromise = (async function () {
+                if (!window.loadPyodide) {
+                    await new Promise(function (resolve, reject) {
+                        var s = document.createElement('script');
+                        s.src = PYODIDE_URL;
+                        s.onload = resolve;
+                        s.onerror = function () { reject(new Error('Не удалось загрузить Pyodide с ' + PYODIDE_URL)); };
+                        document.head.appendChild(s);
+                    });
+                }
+                var py = await window.loadPyodide({ indexURL: PYODIDE_INDEX_URL });
+                return py;
+            })();
+            // Если загрузка упадёт — обнуляем кэш, чтобы следующая попытка
+            // не вернула отвергнутый промис навечно.
+            pyodidePromise.catch(function () { pyodidePromise = null; });
+            return pyodidePromise;
+        }
+
+        async function executePython(pyodide, code) {
+            var outputs = [];
+            var stderr = [];
+            pyodide.setStdout({ batched: function (s) { outputs.push(s); } });
+            pyodide.setStderr({ batched: function (s) { stderr.push(s); } });
+            try {
+                // loadPackagesFromImports автоматически подтягивает numpy/sympy/scipy
+                // и прочие пакеты, упомянутые в коде, из bundle Pyodide.
+                // Промахи (несуществующие пакеты) ловятся в общий catch.
+                try { await pyodide.loadPackagesFromImports(code); } catch (e) {}
+                await pyodide.runPythonAsync(code);
+                return { ok: true, output: outputs.join('\n'), lines: outputs.slice(), error: '' };
+            } catch (e) {
+                var errText = String(e && e.message ? e.message : e);
+                if (stderr.length) errText = stderr.join('\n') + '\n' + errText;
+                return { ok: false, output: outputs.join('\n'), lines: outputs.slice(), error: errText };
+            }
+        }
+
+        // Логика выбора финальной строки идентична серверной версии (была в
+        // «Выполнить код» workflow). GigaChat иногда ставит маркер ОТВЕТ: не
+        // на последний print, либо вовсе забывает — нужно угадать «настоящий»
+        // итог по контексту соседних строк.
+        function extractFinalLine(lines) {
+            var trimmed = (lines || [])
+                .map(function (l) { return String(l).trim(); })
+                .filter(function (l) { return l.length > 0; });
+            if (!trimmed.length) return '';
+            var hasMarker = function (s) { return /^(?:ОТВЕТ|ответ|ANSWER|FINAL)\s*[:：]/.test(s); };
+            var stripMarker = function (s) {
+                var m = s.match(/^(?:ОТВЕТ|ответ|ANSWER|FINAL)\s*[:：]\s*(.+)$/);
+                return m ? m[1].trim() : s;
+            };
+            var isDiagnostic = function (s) {
+                return /^(шаг|step|контроль|проверк|итераци|debug|test|i\s*=|j\s*=|k\s*=)/i.test(s);
+            };
+            var markerIdx = -1;
+            for (var i = trimmed.length - 1; i >= 0; i--) {
+                if (hasMarker(trimmed[i])) { markerIdx = i; break; }
+            }
+            if (markerIdx >= 0) {
+                if (markerIdx === trimmed.length - 1) return stripMarker(trimmed[markerIdx]);
+                var after = trimmed.slice(markerIdx + 1);
+                var allDiag = after.every(isDiagnostic);
+                if (allDiag) return stripMarker(trimmed[markerIdx]);
+                return stripMarker(trimmed[trimmed.length - 1]);
+            }
+            return trimmed[trimmed.length - 1];
+        }
+
+        // ============ РЕНДЕР bot-сообщения ============
         // Упрощённый markdown для math: только bold/italic/br. Markdown-блоки
         // кода идут отдельно через extras.code (внутри .code-block).
         function formatText(text) {
@@ -215,6 +304,70 @@
                     content: data.response || 'Пустой ответ',
                     extras: { code: data.code || '', raw_result: data.raw_result || '' }
                 };
+            },
+            // PAL-цикл: бэкенд возвращает {stage:'execute', code} → исполняем
+            // Python локально (Pyodide) → шлём результат на /math-explain →
+            // получаем готовый текст с числом и пояснением. Если stage не
+            // 'execute' (general-ответ, ошибка валидации, небезопасный код) —
+            // пропускаем без изменений.
+            interceptBotData: async function (data, ctx) {
+                if (data.stage !== 'execute' || !data.code) return data;
+
+                ctx.setInflightLabel('Загружаю Python');
+                var pyodide;
+                try {
+                    pyodide = await getPyodide();
+                } catch (e) {
+                    return {
+                        response: 'Не удалось загрузить Python-рантайм: ' + e.message,
+                        code: data.code,
+                        raw_result: ''
+                    };
+                }
+
+                ctx.setInflightLabel('Считаю');
+                var exec = await executePython(pyodide, data.code);
+                var finalLine = extractFinalLine(exec.lines);
+
+                ctx.setInflightLabel('Готовлю объяснение');
+                var explainUrl = ctx.sendUrl.replace(/\/math(\/?)$/, '/math-explain$1');
+                var resp;
+                try {
+                    resp = await fetch(explainUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                        body: JSON.stringify({
+                            message: ctx.message,
+                            session_id: ctx.sessionId,
+                            code: data.code,
+                            raw_result: exec.output,
+                            final_line: finalLine,
+                            error: exec.ok ? '' : exec.error
+                        }),
+                        signal: ctx.signal
+                    });
+                } catch (e) {
+                    // Сеть упала / отмена. Возвращаем то, что есть локально:
+                    // число пользователь хотя бы увидит, объяснения не будет.
+                    if (e.name === 'AbortError') throw e;
+                    return {
+                        response: exec.ok
+                            ? ('Ответ: ' + finalLine + '\n\n(объяснение недоступно: ' + e.message + ')')
+                            : ('Не удалось выполнить код: ' + exec.error),
+                        code: data.code,
+                        raw_result: exec.output
+                    };
+                }
+                if (!resp.ok) {
+                    return {
+                        response: exec.ok
+                            ? ('Ответ: ' + finalLine + '\n\n(сервер вернул ' + resp.status + ', объяснение недоступно)')
+                            : ('Не удалось выполнить код: ' + exec.error),
+                        code: data.code,
+                        raw_result: exec.output
+                    };
+                }
+                return await resp.json();
             }
         });
     </script>

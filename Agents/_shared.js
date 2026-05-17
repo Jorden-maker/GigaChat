@@ -2436,6 +2436,12 @@
       if (m.extras) r.extras = m.extras;
       return r;
     };
+    // interceptBotData(data, ctx) — async-перехват ответа webhook'а ДО parseBotMessage.
+    // Возвращает (или Promise<>) новый data. math-агент использует это, чтобы
+    // выполнить полученный Python-код в Pyodide и сделать второй HTTP-запрос
+    // за объяснением. ctx = { sendUrl, sessionId, message, signal, sessionStore,
+    // setInflightLabel(label) — обновляет текст лоадера на лету }.
+    var interceptBotData = opts.interceptBotData || null;
 
     var attachment = null;
     var sessionStore = createSessionStore({
@@ -2639,6 +2645,26 @@
         sessionStore.clearInflight(sendSessionId);
         if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
         var data = await res.json();
+        if (interceptBotData) {
+          // Хук получает возможность подменить data (math: исполнение Pyodide +
+          // второй webhook за объяснением). На время работы хука возвращаем
+          // inflight-лоадер — пользователь видит, что мы ещё не закончили.
+          sessionStore.setInflight(sendSessionId, getInflightLabel('send'));
+          try {
+            data = await interceptBotData(data, {
+              sendUrl: sendUrl,
+              sessionId: sendSessionId,
+              message: messageForAgent,
+              signal: sendCtrl.signal,
+              sessionStore: sessionStore,
+              setInflightLabel: function (label) {
+                sessionStore.setInflight(sendSessionId, label);
+              }
+            });
+          } finally {
+            sessionStore.clearInflight(sendSessionId);
+          }
+        }
         var botMsg = parseBotMessage(data);
         if (!botMsg.ts) botMsg.ts = Date.now();
         enrichBotMsg(botMsg);

@@ -213,7 +213,7 @@
           "values": [
             {
               "role": "system",
-              "content": "Ты — генератор Python-кода. Получив задачу, напиши Python-код для решения.\n\nКРИТИЧЕСКИ ВАЖНО:\n- Пиши ТОЛЬКО код. Ни одного слова пояснений\n- Первая строка ответа = первая строка кода\n- Последний print ОБЯЗАТЕЛЬНО начинается с маркера «ОТВЕТ: » (заглавными буквами, двоеточие, пробел)\n- НЕ оборачивай в ```python``` или ```\n- НЕ пиши 'Вот решение', 'Конечно', 'Давайте' — сразу код\n\nПРАВИЛО ПРО ПОСЛЕДНИЙ PRINT (САМОЕ ВАЖНОЕ):\nПоследний print в коде должен иметь вид:\n    print(f\"ОТВЕТ: {итоговое_значение}\")\nили\n    print(\"ОТВЕТ:\", итоговое_значение)\n\nЭтот маркер обязателен — без него система не сможет показать пользователю правильный результат.\n\n- Если ответ одно число — `print(f\"ОТВЕТ: {result}\")`\n- Если ответов несколько (корни уравнения, среднее+медиана и т.п.) — ВСЁ объединяй в ОДНУ строку: `print(f\"ОТВЕТ: x1 = {x1}, x2 = {x2}\")` или `print(f\"ОТВЕТ: среднее = {mean}, медиана = {median}\")`\n- Промежуточные print в коде делать МОЖНО (для отладки или показа шагов), но **последний** обязательно с маркером ОТВЕТ: и содержит итог\n- Используй адекватное округление: round(x, 2) для денег/процентов, 4 знака для научных расчётов\n\nРАЗРЕШЕНО: math, statistics, decimal, fractions\nЗАПРЕЩЕНО: os, sys, subprocess, open(), exec(), eval(), requests, socket\n\nПример 1:\nЗадача: 15% от 250000\nresult = 250000 * 0.15\nprint(f\"ОТВЕТ: {result}\")\n\nПример 2:\nЗадача: Площадь круга радиусом 5\nimport math\narea = math.pi * 5 ** 2\nprint(f\"ОТВЕТ: {round(area, 4)}\")\n\nПример 3:\nЗадача: NPV: вложение 1000000, доход 300000/год, 5 лет, ставка 12%\ninvestment = 1000000\ncash_flow = 300000\nrate = 0.12\nnpv = -investment\nfor t in range(1, 6):\n    npv += cash_flow / (1 + rate) ** t\nprint(f\"ОТВЕТ: {round(npv, 2)}\")\n\nПример 4 (несколько значений — В ОДНОЙ строке):\nЗадача: x^2 - 5x + 6 = 0\nimport math\na, b, c = 1, -5, 6\nd = b**2 - 4*a*c\nx1 = (-b + math.sqrt(d)) / (2*a)\nx2 = (-b - math.sqrt(d)) / (2*a)\nprint(f\"ОТВЕТ: x1 = {x1}, x2 = {x2}\")\n\nПример 5 (несколько значений — В ОДНОЙ строке):\nЗадача: Среднее и медиана: 10, 20, 30, 40, 50\nimport statistics\ndata = [10, 20, 30, 40, 50]\nprint(f\"ОТВЕТ: среднее = {statistics.mean(data)}, медиана = {statistics.median(data)}\")\n\nПример 6 (сложные проценты / компаундинг):\nЗадача: Вклад 100000, ставка 8% годовых, капитализация ежемесячная, 3 года. Сколько в итоге?\nprincipal = 100000\nannual_rate = 0.08\nmonths = 36\nmonthly_rate = annual_rate / 12\nfinal = principal * (1 + monthly_rate) ** months\nprint(f\"ОТВЕТ: {round(final, 2)}\")\n\nПример 7 (с промежуточными print — можно, но последний обязательно с маркером):\nЗадача: 2827 * 722 * 782 / 40\nstep1 = 2827 * 722\nprint(f\"Шаг 1: {step1}\")\nstep2 = step1 * 782\nprint(f\"Шаг 2: {step2}\")\nfinal = step2 / 40\nprint(f\"ОТВЕТ: {round(final, 2)}\")\n\nПример 8:\nЗадача: 2 + 2\nprint(f\"ОТВЕТ: {2 + 2}\")\n\nНЕПРАВИЛЬНО (так НЕ делай):\n\nA) Объяснения вместо кода:\nКонечно! Вот решение вашей задачи:\n```python\nprint(2 + 2)\n```\nОтвет: 4\n\nB) Последний print без маркера ОТВЕТ::\nprint(f\"Финальный результат: {final}\")\nprint(final)\n^^^ так нельзя, последний print должен начинаться РОВНО с \"ОТВЕТ: \"\n\nC) Маркер ОТВЕТ: НЕ В ПОСЛЕДНЕЙ строке — после него идут ещё print:\nprint(f\"ОТВЕТ: {result}\")\nprint(\"Проверка пройдена\")\n^^^ так нельзя, ОТВЕТ: должен быть в самом ПОСЛЕДНЕМ print\n\nПРАВИЛЬНО:\nprint(f\"ОТВЕТ: {result}\")\n\nТеперь напиши код:"
+              "content": "Ты — генератор Python-кода. Получив задачу, напиши Python-код для решения.\n\nКод исполняется в Pyodide (полноценный Python в браузере), поэтому доступны мощные библиотеки.\n\nКРИТИЧЕСКИ ВАЖНО:\n- Пиши ТОЛЬКО код. Ни одного слова пояснений\n- Первая строка ответа = первая строка кода\n- Последний print ОБЯЗАТЕЛЬНО начинается с маркера «ОТВЕТ: » (заглавными буквами, двоеточие, пробел)\n- НЕ оборачивай в ```python``` или ```\n- НЕ пиши 'Вот решение', 'Конечно', 'Давайте' — сразу код\n\nПРАВИЛО ПРО ПОСЛЕДНИЙ PRINT (САМОЕ ВАЖНОЕ):\nПоследний print в коде должен иметь вид:\n    print(f\"ОТВЕТ: {итоговое_значение}\")\nили\n    print(\"ОТВЕТ:\", итоговое_значение)\n\nЭтот маркер обязателен — без него система не сможет показать пользователю правильный результат.\n\n- Если ответ одно число — `print(f\"ОТВЕТ: {result}\")`\n- Если ответов несколько (корни уравнения, среднее+медиана и т.п.) — ВСЁ объединяй в ОДНУ строку: `print(f\"ОТВЕТ: x1 = {x1}, x2 = {x2}\")` или `print(f\"ОТВЕТ: среднее = {mean}, медиана = {median}\")`\n- Промежуточные print в коде делать МОЖНО (для отладки или показа шагов), но **последний** обязательно с маркером ОТВЕТ: и содержит итог\n- Используй адекватное округление: round(x, 2) для денег/процентов, 4 знака для научных расчётов\n\nРАЗРЕШЕНО (это всё импортируется и работает):\n- math, statistics, decimal, fractions, itertools, functools, collections, re\n- sympy — символьная математика: solve(), diff(), integrate(), limit(), simplify(), Matrix, Symbol, Eq\n- numpy as np — массивы, линейная алгебра, numpy.linalg\n- scipy — оптимизация, статистика, интегралы\n\nЗАПРЕЩЕНО: os, sys, subprocess, open(), exec(), eval(), requests, socket, urllib, pickle\n\nПример 1 (простая арифметика):\nЗадача: 15% от 250000\nresult = 250000 * 0.15\nprint(f\"ОТВЕТ: {result}\")\n\nПример 2 (math.pi):\nЗадача: Площадь круга радиусом 5\nimport math\narea = math.pi * 5 ** 2\nprint(f\"ОТВЕТ: {round(area, 4)}\")\n\nПример 3 (sympy — решение уравнения):\nЗадача: Реши x^2 - 5x + 6 = 0\nfrom sympy import symbols, solve, Eq\nx = symbols('x')\nroots = solve(Eq(x**2 - 5*x + 6, 0), x)\nprint(f\"ОТВЕТ: x = {roots}\")\n\nПример 4 (sympy — производная):\nЗадача: Найди производную sin(x) * exp(x)\nfrom sympy import symbols, sin, exp, diff, simplify\nx = symbols('x')\nf = sin(x) * exp(x)\nf_prime = simplify(diff(f, x))\nprint(f\"ОТВЕТ: {f_prime}\")\n\nПример 5 (sympy — определённый интеграл):\nЗадача: Интеграл x^2 от 0 до 3\nfrom sympy import symbols, integrate\nx = symbols('x')\nresult = integrate(x**2, (x, 0, 3))\nprint(f\"ОТВЕТ: {result}\")\n\nПример 6 (numpy — определитель и обратная матрица):\nЗадача: Найди определитель матрицы [[1,2,3],[4,5,6],[7,8,10]]\nimport numpy as np\nA = np.array([[1,2,3],[4,5,6],[7,8,10]])\nd = np.linalg.det(A)\nprint(f\"ОТВЕТ: {round(float(d), 4)}\")\n\nПример 7 (длинная цепочка умножений — каждый шаг точен):\nЗадача: 373 * 7373 * 272 / 232\nresult = 373 * 7373 * 272 / 232\nprint(f\"ОТВЕТ: {result}\")\n\nПример 8 (NPV):\nЗадача: NPV: вложение 1000000, доход 300000/год, 5 лет, ставка 12%\ninvestment = 1000000\ncash_flow = 300000\nrate = 0.12\nnpv = -investment\nfor t in range(1, 6):\n    npv += cash_flow / (1 + rate) ** t\nprint(f\"ОТВЕТ: {round(npv, 2)}\")\n\nПример 9 (несколько значений в одной строке):\nЗадача: Среднее и медиана: 10, 20, 30, 40, 50\nimport statistics\ndata = [10, 20, 30, 40, 50]\nprint(f\"ОТВЕТ: среднее = {statistics.mean(data)}, медиана = {statistics.median(data)}\")\n\nПример 10 (с промежуточными print — можно, но последний обязательно с маркером):\nЗадача: 2827 * 722 * 782 / 40\nstep1 = 2827 * 722\nprint(f\"Шаг 1: {step1}\")\nstep2 = step1 * 782\nprint(f\"Шаг 2: {step2}\")\nfinal = step2 / 40\nprint(f\"ОТВЕТ: {round(final, 2)}\")\n\nПример 11 (sympy — система уравнений):\nЗадача: Реши систему x+y=10, x-y=4\nfrom sympy import symbols, solve, Eq\nx, y = symbols('x y')\nsol = solve([Eq(x+y, 10), Eq(x-y, 4)], [x, y])\nprint(f\"ОТВЕТ: {sol}\")\n\nПример 12 (sympy — предел):\nЗадача: Предел sin(x)/x при x→0\nfrom sympy import symbols, sin, limit\nx = symbols('x')\nL = limit(sin(x)/x, x, 0)\nprint(f\"ОТВЕТ: {L}\")\n\nНЕПРАВИЛЬНО (так НЕ делай):\n\nA) Объяснения вместо кода:\nКонечно! Вот решение вашей задачи:\n```python\nprint(2 + 2)\n```\nОтвет: 4\n\nB) Последний print без маркера ОТВЕТ::\nprint(f\"Финальный результат: {final}\")\nprint(final)\n^^^ так нельзя, последний print должен начинаться РОВНО с \"ОТВЕТ: \"\n\nC) Маркер ОТВЕТ: НЕ В ПОСЛЕДНЕЙ строке — после него идут ещё print:\nprint(f\"ОТВЕТ: {result}\")\nprint(\"Проверка пройдена\")\n^^^ так нельзя, ОТВЕТ: должен быть в самом ПОСЛЕДНЕМ print\n\nПРАВИЛЬНО:\nprint(f\"ОТВЕТ: {result}\")\n\nТеперь напиши код:"
             },
             {
               "content": "={{ $('Агрегация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}"
@@ -243,7 +243,7 @@
     },
     {
       "parameters": {
-        "jsCode": "try {\n  const raw = $input.first().json;\n\n  if (raw.error) {\n    return [{ json: { success: 0, code: '', error: 'GigaChat недоступен. Попробуйте позже.' } }];\n  }\n\n  let code = raw.output[0].content[0].text;\n\n  // Убираем markdown-обёртки\n  code = code.replace(/```python\\s*/gi, '').replace(/```\\s*/g, '').trim();\n\n  // Убираем текст до первого import или первой переменной\n  const lines = code.split('\\n');\n  let startIdx = 0;\n  for (let i = 0; i < lines.length; i++) {\n    const line = lines[i].trim();\n    if (line.startsWith('import ') || line.startsWith('from ') ||\n        line.match(/^[a-zA-Z_]/) || line.startsWith('#') ||\n        line.startsWith('print(')) {\n      startIdx = i;\n      break;\n    }\n  }\n  code = lines.slice(startIdx).join('\\n').trim();\n\n  if (!code || code.length < 5) {\n    return [{ json: { success: 0, code: '', error: 'GigaChat не смог сгенерировать код.' } }];\n  }\n\n  // ПРОВЕРКА БЕЗОПАСНОСТИ\n  const dangerous = [\n    'import os', 'import sys', 'import subprocess', 'import shutil',\n    'import pathlib', 'import socket', 'import http', 'import requests',\n    'import urllib', 'import ftplib', 'import smtplib', 'import pickle',\n    'open(', 'exec(', 'eval(', '__import__', 'compile(',\n    'globals(', 'locals(', 'getattr(', 'setattr(', 'delattr(',\n    'os.', 'sys.', 'subprocess.', 'shutil.', 'pathlib.',\n    'socket.', 'http.', 'requests.', 'input('\n  ];\n\n  const codeLower = code.toLowerCase();\n  for (const d of dangerous) {\n    if (codeLower.includes(d.toLowerCase())) {\n      return [{ json: { success: 0, code: code, error: 'Код содержит запрещённую операцию: ' + d } }];\n    }\n  }\n\n  if (!code.includes('print(') && !code.includes('print (')) {\n    code += '\\nprint(result)';\n  }\n\n  return [{ json: { success: 1, code: code, error: '' } }];\n\n} catch (e) {\n  return [{ json: { success: 0, code: '', error: 'Ошибка обработки ответа GigaChat: ' + e.message } }];\n}"
+        "jsCode": "try {\n  const raw = $input.first().json;\n\n  if (raw.error) {\n    return [{ json: { success: 0, code: '', error: 'GigaChat недоступен. Попробуйте позже.' } }];\n  }\n\n  let code = raw.output[0].content[0].text;\n\n  // Убираем markdown-обёртки\n  code = code.replace(/```python\\s*/gi, '').replace(/```\\s*/g, '').trim();\n\n  // Убираем текст до первого import или первой переменной\n  const lines = code.split('\\n');\n  let startIdx = 0;\n  for (let i = 0; i < lines.length; i++) {\n    const line = lines[i].trim();\n    if (line.startsWith('import ') || line.startsWith('from ') ||\n        line.match(/^[a-zA-Z_]/) || line.startsWith('#') ||\n        line.startsWith('print(')) {\n      startIdx = i;\n      break;\n    }\n  }\n  code = lines.slice(startIdx).join('\\n').trim();\n\n  if (!code || code.length < 5) {\n    return [{ json: { success: 0, code: '', error: 'GigaChat не смог сгенерировать код.' } }];\n  }\n\n  // ПРОВЕРКА БЕЗОПАСНОСТИ\n  // Допускаются sympy/numpy/scipy — Pyodide их песочница безопасна\n  // (no fs / no net), а импорт самих модулей не даёт доступа к системе.\n  const dangerous = [\n    'import os', 'import sys', 'import subprocess', 'import shutil',\n    'import pathlib', 'import socket', 'import http', 'import requests',\n    'import urllib', 'import ftplib', 'import smtplib', 'import pickle',\n    'open(', 'exec(', 'eval(', '__import__', 'compile(',\n    'globals(', 'locals(', 'getattr(', 'setattr(', 'delattr(',\n    'os.', 'sys.', 'subprocess.', 'shutil.', 'pathlib.',\n    'socket.', 'requests.', 'input('\n  ];\n\n  const codeLower = code.toLowerCase();\n  for (const d of dangerous) {\n    if (codeLower.includes(d.toLowerCase())) {\n      return [{ json: { success: 0, code: code, error: 'Код содержит запрещённую операцию: ' + d } }];\n    }\n  }\n\n  if (!code.includes('print(') && !code.includes('print (')) {\n    code += '\\nprint(result)';\n  }\n\n  return [{ json: { success: 1, code: code, error: '' } }];\n\n} catch (e) {\n  return [{ json: { success: 0, code: '', error: 'Ошибка обработки ответа GigaChat: ' + e.message } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -290,83 +290,18 @@
     },
     {
       "parameters": {
-        "jsCode": "const code = $json.code;\n\ntry {\n  let jsCode = code;\n\n  jsCode = jsCode.replace(/^import .*$/gm, '');\n  jsCode = jsCode.replace(/^from .* import .*$/gm, '');\n\n  jsCode = jsCode.replace(/math\\.pi/g, 'Math.PI');\n  jsCode = jsCode.replace(/math\\.e\\b/g, 'Math.E');\n  jsCode = jsCode.replace(/math\\.sqrt\\(/g, 'Math.sqrt(');\n  jsCode = jsCode.replace(/math\\.pow\\(/g, 'Math.pow(');\n  jsCode = jsCode.replace(/math\\.log\\(/g, 'Math.log(');\n  jsCode = jsCode.replace(/math\\.log10\\(/g, 'Math.log10(');\n  jsCode = jsCode.replace(/math\\.log2\\(/g, 'Math.log2(');\n  jsCode = jsCode.replace(/math\\.sin\\(/g, 'Math.sin(');\n  jsCode = jsCode.replace(/math\\.cos\\(/g, 'Math.cos(');\n  jsCode = jsCode.replace(/math\\.tan\\(/g, 'Math.tan(');\n  jsCode = jsCode.replace(/math\\.asin\\(/g, 'Math.asin(');\n  jsCode = jsCode.replace(/math\\.acos\\(/g, 'Math.acos(');\n  jsCode = jsCode.replace(/math\\.atan\\(/g, 'Math.atan(');\n  jsCode = jsCode.replace(/math\\.ceil\\(/g, 'Math.ceil(');\n  jsCode = jsCode.replace(/math\\.floor\\(/g, 'Math.floor(');\n  jsCode = jsCode.replace(/math\\.abs\\(/g, 'Math.abs(');\n  jsCode = jsCode.replace(/abs\\(/g, 'Math.abs(');\n  jsCode = jsCode.replace(/math\\.factorial\\((\\w+)\\)/g, '(function f(n){let r=1;for(let i=2;i<=n;i++)r*=i;return r})($1)');\n  jsCode = jsCode.replace(/math\\.radians\\(([^)]+)\\)/g, '(($1) * Math.PI / 180)');\n  jsCode = jsCode.replace(/math\\.degrees\\(([^)]+)\\)/g, '(($1) * 180 / Math.PI)');\n\n  jsCode = jsCode.replace(/f'([^']*)'/g, function(match, content) {\n    return '`' + content.replace(/\\{([^}]+)\\}/g, '${$1}') + '`';\n  });\n  jsCode = jsCode.replace(/f\"([^\"]*)\"/g, function(match, content) {\n    return '`' + content.replace(/\\{([^}]+)\\}/g, '${$1}') + '`';\n  });\n\n  const outputs = [];\n  const fakePrint = function() {\n    const args = Array.from(arguments);\n    outputs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));\n  };\n  jsCode = jsCode.replace(/\\bprint\\s*\\(/g, 'fakePrint(');\n\n  jsCode = jsCode.replace(/\\bTrue\\b/g, 'true');\n  jsCode = jsCode.replace(/\\bFalse\\b/g, 'false');\n  jsCode = jsCode.replace(/\\bNone\\b/g, 'null');\n  jsCode = jsCode.replace(/\\belif\\b/g, 'else if');\n  jsCode = jsCode.replace(/len\\(([^)]+)\\)/g, '$1.length');\n\n  jsCode = jsCode.replace(/for\\s+(\\w+)\\s+in\\s+range\\(([^,]+),\\s*([^)]+)\\)/g,\n    'for (let $1 = $2; $1 < $3; $1++)');\n  jsCode = jsCode.replace(/for\\s+(\\w+)\\s+in\\s+range\\(([^)]+)\\)/g,\n    'for (let $1 = 0; $1 < $2; $1++)');\n\n  jsCode = jsCode.replace(/statistics\\.mean\\(([^)]+)\\)/g, '(($1).reduce((a,b)=>a+b,0)/($1).length)');\n  jsCode = jsCode.replace(/statistics\\.median\\(([^)]+)\\)/g, '(function(arr){const s=[...arr].sort((a,b)=>a-b);const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2})($1)');\n  jsCode = jsCode.replace(/statistics\\.stdev\\(([^)]+)\\)/g, '(function(arr){const m=arr.reduce((a,b)=>a+b,0)/arr.length;return Math.sqrt(arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1))})($1)');\n  jsCode = jsCode.replace(/statistics\\.variance\\(([^)]+)\\)/g, '(function(arr){const m=arr.reduce((a,b)=>a+b,0)/arr.length;return arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1)})($1)');\n  jsCode = jsCode.replace(/sum\\(([^)]+)\\)/g, '($1).reduce((a,b)=>a+b,0)');\n  jsCode = jsCode.replace(/max\\(([^)]+)\\)/g, 'Math.max(...$1)');\n  jsCode = jsCode.replace(/min\\(([^)]+)\\)/g, 'Math.min(...$1)');\n\n  const finalLines = jsCode.split('\\n');\n  let processed = [];\n  let indentStack = [0];\n\n  for (let i = 0; i < finalLines.length; i++) {\n    let line = finalLines[i];\n    const trimmed = line.trim();\n    if (!trimmed) continue;\n\n    const indent = line.search(/\\S/);\n    if (indent < 0) continue;\n\n    while (indentStack.length > 1 && indent < indentStack[indentStack.length - 1]) {\n      indentStack.pop();\n      processed.push(' '.repeat(indentStack[indentStack.length - 1]) + '}');\n    }\n\n    if (trimmed.endsWith(':')) {\n      line = line.replace(/:$/, ' {');\n    }\n\n    processed.push(line);\n\n    if (line.trim().endsWith('{')) {\n      indentStack.push(indent + 4);\n    }\n  }\n\n  while (indentStack.length > 1) {\n    indentStack.pop();\n    processed.push('}');\n  }\n\n  jsCode = processed.join('\\n');\n\n  const fn = new Function('fakePrint', 'Math', jsCode);\n  fn(fakePrint, Math);\n\n  const result = outputs.join('\\n');\n\n  if (!result || result.trim().length === 0) {\n    return [{ json: { computed: false, result: '', final_line: '', code: code, error: 'Код выполнился, но не вернул результат.' } }];\n  }\n\n  // === Извлечение финальной строки ===\n  // Системный промпт требует, чтобы ПОСЛЕДНИЙ print имел маркер «ОТВЕТ: ».\n  // Но GigaChat иногда нарушает: либо ставит маркер на промежуточном шаге, либо\n  // выводит финальный без маркера. Стратегия:\n  //   1) Найти ПОСЛЕДНЮЮ строку с маркером ОТВЕТ:/ANSWER:/FINAL: (markerIdx).\n  //   2) Если маркер — последний print → берём его (правильный сценарий).\n  //   3) Если после маркера ещё есть printы:\n  //        a) Все они выглядят как диагностика (Шаг/Step/Контроль/Проверка/i=)\n  //           → маркер всё ещё корректен, берём его.\n  //        b) Иначе → GigaChat поставил маркер не в конце; берём ПОСЛЕДНИЙ print\n  //           как фактический финальный результат.\n  //   4) Маркера нет совсем → берём последний print.\n  const trimmedLines = outputs.map(l => String(l).trim()).filter(l => l.length > 0);\n  let finalLine = '';\n\n  const stripMarker = (s) => {\n    const m = s.match(/^(?:ОТВЕТ|ответ|ANSWER|FINAL)\\s*[:：]\\s*(.+)$/);\n    return m ? m[1].trim() : s;\n  };\n  const hasMarker = (s) => /^(?:ОТВЕТ|ответ|ANSWER|FINAL)\\s*[:：]/.test(s);\n  // Диагностические printы — типичные для отладки/визуализации шагов\n  const isDiagnostic = (s) => /^(шаг|step|контроль|проверк|итераци|debug|test|i\\s*=|j\\s*=|k\\s*=)/i.test(s);\n\n  let markerIdx = -1;\n  for (let i = trimmedLines.length - 1; i >= 0; i--) {\n    if (hasMarker(trimmedLines[i])) { markerIdx = i; break; }\n  }\n\n  if (markerIdx >= 0) {\n    if (markerIdx === trimmedLines.length - 1) {\n      // Маркер на последней строке — идеальный сценарий\n      finalLine = stripMarker(trimmedLines[markerIdx]);\n    } else {\n      // После маркера есть ещё printы — проверяем, диагностические ли они\n      const afterMarker = trimmedLines.slice(markerIdx + 1);\n      const allDiagnostic = afterMarker.every(isDiagnostic);\n      if (allDiagnostic) {\n        finalLine = stripMarker(trimmedLines[markerIdx]);\n      } else {\n        // GigaChat ошибся: маркер на промежуточном шаге, последний print — без маркера.\n        // Берём последний реальный print как фактический результат.\n        finalLine = stripMarker(trimmedLines[trimmedLines.length - 1]);\n      }\n    }\n  } else {\n    // Маркера нет вообще — берём последний print\n    finalLine = trimmedLines.length > 0 ? trimmedLines[trimmedLines.length - 1] : result.trim();\n  }\n\n  return [{ json: { computed: true, result: result, final_line: finalLine, code: code, error: '' } }];\n\n} catch (e) {\n  return [{ json: { computed: false, result: '', final_line: '', code: code, error: 'Ошибка вычисления: ' + e.message } }];\n}"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3080,
-        80
-      ],
-      "id": "math-0008-0008-0008-000000000008",
-      "name": "Выполнить код"
-    },
-    {
-      "parameters": {
-        "modelId": {
-          "__rl": true,
-          "value": ".",
-          "mode": "id"
-        },
-        "responses": {
-          "values": [
-            {
-              "role": "system",
-              "content": "Ты — математический помощник. Объясни, КАК была решена задача. Финальный ответ уже дан пользователю программно — ты его НЕ дублируешь, НЕ вычисляешь и НЕ переформулируешь.\n\nПравила:\n1. НЕ начинай со слова «Ответ» или с числа. Сразу пиши, как решали.\n2. 2-3 предложения о методе/формуле решения.\n3. Можешь упомянуть единицы измерения если уместно.\n4. НЕ пиши код. НЕ повторяй условие задачи дословно. НЕ выводи число, оно уже подставлено системой.\n5. Пиши на русском.\n6. Максимум 4 предложения.\n\nПример 1:\nЗадача: 15% от 250000\nФинальный ответ (уже выдан системой): 37500.0\nТвоё объяснение: Умножили 250 000 на 0.15. Это стандартный расчёт процента от суммы.\n\nПример 2:\nЗадача: x^2 - 5x + 6 = 0\nФинальный ответ (уже выдан системой): x1 = 3.0, x2 = 2.0\nТвоё объяснение: Решение через дискриминант: D = b² − 4ac = 25 − 24 = 1. Корни считаются по формуле (−b ± √D) / 2a.\n\nПример 3:\nЗадача: Среднее и медиана: 10, 20, 30, 40, 50\nФинальный ответ (уже выдан системой): среднее = 30, медиана = 30\nТвоё объяснение: Сумма 150 делится на 5 — это среднее. Медиана — серединное значение упорядоченного ряда, в данном случае это 30.\n\nНЕПРАВИЛЬНО (так НЕ делай):\n- Не начинай с «Ответ: 37500. Умножаем...»\n- Не пиши «Итак, посчитав, получаем 37500»\n- Не дублируй число\n\nПРАВИЛЬНО:\n- Сразу с метода: «Умножили 250 000 на 0.15. Это стандартный расчёт процента.»\n\nТеперь объясни:"
-            },
-            {
-              "content": "={{ $('Агрегация').first().json.historyContext }}Задача: {{ $('Валидация').first().json.message }}\n\nКод:\n{{ $json.code }}\n\nФинальный ответ (уже выдан системой пользователю): {{ $json.final_line }}\n\nВсе printы кода (для контекста):\n{{ $json.result }}"
-            }
-          ]
-        },
-        "builtInTools": {},
-        "options": {
-          "timeout": 60000
-        }
-      },
-      "type": "@n8n/n8n-nodes-langchain.openAi",
-      "typeVersion": 2.1,
-      "position": [
-        3360,
-        80
-      ],
-      "id": "math-0009-0009-0009-000000000009",
-      "name": "Объяснение результата",
-      "credentials": {
-        "openAiApi": {
-          "id": "Qwyuj8GrADL2wlnl",
-          "name": "GigaChat"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Собираем итоговый ответ детерминированно:\n// число — из вывода Python (final_line), пояснение — от LLM.\n// Это предотвращает ошибку, когда LLM подсовывает промежуточное значение.\ntry {\n  const raw = $input.first().json;\n  const prev = $('Выполнить код').first().json;\n\n  // Если вычисление сломалось — fallback\n  if (!prev || !prev.computed) {\n    if (prev && prev.error) {\n      return [{ json: { response_text: 'Не удалось решить задачу: ' + prev.error } }];\n    }\n    return [{ json: { response_text: 'Не удалось обработать задачу.' } }];\n  }\n\n  const finalLine = (prev.final_line || prev.result || '').trim();\n  if (!finalLine) {\n    return [{ json: { response_text: 'Код выполнился, но не вернул значение.' } }];\n  }\n\n  // Извлекаем пояснение LLM\n  let explanation = '';\n  try {\n    explanation = raw.output[0].content[0].text.trim();\n  } catch (e) {\n    explanation = '';\n  }\n\n  // Защита: если LLM всё-таки начала с \"Ответ: ...\" — срезаем эту шапку,\n  // чтобы не было дубликата числа в финальном ответе.\n  explanation = explanation\n    .replace(/^Ответ\\s*[:\\-]\\s*[^\\n.]+[.\\n]\\s*/i, '')\n    .replace(/^Итак[,]?\\s*получаем[^\\n.]+[.\\n]\\s*/i, '')\n    .trim();\n\n  // Финальный текст: число всегда из Python, объяснение от LLM (или пустое)\n  let response = 'Ответ: ' + finalLine;\n  if (explanation) {\n    response += '\\n\\n' + explanation;\n  }\n\n  return [{ json: { response_text: response } }];\n} catch(e) {\n  const prev = $('Выполнить код').first().json;\n  if (prev && prev.final_line) {\n    return [{ json: { response_text: 'Ответ: ' + prev.final_line } }];\n  }\n  if (prev && prev.result) {\n    return [{ json: { response_text: 'Ответ: ' + prev.result } }];\n  }\n  return [{ json: { response_text: 'Ошибка обработки.' } }];\n}"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3640,
-        80
-      ],
-      "id": "math-0010-0010-0010-000000000010",
-      "name": "Проверка ответа"
-    },
-    {
-      "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ response: $('Проверка ответа').first().json.response_text, code: $('Выполнить код').first().json.code || '', raw_result: $('Выполнить код').first().json.result || '' }) }}",
+        "responseBody": "={{ JSON.stringify({ response: '', code: $('Проверка кода').first().json.code || '', raw_result: '', stage: 'execute' }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        4200,
+        3080,
         80
       ],
-      "id": "math-0011-0011-0011-000000000011",
-      "name": "Ответ: результат"
+      "id": "math-respond-code-0001",
+      "name": "Ответ: код к исполнению"
     },
     {
       "parameters": {
@@ -468,29 +403,6 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content, extras) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response_text || '').replaceAll(\"'\", \"''\") }}', '{{ JSON.stringify({code: $('Выполнить код').first().json.code || '', raw_result: $('Выполнить код').first().json.result || ''}).replaceAll(\"'\", \"''\") }}')",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        3920,
-        80
-      ],
-      "id": "math-save-resp-math-0001",
-      "name": "Сохранить ответ MATH",
-      "credentials": {
-        "postgres": {
-          "id": "OYsyciMf7Eq9W4FS",
-          "name": "Postgres"
-        }
-      },
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
         "query": "INSERT INTO chat_memory (session_id, role, content, extras) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.error || 'Код не прошёл проверку безопасности.').replaceAll(\"'\", \"''\") }}', '{{ JSON.stringify({code: $json.code || '', raw_result: ''}).replaceAll(\"'\", \"''\") }}')",
         "options": {}
       },
@@ -510,6 +422,126 @@
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "math-explain",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        1000
+      ],
+      "id": "math-explain-webhook-001",
+      "name": "Webhook Math Explain",
+      "webhookId": "math-explain-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Phase 2 — фронт уже исполнил Python в Pyodide и шлёт результат.\n// Достаём поля и нормализуем. final_line — это значение после маркера\n// «ОТВЕТ: », отделённое от полного raw_result для удобства подстановки.\nconst body = $input.first().json.body || {};\nreturn [{json: {\n  message: (body.message || '').trim(),\n  session_id: (body.session_id || 'math-default').trim(),\n  code: body.code || '',\n  raw_result: body.raw_result || '',\n  final_line: (body.final_line || '').trim(),\n  exec_error: body.error || ''\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        1000
+      ],
+      "id": "math-explain-extract-0001",
+      "name": "Извлечение полей"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Ты — математический помощник. Объясни, КАК была решена задача. Финальный ответ уже дан пользователю программно — ты его НЕ дублируешь, НЕ вычисляешь и НЕ переформулируешь.\n\nПравила:\n1. НЕ начинай со слова «Ответ» или с числа. Сразу пиши, как решали.\n2. 2-3 предложения о методе/формуле решения.\n3. Можешь упомянуть единицы измерения если уместно.\n4. НЕ пиши код. НЕ повторяй условие задачи дословно. НЕ выводи число, оно уже подставлено системой.\n5. Пиши на русском.\n6. Максимум 4 предложения.\n\nПример 1:\nЗадача: 15% от 250000\nФинальный ответ (уже выдан системой): 37500.0\nТвоё объяснение: Умножили 250 000 на 0.15. Это стандартный расчёт процента от суммы.\n\nПример 2:\nЗадача: x^2 - 5x + 6 = 0\nФинальный ответ (уже выдан системой): x1 = 3.0, x2 = 2.0\nТвоё объяснение: Решение через дискриминант: D = b² − 4ac = 25 − 24 = 1. Корни считаются по формуле (−b ± √D) / 2a.\n\nПример 3:\nЗадача: Среднее и медиана: 10, 20, 30, 40, 50\nФинальный ответ (уже выдан системой): среднее = 30, медиана = 30\nТвоё объяснение: Сумма 150 делится на 5 — это среднее. Медиана — серединное значение упорядоченного ряда, в данном случае это 30.\n\nНЕПРАВИЛЬНО (так НЕ делай):\n- Не начинай с «Ответ: 37500. Умножаем...»\n- Не пиши «Итак, посчитав, получаем 37500»\n- Не дублируй число\n\nПРАВИЛЬНО:\n- Сразу с метода: «Умножили 250 000 на 0.15. Это стандартный расчёт процента.»\n\nТеперь объясни:"
+            },
+            {
+              "content": "=Задача: {{ $('Извлечение полей').first().json.message }}\n\nКод (исполнялся в Pyodide):\n{{ $('Извлечение полей').first().json.code }}\n\nФинальный ответ (уже выдан системой пользователю): {{ $('Извлечение полей').first().json.final_line }}\n\nВсе printы кода (для контекста):\n{{ $('Извлечение полей').first().json.raw_result }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        560,
+        1000
+      ],
+      "id": "math-explain-llm-0001",
+      "name": "Объяснение результата",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Сборка финального ответа MATH детерминированно:\n//   число берём из final_line (= вывод Pyodide), пояснение — от LLM.\n// Если Pyodide сломался (exec_error не пустой), возвращаем ошибку и не\n// дёргаем LLM-пояснение как итог — оно не имеет смысла без результата.\ntry {\n  const raw = $input.first().json;\n  const prev = $('Извлечение полей').first().json;\n\n  // Ошибка исполнения Python\n  if (prev.exec_error) {\n    return [{ json: { response_text: 'Не удалось решить — Python завершился с ошибкой:\\n' + prev.exec_error } }];\n  }\n\n  const finalLine = (prev.final_line || prev.raw_result || '').trim();\n  if (!finalLine) {\n    return [{ json: { response_text: 'Код выполнился, но не вернул значение.' } }];\n  }\n\n  // Извлекаем пояснение LLM (может быть отсутствует — таймаут / GigaChat недоступен)\n  let explanation = '';\n  try {\n    explanation = raw.output[0].content[0].text.trim();\n  } catch (e) {\n    explanation = '';\n  }\n\n  // Защита: если LLM всё-таки начала с «Ответ: ...» — срезаем эту шапку,\n  // чтобы не было дубликата числа в финальном ответе.\n  explanation = explanation\n    .replace(/^Ответ\\s*[:\\-]\\s*[^\\n.]+[.\\n]\\s*/i, '')\n    .replace(/^Итак[,]?\\s*получаем[^\\n.]+[.\\n]\\s*/i, '')\n    .trim();\n\n  let response = 'Ответ: ' + finalLine;\n  if (explanation) {\n    response += '\\n\\n' + explanation;\n  }\n\n  return [{ json: { response_text: response } }];\n} catch (e) {\n  const prev = $('Извлечение полей').first().json;\n  if (prev && prev.final_line) {\n    return [{ json: { response_text: 'Ответ: ' + prev.final_line } }];\n  }\n  if (prev && prev.raw_result) {\n    return [{ json: { response_text: 'Ответ: ' + prev.raw_result } }];\n  }\n  return [{ json: { response_text: 'Ошибка обработки.' } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        1000
+      ],
+      "id": "math-explain-merge-0001",
+      "name": "Сборка финального ответа"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content, extras) VALUES ('{{ $('Извлечение полей').first().json.session_id }}', 'assistant', '{{ ($json.response_text || '').replaceAll(\"'\", \"''\") }}', '{{ JSON.stringify({code: $('Извлечение полей').first().json.code || '', raw_result: $('Извлечение полей').first().json.raw_result || ''}).replaceAll(\"'\", \"''\") }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        1000
+      ],
+      "id": "math-explain-save-0001",
+      "name": "Сохранить ответ MATH",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $('Сборка финального ответа').first().json.response_text, code: $('Извлечение полей').first().json.code || '', raw_result: $('Извлечение полей').first().json.raw_result || '' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1400,
+        1000
+      ],
+      "id": "math-explain-respond-0001",
+      "name": "Ответ: результат MATH"
     }
   ],
   "pinData": {},
@@ -631,7 +663,7 @@
       "main": [
         [
           {
-            "node": "Выполнить код",
+            "node": "Ответ: код к исполнению",
             "type": "main",
             "index": 0
           }
@@ -639,39 +671,6 @@
         [
           {
             "node": "Сохранить ответ UNSAFE",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Выполнить код": {
-      "main": [
-        [
-          {
-            "node": "Объяснение результата",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Объяснение результата": {
-      "main": [
-        [
-          {
-            "node": "Проверка ответа",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Проверка ответа": {
-      "main": [
-        [
-          {
-            "node": "Сохранить ответ MATH",
             "type": "main",
             "index": 0
           }
@@ -722,22 +721,66 @@
         ]
       ]
     },
-    "Сохранить ответ MATH": {
+    "Сохранить ответ UNSAFE": {
       "main": [
         [
           {
-            "node": "Ответ: результат",
+            "node": "Ответ: код опасен",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Сохранить ответ UNSAFE": {
+    "Webhook Math Explain": {
       "main": [
         [
           {
-            "node": "Ответ: код опасен",
+            "node": "Извлечение полей",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Извлечение полей": {
+      "main": [
+        [
+          {
+            "node": "Объяснение результата",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Объяснение результата": {
+      "main": [
+        [
+          {
+            "node": "Сборка финального ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сборка финального ответа": {
+      "main": [
+        [
+          {
+            "node": "Сохранить ответ MATH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Сохранить ответ MATH": {
+      "main": [
+        [
+          {
+            "node": "Ответ: результат MATH",
             "type": "main",
             "index": 0
           }
@@ -749,7 +792,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "math-agent-v2-general",
+  "versionId": "math-agent-v3-pyodide",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "ad16de428774283a74f2bef15a9b31f771c3828cae096d3c33aab7bd18058813"
