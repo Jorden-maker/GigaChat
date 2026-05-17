@@ -683,11 +683,13 @@
       + '.gc-attach-chip .x:hover,.gc-attach-chip .x:focus{color:#ff6666;outline:none}'
       + '.gc-attach-chip.error{border-color:#cc4444;color:#ff8888}'
       + '.gc-attach-chip.bot{background:var(--bg-hover)}'
-      // Подсветка drop-зоны: пунктирная рамка peach + псевдо-overlay
-      // с подсказкой. position:fixed (не absolute), чтобы оверлей не
+      // Подсветка drop-зоны: пунктирная рамка + псевдо-overlay с
+      // подсказкой. position:fixed (не absolute), чтобы оверлей не
       // уезжал со скроллом контейнера и не обрезался overflow'ом
-      // родителя (#chat имеет overflow-y:auto).
-      + '.gc-drop-active::after{content:"Отпустите, чтобы прикрепить файл";position:fixed;top:20px;left:20px;right:20px;bottom:20px;border:2px dashed var(--accent);border-radius:12px;background:var(--bg-hover);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:14px;font-weight:500;pointer-events:none;z-index:9998;letter-spacing:0.3px}'
+      // родителя (#chat имеет overflow-y:auto). Текст ярко-синий
+      // чтобы выделяться на фоне любых пользовательских сообщений
+      // (которые иногда тоже peach-цвета).
+      + '.gc-drop-active::after{content:"Отпустите, чтобы прикрепить файл";position:fixed;top:20px;left:20px;right:20px;bottom:20px;border:2px dashed #2563eb;border-radius:12px;background:rgba(37,99,235,0.06);display:flex;align-items:center;justify-content:center;color:#2563eb;font-size:18px;font-weight:600;pointer-events:none;z-index:9998;letter-spacing:0.5px;text-shadow:0 1px 2px rgba(255,255,255,0.6)}'
       // Переносы строк в user-сообщении должны сохраняться визуально.
       + '.msg.user, .msg-user-body{white-space:pre-wrap;word-wrap:break-word}'
       // Таймер в loader'е с отступом 10px от точек.
