@@ -2284,7 +2284,7 @@
       '.btn-export:hover{background:var(--accent-light,rgba(212,165,116,.15));color:var(--accent);border-color:var(--accent)}' +
       // .msg общие
       '.msg{animation:gcFadeIn .25s ease;line-height:1.55;font-size:14px;color:var(--text-primary);word-wrap:break-word;overflow-wrap:anywhere}' +
-      '.msg + .msg{margin-top:16px}' +
+      '.msg + .msg{margin-top:32px}' +
       '@keyframes gcFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}' +
       '.msg.user{background:var(--bg-user);color:var(--accent);padding:10px 14px;border-radius:8px;word-break:break-all;font-size:14px;display:block;width:fit-content;max-width:min(720px,80%)}' +
       '.msg.bot{padding:0 4px;font-size:14px;display:block}' +
