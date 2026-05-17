@@ -590,8 +590,8 @@
       + '.gc-attach-chips:empty{display:none}'
       + '.gc-attach-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg-input,#1b2230);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text-primary);max-width:280px}'
       + '.gc-attach-chip .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
-      + '.gc-attach-chip .x{cursor:pointer;color:var(--text-secondary);font-size:14px;line-height:1;padding:0 2px}'
-      + '.gc-attach-chip .x:hover{color:#ff6666}'
+      + '.gc-attach-chip .x{cursor:pointer;color:var(--text-secondary);font-size:14px;line-height:1;padding:0 2px;background:transparent;border:none;font-family:inherit}'
+      + '.gc-attach-chip .x:hover,.gc-attach-chip .x:focus{color:#ff6666;outline:none}'
       + '.gc-attach-chip.error{border-color:#cc4444;color:#ff8888}'
       + '.gc-attach-chip.bot{background:var(--bg-hover)}'
       // Переносы строк в user-сообщении должны сохраняться визуально.
@@ -608,7 +608,7 @@
       // у #chat достаточный.
       + '.msg.user{position:relative}'
       + '.gc-msg-copy{position:absolute;right:-27px;bottom:0;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;background:transparent;border:none;border-radius:4px;color:var(--accent);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}'
-      + '.msg.user:hover .gc-msg-copy{opacity:1}'
+      + '.msg.user:hover .gc-msg-copy,.msg.user:focus-within .gc-msg-copy,.gc-msg-copy:focus{opacity:1}'
       + '.gc-msg-copy:hover{background:var(--bg-user)}'
       + '.gc-msg-copy svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
       + '.gc-msg-copy.copied{opacity:1}'
@@ -1021,7 +1021,8 @@
           var name = document.createElement('span');
           name.className = 'name';
           name.textContent = '📎 ' + f.name;
-          var x = document.createElement('span');
+          var x = document.createElement('button');
+          x.type = 'button';
           x.className = 'x';
           x.textContent = '×';
           x.setAttribute('aria-label', 'Убрать файл');

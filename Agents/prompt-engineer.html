@@ -434,39 +434,8 @@ function copyPrompt(btn) {
 }
 
 // --- Send ---
-// handleKey оставлен для возможной совместимости со старой версией,
-// но фактически keydown теперь привязан через addEventListener ниже
-// (с защитой isComposing/keyCode 229 от IME).
-function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-}
-
 // Контроллер вложений: создаётся в init() после загрузки сессий
 let attachment = null;
-
-function appendLoading(label, withCancel) {
-  const id = 'loading-' + Date.now();
-  const cancelHtml = withCancel ? ` <button type="button" class="btn-export" id="cancel-${id}" style="padding:2px 10px;margin-left:8px">Отмена</button>` : '';
-  const timerHtml = withCancel ? '' : `<span class="timer" id="timer-${id}">0 сек</span>`;
-  const container = document.getElementById('chatContainer');
-  container.innerHTML += `<div class="loading" id="${id}">${label} <span class="dots"><span></span><span></span><span></span></span>${timerHtml}${cancelHtml}</div>`;
-  container.scrollTop = container.scrollHeight;
-  return id;
-}
-function startTimer(id) {
-  const t0 = Date.now();
-  return setInterval(() => {
-    const el = document.getElementById('timer-' + id);
-    if (el) el.textContent = Math.floor((Date.now() - t0) / 1000) + ' сек';
-  }, 1000);
-}
-function removeLoading(id) {
-  const el = document.getElementById(id);
-  if (el) el.remove();
-}
 
 async function sendMessage() {
   if (!activeSessionId || !sessions.find(s => s.id === activeSessionId)) return;

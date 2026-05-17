@@ -358,26 +358,6 @@
         // Контроллер вложений: создаётся после загрузки сессий ниже
         var attachment = null;
 
-        function appendLoading(label, withCancel) {
-            var id = 'loading-' + Date.now();
-            var cancelHtml = withCancel ? ' <button type="button" class="btn-export" id="cancel-' + id + '" style="padding:2px 10px;margin-left:8px">Отмена</button>' : '';
-            var timerHtml = withCancel ? '' : '<span class="timer" id="timer-' + id + '">0 сек</span>';
-            chat.innerHTML += '<div class="loading" id="' + id + '">' + label + '<span class="dots"><span></span><span></span><span></span></span>' + timerHtml + cancelHtml + '</div>';
-            chat.scrollTop = chat.scrollHeight;
-            return id;
-        }
-        function startTimer(id) {
-            var t0 = Date.now();
-            return setInterval(function() {
-                var el = document.getElementById('timer-' + id);
-                if (el) { var sec = Math.floor((Date.now() - t0) / 1000); el.textContent = sec + ' сек'; }
-            }, 1000);
-        }
-        function removeLoading(id) {
-            var el = document.getElementById(id);
-            if (el) el.remove();
-        }
-
         async function sendMsg() {
             if (!activeSessionId || !sessions.find(function(s){ return s.id === activeSessionId; })) return;
             // Если в текущей сессии уже идёт запрос — клик по стоп-кнопке абортит и выходим.
