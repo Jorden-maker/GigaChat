@@ -1,0 +1,33 @@
+# Caddyfile — конфигурация локального HTTP-сервера для GigaChat.
+# Запускается через GigaChat-Start.bat. Останавливается через GigaChat-Stop.bat
+# (или закрытием окна caddy.exe в Taskbar).
+#
+# Адрес: http://localhost:8765
+# Порт нестандартный, чтобы не конфликтовать с n8n (5678), стандартным HTTP (80),
+# dev-серверами (3000/8000) и прочим. Если 8765 занят — поменять и тут, и в .bat.
+
+:8765 {
+	# Раздаём всё из папки, где лежит caddy.exe (корень проекта).
+	root * .
+	file_server
+	encode gzip
+
+	# При заходе на http://localhost:8765/ — сразу открываем дашборд.
+	# Без этого правила пользователю пришлось бы вводить полный путь
+	# /GigaChat-Platform.html в адресной строке.
+	@root path /
+	rewrite @root /GigaChat-Platform.html
+
+	# Pyodide требует строгий Content-Type: application/wasm для .wasm файлов.
+	# Без этого браузер ругается «failed to compile WebAssembly» и math-агент
+	# не загружается. Дефолтный MIME у Caddy — octet-stream, что не подходит.
+	@wasm path *.wasm
+	header @wasm Content-Type application/wasm
+
+	# В логах оставляем только ошибки — каждый ping раз в 30 сек заполнял бы
+	# журнал, и было бы тяжело найти реальные проблемы.
+	log {
+		output stderr
+		level ERROR
+	}
+}
