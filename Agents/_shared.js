@@ -2036,6 +2036,103 @@
   }
 
   // ============================================================
+  // ОБЩИЙ CSS чат-агентов — устраняет ~150 строк копипаста в каждом HTML
+  // ============================================================
+  // Инжектится автоматически из createChatAgent (один раз на страницу).
+  // Каждый чат-агент в HTML оставляет только специфичные правила:
+  //   :root (переменные темы), #chat (контейнер с конкретным ID),
+  //   #msg/#input-area (поле ввода с конкретным ID + размер),
+  //   .empty-chat/.history-loading (если они в этом HTML),
+  //   агент-специфика (code-block, agent-hint, prompt-block и т.п.).
+  var AGENT_CSS_INJECTED = false;
+  function injectAgentCss() {
+    if (AGENT_CSS_INJECTED) return;
+    AGENT_CSS_INJECTED = true;
+    var css =
+      '*{margin:0;padding:0;box-sizing:border-box}' +
+      'body{font-family:Segoe UI,Tahoma,sans-serif;background:var(--bg-primary);color:var(--text-primary);height:100vh;display:flex;overflow:hidden}' +
+      // Кнопка "домой" в сайдбаре
+      '.btn-home{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;margin:10px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);text-decoration:none;flex-shrink:0;transition:background .15s,color .15s,border-color .15s}' +
+      '.btn-home:hover{background:var(--bg-input);color:var(--text-primary);border-color:var(--text-muted)}' +
+      '.btn-home svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}' +
+      // Sidebar (--sidebar-width per-page, fallback 220)
+      '.sidebar{width:var(--sidebar-width,220px);height:calc(100vh - 24px);margin:12px 0 12px 12px;background:var(--bg-sidebar);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}' +
+      '.sidebar-header{padding:0 16px 12px}' +
+      '.sidebar-header h3{font-size:13px;color:var(--text-secondary);letter-spacing:1px;text-transform:uppercase}' +
+      '.sidebar-add{padding:10px 16px;border-bottom:1px solid var(--border)}' +
+      '.sidebar-add button{width:100%;padding:8px;background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);border-radius:6px;cursor:pointer;font-size:13px;text-align:center}' +
+      '.sidebar-add button:hover{border-color:var(--accent);color:var(--accent)}' +
+      // Session list + items
+      '.session-list{flex:1;overflow-y:auto;padding:8px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}' +
+      '.session-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;margin:2px 0;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text-secondary);transition:background 0.15s}' +
+      '.session-item:hover{background:var(--bg-secondary)}' +
+      '.session-item.active{background:var(--bg-secondary);color:var(--text-primary)}' +
+      '.session-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+      '.session-item .close,.session-item .edit{width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;color:var(--text-secondary);font-size:14px;flex-shrink:0;margin-left:4px;cursor:pointer;opacity:.7;transition:opacity .15s,background .15s,color .15s}' +
+      '.session-item .edit{opacity:0}' +
+      '.session-item:hover .edit{opacity:.8}' +
+      '.session-item .edit svg,.session-item .close svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}' +
+      '.session-item .name-edit{flex:1;min-width:0;background:var(--bg-input,var(--bg-tertiary));border:1px solid var(--accent);color:var(--text-primary);font-size:13px;padding:4px 6px;border-radius:4px;outline:none;font-family:inherit}' +
+      // Main column
+      '.main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}' +
+      // Header bar (в prompt-engineer .header — div с тем же набором правил)
+      'header,.main > .header{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;flex-shrink:0;position:relative;z-index:2}' +
+      '.header-left{display:flex;align-items:center;gap:12px}' +
+      '.header-right{display:flex;align-items:center;gap:12px}' +
+      'header h1,.main > .header h1{font-family:Consolas,monospace;font-size:20px;font-weight:600;color:var(--accent);letter-spacing:2px}' +
+      // Status indicator (классический ".status .dot" 5px в чат-агентах,
+      // ".status-dot" 8px в prompt-engineer — оба покрыты)
+      'header .status{display:inline-flex;align-items:center;gap:6px;font-size:11px;line-height:1;color:var(--text-secondary);letter-spacing:.5px}' +
+      'header .status .dot{width:5px;height:5px;border-radius:50%;background:#f0ad4e;transform:translate(-4px,1px);animation:gcPulse 1s infinite}' +
+      '.status-dot{width:8px;height:8px;border-radius:50%;background:#f0ad4e;animation:gcPulse 1s infinite}' +
+      // Цвета статуса — общие для .dot и .status-dot и .card-status (dashboard)
+      '.dot.online,.status-dot.online,.card-status.online{background:#4caf50;box-shadow:0 0 8px rgba(76,175,80,.5);animation:gcPulse 2s infinite}' +
+      '.dot.offline,.status-dot.offline,.card-status.offline{background:#cc4444;box-shadow:0 0 8px rgba(204,68,68,.4);animation:none}' +
+      '.dot.checking,.status-dot.checking,.card-status.checking{background:#f0ad4e;animation:gcPulse 1s infinite}' +
+      '@keyframes gcPulse{0%,100%{opacity:1}50%{opacity:.4}}' +
+      // Кнопка экспорта (общая)
+      '.btn-export{padding:6px 16px;background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);border-radius:6px;cursor:pointer;font-size:12px;transition:all .2s}' +
+      '.btn-export:hover{background:var(--accent-light,rgba(212,165,116,.15));color:var(--accent);border-color:var(--accent)}' +
+      // .msg общие
+      '.msg{animation:gcFadeIn .25s ease;line-height:1.55;font-size:14px;color:var(--text-primary);word-wrap:break-word;overflow-wrap:anywhere}' +
+      '.msg + .msg{margin-top:16px}' +
+      '@keyframes gcFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}' +
+      '.msg.user{background:var(--bg-user);color:var(--accent);padding:10px 14px;border-radius:8px;word-break:break-all;font-size:14px;display:block;width:fit-content;max-width:min(720px,80%)}' +
+      '.msg.bot{padding:0 4px;font-size:14px;display:block}' +
+      '.bot b{color:var(--text-primary)}' +
+      '.bot i{color:var(--text-secondary)}' +
+      '.bot p{margin:0 0 12px 0}' +
+      '.bot p:last-child{margin-bottom:0}' +
+      '.bot code{background:var(--bg-secondary);padding:2px 6px;border-radius:4px;font-family:Consolas,monospace;font-size:13.5px;color:var(--accent)}' +
+      '.bot pre{background:var(--bg-secondary);padding:14px 16px;border-radius:8px;overflow-x:auto;margin:12px 0;white-space:pre;border:1px solid var(--border)}' +
+      '.bot pre code{background:transparent;padding:0;color:var(--text-primary);font-size:13px}' +
+      '.bot hr{border:none;border-top:1px solid var(--border);margin:16px 0}' +
+      '.bot table{border-collapse:collapse;margin:12px 0;width:100%;font-size:13.5px}' +
+      '.bot th,.bot td{border:1px solid var(--border);padding:8px 12px;text-align:left}' +
+      '.bot th{background:var(--bg-secondary);color:var(--accent);font-weight:600}' +
+      // Loading spinner общий
+      '.loading{display:flex;align-items:center;gap:8px;color:var(--text-secondary);font-size:13px;padding:14px 18px;font-style:italic}' +
+      '.loading .dots span{display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--text-secondary);animation:gcBlink 1.4s infinite}' +
+      '.loading .dots span:nth-child(2){animation-delay:.2s}' +
+      '.loading .dots span:nth-child(3){animation-delay:.4s}' +
+      '@keyframes gcBlink{0%,100%{opacity:.2}50%{opacity:1}}' +
+      // .error box
+      '.error{background:rgba(239,68,68,.10);border:1px solid #cc4444;color:#cc4444;padding:12px 16px;border-radius:10px;margin:10px 0;font-size:13px}' +
+      '.timer{font-family:Consolas,monospace;font-size:11px;color:var(--text-secondary);margin-left:8px}';
+    var style = document.createElement('style');
+    style.setAttribute('data-gc-agent-css', '1');
+    style.textContent = css;
+    // Вставляем В НАЧАЛО head, чтобы локальные :root и per-page правила
+    // в HTML перекрывали наши дефолты (особенно цвет/размер, если автор
+    // намеренно переопределил).
+    if (document.head.firstChild) {
+      document.head.insertBefore(style, document.head.firstChild);
+    } else {
+      document.head.appendChild(style);
+    }
+  }
+
+  // ============================================================
   // CHAT-AGENT FACTORY — устраняет ~700 строк дубликата в 5+ HTML
   // ============================================================
   // Шаблонная фабрика, инкапсулирующая всё что общее у chat/rag/sql/math:
@@ -2066,6 +2163,7 @@
   //   #attachBtn, #attachChips, .sidebar, .bottom-area
   function createChatAgent(opts) {
     opts = opts || {};
+    injectAgentCss();
     var chat = opts.chatEl || document.getElementById('chat');
     var input = opts.inputEl || document.getElementById('msg');
     var sendBtn = opts.sendBtn || document.getElementById('send');
@@ -2476,6 +2574,7 @@
     fileExt: fileExt,
     createSessionStore: createSessionStore,
     createChatAgent: createChatAgent,
+    injectAgentCss: injectAgentCss,
     typewriteAssistant: typewriteAssistant,
     tsvBlocksToMarkdownTables: tsvBlocksToMarkdownTables,
     applyHighlight: applyHighlight,
