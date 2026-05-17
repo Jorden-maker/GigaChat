@@ -2035,6 +2035,381 @@
     };
   }
 
+  // ============================================================
+  // CHAT-AGENT FACTORY — устраняет ~700 строк дубликата в 5+ HTML
+  // ============================================================
+  // Шаблонная фабрика, инкапсулирующая всё что общее у chat/rag/sql/math:
+  //   - sessionStore с правильным префиксом и колбэками
+  //   - renderChat (user-msg с чипами + bot-msg через formatBotHtml)
+  //   - sendMsg (push user → setInflight → extract files → fetch → typewriter)
+  //   - exportChat (.txt дамп)
+  //   - attachment setup с drop-zone, sidebar resize, scroll-to-bottom
+  //   - keydown (Enter=отправить, Shift+Enter=перенос), input autosize, draft
+  //   - health-check + интервал
+  //
+  // Опции:
+  //   webhookPath          — путь для основного webhook ('chat', 'rag-search' и т.п.)
+  //   historyPath          — путь для истории (default 'history')
+  //   prefix/idPrefix/namePrefix — для sessionStore
+  //   inflightLabel        — лейбл спиннера во время LLM-запроса ('Думаю', 'Считаю', ...)
+  //   exportAgentName      — имя в [тэге] .txt экспорта ('GigaChat Talk' и т.п.)
+  //   emptyChatHtml        — HTML пустого состояния
+  //   historyErrorHtml     — HTML при провале loadHistory
+  //   sidebarInitialWidth/Min/Max — параметры initSidebarResize
+  //   formatBotHtml(msg)   — кастомный рендер bot-сообщения (default = formatMarkdown(content))
+  //   parseBotMessage(data) — превратить response JSON в msg-объект
+  //   parseHistoryMessage(m) — мапер для loadHistory ответа
+  //   useTypewriter        — bool, default true
+  //
+  // DOM IDs (можно переопределить через ...El опции):
+  //   #chat, #msg, #send, #sessionList, #statusDot, #statusText,
+  //   #attachBtn, #attachChips, .sidebar, .bottom-area
+  function createChatAgent(opts) {
+    opts = opts || {};
+    var chat = opts.chatEl || document.getElementById('chat');
+    var input = opts.inputEl || document.getElementById('msg');
+    var sendBtn = opts.sendBtn || document.getElementById('send');
+    var sessionListEl = opts.sessionListEl || document.getElementById('sessionList');
+    var statusDot = opts.statusDot || document.getElementById('statusDot');
+    var statusText = opts.statusText || document.getElementById('statusText');
+
+    var WEBHOOK_URL = webhookUrl(opts.webhookPath);
+    var HISTORY_URL = webhookUrl(opts.historyPath || 'history');
+    var inflightLabel = opts.inflightLabel || 'Обработка';
+    var exportAgentName = opts.exportAgentName || 'GigaChat';
+    var emptyChatHtml = opts.emptyChatHtml ||
+      '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span></div>';
+    var historyErrorHtml = opts.historyErrorHtml ||
+      '<div class="empty-chat"><span>Не удалось загрузить историю.</span></div>';
+    var historyLoadingHtml = opts.historyLoadingHtml ||
+      '<div class="history-loading">Загружаю историю...</div>';
+    var useTypewriter = opts.useTypewriter !== false;
+
+    var formatBotHtml = opts.formatBotHtml || function (msg) {
+      return formatMarkdown(msg.content || '');
+    };
+    var parseBotMessage = opts.parseBotMessage || function (data) {
+      return { role: 'assistant', content: data.response || data.output || 'Пустой ответ от сервера' };
+    };
+    var parseHistoryMessage = opts.parseHistoryMessage || function (m) {
+      var r = { role: m.role, content: m.content };
+      if (m.extras) r.extras = m.extras;
+      return r;
+    };
+
+    var attachment = null;
+    var sessionStore = createSessionStore({
+      prefix: opts.prefix,
+      idPrefix: opts.idPrefix || (opts.prefix + '_'),
+      namePrefix: opts.namePrefix || (opts.prefix + '-'),
+      sessionList: sessionListEl,
+      renderMessages: function () { renderChat(); },
+      onAttachmentClear: function () {
+        if (attachment) { attachment.cancel(); attachment.clear(); attachment.setDisabled(false); }
+      },
+      onEmpty: function () {
+        chat.innerHTML = emptyChatHtml;
+        input.disabled = true; sendBtn.disabled = true;
+        if (attachment) attachment.setDisabled(true);
+      },
+      onSwitch: function (sid) {
+        var draft = sessionStore.getDraft(sid) || '';
+        input.value = draft;
+        input.style.height = '';
+        if (draft) input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+        var processing = !!sessionStore.getInflight(sid);
+        input.disabled = processing;
+        sendBtn.disabled = false;
+        syncSendButton(sendBtn, sid, processing);
+        if (attachment) attachment.setDisabled(processing);
+        if (!processing) input.focus();
+      },
+      loadHistory: async function (sid) {
+        if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
+          chat.innerHTML = historyLoadingHtml;
+        }
+        try {
+          var res = await fetchWithRetry(HISTORY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ session_id: sid })
+          }, { timeout: 30000, retries: 0 });
+          if (!res.ok) throw new Error('Сервер ответил ' + res.status);
+          var data = await res.json();
+          return (data.messages || []).map(parseHistoryMessage);
+        } catch (e) {
+          if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
+            chat.innerHTML = historyErrorHtml;
+          }
+          return null;
+        }
+      }
+    });
+
+    function renderChat() {
+      var sessions = sessionStore.state.sessions;
+      var activeSessionId = sessionStore.state.activeSessionId;
+      var displayMessages = sessionStore.state.displayMessages;
+      if (!activeSessionId || !sessions.find(function (s) { return s.id === activeSessionId; })) {
+        chat.innerHTML = emptyChatHtml;
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < displayMessages.length; i++) {
+        var m = displayMessages[i];
+        if (m.role === 'user') {
+          var userBody = m.content ? escapeHtml(m.content) : '';
+          var atts = m.attachments
+            ? m.attachments
+            : (m.attachment ? [{ fileName: m.attachment, error: !!m.attachmentError }] : []);
+          if (atts.length > 0) {
+            var chipsHtml = '';
+            for (var k = 0; k < atts.length; k++) {
+              var att = atts[k];
+              var cls = att.error ? 'gc-attach-chip bot error' : 'gc-attach-chip bot';
+              chipsHtml += '<span class="' + cls + '">📎 ' + escapeHtml(att.fileName) + '</span>';
+            }
+            var spacing = userBody ? 'margin-top:8px' : '';
+            userBody += '<div style="' + spacing + ';display:flex;flex-wrap:wrap;gap:6px">' + chipsHtml + '</div>';
+          }
+          html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">' + userBody + '</div>';
+        } else {
+          html += '<div class="msg bot">' + formatBotHtml(m) + '</div>';
+        }
+      }
+      var inflight = sessionStore.getInflight(activeSessionId);
+      if (inflight) {
+        var elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
+        html += '<div class="loading gc-inflight-loader" data-started-at="' + inflight.startedAt + '">' +
+          '<span class="dots"><span></span><span></span><span></span></span>' +
+          '<span class="timer">' + elapsed + ' сек</span></div>';
+      }
+      var wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 30;
+      chat.innerHTML = html;
+      attachCopyButtons(chat);
+      if (wasAtBottom) chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function sendMsg() {
+      var activeSessionId = sessionStore.state.activeSessionId;
+      var sessions = sessionStore.state.sessions;
+      if (!activeSessionId || !sessions.find(function (s) { return s.id === activeSessionId; })) return;
+      var existing = getSendController(activeSessionId);
+      if (existing) { existing.abort(); return; }
+      if (sessionStore.getInflight(activeSessionId)) { sessionStore.clearInflight(activeSessionId); return; }
+      var text = input.value.trim();
+      var hasFiles = attachment && attachment.hasFiles();
+      if (!text && !hasFiles) return;
+      if (sessionStore.getInflight(activeSessionId)) return;
+      var sendSessionId = activeSessionId;
+      var fileNamesSnapshot = hasFiles
+        ? attachment.getFiles().map(function (f) { return f.name; })
+        : [];
+      input.disabled = true; sendBtn.disabled = true;
+      if (attachment) attachment.setDisabled(true);
+      input.value = ''; input.style.height = 'auto';
+      sessionStore.clearDraft(sendSessionId);
+      var userMsg = { role: 'user', content: text, ts: Date.now() };
+      if (fileNamesSnapshot.length > 0) {
+        userMsg.attachments = fileNamesSnapshot.map(function (n) {
+          return { fileName: n, error: false };
+        });
+      }
+      sessionStore.pushToSession(sendSessionId, userMsg);
+      sessionStore.setInflight(sendSessionId, hasFiles ? 'Извлекаю файлы' : inflightLabel);
+
+      var messageForAgent = text;
+      function abortAndRestore() {
+        sessionStore.clearInflight(sendSessionId);
+        var msgs = sessionStore.state.displayMessages;
+        if (msgs.length && msgs[msgs.length - 1].role === 'user') {
+          msgs.pop();
+          sessionStore.saveSnapshot();
+        }
+        if (sessionStore.state.activeSessionId === sendSessionId) {
+          input.disabled = false; sendBtn.disabled = false;
+          if (attachment) attachment.setDisabled(false);
+          input.value = text;
+          input.focus();
+          renderChat();
+        }
+      }
+      if (hasFiles) {
+        var cancelled = false;
+        var loader = document.querySelector('.gc-inflight-loader');
+        if (loader) {
+          var cancelBtn = document.createElement('button');
+          cancelBtn.type = 'button';
+          cancelBtn.className = 'btn-export';
+          cancelBtn.style.cssText = 'padding:2px 10px;margin-left:8px';
+          cancelBtn.textContent = 'Отмена';
+          cancelBtn.onclick = function () { cancelled = true; attachment.cancel(); };
+          loader.appendChild(cancelBtn);
+        }
+        var extractedList = await attachment.extract();
+        if (cancelled) { abortAndRestore(); return; }
+        var totalLen = 0;
+        for (var i = 0; i < extractedList.length; i++) totalLen += (extractedList[i].text || '').length;
+        if (totalLen > 30000) {
+          var ok = confirm('Извлечено ' + totalLen.toLocaleString('ru-RU') + ' симв. из ' +
+            extractedList.length + ' файла(ов).\nGigaChat может не справиться.\nОтправить всё равно?');
+          if (!ok) { abortAndRestore(); return; }
+        }
+        var built = buildMessageWithAttachment(text, extractedList);
+        messageForAgent = built.messageForAgent;
+        var msgs2 = sessionStore.state.displayMessages;
+        for (var j = msgs2.length - 1; j >= 0; j--) {
+          if (msgs2[j].role === 'user') {
+            msgs2[j].attachments = built.attachments;
+            break;
+          }
+        }
+        sessionStore.saveSnapshot();
+        sessionStore.setInflight(sendSessionId, inflightLabel);
+      }
+
+      var sendCtrl = makeCancellableSend(sendBtn, sendSessionId);
+      try {
+        var res = await fetchWithRetry(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: JSON.stringify({ message: messageForAgent, session_id: sendSessionId })
+        }, { retries: MAX_RETRIES, signal: sendCtrl.signal });
+        sessionStore.clearInflight(sendSessionId);
+        if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
+        var data = await res.json();
+        var botMsg = parseBotMessage(data);
+        if (useTypewriter) {
+          typewriteAssistant(sessionStore, sendSessionId, botMsg, { cps: 100 });
+        } else {
+          sessionStore.pushToSession(sendSessionId, botMsg);
+        }
+        statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
+      } catch (e) {
+        sessionStore.clearInflight(sendSessionId);
+        if (!sendCtrl.aborted()) {
+          sessionStore.pushToSession(sendSessionId, { role: 'assistant', content: 'Ошибка: ' + e.message });
+          statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
+        }
+      } finally {
+        sendCtrl.restore();
+      }
+      if (sessionStore.state.activeSessionId === sendSessionId) {
+        input.disabled = false; sendBtn.disabled = false;
+        if (attachment) {
+          attachment.setDisabled(false);
+          attachment.clear();
+        }
+        input.focus();
+        chat.scrollTop = chat.scrollHeight;
+      }
+    }
+
+    function exportChat() {
+      var activeSessionId = sessionStore.state.activeSessionId;
+      var displayMessages = sessionStore.state.displayMessages;
+      var sessions = sessionStore.state.sessions;
+      if (!activeSessionId || displayMessages.length === 0) {
+        alert('Нечего экспортировать.');
+        return;
+      }
+      var sessionName = '';
+      for (var i = 0; i < sessions.length; i++) {
+        if (sessions[i].id === activeSessionId) { sessionName = sessions[i].name; break; }
+      }
+      var lines = ['=== ' + sessionName + ' ===', 'Экспорт: ' + new Date().toLocaleString('ru-RU'), ''];
+      for (var j = 0; j < displayMessages.length; j++) {
+        var m = displayMessages[j];
+        lines.push('[' + (m.role === 'user' ? 'Вы' : exportAgentName) + ']');
+        // Если есть extras с code/raw_result (math) — добавляем
+        var extras = m.extras || {};
+        if (extras.code) lines.push('Код: ' + extras.code);
+        if (extras.raw_result) lines.push('Результат: ' + extras.raw_result);
+        lines.push(m.content || '');
+        lines.push('');
+      }
+      var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = sessionName + '_' + new Date().toISOString().slice(0, 10) + '.txt';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // attachment setup
+    attachment = setupAttachment({
+      buttonContainer: opts.attachBtnEl || document.getElementById('attachBtn'),
+      chipsContainer: opts.attachChipsEl || document.getElementById('attachChips'),
+      inputElement: input,
+      dropZone: chat
+    });
+
+    // sidebar resize / header shadow / scroll-to-bottom
+    initSidebarResize({
+      sidebar: opts.sidebarEl || document.querySelector('.sidebar'),
+      initialWidth: opts.sidebarInitialWidth || 240,
+      minWidth: opts.sidebarMinWidth || 220,
+      maxWidth: opts.sidebarMaxWidth || 440
+    });
+    initHeaderShadowOnScroll({ scrollable: chat });
+    initScrollToBottomButton({
+      scrollable: chat,
+      inputArea: opts.bottomAreaEl || document.querySelector('.bottom-area')
+    });
+
+    // Load + initial switch
+    sessionStore.load();
+    if (sessionStore.state.activeSessionId && !sessionStore.findSession(sessionStore.state.activeSessionId)) {
+      sessionStore.state.activeSessionId = null;
+    }
+    if (sessionStore.state.sessions.length > 0) {
+      sessionStore.renderList();
+      var targetId = sessionStore.state.activeSessionId ||
+        sessionStore.state.sessions[sessionStore.state.sessions.length - 1].id;
+      sessionStore.switchTo(targetId);
+    } else {
+      attachment.setDisabled(true);
+    }
+
+    // Keydown: Enter — отправить (Shift+Enter — перенос). isComposing/keyCode 229
+    // защищает от срабатывания во время IME-ввода (китайский/японский).
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+        e.preventDefault();
+        sendMsg();
+      }
+    });
+    input.addEventListener('input', function () {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+      if (sessionStore.state.activeSessionId) {
+        sessionStore.setDraft(sessionStore.state.activeSessionId, input.value);
+      }
+    });
+
+    // Health-check
+    function ping() { return checkServerStatus(WEBHOOK_URL, statusDot, statusText); }
+    ping();
+    setInterval(ping, 30000);
+
+    // Глобальные обёртки для onclick из HTML (кнопки «Новая сессия»,
+    // «Экспорт», send). Совместимость со старым кодом.
+    global.sendMsg = sendMsg;
+    global.createNewSession = function () { sessionStore.createNew(); };
+    global.exportChat = exportChat;
+    // Совместимость с router/math и любыми будущими функциями, которым нужен
+    // прямой доступ к store через bare-имена (для onclick handlers и debug).
+    global.pushToSession = function (sid, msg) { return sessionStore.pushToSession(sid, msg); };
+
+    return {
+      sessionStore: sessionStore,
+      attachment: attachment,
+      sendMsg: sendMsg,
+      exportChat: exportChat,
+      renderChat: renderChat
+    };
+  }
+
   global.GigaChat = {
     config: cfg,
     webhookUrl: webhookUrl,
@@ -2057,6 +2432,7 @@
     padTabularText: padTabularText,
     fileExt: fileExt,
     createSessionStore: createSessionStore,
+    createChatAgent: createChatAgent,
     typewriteAssistant: typewriteAssistant,
     tsvBlocksToMarkdownTables: tsvBlocksToMarkdownTables,
     applyHighlight: applyHighlight,
