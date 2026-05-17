@@ -1,26 +1,56 @@
 @echo off
 REM ============================================================================
-REM Запуск локального HTTP-сервера GigaChat (Caddy) + открытие дашборда в браузере.
+REM Start GigaChat local HTTP server (Caddy) and open dashboard in browser.
 REM
-REM Двойной клик по этому файлу:
-REM   1. Стартует caddy.exe в свёрнутом окне (адрес: http://localhost:8765)
-REM   2. Через 2 секунды открывает дашборд в браузере по умолчанию
+REM Double-click this file:
+REM   1. Window with Caddy logs opens (listens on http://localhost:8765)
+REM   2. After 3 seconds the browser opens with the dashboard
 REM
-REM Чтобы остановить — запусти GigaChat-Stop.bat (или закрой окно Caddy в Taskbar).
+REM To stop the server - just close this window (or press Ctrl+C).
+REM No separate Stop.bat needed - the window IS the running indicator.
+REM
+REM NOTE 1: This file is ASCII-only on purpose. Windows cmd.exe reads .bat in
+REM default OEM codepage (cp866 in RU locale). Cyrillic text in UTF-8 .bat
+REM gets mangled into garbage commands before chcp 65001 takes effect.
+REM
+REM NOTE 2: Caddy and Caddyfile are referenced via %~dp0 (full path) because
+REM on some Windows installs the current-directory-in-PATH lookup is disabled
+REM for security, and "caddy.exe" alone wouldn't be found even after cd.
 REM ============================================================================
 
-REM UTF-8 — иначе русские пути ломаются.
-chcp 65001 >nul
-
-REM Переходим в папку, где лежит этот .bat (на случай запуска из ярлыка).
 cd /d "%~dp0"
+title GigaChat Server
 
-REM Запускаем Caddy свёрнутым в Taskbar. Заголовок окна «GigaChat Server»
-REM нужен чтобы можно было найти процесс глазами при необходимости.
-start "GigaChat Server" /min caddy.exe run --config Caddyfile
+if not exist "%~dp0caddy.exe" (
+    echo.
+    echo ERROR: caddy.exe not found in %~dp0
+    echo Download fresh ZIP from GitHub - caddy.exe must be next to this .bat
+    echo.
+    pause
+    exit /b 1
+)
 
-REM Пауза, чтобы сервер успел поднять порт до того как браузер постучится.
-timeout /t 2 /nobreak >nul
+if not exist "%~dp0Caddyfile" (
+    echo.
+    echo ERROR: Caddyfile not found in %~dp0
+    echo.
+    pause
+    exit /b 1
+)
 
-REM Открываем дашборд в браузере по умолчанию (Yandex / Chrome / Edge — что выбрано).
-start "" "http://localhost:8765/"
+REM Open browser in parallel after 3 sec - Caddy will be up by then.
+start "" /b cmd /c "timeout /t 3 /nobreak >nul && start """" ""http://localhost:8765/"""
+
+echo ============================================
+echo  GigaChat Server
+echo  URL: http://localhost:8765/
+echo  Close this window to stop the server.
+echo ============================================
+echo.
+
+REM Run Caddy with explicit full paths. Logs stream to this window.
+"%~dp0caddy.exe" run --config "%~dp0Caddyfile"
+
+echo.
+echo Caddy stopped.
+pause
