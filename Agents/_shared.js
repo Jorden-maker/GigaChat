@@ -1419,18 +1419,39 @@
     // ─── Search input: вставляется ПЕРЕД sessionList (внутри sidebar). При
     // вводе фильтрует session-item по name (case-insensitive). Filter
     // применяется и при каждом renderList. Сам state хранится в sessionFilter.
+    // Внутри обёртки .gc-session-search-wrap ещё кнопка × — появляется когда
+    // в поле есть текст, клик очищает поле и сбрасывает фильтр.
     var sessionFilter = '';
+    var searchInput = null;
+    var searchClearBtn = null;
     if (sessionList) {
-      var searchInput = document.createElement('input');
+      var searchWrap = document.createElement('div');
+      searchWrap.className = 'gc-session-search-wrap';
+      searchInput = document.createElement('input');
       searchInput.type = 'text';
       searchInput.className = 'gc-session-search';
       searchInput.placeholder = 'Поиск...';
       searchInput.setAttribute('aria-label', 'Поиск по сессиям');
+      searchClearBtn = document.createElement('button');
+      searchClearBtn.type = 'button';
+      searchClearBtn.className = 'gc-session-search-clear';
+      searchClearBtn.setAttribute('aria-label', 'Очистить поиск');
+      searchClearBtn.textContent = '×';
       searchInput.addEventListener('input', function () {
         sessionFilter = (this.value || '').toLowerCase().trim();
         applySessionFilter();
+        searchClearBtn.classList.toggle('show', this.value.length > 0);
       });
-      sessionList.parentNode.insertBefore(searchInput, sessionList);
+      searchClearBtn.addEventListener('click', function () {
+        searchInput.value = '';
+        sessionFilter = '';
+        applySessionFilter();
+        searchClearBtn.classList.remove('show');
+        searchInput.focus();
+      });
+      searchWrap.appendChild(searchInput);
+      searchWrap.appendChild(searchClearBtn);
+      sessionList.parentNode.insertBefore(searchWrap, sessionList);
     }
     function applySessionFilter() {
       if (!sessionList) return;
@@ -1731,9 +1752,10 @@
       store.sessions.push({ id: id, name: namePrefix + store.sessionCounter });
       // Сбрасываем фильтр поиска — иначе новая сессия может быть скрыта
       // существующим фильтром, юзер увидит чат но не сессию в сайдбаре.
-      if (typeof searchInput !== 'undefined' && searchInput) {
+      if (searchInput) {
         searchInput.value = '';
         sessionFilter = '';
+        if (searchClearBtn) searchClearBtn.classList.remove('show');
       }
       return switchTo(id, { skipHistoryLoad: true });
     }
@@ -2206,10 +2228,19 @@
       '.sidebar-add{padding:10px 16px;border-bottom:1px solid var(--border)}' +
       '.sidebar-add button{width:100%;padding:8px;background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);border-radius:6px;cursor:pointer;font-size:13px;text-align:center}' +
       '.sidebar-add button:hover{border-color:var(--accent);color:var(--accent)}' +
-      // Search-input над списком сессий (вставляется автоматически из createSessionStore)
-      '.gc-session-search{margin:8px 16px;padding:6px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;transition:border-color .15s}' +
+      // Search над списком сессий: обёртка для абсолютного позиционирования
+      // крестика-clear. Сам input занимает всю ширину обёртки минус padding
+      // справа под кнопку.
+      '.gc-session-search-wrap{position:relative;margin:8px 16px}' +
+      '.gc-session-search{display:block;width:100%;padding:6px 26px 6px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;transition:border-color .15s}' +
       '.gc-session-search:focus{border-color:var(--accent)}' +
       '.gc-session-search::placeholder{color:var(--text-muted)}' +
+      // Кнопка × — справа в поле, появляется только когда есть текст (.show).
+      // Hover-эффект совпадает с .session-item .close (через !important-override
+      // в initThemeToggle CSS): bg=var(--bg-hover), color=var(--accent).
+      '.gc-session-search-clear{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:18px;height:18px;display:none;align-items:center;justify-content:center;background:transparent;border:none;cursor:pointer;color:var(--text-secondary);font-size:16px;line-height:1;border-radius:4px;opacity:.7;padding:0;transition:opacity .15s,background .15s,color .15s;font-family:inherit}' +
+      '.gc-session-search-clear.show{display:flex}' +
+      '.gc-session-search-clear:hover{background:var(--bg-hover);color:var(--accent);opacity:1}' +
       // Session list + items
       '.session-list{flex:1;overflow-y:auto;padding:8px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}' +
       '.session-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;margin:2px 0;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text-secondary);transition:background 0.15s}' +
