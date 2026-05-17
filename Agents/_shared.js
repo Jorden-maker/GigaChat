@@ -1912,15 +1912,12 @@
       }
     }
     window.addEventListener('storage', handleStorageEvent);
-
-    function dispose() {
-      window.removeEventListener('storage', handleStorageEvent);
-      stopInflightTicker();
-    }
+    // dispose() убран как dead code — проект multi-page, при переходе на
+    // другую страницу window перезагружается и листенеры умирают сами.
+    // Если когда-нибудь появится SPA-роутинг — добавить cleanup сюда.
 
     return {
       state: store,                              // прямой доступ к sessions/activeSessionId/displayMessages
-      dispose: dispose,                          // cleanup listener'а и таймера
       load: load,
       save: save,
       saveSnapshot: saveSnapshot,
@@ -2273,6 +2270,18 @@
     var sessionListEl = opts.sessionListEl || document.getElementById('sessionList');
     var statusDot = opts.statusDot || document.getElementById('statusDot');
     var statusText = opts.statusText || document.getElementById('statusText');
+    // Защитная диагностика: без этих узлов factory тихо сломается на
+    // первом innerHTML/onclick. Лучше явный throw — будет понятно что
+    // на странице нет нужного ID (опечатка в HTML или подключение из
+    // неподходящего контекста).
+    var missing = [];
+    if (!chat) missing.push('chat (chatEl)');
+    if (!input) missing.push('input (inputEl)');
+    if (!sendBtn) missing.push('send button (sendBtn)');
+    if (!sessionListEl) missing.push('session list (sessionListEl)');
+    if (missing.length) {
+      throw new Error('GigaChat.createChatAgent: на странице не найдены DOM-узлы: ' + missing.join(', '));
+    }
 
     var WEBHOOK_URL = opts.webhookPath ? webhookUrl(opts.webhookPath) : null;
     var HISTORY_URL = webhookUrl(opts.historyPath || 'history');
@@ -2522,14 +2531,21 @@
         } else {
           sessionStore.pushToSession(sendSessionId, botMsg);
         }
-        statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
+        statusDot.className = statusDotClass + ' online'; statusText.textContent = 'Онлайн';
       } catch (e) {
         sessionStore.clearInflight(sendSessionId);
         if (!sendCtrl.aborted()) {
           var errMsg = { role: 'assistant', content: 'Ошибка: ' + e.message };
           enrichBotMsg(errMsg);
           sessionStore.pushToSession(sendSessionId, errMsg);
-          statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
+          // Статус-индикатор переключаем в Offline ТОЛЬКО если юзер всё ещё
+          // в этой сессии — иначе он сидит в другой сессии и видит «Офлайн»
+          // из-за провала чужого запроса. Сама ошибка в чате той сессии
+          // останется (увидит при возврате).
+          if (sessionStore.state.activeSessionId === sendSessionId) {
+            statusDot.className = statusDotClass + ' offline';
+            statusText.textContent = 'Офлайн';
+          }
         }
       } finally {
         sendCtrl.restore();

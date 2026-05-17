@@ -131,8 +131,7 @@
             border-radius: 1px;
         }
 
-        /* Status bar */
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        /* Status bar — pulse keyframe (как gcPulse) тоже в _shared.js. */
 
         /* Cards grid */
         .cards-section-title {
@@ -243,18 +242,15 @@
         .card .card-tag { background: rgba(212,165,116,0.10); color: var(--accent); border: 1px solid rgba(212,165,116,0.25); }
 
 
-        /* Card status dots */
+        /* Card status dot: позиционирование и размер per-page.
+           Цвета online/offline/checking и анимация — в _shared.js
+           через GigaChat.injectStatusDotCss() (вызывается ниже из inline-script). */
         .card-status {
             position: absolute;
             top: 28px; right: 28px;
             width: 6px; height: 6px;
             border-radius: 50%;
-            background: #f0ad4e;
-            animation: pulse 1s infinite;
         }
-        .card-status.online { background: #4caf50; box-shadow: 0 0 6px rgba(76,175,80,0.5); animation: pulse 2s infinite; }
-        .card-status.offline { background: #cc4444; box-shadow: 0 0 6px rgba(204,68,68,0.4); animation: none; }
-        .card-status.checking { background: #f0ad4e; animation: pulse 1s infinite; }
 
         /* Footer */
         .footer {
@@ -557,6 +553,7 @@
 </div>
 
 <script>
+    GigaChat.injectStatusDotCss(); // .card-status цвета + @keyframes gcPulse
     var AGENTS = [
         { id: 'router', webhook: GigaChat.webhookUrl('router') },
         { id: 'sql',    webhook: GigaChat.webhookUrl('sql') },
