@@ -170,6 +170,14 @@
             'https://cdn.jsdelivr.net/pyodide/' + PYODIDE_DEFAULT_VERSION + '/full/pyodide.js';
         var PYODIDE_INDEX_URL = (window.GIGACHAT_CONFIG && window.GIGACHAT_CONFIG.PYODIDE_INDEX_URL) ||
             'https://cdn.jsdelivr.net/pyodide/' + PYODIDE_DEFAULT_VERSION + '/full/';
+        // Soft-таймаут на runPythonAsync. Если LLM напишет while True или sympy
+        // зависнет на сложной задаче — UI размораживается через PYODIDE_TIMEOUT_MS
+        // и юзер видит ошибку. ВАЖНО: реальный Python продолжит работать (это
+        // одно-поточный WASM в main-thread, прервать без Web Worker нельзя).
+        // Чтобы следующие запросы не падали в очередь к мёртвому интерпретатору,
+        // ставим флаг pyodideStuck — он отклоняет все новые executePython
+        // мгновенно, до перезагрузки страницы.
+        var PYODIDE_TIMEOUT_MS = (window.GIGACHAT_CONFIG && window.GIGACHAT_CONFIG.PYODIDE_TIMEOUT_MS) || 15000;
 
         var pyodidePromise = null;
         function getPyodide() {
@@ -193,23 +201,62 @@
             return pyodidePromise;
         }
 
+        // Мьютекс на Pyodide-вызовы. setStdout/setStderr — глобальные хэндлеры
+        // на инстансе, без сериализации stdout одного запроса попадает в outputs
+        // другого. Promise-цепочка гарантирует, что новый executePython стартует
+        // только после полного завершения предыдущего.
+        var pyodideQueue = Promise.resolve();
+        var pyodideStuck = false;
+
         async function executePython(pyodide, code) {
+            if (pyodideStuck) {
+                return {
+                    ok: false, output: '', lines: [],
+                    error: 'Python заблокирован после предыдущего таймаута. Обновите страницу.'
+                };
+            }
+            var task = function () { return runPyodideWithTimeout(pyodide, code); };
+            var p = pyodideQueue.then(task, task);
+            // Цепочка не должна рваться при ошибке — иначе следующий then не
+            // выполнится. Сохраняем в очередь catch'нутую версию.
+            pyodideQueue = p.catch(function () {});
+            // Если был таймаут — помечаем как stuck. Следующий вызов получит
+            // мгновенный отказ, не встанет в бесконечную очередь.
+            p.catch(function (e) {
+                if (e && e.message && /timeout/i.test(e.message)) {
+                    pyodideStuck = true;
+                }
+            });
+            return p;
+        }
+
+        async function runPyodideWithTimeout(pyodide, code) {
             var outputs = [];
             var stderr = [];
             pyodide.setStdout({ batched: function (s) { outputs.push(s); } });
             pyodide.setStderr({ batched: function (s) { stderr.push(s); } });
-            try {
-                // loadPackagesFromImports автоматически подтягивает numpy/sympy/scipy
-                // и прочие пакеты, упомянутые в коде, из bundle Pyodide.
-                // Промахи (несуществующие пакеты) ловятся в общий catch.
-                try { await pyodide.loadPackagesFromImports(code); } catch (e) {}
-                await pyodide.runPythonAsync(code);
-                return { ok: true, output: outputs.join('\n'), lines: outputs.slice(), error: '' };
-            } catch (e) {
-                var errText = String(e && e.message ? e.message : e);
-                if (stderr.length) errText = stderr.join('\n') + '\n' + errText;
-                return { ok: false, output: outputs.join('\n'), lines: outputs.slice(), error: errText };
-            }
+            var pyTask = (async function () {
+                try {
+                    // На Варианте A loadPackagesFromImports не должен ничего
+                    // делать (все импорты — stdlib, ловится в core бандле).
+                    // Если LLM всё-таки попробует sympy/numpy — workflow's
+                    // safety check (dangerous list) их отбросит ещё на сервере.
+                    // Дополнительно catch на случай неожиданных промахов.
+                    try { await pyodide.loadPackagesFromImports(code); } catch (e) {}
+                    await pyodide.runPythonAsync(code);
+                    return { ok: true, output: outputs.join('\n'), lines: outputs.slice(), error: '' };
+                } catch (e) {
+                    var errText = String(e && e.message ? e.message : e);
+                    if (stderr.length) errText = stderr.join('\n') + '\n' + errText;
+                    return { ok: false, output: outputs.join('\n'), lines: outputs.slice(), error: errText };
+                }
+            })();
+            var timeoutPromise = new Promise(function (_, reject) {
+                setTimeout(function () {
+                    reject(new Error('Python timeout (' + Math.round(PYODIDE_TIMEOUT_MS / 1000) + ' сек) — возможно бесконечный цикл'));
+                }, PYODIDE_TIMEOUT_MS);
+            });
+            return Promise.race([pyTask, timeoutPromise]);
         }
 
         // Логика выбора финальной строки идентична серверной версии (была в
@@ -326,14 +373,28 @@
                 }
 
                 ctx.setInflightLabel('Считаю');
-                var exec = await executePython(pyodide, data.code);
+                var exec;
+                try {
+                    exec = await executePython(pyodide, data.code);
+                } catch (e) {
+                    // Soft-таймаут (PYODIDE_TIMEOUT_MS) — Python ещё молотит в
+                    // фоне, но UI размораживается. pyodideStuck уже выставлен.
+                    return {
+                        response: 'Не удалось решить — ' + e.message + '. Обновите страницу, чтобы освободить интерпретатор.',
+                        code: data.code,
+                        raw_result: ''
+                    };
+                }
                 var finalLine = extractFinalLine(exec.lines);
 
                 ctx.setInflightLabel('Готовлю объяснение');
                 var explainUrl = ctx.sendUrl.replace(/\/math(\/?)$/, '/math-explain$1');
                 var resp;
                 try {
-                    resp = await fetch(explainUrl, {
+                    // fetchWithRetry: 60s таймаут + 1 retry на сетевых ошибках.
+                    // Голый fetch ждал бы по дефолту 5 минут — слишком долго
+                    // для случая, когда n8n или GigaChat-LLM завис.
+                    resp = await GigaChat.fetchWithRetry(explainUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json; charset=utf-8' },
                         body: JSON.stringify({
@@ -343,11 +404,10 @@
                             raw_result: exec.output,
                             final_line: finalLine,
                             error: exec.ok ? '' : exec.error
-                        }),
-                        signal: ctx.signal
-                    });
+                        })
+                    }, { timeout: 60000, retries: 1, signal: ctx.signal });
                 } catch (e) {
-                    // Сеть упала / отмена. Возвращаем то, что есть локально:
+                    // Сеть упала / отмена / таймаут. Возвращаем то, что есть локально:
                     // число пользователь хотя бы увидит, объяснения не будет.
                     if (e.name === 'AbortError') throw e;
                     return {
