@@ -2073,9 +2073,33 @@
     var statusDot = opts.statusDot || document.getElementById('statusDot');
     var statusText = opts.statusText || document.getElementById('statusText');
 
-    var WEBHOOK_URL = webhookUrl(opts.webhookPath);
+    var WEBHOOK_URL = opts.webhookPath ? webhookUrl(opts.webhookPath) : null;
     var HISTORY_URL = webhookUrl(opts.historyPath || 'history');
+    // resolveSendUrl(): динамический URL для каждого sendMsg (router использует
+    // его для маршрутизации в выбранный агент). Если не передан — статический.
+    var resolveSendUrl = opts.resolveSendUrl || function () { return WEBHOOK_URL; };
     var inflightLabel = opts.inflightLabel || 'Обработка';
+    // exportBotLabel(msg): динамический лейбл бота в [тэге] экспорта.
+    // Router возвращает AGENT_LABELS[msg.agent] (каждое сообщение — свой агент).
+    var exportBotLabel = opts.exportBotLabel || function () { return exportAgentName; };
+    // getInflightLabel(phase): 'extract' (извлечение файлов) или 'send' (LLM-запрос).
+    // Router возвращает AGENT_LABELS[currentAgent] для фазы 'send'.
+    var getInflightLabel = opts.getInflightLabel || function (phase) {
+      return phase === 'extract' ? 'Извлекаю файлы' : inflightLabel;
+    };
+    // enrichUserMsg/enrichBotMsg: мутаторы перед pushToSession. Router
+    // добавляет `agent: currentAgent` чтобы каждое сообщение помнило свой агент.
+    var enrichUserMsg = opts.enrichUserMsg || function () {};
+    var enrichBotMsg = opts.enrichBotMsg || function () {};
+    // userBadgeHtml(m, nextMsg): HTML который вставляется в user-msg справа.
+    // Router рендерит inflight-agent-badge с именем агента.
+    var userBadgeHtml = opts.userBadgeHtml || function () { return ''; };
+    // onInputExtra/onSwitchExtra/onSendStart: дополнительные действия в
+    // ключевых точках жизненного цикла. Router использует для classify(),
+    // dropdown'а agent-hint, и т.п.
+    var onInputExtra = opts.onInputExtra || function () {};
+    var onSwitchExtra = opts.onSwitchExtra || function () {};
+    var onSendStart = opts.onSendStart || function () {};
     var exportAgentName = opts.exportAgentName || 'GigaChat';
     var emptyChatHtml = opts.emptyChatHtml ||
       '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span></div>';
@@ -2123,6 +2147,7 @@
         syncSendButton(sendBtn, sid, processing);
         if (attachment) attachment.setDisabled(processing);
         if (!processing) input.focus();
+        onSwitchExtra(sid, draft);
       },
       loadHistory: async function (sid) {
         if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
@@ -2172,7 +2197,10 @@
             var spacing = userBody ? 'margin-top:8px' : '';
             userBody += '<div style="' + spacing + ';display:flex;flex-wrap:wrap;gap:6px">' + chipsHtml + '</div>';
           }
-          html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">' + userBody + '</div>';
+          // Дополнительный HTML справа от user-msg (router → inflight-agent-badge).
+          var nextMsg = (i + 1 < displayMessages.length) ? displayMessages[i + 1] : null;
+          var badge = userBadgeHtml(m, nextMsg) || '';
+          html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">' + userBody + badge + '</div>';
         } else {
           html += '<div class="msg bot">' + formatBotHtml(m) + '</div>';
         }
@@ -2202,6 +2230,7 @@
       if (!text && !hasFiles) return;
       if (sessionStore.getInflight(activeSessionId)) return;
       var sendSessionId = activeSessionId;
+      var sendUrl = resolveSendUrl();
       var fileNamesSnapshot = hasFiles
         ? attachment.getFiles().map(function (f) { return f.name; })
         : [];
@@ -2209,14 +2238,16 @@
       if (attachment) attachment.setDisabled(true);
       input.value = ''; input.style.height = 'auto';
       sessionStore.clearDraft(sendSessionId);
+      onSendStart();
       var userMsg = { role: 'user', content: text, ts: Date.now() };
       if (fileNamesSnapshot.length > 0) {
         userMsg.attachments = fileNamesSnapshot.map(function (n) {
           return { fileName: n, error: false };
         });
       }
+      enrichUserMsg(userMsg);
       sessionStore.pushToSession(sendSessionId, userMsg);
-      sessionStore.setInflight(sendSessionId, hasFiles ? 'Извлекаю файлы' : inflightLabel);
+      sessionStore.setInflight(sendSessionId, hasFiles ? getInflightLabel('extract') : getInflightLabel('send'));
 
       var messageForAgent = text;
       function abortAndRestore() {
@@ -2265,12 +2296,12 @@
           }
         }
         sessionStore.saveSnapshot();
-        sessionStore.setInflight(sendSessionId, inflightLabel);
+        sessionStore.setInflight(sendSessionId, getInflightLabel('send'));
       }
 
       var sendCtrl = makeCancellableSend(sendBtn, sendSessionId);
       try {
-        var res = await fetchWithRetry(WEBHOOK_URL, {
+        var res = await fetchWithRetry(sendUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json; charset=utf-8' },
           body: JSON.stringify({ message: messageForAgent, session_id: sendSessionId })
@@ -2279,6 +2310,7 @@
         if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
         var data = await res.json();
         var botMsg = parseBotMessage(data);
+        enrichBotMsg(botMsg);
         if (useTypewriter) {
           typewriteAssistant(sessionStore, sendSessionId, botMsg, { cps: 100 });
         } else {
@@ -2288,7 +2320,9 @@
       } catch (e) {
         sessionStore.clearInflight(sendSessionId);
         if (!sendCtrl.aborted()) {
-          sessionStore.pushToSession(sendSessionId, { role: 'assistant', content: 'Ошибка: ' + e.message });
+          var errMsg = { role: 'assistant', content: 'Ошибка: ' + e.message };
+          enrichBotMsg(errMsg);
+          sessionStore.pushToSession(sendSessionId, errMsg);
           statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
         }
       } finally {
@@ -2320,7 +2354,8 @@
       var lines = ['=== ' + sessionName + ' ===', 'Экспорт: ' + new Date().toLocaleString('ru-RU'), ''];
       for (var j = 0; j < displayMessages.length; j++) {
         var m = displayMessages[j];
-        lines.push('[' + (m.role === 'user' ? 'Вы' : exportAgentName) + ']');
+        var who = m.role === 'user' ? 'Вы' : exportBotLabel(m);
+        lines.push('[' + who + ']');
         // Если есть extras с code/raw_result (math) — добавляем
         var extras = m.extras || {};
         if (extras.code) lines.push('Код: ' + extras.code);
@@ -2385,6 +2420,7 @@
       if (sessionStore.state.activeSessionId) {
         sessionStore.setDraft(sessionStore.state.activeSessionId, input.value);
       }
+      onInputExtra(input.value);
     });
 
     // Health-check

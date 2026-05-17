@@ -297,23 +297,11 @@
         </div>
     </div>
     <script>
-        var HISTORY_URL = GigaChat.webhookUrl('history');
-        var ROUTER_URL = GigaChat.webhookUrl('router');
-        var FETCH_TIMEOUT_MS = 120000;
-        var MAX_RETRIES = 2;
-        var RETRY_DELAY_MS = 3000;
-
-        var chat = document.getElementById('chat');
+        // ============ ROUTER STATE & UI ============
         var input = document.getElementById('msg');
-        var btn = document.getElementById('send');
-        var sessionList = document.getElementById('sessionList');
-        var statusDot = document.getElementById('statusDot');
-        var statusText = document.getElementById('statusText');
         var agentHint = document.getElementById('agentHint');
+        var currentAgent = 'chat'; // выбранный агент для отправки (default)
 
-        var currentAgent = 'chat'; // выбранный агент для отправки
-
-        // Лейблы агентов для бейджей в ответе
         var AGENT_LABELS = {
             sql: 'GigaChat Data',
             rag: 'GigaChat Docs',
@@ -331,7 +319,6 @@
                 'select', 'insert', 'update', 'delete', 'sql',
                 'добавь клиент', 'удали клиент', 'добавь заказ',
                 'сколько клиентов', 'сколько заказов', 'сколько записей',
-                'статус', 'pending', 'delivered', 'cancelled',
                 'москва', 'питер', 'петербург', 'казань', 'сочи',
                 'email', 'выручка', 'сумма заказ', 'средний чек',
                 'группир', 'сортир', 'отсортируй', 'отфильтруй',
@@ -388,8 +375,6 @@
 
         function classify(message) {
             var lower = message.toLowerCase();
-
-            // Очки за каждое совпадение
             var scores = { sql: 0, rag: 0, math: 0, 'prompt-engineer': 0 };
             for (var agent in KEYWORDS) {
                 var list = KEYWORDS[agent];
@@ -397,13 +382,10 @@
                     if (lower.indexOf(list[i]) !== -1) scores[agent]++;
                 }
             }
-
-            // Спец-эвристики для math: lookahead требует хотя бы одну цифру,
-            // иначе "+++" или "..." уезжают в math по одному только regex.
+            // Спец-эвристики для math: lookahead требует хотя бы одну цифру.
             if (/^(?=.*\d)[\d\s+\-*/^().,=]+$/.test(message.trim())) scores.math += 5;
             if (/\d+\s*[+\-*/^%=]\s*\d+/.test(message)) scores.math += 2;
-
-            // Победитель — наивысший балл. При ничье приоритет: sql > rag > math > prompt-engineer
+            // При ничье приоритет: sql > rag > math > prompt-engineer
             var priority = ['sql', 'rag', 'math', 'prompt-engineer'];
             var bestScore = 0;
             var bestAgent = null;
@@ -413,22 +395,7 @@
                     bestAgent = priority[k];
                 }
             }
-
-            // Если ни один не сработал — направляем в общий чат
             return bestAgent || 'chat';
-        }
-
-        function onInput() {
-            input.style.height = 'auto';
-            input.style.height = Math.min(input.scrollHeight, 150) + 'px';
-            var text = input.value.trim();
-            if (text.length >= 2) {
-                var suggested = classify(text);
-                setTargetAgent(suggested);
-                agentHint.style.display = 'flex';
-            } else {
-                agentHint.style.display = 'none';
-            }
         }
 
         // ============ КАСТОМНЫЙ DROPDOWN ============
@@ -455,11 +422,8 @@
             });
             sel.classList.remove('open');
             syncDropdownAria(sel);
-            // После ручного выбора возвращаем фокус в поле ввода —
-            // юзер сразу продолжает печатать, не теряя контекст.
             if (input && !input.disabled) input.focus();
         }
-        // Закрытие выпадашки при клике вне её
         document.addEventListener('click', function (e) {
             var sel = document.getElementById('targetAgentSelect');
             if (sel && !sel.contains(e.target) && sel.classList.contains('open')) {
@@ -468,345 +432,76 @@
             }
         });
 
-        // ============ СЕССИИ через GigaChat.createSessionStore ============
-        var sessionStore = GigaChat.createSessionStore({
+        var escapeHtml = GigaChat.escapeHtml;
+
+        // ============ FACTORY-CALL ============
+        GigaChat.createChatAgent({
+            // webhookPath НЕ передаём — URL вычисляется динамически по currentAgent.
+            historyPath: 'history',
             prefix: 'router',
             idPrefix: 'router_',
             namePrefix: 'Auto-',
-            sessionList: sessionList,
-            renderMessages: function () { renderChat(); },
-            onAttachmentClear: function () {
-                if (attachment) { attachment.cancel(); attachment.clear(); attachment.setDisabled(false); }
+            exportAgentName: 'Агент',  // fallback если у msg нет .agent
+            exportBotLabel: function (m) {
+                return m.agent ? (AGENT_LABELS[m.agent] || m.agent) : 'Агент';
             },
-            onEmpty: function () {
-                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">GigaChat Auto автоматически направит запрос нужному агенту.</span></div>';
-                input.disabled = true; btn.disabled = true;
-                if (attachment) attachment.setDisabled(true);
+            emptyChatHtml: '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">GigaChat Auto автоматически направит запрос нужному агенту.</span></div>',
+            historyErrorHtml: '<div class="empty-chat"><span>Не удалось загрузить историю.</span></div>',
+
+            // URL вычисляем динамически — каждый sendMsg может уйти в свой агент.
+            resolveSendUrl: function () { return GigaChat.webhookUrl(currentAgent); },
+
+            // Лейбл inflight-спиннера = имя выбранного агента (a не статичный "Думаю").
+            getInflightLabel: function (phase) {
+                if (phase === 'extract') return 'Извлекаю файлы';
+                return AGENT_LABELS[currentAgent] || currentAgent;
+            },
+
+            // На user/bot-msg сохраняем agent — нужно для бэйджа и экспорта,
+            // переживает ошибки/отмены, помнит свой агент в каждом сообщении.
+            enrichUserMsg: function (msg) { msg.agent = currentAgent; },
+            enrichBotMsg: function (msg) { msg.agent = currentAgent; },
+
+            // Бэйдж с именем агента справа от user-msg. Приоритет:
+            // m.agent (сохранён при отправке) → next bot.agent (для старых сессий).
+            userBadgeHtml: function (m, nextMsg) {
+                var agentKey = m.agent;
+                if (!agentKey && nextMsg && nextMsg.role === 'assistant' && nextMsg.agent) {
+                    agentKey = nextMsg.agent;
+                }
+                if (!agentKey) return '';
+                return '<span class="inflight-agent-badge">' + escapeHtml(AGENT_LABELS[agentKey] || agentKey) + '</span>';
+            },
+
+            // При смене сессии: спрятать agent-hint; если есть draft — пересчитать
+            // классификатором (иначе юзер видит текст и не знает в какой агент уйдёт).
+            onSwitchExtra: function (sid, draft) {
                 agentHint.style.display = 'none';
+                if (draft) onInputExtra(draft);
             },
-            onSwitch: function (sid) {
-                var draft = sessionStore.getDraft(sid) || '';
-                input.value = draft;
-                input.style.height = '';
-                if (draft) {
-                    input.style.height = Math.min(input.scrollHeight, 150) + 'px';
-                }
+            onInputExtra: onInputExtra,
+            // При старте sendMsg прячем agent-hint (после отправки больше не нужен).
+            onSendStart: function () { agentHint.style.display = 'none'; },
+
+            // History нужно проксировать extras (на случай если когда-нибудь
+            // bot msgs router'а будут иметь structured data).
+            parseHistoryMessage: function (m) {
+                return { role: m.role, content: m.content, extras: m.extras || null };
+            }
+        });
+
+        // Классификатор + agent-hint при вводе. Вынесено наружу,
+        // чтобы onSwitchExtra могла его вызвать для восстановленного draft.
+        function onInputExtra(text) {
+            text = (text || '').trim();
+            if (text.length >= 2) {
+                var suggested = classify(text);
+                setTargetAgent(suggested);
+                agentHint.style.display = 'flex';
+            } else {
                 agentHint.style.display = 'none';
-                var processing = !!sessionStore.getInflight(sid);
-                input.disabled = processing;
-                btn.disabled = false;
-                GigaChat.syncSendButton(btn, sid, !!sessionStore.getInflight(sid));
-                if (attachment) attachment.setDisabled(processing);
-                if (!processing) input.focus();
-                // Если есть восстановленный draft — пересчитать выбор агента,
-                // иначе юзер видит текст и не знает в какой агент уйдёт.
-                if (draft) onInput();
-            },
-            loadHistory: async function (sid) {
-                if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
-                    chat.innerHTML = '<div class="history-loading">Загружаю историю...</div>';
-                }
-                try {
-                    var res = await GigaChat.fetchWithRetry(HISTORY_URL, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ session_id: sid }) }, { timeout: 30000, retries: 0 });
-                    if (!res.ok) throw new Error('Сервер ответил ' + res.status);
-                    var data = await res.json();
-                    return (data.messages || []).map(function (m) {
-                        return { role: m.role, content: m.content, extras: m.extras || null };
-                    });
-                } catch (e) {
-                    if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
-                        chat.innerHTML = '<div class="empty-chat"><span>Не удалось загрузить историю.</span></div>';
-                    }
-                    return null;
-                }
-            }
-        });
-
-        ['sessions', 'activeSessionId', 'displayMessages'].forEach(function (k) {
-            Object.defineProperty(window, k, {
-                get: function () { return sessionStore.state[k]; },
-                set: function (v) { sessionStore.state[k] = v; },
-                configurable: true
-            });
-        });
-
-        function createNewSession() { sessionStore.createNew(); }
-        function pushToSession(sid, msg) { sessionStore.pushToSession(sid, msg); }
-
-        function checkServerStatus() {
-            return GigaChat.checkServerStatus(ROUTER_URL, statusDot, statusText);
-        }
-        function renderChat() {
-            if (!activeSessionId || !sessions.find(function (s) { return s.id === activeSessionId; })) {
-                chat.innerHTML = '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">GigaChat Auto автоматически направит запрос нужному агенту.</span></div>';
-                return;
-            }
-            // Бэйдж "какой агент" прикрепляется к каждому user-сообщению
-            // справа сверху. Источник имени агента — сначала m.agent
-            // (сохранён при отправке, переживает ошибки/отмены), иначе
-            // nextBot.agent (на случай старых сессий без m.agent).
-            // НЕ используем inflightLocal.label — он один на сессию и
-            // подсветит ВСЕ user-msgs без bot-ответа одинаковой меткой.
-            var html = '';
-            for (var i = 0; i < displayMessages.length; i++) {
-                var m = displayMessages[i];
-                if (m.role === 'user') {
-                    var userBody = m.content ? escapeHtml(m.content) : '';
-                    var atts = m.attachments
-                        ? m.attachments
-                        : (m.attachment ? [{ fileName: m.attachment, error: !!m.attachmentError }] : []);
-                    if (atts.length > 0) {
-                        var chipsHtml = '';
-                        for (var k = 0; k < atts.length; k++) {
-                            var att = atts[k];
-                            var cls = att.error ? 'gc-attach-chip bot error' : 'gc-attach-chip bot';
-                            chipsHtml += '<span class="' + cls + '">📎 ' + escapeHtml(att.fileName) + '</span>';
-                        }
-                        var spacing = userBody ? 'margin-top:8px' : '';
-                        userBody += '<div style="' + spacing + ';display:flex;flex-wrap:wrap;gap:6px">' + chipsHtml + '</div>';
-                    }
-                    var agentKey = '';
-                    if (m.agent) {
-                        agentKey = m.agent;
-                    } else {
-                        var nextBot = (i + 1 < displayMessages.length && displayMessages[i + 1].role === 'assistant')
-                            ? displayMessages[i + 1] : null;
-                        if (nextBot && nextBot.agent) agentKey = nextBot.agent;
-                    }
-                    var inflBadge = agentKey
-                        ? '<span class="inflight-agent-badge">' + escapeHtml(AGENT_LABELS[agentKey] || agentKey) + '</span>'
-                        : '';
-                    html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">'+ userBody + inflBadge + '</div>';
-                } else {
-                    // Бэйдж агента теперь прикреплён к user-msg (см. выше),
-                    // поэтому в bot-msg его не дублируем.
-                    html += '<div class="msg bot">' + formatResponse(m.content) + '</div>';
-                }
-            }
-            var inflight = sessionStore.getInflight(activeSessionId);
-            if (inflight) {
-                var elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
-                // Loader: только точки + таймер (имя агента уже прикреплено
-                // к user-сообщению справа).
-                html += '<div class="loading gc-inflight-loader" data-started-at="' + inflight.startedAt + '">' +
-                    '<span class="dots"><span></span><span></span><span></span></span>' +
-                    '<span class="timer">' + elapsed + ' сек</span></div>';
-            }
-            var __wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 30;
-            chat.innerHTML = html;
-            GigaChat.attachCopyButtons(chat);
-            if (__wasAtBottom) chat.scrollTop = chat.scrollHeight;
-        }
-        function fetchWithRetry(url, options, optsOrRetries) {
-            // optsOrRetries для обратной совместимости: либо число retries,
-            // либо объект { retries, signal }.
-            var opts = (typeof optsOrRetries === 'number')
-                ? { retries: optsOrRetries }
-                : (optsOrRetries || {});
-            return GigaChat.fetchWithRetry(url, options, {
-                timeout: FETCH_TIMEOUT_MS,
-                retries: opts.retries,
-                retryDelay: RETRY_DELAY_MS,
-                signal: opts.signal
-            });
-        }
-        // Контроллер вложений: создаётся после загрузки сессий ниже
-        var attachment = null;
-
-        async function sendMsg() {
-            if (!activeSessionId || !sessions.find(function (s) { return s.id === activeSessionId; })) return;
-            var __existing = GigaChat.getSendController(activeSessionId);
-            if (__existing) { __existing.abort(); return; }
-            // Inflight marker без локального controller (запрос в другой
-            // вкладке или повис) → click stop = clearInflight, без abort.
-            if (sessionStore.getInflight(activeSessionId)) { sessionStore.clearInflight(activeSessionId); return; }
-            var text = input.value.trim();
-            var hasFiles = attachment && attachment.hasFiles();
-            if (!text && !hasFiles) return;
-            if (sessionStore.getInflight(activeSessionId)) return;
-            var sendSessionId = activeSessionId;
-            var agent = currentAgent;
-            var agentUrl = GigaChat.webhookUrl(agent);
-
-            var fileNamesSnapshot = hasFiles
-                ? attachment.getFiles().map(function (f) { return f.name; })
-                : [];
-
-            input.disabled = true; btn.disabled = true;
-            if (attachment) attachment.setDisabled(true);
-            input.value = ''; input.style.height = 'auto';
-            sessionStore.clearDraft(sendSessionId);
-            agentHint.style.display = 'none';
-
-            // Пушим user-сообщение СРАЗУ + setInflight ДО любых await. Это
-            // единый источник правды что сессия занята; onSwitch при возврате
-            // увидит inflight и оставит скрепку заблокированной.
-            // agent сохраняем на user-msg: бэйдж в renderChat берёт его
-            // оттуда, чтобы каждый запрос помнил свой агент даже если
-            // bot-ответ ещё не пришёл / запрос был отменён.
-            var userMsg = { role: 'user', content: text, ts: Date.now(), agent: agent };
-            if (fileNamesSnapshot.length > 0) {
-                userMsg.attachments = fileNamesSnapshot.map(function (n) {
-                    return { fileName: n, error: false };
-                });
-            }
-            pushToSession(sendSessionId, userMsg);
-            sessionStore.setInflight(sendSessionId, hasFiles ? 'Извлекаю файлы' : (AGENT_LABELS[agent] || agent));
-
-            var messageForAgent = text;
-            var extractedList = [];
-
-            function abortAndRestore() {
-                sessionStore.clearInflight(sendSessionId);
-                var msgs = sessionStore.state.displayMessages;
-                if (msgs.length && msgs[msgs.length - 1].role === 'user') {
-                    msgs.pop();
-                    sessionStore.saveSnapshot();
-                }
-                if (activeSessionId === sendSessionId) {
-                    input.disabled = false; btn.disabled = false;
-                    if (attachment) attachment.setDisabled(false);
-                    input.value = text;
-                    input.focus();
-                    renderChat();
-                }
-            }
-
-            if (hasFiles) {
-                var cancelled = false;
-                var inflightLoader = document.querySelector('.gc-inflight-loader');
-                if (inflightLoader) {
-                    var cancelBtn = document.createElement('button');
-                    cancelBtn.type = 'button';
-                    cancelBtn.className = 'btn-export';
-                    cancelBtn.style.cssText = 'padding:2px 10px;margin-left:8px';
-                    cancelBtn.textContent = 'Отмена';
-                    cancelBtn.onclick = function () { cancelled = true; attachment.cancel(); };
-                    inflightLoader.appendChild(cancelBtn);
-                }
-                extractedList = await attachment.extract();
-                if (cancelled) { abortAndRestore(); return; }
-                var totalLen = 0;
-                for (var i = 0; i < extractedList.length; i++) totalLen += (extractedList[i].text || '').length;
-                if (totalLen > 30000) {
-                    var ok = confirm('Извлечено ' + totalLen.toLocaleString('ru-RU') + ' симв. из ' + extractedList.length + ' файла(ов).\nGigaChat может не справиться.\nОтправить всё равно?');
-                    if (!ok) { abortAndRestore(); return; }
-                }
-                var built = GigaChat.buildMessageWithAttachment(text, extractedList);
-                messageForAgent = built.messageForAgent;
-                var msgs2 = sessionStore.state.displayMessages;
-                for (var j = msgs2.length - 1; j >= 0; j--) {
-                    if (msgs2[j].role === 'user') {
-                        msgs2[j].attachments = built.attachments;
-                        break;
-                    }
-                }
-                sessionStore.saveSnapshot();
-                sessionStore.setInflight(sendSessionId, (AGENT_LABELS[agent] || agent));
-            }
-
-            var sendCtrl = GigaChat.makeCancellableSend(btn, sendSessionId);
-            try {
-                var res = await fetchWithRetry(agentUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-                    body: JSON.stringify({ message: messageForAgent, session_id: sendSessionId })
-                }, { retries: MAX_RETRIES, signal: sendCtrl.signal });
-                sessionStore.clearInflight(sendSessionId);
-                if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
-                var data = await res.json();
-                var responseText = data.response || data.output || 'Пустой ответ от сервера';
-                GigaChat.typewriteAssistant(sessionStore, sendSessionId, { role: 'assistant', content: responseText, agent: agent }, { cps: 100 });
-                statusDot.className = 'dot online'; statusText.textContent = 'Онлайн';
-            } catch (e) {
-                sessionStore.clearInflight(sendSessionId);
-                if (!sendCtrl.aborted()) {
-                    pushToSession(sendSessionId, { role: 'assistant', content: 'Ошибка: ' + e.message, agent: agent });
-                    statusDot.className = 'dot offline'; statusText.textContent = 'Офлайн';
-                }
-            } finally {
-                sendCtrl.restore();
-            }
-            if (activeSessionId === sendSessionId) {
-                input.disabled = false; btn.disabled = false;
-                if (attachment) {
-                    attachment.setDisabled(false);
-                    attachment.clear();
-                }
-                input.focus();
-                chat.scrollTop = chat.scrollHeight;
             }
         }
-        function exportChat() {
-            if (!activeSessionId || displayMessages.length === 0) {
-                alert('Нечего экспортировать.'); return;
-            }
-            var sessionName = '';
-            for (var i = 0; i < sessions.length; i++) {
-                if (sessions[i].id === activeSessionId) { sessionName = sessions[i].name; break; }
-            }
-            var lines = ['=== ' + sessionName + ' ===', 'Экспорт: ' + new Date().toLocaleString('ru-RU'), ''];
-            for (var j = 0; j < displayMessages.length; j++) {
-                var m = displayMessages[j];
-                if (m.role === 'user') {
-                    lines.push('[Вы]'); lines.push(m.content); lines.push('');
-                } else {
-                    var who = m.agent ? AGENT_LABELS[m.agent] || m.agent : 'Агент';
-                    lines.push('[' + who + ']'); lines.push(m.content); lines.push('');
-                }
-            }
-            var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-            var a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = sessionName + '_' + new Date().toISOString().slice(0, 10) + '.txt';
-            a.click(); URL.revokeObjectURL(a.href);
-        }
-        var escapeHtml = GigaChat.escapeHtml;
-        function formatResponse(text) {
-            // formatMarkdown сам вызывает formatMarkdownTable внутри — не оборачиваем повторно.
-            return GigaChat.formatMarkdown(text, '#d4a574');
-        }
-        // Контроллер вложений инициализируем ДО switchTo: иначе onSwitch при
-        // загрузке страницы (юзер перезагрузил пока шёл LLM-запрос) не сможет
-        // заблокировать скрепку — `if (attachment)` тихо пропустит вызов.
-        attachment = GigaChat.setupAttachment({
-            buttonContainer: document.getElementById('attachBtn'),
-            chipsContainer: document.getElementById('attachChips'),
-            inputElement: input,
-            dropZone: document.getElementById('chat')
-        });
-        GigaChat.initSidebarResize({
-            sidebar: document.querySelector('.sidebar'),
-            initialWidth: 240, minWidth: 220, maxWidth: 440
-        });
-        GigaChat.initHeaderShadowOnScroll({ scrollable: document.getElementById('chat') });
-        GigaChat.initScrollToBottomButton({ scrollable: document.getElementById('chat'), inputArea: document.querySelector('.bottom-area') });
-
-        sessionStore.load();
-        if (sessionStore.state.activeSessionId && !sessionStore.findSession(sessionStore.state.activeSessionId)) {
-            sessionStore.state.activeSessionId = null;
-        }
-        if (sessionStore.state.sessions.length > 0) {
-            sessionStore.renderList();
-            var targetId = sessionStore.state.activeSessionId || sessionStore.state.sessions[sessionStore.state.sessions.length - 1].id;
-            sessionStore.switchTo(targetId);
-        } else {
-            attachment.setDisabled(true);
-        }
-
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMsg();
-            }
-        });
-        input.addEventListener('input', function () {
-            onInput(); // autosize + классификатор + dropdown агента
-            if (activeSessionId) sessionStore.setDraft(activeSessionId, input.value);
-        });
-
-        checkServerStatus();
-        setInterval(checkServerStatus, 30000);
     </script>
 </body>
 </html>
