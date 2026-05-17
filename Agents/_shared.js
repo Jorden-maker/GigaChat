@@ -242,9 +242,9 @@
         // Hover на карандаш/крест внутри session-item: используем bg-hover,
         // он гарантированно отличается от bg-secondary (фон самого item на hover).
         '.session-item .edit:hover,.session-item .close:hover{background:var(--bg-hover) !important;color:var(--accent) !important;opacity:1 !important}' +
-        // Сама плавающая кнопка — top:10 right:14 на всех страницах
-        // одинаково (пиксельно). Центр Y≈26 — близко к центру Экспорта
-        // в чат-агентах (~23) и статуса в tool-страницах (~21).
+        // Плавающая кнопка. top задаётся динамически в positionThemeToggle()
+        // под центр .btn-export (агенты) или header h1 (tools) — дефолт 10px
+        // на случай если якоря на странице нет (например, дашборд).
         '#gc-theme-toggle{position:fixed;top:10px;right:14px;z-index:9999;' +
         'width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;' +
         'background:var(--bg-secondary);border:1px solid var(--border);border-radius:50%;' +
@@ -262,6 +262,23 @@
     btn.onclick = toggleTheme;
     document.body.appendChild(btn);
     updateThemeToggleIcon();
+    positionThemeToggle();
+    global.addEventListener('resize', positionThemeToggle);
+  }
+
+  // Выравнивает toggle по вертикали под центр кнопки «Экспорт» (чат-агенты)
+  // или под центр заголовка h1 в header'е (tool-страницы). Если на странице
+  // нет ни одного якоря (например, дашборд) — оставляет дефолтный top из CSS.
+  function positionThemeToggle() {
+    var btn = document.getElementById('gc-theme-toggle');
+    if (!btn) return;
+    var anchor = document.querySelector('.btn-export')
+              || document.querySelector('header h1, .main > .header h1');
+    if (!anchor) return;
+    var rect = anchor.getBoundingClientRect();
+    if (rect.height === 0) return;
+    var top = Math.max(4, Math.round(rect.top + rect.height / 2 - btn.offsetHeight / 2));
+    btn.style.top = top + 'px';
   }
 
   // Cross-tab синхронизация темы: переключил в одной вкладке — все вкладки следуют.
