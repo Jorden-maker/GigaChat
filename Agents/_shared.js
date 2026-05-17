@@ -2036,6 +2036,113 @@
   }
 
   // ============================================================
+  // ОБЩИЙ CSS для статус-индикаторов — переиспользуется в чат-агентах,
+  // tool-страницах и дашборде. Один источник цветов/анимаций.
+  // ============================================================
+  var STATUS_CSS_INJECTED = false;
+  function injectStatusDotCss() {
+    if (STATUS_CSS_INJECTED) return;
+    STATUS_CSS_INJECTED = true;
+    var css =
+      '@keyframes gcPulse{0%,100%{opacity:1}50%{opacity:.4}}' +
+      // Дефолтное (нейтральное) состояние всех точек — оранжевая пульсация.
+      // Контейнер задаёт размер: header .status .dot (5px), .status-bar .dot (6px),
+      // .status-dot (8px), .card-status (8px). Здесь — только цвет + анимация.
+      '.dot,.status-dot,.card-status{background:#f0ad4e;animation:gcPulse 1s infinite}' +
+      '.dot.online,.status-dot.online,.card-status.online{background:#4caf50;box-shadow:0 0 8px rgba(76,175,80,.5);animation:gcPulse 2s infinite}' +
+      '.dot.offline,.status-dot.offline,.card-status.offline{background:#cc4444;box-shadow:0 0 8px rgba(204,68,68,.4);animation:none}' +
+      '.dot.checking,.status-dot.checking,.card-status.checking{background:#f0ad4e;animation:gcPulse 1s infinite}';
+    var style = document.createElement('style');
+    style.setAttribute('data-gc-status-css', '1');
+    style.textContent = css;
+    if (document.head.firstChild) {
+      document.head.insertBefore(style, document.head.firstChild);
+    } else {
+      document.head.appendChild(style);
+    }
+  }
+
+  // ============================================================
+  // ОБЩИЙ CSS tool-страниц — drop-zone, intro, btn-primary, status-bar,
+  // result-box и т.п. Вызывается явно из каждой tool-страницы.
+  // ============================================================
+  var TOOL_CSS_INJECTED = false;
+  function injectToolCss() {
+    if (TOOL_CSS_INJECTED) return;
+    TOOL_CSS_INJECTED = true;
+    injectStatusDotCss(); // tool-страницы тоже используют .status-bar .dot
+    var css =
+      '*{margin:0;padding:0;box-sizing:border-box}' +
+      'body{font-family:Segoe UI,Tahoma,sans-serif;background:var(--bg-primary);color:var(--text-primary);min-height:100vh;display:flex;flex-direction:column}' +
+      // Кнопка "домой" (та же что и в agent CSS, но tool body НЕ flex row)
+      '.btn-home{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;margin:10px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);text-decoration:none;flex-shrink:0;transition:background .15s,color .15s,border-color .15s}' +
+      '.btn-home:hover{background:var(--bg-input);color:var(--text-primary);border-color:var(--text-muted)}' +
+      '.btn-home svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}' +
+      // Header tool-страниц: padding больше чем у agent (14 vs 10)
+      'header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;flex-shrink:0;position:relative;z-index:2}' +
+      '.header-left{display:flex;align-items:center;gap:14px}' +
+      '.header-right{display:flex;align-items:center;gap:12px}' +
+      'header .btn-home{margin:0}' +
+      'header h1{font-family:Consolas,monospace;font-size:20px;font-weight:600;color:var(--accent);letter-spacing:2px}' +
+      // main колонка с центрированием на 900px (tool-страницы — пошаговые операции)
+      'main{flex:1;padding:32px 24px;max-width:900px;width:100%;margin:0 auto}' +
+      // .intro — описание инструмента сверху
+      '.intro{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px}' +
+      '.intro h2{font-size:15px;color:var(--text-primary);margin-bottom:10px;font-weight:600}' +
+      '.intro p{color:var(--text-secondary);font-size:13.5px;line-height:1.6}' +
+      '.intro p + p{margin-top:8px}' +
+      '.intro code{background:var(--bg-input);padding:2px 6px;border-radius:4px;font-family:Consolas,monospace;font-size:12px;color:var(--accent)}' +
+      // .drop-zone — зона перетаскивания файла
+      '.drop-zone{display:block;border:2px dashed var(--border);border-radius:12px;padding:40px 24px;text-align:center;transition:all .2s;cursor:pointer;background:var(--bg-card);margin-bottom:16px}' +
+      '.drop-zone > *{pointer-events:none}' +
+      '.drop-zone:hover,.drop-zone.dragging{border-color:var(--accent);background:var(--accent-light,rgba(212,165,116,.12))}' +
+      '.drop-zone .icon{width:48px;height:48px;margin:0 auto 12px;color:var(--accent);opacity:.6}' +
+      '.drop-zone .icon svg{width:100%;height:100%;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}' +
+      '.drop-zone .title{font-size:15px;color:var(--text-primary);margin-bottom:6px;font-weight:500}' +
+      '.drop-zone .hint{font-size:12px;color:var(--text-muted)}' +
+      '.drop-zone .filename{color:var(--accent);font-size:14px;margin-top:12px;font-weight:600;word-break:break-all}' +
+      '.drop-zone .filesize{color:var(--text-muted);font-size:12px;margin-top:4px;font-family:Consolas,monospace}' +
+      // .btn-primary — основная кнопка действия (большая, акцентная)
+      '.btn-primary{width:100%;padding:14px 28px;background:var(--accent);color:#0a0e15;border:none;border-radius:10px;cursor:pointer;font-size:14.5px;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px}' +
+      '.btn-primary:hover:not(:disabled){background:var(--accent-hover);transform:translateY(-1px)}' +
+      '.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}' +
+      // .loading panel (tool-вариант: блок с paddings, отображается через .show)
+      '.loading{display:none;text-align:center;color:var(--text-secondary);font-size:14px;padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:16px}' +
+      '.loading.show{display:block}' +
+      '.loading .timer{margin-top:8px;font-family:Consolas,monospace;font-size:14px;color:var(--accent)}' +
+      // .progress-bar — индикатор прогресса
+      '.progress-bar{width:100%;height:6px;background:var(--bg-input);border-radius:3px;margin-top:12px;overflow:hidden;display:none}' +
+      '.progress-bar.show{display:block}' +
+      '.progress-bar .fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s;width:0%}' +
+      // .error-box — блок ошибки
+      '.error-box{display:none;padding:14px 18px;border-radius:12px;line-height:1.6;font-size:14px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.4);color:#cc4444;white-space:pre-wrap;margin-bottom:16px}' +
+      // .result-box family — панель результата с действиями
+      '.result-box{display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}' +
+      '.result-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--bg-input);flex-wrap:wrap;gap:8px}' +
+      '.result-meta{font-size:12px;color:var(--text-secondary)}' +
+      '.result-meta b{color:var(--text-primary)}' +
+      '.result-actions{display:flex;gap:8px}' +
+      '.btn-action{padding:6px 14px;background:transparent;border:1px solid var(--border);color:var(--text-secondary);border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;transition:all .2s}' +
+      '.btn-action:hover{border-color:var(--accent);color:var(--accent)}' +
+      // .reset-btn — финальная зона "сбросить и начать заново"
+      '.reset-btn{display:none;gap:10px;justify-content:flex-end}' +
+      '.reset-btn.show{display:flex}' +
+      '.reset-btn button{padding:10px 20px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-family:inherit;transition:all .2s}' +
+      '.reset-btn button:hover{background:var(--accent-light,rgba(212,165,116,.15));color:var(--accent);border-color:var(--accent)}' +
+      // .status-bar (контейнер статуса в шапке tool-страниц). Цвета точки — из injectStatusDotCss.
+      '.status-bar{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);letter-spacing:.5px}' +
+      '.status-bar .dot{width:6px;height:6px;border-radius:50%}';
+    var style = document.createElement('style');
+    style.setAttribute('data-gc-tool-css', '1');
+    style.textContent = css;
+    if (document.head.firstChild) {
+      document.head.insertBefore(style, document.head.firstChild);
+    } else {
+      document.head.appendChild(style);
+    }
+  }
+
+  // ============================================================
   // ОБЩИЙ CSS чат-агентов — устраняет ~150 строк копипаста в каждом HTML
   // ============================================================
   // Инжектится автоматически из createChatAgent (один раз на страницу).
@@ -2048,6 +2155,7 @@
   function injectAgentCss() {
     if (AGENT_CSS_INJECTED) return;
     AGENT_CSS_INJECTED = true;
+    injectStatusDotCss(); // status-dot colors + gcPulse @keyframes
     var css =
       '*{margin:0;padding:0;box-sizing:border-box}' +
       'body{font-family:Segoe UI,Tahoma,sans-serif;background:var(--bg-primary);color:var(--text-primary);height:100vh;display:flex;overflow:hidden}' +
@@ -2080,16 +2188,11 @@
       '.header-left{display:flex;align-items:center;gap:12px}' +
       '.header-right{display:flex;align-items:center;gap:12px}' +
       'header h1,.main > .header h1{font-family:Consolas,monospace;font-size:20px;font-weight:600;color:var(--accent);letter-spacing:2px}' +
-      // Status indicator (классический ".status .dot" 5px в чат-агентах,
-      // ".status-dot" 8px в prompt-engineer — оба покрыты)
+      // Status indicator (только размер и контейнер; цвета и анимация
+      // — в injectStatusDotCss, вызывается из injectAgentCss выше).
       'header .status{display:inline-flex;align-items:center;gap:6px;font-size:11px;line-height:1;color:var(--text-secondary);letter-spacing:.5px}' +
-      'header .status .dot{width:5px;height:5px;border-radius:50%;background:#f0ad4e;transform:translate(-4px,1px);animation:gcPulse 1s infinite}' +
-      '.status-dot{width:8px;height:8px;border-radius:50%;background:#f0ad4e;animation:gcPulse 1s infinite}' +
-      // Цвета статуса — общие для .dot и .status-dot и .card-status (dashboard)
-      '.dot.online,.status-dot.online,.card-status.online{background:#4caf50;box-shadow:0 0 8px rgba(76,175,80,.5);animation:gcPulse 2s infinite}' +
-      '.dot.offline,.status-dot.offline,.card-status.offline{background:#cc4444;box-shadow:0 0 8px rgba(204,68,68,.4);animation:none}' +
-      '.dot.checking,.status-dot.checking,.card-status.checking{background:#f0ad4e;animation:gcPulse 1s infinite}' +
-      '@keyframes gcPulse{0%,100%{opacity:1}50%{opacity:.4}}' +
+      'header .status .dot{width:5px;height:5px;border-radius:50%;transform:translate(-4px,1px)}' +
+      '.status-dot{width:8px;height:8px;border-radius:50%}' +
       // Кнопка экспорта (общая)
       '.btn-export{padding:6px 16px;background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);border-radius:6px;cursor:pointer;font-size:12px;transition:all .2s}' +
       '.btn-export:hover{background:var(--accent-light,rgba(212,165,116,.15));color:var(--accent);border-color:var(--accent)}' +
@@ -2575,6 +2678,8 @@
     createSessionStore: createSessionStore,
     createChatAgent: createChatAgent,
     injectAgentCss: injectAgentCss,
+    injectToolCss: injectToolCss,
+    injectStatusDotCss: injectStatusDotCss,
     typewriteAssistant: typewriteAssistant,
     tsvBlocksToMarkdownTables: tsvBlocksToMarkdownTables,
     applyHighlight: applyHighlight,

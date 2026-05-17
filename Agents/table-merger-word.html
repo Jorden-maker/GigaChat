@@ -35,15 +35,8 @@
     --accent-hover: #a0764d;
     --accent-light: rgba(184, 137, 93, 0.15);
 }
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-    font-family: Segoe UI, Tahoma, sans-serif;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
+/* Общие стили tool-страницы — в _shared.js через GigaChat.injectToolCss().
+   Здесь — только per-page правила. */
 html {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
@@ -53,108 +46,8 @@ html::-webkit-scrollbar-track { background: transparent; }
 html::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 html::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-.btn-home { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; margin:10px 12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; color:var(--text-secondary); text-decoration:none; flex-shrink:0; transition:background .15s,color .15s,border-color .15s; }
-.btn-home:hover { background:var(--bg-input); color:var(--text-primary); border-color:var(--text-muted); }
-.btn-home svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-.header-left { display:flex; align-items:center; gap:14px; }
-header .btn-home { margin: 0; }
-
-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    flex-shrink: 0; position: relative; z-index: 2;
-}
-header h1 {
-    font-family: Consolas, monospace;
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--accent);
-    letter-spacing: 2px;
-}
-.header-right { display: flex; align-items: center; gap: 12px; }
-
-main {
-    flex: 1;
-    padding: 32px 24px;
-    max-width: 800px;
-    width: 100%;
-    margin: 0 auto;
-}
-
-.intro {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 24px;
-}
-.intro h2 {
-    font-size: 15px;
-    color: var(--text-primary);
-    margin-bottom: 10px;
-    font-weight: 600;
-}
-.intro p {
-    color: var(--text-secondary);
-    font-size: 13.5px;
-    line-height: 1.6;
-}
-.intro p + p { margin-top: 8px; }
-.intro code {
-    background: var(--bg-input);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: Consolas, monospace;
-    font-size: 12px;
-    color: var(--accent);
-}
-
-.drop-zone {
-    display: block;
-    border: 2px dashed var(--border);
-    border-radius: 12px;
-    padding: 40px 24px;
-    text-align: center;
-    transition: all 0.2s;
-    cursor: pointer;
-    background: var(--bg-card);
-    margin-bottom: 16px;
-}
-.drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--accent);
-    background: var(--accent-light);
-}
-/* pointer-events: none на детях предотвращает «мерцание» dragover —
-   браузер не считает заход курсора на дочерний div выходом из drop-zone. */
-.drop-zone > * { pointer-events: none; }
-.drop-zone .icon {
-    width: 48px;
-    height: 48px;
-    margin: 0 auto 12px;
-    color: var(--accent);
-    opacity: 0.6;
-}
-.drop-zone .icon svg {
-    width: 100%;
-    height: 100%;
-    stroke: currentColor;
-    fill: none;
-    stroke-width: 1.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-.drop-zone .title {
-    font-size: 15px;
-    color: var(--text-primary);
-    margin-bottom: 6px;
-    font-weight: 500;
-}
-.drop-zone .hint {
-    font-size: 12px;
-    color: var(--text-muted);
-}
+main { max-width: 800px; }
+.drop-zone.dragover { border-color: var(--accent); background: var(--accent-light, rgba(212,165,116,.12)); }
 .drop-zone input[type="file"] { display: none; }
 
 #fileList {
@@ -310,24 +203,7 @@ main {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.status-bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--text-secondary);
-    letter-spacing: 0.5px;
-}
-.status-bar .dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: #f0ad4e;
-    animation: pulse 1s infinite;
-}
-.status-bar .dot.online { background: #4caf50; box-shadow: 0 0 8px rgba(76,175,80,0.5); animation: pulse 2s infinite; }
-.status-bar .dot.offline { background: #cc4444; box-shadow: 0 0 8px rgba(204,68,68,0.4); animation: none; }
-.status-bar .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+/* .status-bar и pulse keyframe в _shared.js. */
 
 </style>
 <script src="_config.js"></script>
@@ -377,6 +253,7 @@ main {
 </main>
 
 <script>
+GigaChat.injectToolCss();
 // Word-объединение работает ПОЛНОСТЬЮ В БРАУЗЕРЕ через JSZip.
 // Никаких HTTP-запросов, никакого Python-сервиса, никакого n8n.
 // Файл .docx — это zip-архив; внутри word/document.xml — XML с таблицей.

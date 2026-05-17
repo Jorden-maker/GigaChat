@@ -35,15 +35,8 @@
     --accent-hover: #a0764d;
     --accent-light: rgba(184, 137, 93, 0.15);
 }
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-    font-family: Segoe UI, Tahoma, sans-serif;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
+/* Общие стили tool-страницы — в _shared.js через GigaChat.injectToolCss().
+   Здесь — только per-page правила. */
 html {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
@@ -52,227 +45,17 @@ html::-webkit-scrollbar { width: 5px; }
 html::-webkit-scrollbar-track { background: transparent; }
 html::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 html::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-.btn-home { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; margin:10px 12px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; color:var(--text-secondary); text-decoration:none; flex-shrink:0; transition:background .15s,color .15s,border-color .15s; }
-.btn-home:hover { background:var(--bg-input); color:var(--text-primary); border-color:var(--text-muted); }
-.btn-home svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-.header-left { display:flex; align-items:center; gap:14px; }
-header .btn-home { margin: 0; }
-
-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    flex-shrink: 0; position: relative; z-index: 2;
-}
-header h1 {
-    font-family: Consolas, monospace;
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--accent);
-    letter-spacing: 2px;
-}
-.header-right { display: flex; align-items: center; gap: 12px; }
-
-main {
-    flex: 1;
-    padding: 32px 24px;
-    max-width: 800px;
-    width: 100%;
-    margin: 0 auto;
-}
-
-.intro {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 24px;
-}
-.intro h2 {
-    font-size: 15px;
-    color: var(--text-primary);
-    margin-bottom: 10px;
-    font-weight: 600;
-}
-.intro p {
-    color: var(--text-secondary);
-    font-size: 13.5px;
-    line-height: 1.6;
-}
-.intro p + p { margin-top: 8px; }
-.intro code {
-    background: var(--bg-input);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: Consolas, monospace;
-    font-size: 12px;
-    color: var(--accent);
-}
-
-.drop-zone {
-    display: block;
-    border: 2px dashed var(--border);
-    border-radius: 12px;
-    padding: 40px 24px;
-    text-align: center;
-    transition: all 0.2s;
-    cursor: pointer;
-    background: var(--bg-card);
-    margin-bottom: 16px;
-}
-.drop-zone > * { pointer-events: none; }
-.drop-zone:hover, .drop-zone.dragging {
-    border-color: var(--accent);
-    background: var(--accent-light);
-}
-.drop-zone .icon {
-    width: 48px;
-    height: 48px;
-    margin: 0 auto 12px;
-    color: var(--accent);
-    opacity: 0.6;
-}
-.drop-zone .icon svg {
-    width: 100%;
-    height: 100%;
-    stroke: currentColor;
-    fill: none;
-    stroke-width: 1.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-.drop-zone .title {
-    font-size: 15px;
-    color: var(--text-primary);
-    margin-bottom: 6px;
-    font-weight: 500;
-}
-.drop-zone .hint {
-    font-size: 12px;
-    color: var(--text-muted);
-}
-.drop-zone .filename {
-    color: var(--accent);
-    font-size: 14px;
-    margin-top: 12px;
-    font-weight: 600;
-    word-break: break-all;
-}
-.drop-zone .filesize {
-    color: var(--text-muted);
-    font-size: 12px;
-    margin-top: 4px;
-    font-family: Consolas, monospace;
-}
+main { max-width: 800px; }
 #fileInput { display: none; }
-
-.btn-primary {
-    width: 100%;
-    padding: 14px 28px;
-    background: var(--accent);
-    color: #0a0e15;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 14.5px;
-    font-weight: 600;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 16px;
-}
-.btn-primary:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
-.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-.loading {
-    display: none;
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 14px;
-    padding: 20px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    margin-bottom: 16px;
-}
-.loading.show { display: block; }
-.loading .dots span {
-    display: inline-block; width: 5px; height: 5px;
-    border-radius: 50%; background: var(--text-secondary);
-    animation: blink 1.4s infinite; margin: 0 2px;
-}
+/* OCR: точки внутри .loading + blink animation (нет в shared toolCss). */
+.loading .dots span { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--text-secondary); animation: gcBlink 1.4s infinite; margin: 0 2px; }
 .loading .dots span:nth-child(2) { animation-delay: 0.2s; }
 .loading .dots span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
-.loading .timer {
-    margin-top: 8px;
-    font-family: Consolas, monospace;
-    font-size: 12px;
-    color: var(--accent);
-}
-
-#result {
-    display: none;
-    padding: 20px 24px;
-    border-radius: 12px;
-    line-height: 1.7;
-    font-size: 14px;
-    white-space: pre-wrap;
-    margin-bottom: 16px;
-}
-#result.success {
-    background: rgba(16, 185, 129, 0.10);
-    border: 1px solid rgba(16, 185, 129, 0.4);
-    color: #34d399;
-}
-#result.error {
-    background: rgba(239, 68, 68, 0.10);
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    color: var(--error);
-}
+/* #result — цветной info-блок (отличается от shared .error-box). */
+#result { display: none; padding: 20px 24px; border-radius: 12px; line-height: 1.7; font-size: 14px; white-space: pre-wrap; margin-bottom: 16px; }
+#result.success { background: rgba(16, 185, 129, 0.10); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; }
+#result.error { background: rgba(239, 68, 68, 0.10); border: 1px solid rgba(239, 68, 68, 0.4); color: var(--error); }
 #result b { color: var(--text-primary); }
-
-.reset-btn {
-    display: none;
-    gap: 10px;
-    justify-content: flex-end;
-}
-.reset-btn.show { display: flex; }
-.reset-btn button {
-    padding: 10px 20px;
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 13px;
-    font-family: inherit;
-    transition: all 0.2s;
-}
-.reset-btn button:hover { background: rgba(212,165,116,0.15); color: var(--accent); border-color: var(--accent); }
-
-.status-bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--text-secondary);
-    letter-spacing: 0.5px;
-}
-.status-bar .dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: #f0ad4e;
-    animation: pulse 1s infinite;
-}
-.status-bar .dot.online { background: #4caf50; box-shadow: 0 0 8px rgba(76,175,80,0.5); animation: pulse 2s infinite; }
-.status-bar .dot.offline { background: #cc4444; box-shadow: 0 0 8px rgba(204,68,68,0.4); animation: none; }
-.status-bar .dot.checking { background: #f0ad4e; animation: pulse 1s infinite; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 </style>
 <script src="_config.js"></script>
@@ -321,6 +104,7 @@ main {
 </main>
 
 <script>
+    GigaChat.injectToolCss();
     var WEBHOOK_URL = GigaChat.webhookUrl('ocr');
     var FETCH_TIMEOUT_MS = 180000;
     var MAX_RETRIES = 1;
