@@ -2252,18 +2252,21 @@
       var messageForAgent = text;
       function abortAndRestore() {
         sessionStore.clearInflight(sendSessionId);
+        // Если юзер ушёл в другую сессию — НЕ трогаем displayMessages (она
+        // принадлежит другой сессии, msgs.pop удалит ЕЁ user-сообщение).
+        // Orphan user-msg остаётся в snapshot'е sendSession — юзер увидит
+        // его при возврате, что лучше чем corrupt другой сессии.
+        if (sessionStore.state.activeSessionId !== sendSessionId) return;
         var msgs = sessionStore.state.displayMessages;
         if (msgs.length && msgs[msgs.length - 1].role === 'user') {
           msgs.pop();
           sessionStore.saveSnapshot();
         }
-        if (sessionStore.state.activeSessionId === sendSessionId) {
-          input.disabled = false; sendBtn.disabled = false;
-          if (attachment) attachment.setDisabled(false);
-          input.value = text;
-          input.focus();
-          renderChat();
-        }
+        input.disabled = false; sendBtn.disabled = false;
+        if (attachment) attachment.setDisabled(false);
+        input.value = text;
+        input.focus();
+        renderChat();
       }
       if (hasFiles) {
         var cancelled = false;

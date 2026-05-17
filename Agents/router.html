@@ -434,6 +434,20 @@
 
         var escapeHtml = GigaChat.escapeHtml;
 
+        // Снапшот currentAgent на момент СТАРТА отправки. Без него enrichBotMsg
+        // прочитает currentAgent в момент ответа от LLM — а юзер мог переключить
+        // агент пока 30 сек шёл запрос → bot-msg помечен неверным агентом.
+        var sendStartAgent = currentAgent;
+
+        // Хелпер: лифт `agent` поля. На бэке history endpoint хранит msg как
+        // {role, content, extras}, своего поля `agent` нет — поэтому agent
+        // сериализуется внутрь extras.agent, и читается обратно при загрузке.
+        function pickAgent(m) {
+            if (m.agent) return m.agent;
+            if (m.extras && m.extras.agent) return m.extras.agent;
+            return null;
+        }
+
         // ============ FACTORY-CALL ============
         GigaChat.createChatAgent({
             // webhookPath НЕ передаём — URL вычисляется динамически по currentAgent.
@@ -443,31 +457,41 @@
             namePrefix: 'Auto-',
             exportAgentName: 'Агент',  // fallback если у msg нет .agent
             exportBotLabel: function (m) {
-                return m.agent ? (AGENT_LABELS[m.agent] || m.agent) : 'Агент';
+                var a = pickAgent(m);
+                return a ? (AGENT_LABELS[a] || a) : 'Агент';
             },
             emptyChatHtml: '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span><span class="hint">GigaChat Auto автоматически направит запрос нужному агенту.</span></div>',
             historyErrorHtml: '<div class="empty-chat"><span>Не удалось загрузить историю.</span></div>',
 
-            // URL вычисляем динамически — каждый sendMsg может уйти в свой агент.
-            resolveSendUrl: function () { return GigaChat.webhookUrl(currentAgent); },
+            // URL вычисляем динамически — но фиксируем sendStartAgent в onSendStart,
+            // чтобы pre-resolve URL и attribute согласовались (не подменились при
+            // переключении агента после старта запроса).
+            resolveSendUrl: function () { return GigaChat.webhookUrl(sendStartAgent); },
 
             // Лейбл inflight-спиннера = имя выбранного агента (a не статичный "Думаю").
             getInflightLabel: function (phase) {
                 if (phase === 'extract') return 'Извлекаю файлы';
-                return AGENT_LABELS[currentAgent] || currentAgent;
+                return AGENT_LABELS[sendStartAgent] || sendStartAgent;
             },
 
-            // На user/bot-msg сохраняем agent — нужно для бэйджа и экспорта,
-            // переживает ошибки/отмены, помнит свой агент в каждом сообщении.
-            enrichUserMsg: function (msg) { msg.agent = currentAgent; },
-            enrichBotMsg: function (msg) { msg.agent = currentAgent; },
+            // На user/bot-msg сохраняем agent — нужно для бэйджа и экспорта.
+            // Дублируем в extras.agent чтобы пережить serializaton через history
+            // endpoint (там нет field `agent`, есть только extras).
+            enrichUserMsg: function (msg) {
+                msg.agent = sendStartAgent;
+                msg.extras = Object.assign({}, msg.extras || {}, { agent: sendStartAgent });
+            },
+            enrichBotMsg: function (msg) {
+                msg.agent = sendStartAgent;
+                msg.extras = Object.assign({}, msg.extras || {}, { agent: sendStartAgent });
+            },
 
-            // Бэйдж с именем агента справа от user-msg. Приоритет:
-            // m.agent (сохранён при отправке) → next bot.agent (для старых сессий).
+            // Бэйдж справа от user-msg. Приоритет: m.agent → extras.agent (после
+            // reload) → next bot's agent (для старых сессий без extras.agent).
             userBadgeHtml: function (m, nextMsg) {
-                var agentKey = m.agent;
-                if (!agentKey && nextMsg && nextMsg.role === 'assistant' && nextMsg.agent) {
-                    agentKey = nextMsg.agent;
+                var agentKey = pickAgent(m);
+                if (!agentKey && nextMsg && nextMsg.role === 'assistant') {
+                    agentKey = pickAgent(nextMsg);
                 }
                 if (!agentKey) return '';
                 return '<span class="inflight-agent-badge">' + escapeHtml(AGENT_LABELS[agentKey] || agentKey) + '</span>';
@@ -480,13 +504,21 @@
                 if (draft) onInputExtra(draft);
             },
             onInputExtra: onInputExtra,
-            // При старте sendMsg прячем agent-hint (после отправки больше не нужен).
-            onSendStart: function () { agentHint.style.display = 'none'; },
+            // СНАПШОТ currentAgent — фиксируем что было выбрано НА МОМЕНТ старта.
+            // Это значение использует resolveSendUrl, getInflightLabel,
+            // enrichUserMsg/enrichBotMsg на протяжении всего запроса.
+            onSendStart: function () {
+                agentHint.style.display = 'none';
+                sendStartAgent = currentAgent;
+            },
 
-            // History нужно проксировать extras (на случай если когда-нибудь
-            // bot msgs router'а будут иметь structured data).
+            // Лифтим extras.agent (или legacy .agent) обратно в верхнее поле,
+            // чтобы userBadgeHtml/exportBotLabel могли его прочитать через pickAgent.
             parseHistoryMessage: function (m) {
-                return { role: m.role, content: m.content, extras: m.extras || null };
+                var out = { role: m.role, content: m.content, extras: m.extras || null };
+                var a = pickAgent(m);
+                if (a) out.agent = a;
+                return out;
             }
         });
 
