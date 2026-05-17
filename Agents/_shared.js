@@ -314,6 +314,40 @@
   }
 
   // ============================================================
+  // ГЛОБАЛЬНЫЙ ERROR HANDLER — страховка от молчаливого падения
+  // ============================================================
+  // Без этого любая uncaught ошибка в renderChat/sendMsg/typewriter
+  // оставляет страницу в зависшем состоянии без объяснения. С этим
+  // — юзер видит toast "Ошибка: X — Перезагрузить" вместо тишины.
+  // Не ловим всё подряд: лимит 1 alert в 10 сек, чтобы не спамить
+  // при cascading failures.
+  var lastErrorAt = 0;
+  function reportError(source, err) {
+    var now = Date.now();
+    if (now - lastErrorAt < 10000) return; // дедуп — не более раза в 10 сек
+    lastErrorAt = now;
+    var msg = (err && err.message) || String(err) || 'Неизвестная ошибка';
+    if (console && console.error) console.error('[GigaChat ' + source + ']', err);
+    // showToast может ещё не быть определён если ошибка в самом раннем init.
+    if (typeof showToast === 'function') {
+      showToast('Ошибка: ' + msg + ' — попробуйте перезагрузить страницу.', 'error');
+    }
+  }
+  global.addEventListener('error', function (e) {
+    // Игнорируем ошибки с других origin'ов (cross-origin scripts) — для них
+    // e.message обычно "Script error." и нам нечего сообщить юзеру.
+    if (!e || e.message === 'Script error.') return;
+    reportError('window.error', e.error || e.message);
+  });
+  global.addEventListener('unhandledrejection', function (e) {
+    if (!e) return;
+    var reason = e.reason;
+    // AbortError — не баг, юзер сам отменил.
+    if (reason && reason.name === 'AbortError') return;
+    reportError('unhandledrejection', reason);
+  });
+
+  // ============================================================
   // TOAST — короткие уведомления внизу экрана
   // ============================================================
   // Используется для quota-warning, network-fail, fatal-init и т.д.
