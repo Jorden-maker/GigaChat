@@ -706,6 +706,11 @@
       + '.gc-msg-copy{position:absolute;left:0;top:calc(100% + 6px);display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;background:transparent;border:none;border-radius:4px;color:var(--accent);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}'
       + '.msg:hover .gc-msg-copy,.msg:focus-within .gc-msg-copy,.gc-msg-copy:focus{opacity:1}'
       + '.gc-msg-copy:hover{background:var(--bg-user)}'
+      // На bot-msg иконка и hover-фон в нейтральных тонах: цвет = текст ответа,
+      // hover-фон = generic bg-hover (а не peach как у user, чтобы не выглядело
+      // как продолжение user-msg по цвету).
+      + '.msg.bot .gc-msg-copy{color:var(--text-primary)}'
+      + '.msg.bot .gc-msg-copy:hover{background:var(--bg-hover)}'
       + '.gc-msg-copy svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
       + '.gc-msg-copy.copied{opacity:1}'
       // Время «N сек/мин назад» правее copy-btn. Показывается тоже только
