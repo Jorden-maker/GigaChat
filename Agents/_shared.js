@@ -2305,6 +2305,12 @@
       '.loading .dots span:nth-child(2){animation-delay:.2s}' +
       '.loading .dots span:nth-child(3){animation-delay:.4s}' +
       // @keyframes gcBlink — в injectStatusDotCss (выше) чтобы tool-страницы тоже имели.
+      // Inflight-loader (после user-msg во время LLM-запроса): сдвигаем под
+      // слот copy-кнопки (которая absolute at top:100%+6, height 22) — иначе
+      // hover-copy перекрывает текст dots+timer. margin-top:34px = 6 (gap до copy)
+      // + 22 (высота copy) + 6 (gap после copy). padding-left:0 чтобы dots
+      // стартовали на той же вертикали что и copy и user-msg.
+      '.gc-inflight-loader{margin-top:34px;padding-left:0}' +
       // .error box
       '.error{background:rgba(239,68,68,.10);border:1px solid #cc4444;color:#cc4444;padding:12px 16px;border-radius:10px;margin:10px 0;font-size:13px}' +
       '.timer{font-family:Consolas,monospace;font-size:11px;color:var(--text-secondary);margin-left:8px}' +
