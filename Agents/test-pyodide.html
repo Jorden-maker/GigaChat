@@ -58,6 +58,8 @@ td.ms { color: var(--text-muted); text-align: right; font-variant-numeric: tabul
 .hint code { background: var(--bg); padding: 2px 6px; border-radius: 3px; color: var(--accent); font-family: Cascadia Code, Consolas, monospace; font-size: 12px; }
 a { color: var(--accent); }
 </style>
+<script src="_config.js"></script>
+<script src="lib/pyodide-client.js"></script>
 </head>
 <body>
     <h1>Тест Pyodide</h1>
@@ -159,6 +161,19 @@ var TESTS = [
         name: 'NPV (5 лет, ставка 12%)',
         code: 'inv=1000000\ncf=300000\nr=0.12\nnpv=-inv\nfor t in range(1,6):\n    npv += cf / (1+r)**t\nprint(round(npv, 2))',
         expected: '81432.86'
+    },
+    {
+        name: 'Бесконечный цикл — убиваем worker',
+        code: 'while True:\n    pass',
+        expectKill: true,
+        timeoutMs: 3000,
+        note: 'имитирует баг LLM; за 3 сек worker должен быть убит и заменён новым'
+    },
+    {
+        name: 'Восстановление после kill',
+        code: 'print(2 + 3)',
+        expected: '5',
+        note: 'если этот тест прошёл — worker корректно пересоздался после kill'
     }
 ];
 
@@ -190,48 +205,39 @@ function extractFinalLine(lines) {
     return trimmed[trimmed.length - 1];
 }
 
-// === Загрузка Pyodide ===
-var pyodidePromise = null;
-function getPyodide() {
-    if (pyodidePromise) return pyodidePromise;
-    pyodidePromise = (async function () {
-        if (!window.loadPyodide) {
-            await new Promise(function (resolve, reject) {
-                var s = document.createElement('script');
-                s.src = 'lib/pyodide/pyodide.js';
-                s.onload = resolve;
-                s.onerror = function () { reject(new Error('Не удалось загрузить lib/pyodide/pyodide.js (404? проверь что файл существует)')); };
-                document.head.appendChild(s);
-            });
-        }
-        return await window.loadPyodide({ indexURL: 'lib/pyodide/' });
-    })();
-    pyodidePromise.catch(function () { pyodidePromise = null; });
-    return pyodidePromise;
-}
-
-// === Запуск одного теста ===
-async function runOne(pyodide, test) {
-    var outputs = [];
-    pyodide.setStdout({ batched: function (s) { outputs.push(s); } });
-    pyodide.setStderr({ batched: function (s) { outputs.push('STDERR: ' + s); } });
+// === Запуск одного теста через PyodideClient (Web Worker) ===
+// PyodideClient.executePython ленивая — первый вызов создаёт worker
+// и инициализирует Pyodide (~1-2 сек), дальше мгновенно. По таймауту
+// worker.terminate() — мы это тестируем явно (тест «Бесконечный цикл»).
+async function runOne(test) {
     var t0 = performance.now();
-    try {
-        await pyodide.runPythonAsync(test.code);
-        var ms = Math.round(performance.now() - t0);
-        var got;
-        if (test.useMarker) {
-            got = extractFinalLine(outputs);
-        } else {
-            // Берём последнюю непустую строку
-            var nonEmpty = outputs.map(function(l){return String(l).trim();}).filter(function(l){return l.length>0;});
-            got = nonEmpty.length ? nonEmpty[nonEmpty.length - 1] : '';
-        }
-        return { ok: got === test.expected, got: got, ms: ms, error: null };
-    } catch (e) {
-        var ms = Math.round(performance.now() - t0);
-        return { ok: false, got: '', ms: ms, error: String(e && e.message ? e.message : e) };
+    var exec = await PyodideClient.executePython(test.code, {
+        timeoutMs: test.timeoutMs || 15000
+    });
+    var ms = Math.round(performance.now() - t0);
+
+    // Тесты с expectKill: ждём, что worker был убит по таймауту
+    if (test.expectKill) {
+        return {
+            ok: exec.killed === true,
+            got: exec.killed ? '[убит по таймауту]' : '[НЕ убит — ' + (exec.error || exec.output || 'пусто') + ']',
+            ms: ms,
+            error: exec.killed ? null : 'Ожидали kill, но worker не убит'
+        };
     }
+
+    // Обычные тесты: сравниваем вывод с expected
+    if (!exec.ok) {
+        return { ok: false, got: '', ms: ms, error: exec.error };
+    }
+    var got;
+    if (test.useMarker) {
+        got = extractFinalLine(exec.lines);
+    } else {
+        var nonEmpty = exec.lines.map(function(l){return String(l).trim();}).filter(function(l){return l.length>0;});
+        got = nonEmpty.length ? nonEmpty[nonEmpty.length - 1] : '';
+    }
+    return { ok: got === test.expected, got: got, ms: ms, error: null };
 }
 
 // === Рендер строк ===
@@ -277,39 +283,29 @@ async function runAll() {
     }
 
     statusEl.className = 'status loading';
-    statusEl.textContent = 'Загружаю Pyodide…';
-    var pyodide;
-    var loadStart = performance.now();
-    try {
-        pyodide = await getPyodide();
-    } catch (e) {
-        statusEl.className = 'status fail';
-        statusEl.textContent = 'Не удалось загрузить Pyodide: ' + e.message;
-        btn.disabled = false;
-        return;
-    }
-    var loadMs = Math.round(performance.now() - loadStart);
-    statusEl.textContent = 'Pyodide загружен за ' + loadMs + ' мс. Прогоняю тесты…';
+    statusEl.textContent = 'Прогоняю тесты (первый займёт ~2 сек на инициализацию worker)…';
 
     var pass = 0, fail = 0;
+    var totalStart = performance.now();
     for (var i = 0; i < TESTS.length; i++) {
-        var result = await runOne(pyodide, TESTS[i]);
+        var result = await runOne(TESTS[i]);
         if (result.ok) pass++; else fail++;
         var newRow = renderRow(i, TESTS[i], result);
         tbody.replaceChild(newRow, tbody.children[i]);
     }
+    var totalMs = Math.round(performance.now() - totalStart);
 
     var allOk = fail === 0;
     statusEl.className = 'status ' + (allOk ? 'ok' : 'fail');
     statusEl.textContent = allOk
-        ? 'Все ' + pass + ' тестов пройдены за ' + loadMs + ' мс инициализации.'
+        ? 'Все ' + pass + ' тестов пройдены за ' + totalMs + ' мс.'
         : pass + ' из ' + TESTS.length + ' пройдены, ' + fail + ' упали.';
 
     summary.style.display = 'block';
     summary.className = 'summary ' + (allOk ? 'ok' : 'fail');
     summary.innerHTML = allOk
-        ? '<strong>✓ Pyodide-цепочка работает.</strong> Caddy раздаёт WASM с правильным MIME, Python-рантайм инициализируется, все базовые модули доступны. В офисе после подключения LLM math-agent заработает.'
-        : '<strong>✗ ' + fail + ' тестов упали.</strong> Раскрой строки с красным крестиком и посмотри детали в колонке «Результат» — там либо неверное значение, либо текст ошибки Python.';
+        ? '<strong>✓ Pyodide в Web Worker работает.</strong> Caddy раздаёт WASM с правильным MIME, worker корректно инициализируется, исполняет код, убивается по таймауту и пересоздаётся для следующего запроса. Math-agent готов — никаких перезагрузок страницы при зависаниях.'
+        : '<strong>✗ ' + fail + ' тестов упали.</strong> Раскрой строки с красным крестиком и посмотри детали в колонке «Результат». Если упал «Бесконечный цикл» — Web Worker не убил процесс. Если упал «Восстановление после kill» — worker не пересоздался.';
 
     btn.disabled = false;
 }

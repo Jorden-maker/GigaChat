@@ -113,6 +113,7 @@
     <script src="lib/highlight.min.js"></script>
     <script src="_shared.js"></script>
     <script src="lib/jszip.min.js"></script>
+    <script src="lib/pyodide-client.js"></script>
 </head>
 <body>
     <div class="sidebar">
@@ -155,109 +156,23 @@
     <script>
         var escapeHtml = GigaChat.escapeHtml;
 
-        // ============ PYODIDE (исполнение Python в браузере) ============
+        // ============ PYODIDE (исполнение Python в Web Worker) ============
         // GigaChat — «тупой» LLM, поэтому полагаться на его арифметику нельзя.
         // Решение: LLM пишет Python-код, фронт исполняет в Pyodide
-        // (Python → WebAssembly, ~10 МБ), забирает реальный результат и просит
+        // (Python → WebAssembly), забирает реальный результат и просит
         // LLM написать только пояснение. Число всегда из настоящего Python.
         //
-        // Загрузка ленивая — пока пользователь не задаст математическую задачу,
-        // ничего не качается. После первого вызова pyodideReady кэшируется.
-        // URL по умолчанию — jsDelivr CDN; для офлайн-LAN положите бандл рядом
-        // (lib/pyodide/) и пропишите PYODIDE_URL/PYODIDE_INDEX_URL в _config.js.
-        var PYODIDE_DEFAULT_VERSION = 'v0.26.4';
-        var PYODIDE_URL = (window.GIGACHAT_CONFIG && window.GIGACHAT_CONFIG.PYODIDE_URL) ||
-            'https://cdn.jsdelivr.net/pyodide/' + PYODIDE_DEFAULT_VERSION + '/full/pyodide.js';
-        var PYODIDE_INDEX_URL = (window.GIGACHAT_CONFIG && window.GIGACHAT_CONFIG.PYODIDE_INDEX_URL) ||
-            'https://cdn.jsdelivr.net/pyodide/' + PYODIDE_DEFAULT_VERSION + '/full/';
-        // Soft-таймаут на runPythonAsync. Если LLM напишет while True или sympy
-        // зависнет на сложной задаче — UI размораживается через PYODIDE_TIMEOUT_MS
-        // и юзер видит ошибку. ВАЖНО: реальный Python продолжит работать (это
-        // одно-поточный WASM в main-thread, прервать без Web Worker нельзя).
-        // Чтобы следующие запросы не падали в очередь к мёртвому интерпретатору,
-        // ставим флаг pyodideStuck — он отклоняет все новые executePython
-        // мгновенно, до перезагрузки страницы.
-        var PYODIDE_TIMEOUT_MS = (window.GIGACHAT_CONFIG && window.GIGACHAT_CONFIG.PYODIDE_TIMEOUT_MS) || 15000;
-
-        var pyodidePromise = null;
-        function getPyodide() {
-            if (pyodidePromise) return pyodidePromise;
-            pyodidePromise = (async function () {
-                if (!window.loadPyodide) {
-                    await new Promise(function (resolve, reject) {
-                        var s = document.createElement('script');
-                        s.src = PYODIDE_URL;
-                        s.onload = resolve;
-                        s.onerror = function () { reject(new Error('Не удалось загрузить Pyodide с ' + PYODIDE_URL)); };
-                        document.head.appendChild(s);
-                    });
-                }
-                var py = await window.loadPyodide({ indexURL: PYODIDE_INDEX_URL });
-                return py;
-            })();
-            // Если загрузка упадёт — обнуляем кэш, чтобы следующая попытка
-            // не вернула отвергнутый промис навечно.
-            pyodidePromise.catch(function () { pyodidePromise = null; });
-            return pyodidePromise;
-        }
-
-        // Мьютекс на Pyodide-вызовы. setStdout/setStderr — глобальные хэндлеры
-        // на инстансе, без сериализации stdout одного запроса попадает в outputs
-        // другого. Promise-цепочка гарантирует, что новый executePython стартует
-        // только после полного завершения предыдущего.
-        var pyodideQueue = Promise.resolve();
-        var pyodideStuck = false;
-
-        async function executePython(pyodide, code) {
-            if (pyodideStuck) {
-                return {
-                    ok: false, output: '', lines: [],
-                    error: 'Python заблокирован после предыдущего таймаута. Обновите страницу.'
-                };
-            }
-            var task = function () { return runPyodideWithTimeout(pyodide, code); };
-            var p = pyodideQueue.then(task, task);
-            // Цепочка не должна рваться при ошибке — иначе следующий then не
-            // выполнится. Сохраняем в очередь catch'нутую версию.
-            pyodideQueue = p.catch(function () {});
-            // Если был таймаут — помечаем как stuck. Следующий вызов получит
-            // мгновенный отказ, не встанет в бесконечную очередь.
-            p.catch(function (e) {
-                if (e && e.message && /timeout/i.test(e.message)) {
-                    pyodideStuck = true;
-                }
-            });
-            return p;
-        }
-
-        async function runPyodideWithTimeout(pyodide, code) {
-            var outputs = [];
-            var stderr = [];
-            pyodide.setStdout({ batched: function (s) { outputs.push(s); } });
-            pyodide.setStderr({ batched: function (s) { stderr.push(s); } });
-            var pyTask = (async function () {
-                try {
-                    // На Варианте A loadPackagesFromImports не должен ничего
-                    // делать (все импорты — stdlib, ловится в core бандле).
-                    // Если LLM всё-таки попробует sympy/numpy — workflow's
-                    // safety check (dangerous list) их отбросит ещё на сервере.
-                    // Дополнительно catch на случай неожиданных промахов.
-                    try { await pyodide.loadPackagesFromImports(code); } catch (e) {}
-                    await pyodide.runPythonAsync(code);
-                    return { ok: true, output: outputs.join('\n'), lines: outputs.slice(), error: '' };
-                } catch (e) {
-                    var errText = String(e && e.message ? e.message : e);
-                    if (stderr.length) errText = stderr.join('\n') + '\n' + errText;
-                    return { ok: false, output: outputs.join('\n'), lines: outputs.slice(), error: errText };
-                }
-            })();
-            var timeoutPromise = new Promise(function (_, reject) {
-                setTimeout(function () {
-                    reject(new Error('Python timeout (' + Math.round(PYODIDE_TIMEOUT_MS / 1000) + ' сек) — возможно бесконечный цикл'));
-                }, PYODIDE_TIMEOUT_MS);
-            });
-            return Promise.race([pyTask, timeoutPromise]);
-        }
+        // Pyodide живёт в Web Worker'е (см. lib/pyodide-client.js +
+        // lib/math-pyodide-worker.js). Это даёт ДВА критичных преимущества
+        // перед inline-Pyodide:
+        //   1) Главный поток никогда не замораживается — даже на while True
+        //      из LLM-кода UI остаётся отзывчивым
+        //   2) По таймауту worker.terminate() мгновенно убивает зависший
+        //      интерпретатор, и новый запрос работает после ~1-2 сек на
+        //      переинициализацию (без перезагрузки страницы)
+        //
+        // Все параметры (PYODIDE_URL / INDEX_URL / TIMEOUT_MS / WORKER_URL)
+        // настраиваются через window.GIGACHAT_CONFIG в _config.js.
 
         // Логика выбора финальной строки идентична серверной версии (была в
         // «Выполнить код» workflow). GigaChat иногда ставит маркер ОТВЕТ: не
@@ -360,29 +275,22 @@
             interceptBotData: async function (data, ctx) {
                 if (data.stage !== 'execute' || !data.code) return data;
 
-                ctx.setInflightLabel('Загружаю Python');
-                var pyodide;
-                try {
-                    pyodide = await getPyodide();
-                } catch (e) {
-                    return {
-                        response: 'Не удалось загрузить Python-рантайм: ' + e.message,
-                        code: data.code,
-                        raw_result: ''
-                    };
-                }
-
                 ctx.setInflightLabel('Считаю');
-                var exec;
-                try {
-                    exec = await executePython(pyodide, data.code);
-                } catch (e) {
-                    // Soft-таймаут (PYODIDE_TIMEOUT_MS) — Python ещё молотит в
-                    // фоне, но UI размораживается. pyodideStuck уже выставлен.
+                // PyodideClient сам управляет worker'ом: при первом запросе
+                // тратится ~1-2 сек на загрузку Pyodide в worker, дальше
+                // мгновенно. При таймауте (15 сек по умолчанию) worker
+                // убивается, следующий запрос автоматически создаёт новый —
+                // никаких перезагрузок страницы.
+                var exec = await PyodideClient.executePython(data.code);
+
+                // Если Pyodide убит по таймауту — задача не решена, но
+                // следующий запрос будет работать. Сразу возвращаем понятную
+                // ошибку, не дёргая LLM-объяснение.
+                if (exec.killed) {
                     return {
-                        response: 'Не удалось решить — ' + e.message + '. Обновите страницу, чтобы освободить интерпретатор.',
+                        response: exec.error,
                         code: data.code,
-                        raw_result: ''
+                        raw_result: exec.output || ''
                     };
                 }
                 var finalLine = extractFinalLine(exec.lines);
