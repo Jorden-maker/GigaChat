@@ -247,395 +247,115 @@ body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var
 </div>
 
 <script>
-const WEBHOOK_URL = GigaChat.webhookUrl('prompt-engineer');
-const HISTORY_URL = GigaChat.webhookUrl('history');
+    // Legacy cleanup — старая ветка хранила истории в локальном кэше.
+    try { localStorage.removeItem('pe_histories'); } catch (e) {}
 
-let serverOnline = false;
-const WELCOME_HTML = '<div class="welcome"><p>Создайте новую сессию для начала работы</p></div>';
-try { localStorage.removeItem('pe_histories'); } catch (e) {}
+    var escapeHtml = GigaChat.escapeHtml;
 
-// SessionStore: «идёт обработка в сессии X» = sessionStore.getInflight(X).
-const sessionStore = GigaChat.createSessionStore({
-  prefix: 'pe',
-  idPrefix: 'pe_',
-  namePrefix: 'Prompt-',
-  sessionList: document.getElementById('sessionList'),
-  renderMessages: function () { renderChat(); },
-  onAttachmentClear: function () {
-    if (typeof attachment !== 'undefined' && attachment) {
-      attachment.cancel(); attachment.clear(); attachment.setDisabled(false);
+    // Кастомный рендер bot-сообщения. content идёт через formatMarkdown
+    // (с предварительной зачисткой code-блоков — они выводятся отдельным
+    // prompt-block). extras.prompt — готовый промпт в pre с copy-кнопкой.
+    function formatResponse(text) {
+        var clean = (text || '').replace(/```[\s\S]*?```/g, '').trim();
+        return GigaChat.formatMarkdown(clean);
     }
-  },
-  onEmpty: function () {
-    document.getElementById('chatContainer').innerHTML = WELCOME_HTML;
-    document.getElementById('userInput').disabled = true;
-    document.getElementById('btnSend').disabled = true;
-    if (attachment) attachment.setDisabled(true);
-  },
-  onSwitch: function (sid) {
-    const userInput = document.getElementById('userInput');
-    const draft = sessionStore.getDraft(sid) || '';
-    userInput.value = draft;
-    userInput.style.height = '';
-    if (draft) {
-      userInput.style.height = Math.min(userInput.scrollHeight, 200) + 'px';
-    }
-    const processing = !!sessionStore.getInflight(sid);
-    userInput.disabled = processing;
-    const btnSend = document.getElementById('btnSend');
-    btnSend.disabled = false;
-    GigaChat.syncSendButton(btnSend, sid, !!sessionStore.getInflight(sid));
-    if (typeof attachment !== 'undefined' && attachment) attachment.setDisabled(processing);
-    if (!processing) userInput.focus();
-  },
-  loadHistory: async function (sid) {
-    const container = document.getElementById('chatContainer');
-    if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
-      container.innerHTML = '<div class="welcome"><p>Загружаю историю...</p></div>';
-    }
-    try {
-      const res = await GigaChat.fetchWithRetry(HISTORY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify({ session_id: sid })
-      }, { timeout: 30000, retries: 0 });
-      if (!res.ok) throw new Error('Сервер ответил ' + res.status);
-      const data = await res.json();
-      return (data.messages || []).map(m => ({
-        role: m.role,
-        content: m.content,
-        extras: m.extras || null
-      }));
-    } catch (e) {
-      if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
-        container.innerHTML = '<div class="welcome"><p>Не удалось загрузить историю.</p></div>';
-      }
-      return null;
-    }
-  }
-});
 
-['sessions', 'activeSessionId', 'displayMessages'].forEach(k => {
-  Object.defineProperty(window, k, {
-    get: () => sessionStore.state[k],
-    set: v => { sessionStore.state[k] = v; },
-    configurable: true
-  });
-});
-
-function createNewSession() { sessionStore.createNew(); }
-function pushToSession(sid, msg) { sessionStore.pushToSession(sid, msg); }
-
-// --- Init ---
-function init() {
-  // Контроллер вложений инициализируем ДО switchTo: иначе onSwitch при
-  // загрузке страницы (юзер перезагрузил пока шёл LLM-запрос) не сможет
-  // заблокировать скрепку — `if (attachment)` тихо пропустит вызов.
-  attachment = GigaChat.setupAttachment({
-    buttonContainer: document.getElementById('attachBtn'),
-    chipsContainer: document.getElementById('attachChips'),
-    inputElement: document.getElementById('userInput'),
-    dropZone: document.getElementById('chatContainer')
-  });
-  GigaChat.initSidebarResize({
-    sidebar: document.querySelector('.sidebar'),
-    initialWidth: 300,  // 260 + 20
-    minWidth: 260, maxWidth: 520
-  });
-  GigaChat.initHeaderShadowOnScroll({ scrollable: document.getElementById('chatContainer') });
-  GigaChat.initScrollToBottomButton({ scrollable: document.getElementById('chatContainer'), inputArea: document.querySelector('.input-area') });
-
-  sessionStore.load();
-  if (sessionStore.state.activeSessionId && !sessionStore.findSession(sessionStore.state.activeSessionId)) {
-    sessionStore.state.activeSessionId = null;
-  }
-  if (sessionStore.state.sessions.length > 0) {
-    sessionStore.renderList();
-    const targetId = sessionStore.state.activeSessionId || sessionStore.state.sessions[0].id;
-    sessionStore.switchTo(targetId);
-  } else {
-    document.getElementById('userInput').disabled = true;
-    document.getElementById('btnSend').disabled = true;
-    if (attachment) attachment.setDisabled(true);
-    sessionStore.renderList();
-  }
-  checkServerStatus();
-  setInterval(checkServerStatus, 30000);
-}
-
-// --- Chat ---
-function renderChat() {
-  const container = document.getElementById('chatContainer');
-  const inflight = sessionStore.getInflight(activeSessionId);
-  // Welcome-блок показываем ТОЛЬКО когда нет активной сессии (сессий нет вообще
-  // либо все удалены). Если сессия выбрана, но в ней ещё нет сообщений —
-  // оставляем пустоту (или inflight loader если уже отправили).
-  if (!activeSessionId) {
-    container.innerHTML = WELCOME_HTML;
-    return;
-  }
-  if (displayMessages.length === 0 && !inflight) {
-    container.innerHTML = '';
-    return;
-  }
-  let html = '';
-  for (const m of displayMessages) {
-    const text = m.content || m.text || '';
-    if (m.role === 'user') {
-      let userBody = text ? escapeHtml(text) : '';
-      const atts = m.attachments
-        ? m.attachments
-        : (m.attachment ? [{ fileName: m.attachment, error: !!m.attachmentError }] : []);
-      if (atts.length > 0) {
-        let chipsHtml = '';
-        for (const att of atts) {
-          const cls = att.error ? 'gc-attach-chip bot error' : 'gc-attach-chip bot';
-          chipsHtml += `<span class="${cls}">📎 ${escapeHtml(att.fileName)}</span>`;
+    function formatBotMessage(msg) {
+        var text = msg.content || msg.text || '';
+        var extras = msg.extras || {};
+        var prompt = extras.prompt || msg.prompt || '';
+        var html = formatResponse(text);
+        if (prompt) {
+            html += '<div class="prompt-block">' +
+                '<div class="prompt-block-header">' +
+                '<span>Готовый промпт</span>' +
+                '<button class="btn-copy" onclick="copyPrompt(this)">Копировать</button>' +
+                '</div>' +
+                '<pre>' + escapeHtml(prompt) + '</pre>' +
+                '</div>';
         }
-        const spacing = userBody ? 'margin-top:8px' : '';
-        userBody += `<div style="${spacing};display:flex;flex-wrap:wrap;gap:6px">${chipsHtml}</div>`;
-      }
-      html += `<div class="msg user" data-ts="${m.ts || 0}">${userBody}</div>`;
-    } else {
-      const extras = m.extras || {};
-      const prompt = extras.prompt || m.prompt || '';
-      html += `<div class="msg bot">`;
-      html += formatResponse(text);
-      if (prompt) {
-        html += `<div class="prompt-block"><div class="prompt-block-header"><span>Готовый промпт</span><button class="btn-copy" onclick="copyPrompt(this)">Копировать</button></div><pre>${escapeHtml(prompt)}</pre></div>`;
-      }
-      html += `</div>`;
+        return html;
     }
-  }
-  if (inflight) {
-    const elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
-    html += `<div class="loading gc-inflight-loader" data-started-at="${inflight.startedAt}"><span class="dots"><span></span><span></span><span></span></span><span class="timer">${elapsed} сек</span></div>`;
-  }
-  const __wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 30;
-  container.innerHTML = html;
-  GigaChat.attachCopyButtons(container);
-  if (__wasAtBottom) container.scrollTop = container.scrollHeight;
-}
 
-function formatResponse(text) {
-  // Убираем код-блоки из текста — они выводятся отдельным prompt-block
-  const clean = text.replace(/```[\s\S]*?```/g, '').trim();
-  return GigaChat.formatMarkdown(clean, '#d4a574');
-}
-
-const escapeHtml = GigaChat.escapeHtml;
-
-function copyPrompt(btn) {
-  const pre = btn.closest('.prompt-block').querySelector('pre');
-  navigator.clipboard.writeText(pre.textContent).then(() => {
-    btn.textContent = 'Скопировано!';
-    setTimeout(() => btn.textContent = 'Копировать', 2000);
-  });
-}
-
-// --- Send ---
-// Контроллер вложений: создаётся в init() после загрузки сессий
-let attachment = null;
-
-async function sendMessage() {
-  if (!activeSessionId || !sessions.find(s => s.id === activeSessionId)) return;
-  const __existing = GigaChat.getSendController(activeSessionId);
-  if (__existing) { __existing.abort(); return; }
-  if (sessionStore.getInflight(activeSessionId)) { sessionStore.clearInflight(activeSessionId); return; }
-  const input = document.getElementById('userInput');
-  const text = input.value.trim();
-  const hasFiles = attachment && attachment.hasFiles();
-  if (!text && !hasFiles) return;
-  if (sessionStore.getInflight(activeSessionId)) return;
-
-  const sendSessionId = activeSessionId;
-
-  const fileNamesSnapshot = hasFiles
-    ? attachment.getFiles().map(f => f.name)
-    : [];
-
-  input.disabled = true;
-  document.getElementById('btnSend').disabled = true;
-  if (attachment) attachment.setDisabled(true);
-  input.value = '';
-  input.style.height = 'auto';
-  sessionStore.clearDraft(sendSessionId);
-
-  // Пушим user-сообщение СРАЗУ + setInflight ДО любых await. Это единый
-  // источник правды что сессия занята; onSwitch при возврате увидит inflight
-  // и оставит скрепку заблокированной.
-  const userMsg = { role: 'user', content: text, ts: Date.now() };
-  if (fileNamesSnapshot.length > 0) {
-    userMsg.attachments = fileNamesSnapshot.map(n => ({ fileName: n, error: false }));
-  }
-  pushToSession(sendSessionId, userMsg);
-  sessionStore.setInflight(sendSessionId, hasFiles ? 'Извлекаю файлы' : 'Генерирую промпт');
-
-  let messageForAgent = text;
-  let extractedList = [];
-
-  function abortAndRestore() {
-    sessionStore.clearInflight(sendSessionId);
-    const msgs = sessionStore.state.displayMessages;
-    if (msgs.length && msgs[msgs.length - 1].role === 'user') {
-      msgs.pop();
-      sessionStore.saveSnapshot();
+    // Copy-кнопка в prompt-block. Глобальная — вызывается из onclick в inline-HTML.
+    function copyPrompt(btn) {
+        var pre = btn.closest('.prompt-block').querySelector('pre');
+        if (!pre) return;
+        navigator.clipboard.writeText(pre.textContent).then(function () {
+            btn.textContent = 'Скопировано!';
+            setTimeout(function () { btn.textContent = 'Копировать'; }, 2000);
+        });
     }
-    if (activeSessionId === sendSessionId) {
-      input.disabled = false;
-      document.getElementById('btnSend').disabled = false;
-      if (attachment) attachment.setDisabled(false);
-      input.value = text;
-      input.focus();
-      renderChat();
-    }
-  }
 
-  if (hasFiles) {
-    let cancelled = false;
-    const inflightLoader = document.querySelector('.gc-inflight-loader');
-    if (inflightLoader) {
-      const cancelBtn = document.createElement('button');
-      cancelBtn.type = 'button';
-      cancelBtn.className = 'btn-export';
-      cancelBtn.style.cssText = 'padding:2px 10px;margin-left:8px';
-      cancelBtn.textContent = 'Отмена';
-      cancelBtn.onclick = () => { cancelled = true; attachment.cancel(); };
-      inflightLoader.appendChild(cancelBtn);
-    }
-    extractedList = await attachment.extract();
-    if (cancelled) { abortAndRestore(); return; }
-    let totalLen = 0;
-    for (const ex of extractedList) totalLen += (ex.text || '').length;
-    if (totalLen > 30000) {
-      const ok = confirm('Извлечено ' + totalLen.toLocaleString('ru-RU') + ' симв. из ' + extractedList.length + ' файла(ов).\nGigaChat может не справиться.\nОтправить всё равно?');
-      if (!ok) { abortAndRestore(); return; }
-    }
-    const built = GigaChat.buildMessageWithAttachment(text, extractedList);
-    messageForAgent = built.messageForAgent;
-    const msgs2 = sessionStore.state.displayMessages;
-    for (let j = msgs2.length - 1; j >= 0; j--) {
-      if (msgs2[j].role === 'user') {
-        msgs2[j].attachments = built.attachments;
-        break;
-      }
-    }
-    sessionStore.saveSnapshot();
-    sessionStore.setInflight(sendSessionId, 'Генерирую промпт');
-  }
+    // ============ FACTORY-CALL ============
+    var agent = GigaChat.createChatAgent({
+        webhookPath: 'prompt-engineer',
+        historyPath: 'history',
+        prefix: 'pe',
+        idPrefix: 'pe_',
+        namePrefix: 'Prompt-',
+        inflightLabel: 'Генерирую промпт',
+        exportAgentName: 'GigaChat Prompt',
 
-  const sendCtrl = GigaChat.makeCancellableSend(document.getElementById('btnSend'), sendSessionId);
-  try {
-    const data = await fetchWithRetry(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ message: messageForAgent, session_id: sendSessionId })
-    }, { retries: 2, signal: sendCtrl.signal });
-    sessionStore.clearInflight(sendSessionId);
+        // Другие DOM IDs / классы — переопределяем дефолты factory.
+        chatEl: document.getElementById('chatContainer'),
+        inputEl: document.getElementById('userInput'),
+        sendBtn: document.getElementById('btnSend'),
+        bottomAreaEl: document.querySelector('.input-area'),
+        statusDotClass: 'status-dot',
 
-    GigaChat.typewriteAssistant(sessionStore, sendSessionId, {
-      role: 'assistant',
-      content: data.response || 'Ответ получен',
-      extras: { prompt: data.prompt || '' }
-    }, { cps: 100 });
-    document.getElementById('statusDot').className = 'status-dot online';
-    document.getElementById('statusText').textContent = 'Онлайн';
-  } catch (err) {
-    sessionStore.clearInflight(sendSessionId);
-    if (!sendCtrl.aborted()) {
-      pushToSession(sendSessionId, {
-        role: 'assistant',
-        content: 'Ошибка: ' + err.message
-      });
-      document.getElementById('statusDot').className = 'status-dot offline';
-      document.getElementById('statusText').textContent = 'Офлайн';
-    }
-  } finally {
-    sendCtrl.restore();
-  }
+        // Sidebar шире — длинные промпты лучше читать в широком списке.
+        sidebarInitialWidth: 300,
+        sidebarMinWidth: 260,
+        sidebarMaxWidth: 520,
 
-  if (activeSessionId === sendSessionId) {
-    input.disabled = false;
-    document.getElementById('btnSend').disabled = false;
-    if (attachment) {
-      attachment.setDisabled(false);
-      attachment.clear();
-    }
-    input.focus();
-    const container = document.getElementById('chatContainer');
-    container.scrollTop = container.scrollHeight;
-  }
-}
+        // Autosize textarea выше — длинные технические задания на промпт.
+        autosizeMax: 200,
 
-async function fetchWithRetry(url, options, optsOrRetries = 2) {
-  // optsOrRetries: число retries (legacy) или объект { retries, signal }
-  const opts = (typeof optsOrRetries === 'number')
-    ? { retries: optsOrRetries }
-    : (optsOrRetries || {});
-  const resp = await GigaChat.fetchWithRetry(url, options, { retries: opts.retries, signal: opts.signal });
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => 'Unknown error');
-    throw new Error(`Сервер ответил ${resp.status}: ${errText}`);
-  }
-  return await resp.json();
-}
+        // Welcome-блок (другой CSS-класс, не .empty-chat).
+        emptyChatHtml: '<div class="welcome"><p>Создайте новую сессию для начала работы</p></div>',
+        historyErrorHtml: '<div class="welcome"><p>Не удалось загрузить историю.</p></div>',
+        historyLoadingHtml: '<div class="welcome"><p>Загружаю историю...</p></div>',
 
-// --- Server status ---
-async function checkServerStatus() {
-  serverOnline = await GigaChat.checkServerStatus(
-    WEBHOOK_URL,
-    document.getElementById('statusDot'),
-    document.getElementById('statusText'),
-    { dotClass: 'status-dot' }
-  );
-}
+        formatBotHtml: formatBotMessage,
+        parseBotMessage: function (data) {
+            return {
+                role: 'assistant',
+                content: data.response || 'Ответ получен',
+                extras: { prompt: data.prompt || '' }
+            };
+        }
+    });
 
-// --- Export ---
-function exportChat() {
-  if (!activeSessionId) { alert('Нет активной сессии'); return; }
-  if (displayMessages.length === 0) { alert('Нет сообщений для экспорта'); return; }
-  let text = 'GigaChat Prompt\nЭкспорт: ' + new Date().toLocaleString('ru-RU') + '\n' + '='.repeat(50) + '\n\n';
-  for (const m of displayMessages) {
-    const content = m.content || m.text || '';
-    const extras = m.extras || {};
-    const prompt = extras.prompt || m.prompt || '';
-    if (m.role === 'user') {
-      text += 'Вы:\n' + content + '\n\n';
-    } else {
-      text += 'GigaChat Prompt:\n' + content + '\n';
-      if (prompt) text += '\n--- ПРОМПТ ---\n' + prompt + '\n--- /ПРОМПТ ---\n';
-      text += '\n';
-    }
-    text += '-'.repeat(40) + '\n\n';
-  }
-  const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'prompt-engineer-export.txt';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-// --- Textarea key/input handlers ---
-// Enter — отправить, Shift+Enter — перенос. isComposing/keyCode 229 — защита от IME.
-// Каждый ввод сохраняет draft в localStorage для текущей сессии — при переключении
-// и возврате текст восстанавливается.
-(function () {
-  const userInput = document.getElementById('userInput');
-  userInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-  userInput.addEventListener('input', function () {
-    this.style.height = 'auto';
-    this.style.height = Math.min(this.scrollHeight, 200) + 'px';
-    if (activeSessionId) sessionStore.setDraft(activeSessionId, this.value);
-  });
-})();
-
-init();
+    // Кастомный экспорт — у prompt-engineer формат отличается от других
+    // агентов: блок --- ПРОМПТ --- вокруг extras.prompt, отдельные разделители.
+    // Переопределяем после createChatAgent (он назначил свой default).
+    window.exportChat = function () {
+        var s = agent.sessionStore.state;
+        if (!s.activeSessionId) { alert('Нет активной сессии'); return; }
+        if (s.displayMessages.length === 0) { alert('Нет сообщений для экспорта'); return; }
+        var text = 'GigaChat Prompt\nЭкспорт: ' + new Date().toLocaleString('ru-RU') + '\n' + '='.repeat(50) + '\n\n';
+        for (var i = 0; i < s.displayMessages.length; i++) {
+            var m = s.displayMessages[i];
+            var content = m.content || m.text || '';
+            var extras = m.extras || {};
+            var prompt = extras.prompt || m.prompt || '';
+            if (m.role === 'user') {
+                text += 'Вы:\n' + content + '\n\n';
+            } else {
+                text += 'GigaChat Prompt:\n' + content + '\n';
+                if (prompt) text += '\n--- ПРОМПТ ---\n' + prompt + '\n--- /ПРОМПТ ---\n';
+                text += '\n';
+            }
+            text += '-'.repeat(40) + '\n\n';
+        }
+        var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'prompt-engineer-export.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
 </script>
 </body>
 </html>

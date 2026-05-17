@@ -2108,6 +2108,8 @@
     var historyLoadingHtml = opts.historyLoadingHtml ||
       '<div class="history-loading">Загружаю историю...</div>';
     var useTypewriter = opts.useTypewriter !== false;
+    var autosizeMax = opts.autosizeMax || 150;
+    var statusDotClass = opts.statusDotClass || 'dot';
 
     var formatBotHtml = opts.formatBotHtml || function (msg) {
       return formatMarkdown(msg.content || '');
@@ -2140,7 +2142,7 @@
         var draft = sessionStore.getDraft(sid) || '';
         input.value = draft;
         input.style.height = '';
-        if (draft) input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+        if (draft) input.style.height = Math.min(input.scrollHeight, autosizeMax) + 'px';
         var processing = !!sessionStore.getInflight(sid);
         input.disabled = processing;
         sendBtn.disabled = false;
@@ -2419,7 +2421,7 @@
     });
     input.addEventListener('input', function () {
       input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+      input.style.height = Math.min(input.scrollHeight, autosizeMax) + 'px';
       if (sessionStore.state.activeSessionId) {
         sessionStore.setDraft(sessionStore.state.activeSessionId, input.value);
       }
@@ -2427,7 +2429,9 @@
     });
 
     // Health-check
-    function ping() { return checkServerStatus(WEBHOOK_URL, statusDot, statusText); }
+    function ping() {
+      return checkServerStatus(WEBHOOK_URL, statusDot, statusText, { dotClass: statusDotClass });
+    }
     ping();
     setInterval(ping, 30000);
 
