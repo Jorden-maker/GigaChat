@@ -25,6 +25,9 @@ __pycache__/
 embedding-server/wheels/
 embedding-server/wheels.zip
 
+# Оффлайн-бандл Pyodide для math-agent — качается отдельно, см. README
+Agents/lib/pyodide/
+
 # Локальный кеш ID credentials для import-workflows.ps1.
 # Содержит ID credentials с конкретной машины — на других машинах ID другие.
 credentials-cache.local.json
