@@ -594,6 +594,11 @@
       + '.gc-attach-chip .x:hover,.gc-attach-chip .x:focus{color:#ff6666;outline:none}'
       + '.gc-attach-chip.error{border-color:#cc4444;color:#ff8888}'
       + '.gc-attach-chip.bot{background:var(--bg-hover)}'
+      // Подсветка drop-зоны: пунктирная рамка peach + псевдо-overlay
+      // с подсказкой. Появляется только когда юзер тащит файл (класс
+      // .gc-drop-active навешивается из drop-listener'а).
+      + '.gc-drop-active{position:relative}'
+      + '.gc-drop-active::after{content:"Отпустите, чтобы прикрепить файл";position:absolute;inset:8px;border:2px dashed var(--accent);border-radius:12px;background:var(--bg-hover);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:14px;font-weight:500;pointer-events:none;z-index:50;letter-spacing:0.3px}'
       // Переносы строк в user-сообщении должны сохраняться визуально.
       + '.msg.user, .msg-user-body{white-space:pre-wrap;word-wrap:break-word}'
       // Таймер в loader'е с отступом 10px от точек.
@@ -937,6 +942,7 @@
   //   buttonContainer (DOM) — куда воткнуть кнопку-скрепку
   //   chipsContainer (DOM)  — куда показывать чипы с именами файлов
   //   inputElement (DOM)    — textarea (для focus после выбора, опционально)
+  //   dropZone (DOM)        — элемент, на который можно перетащить файлы (drag-and-drop)
   //   onChange()            — колбэк когда файл добавлен/удалён
   //   maxFiles (number)     — максимум файлов одновременно (по умолчанию 5)
   //   maxFileSize (number)  — лимит размера каждого в байтах (по умолчанию 50 МБ)
@@ -945,6 +951,7 @@
     var buttonContainer = opts.buttonContainer;
     var chipsContainer = opts.chipsContainer;
     var inputElement = opts.inputElement;
+    var dropZone = opts.dropZone;
     var onChange = opts.onChange || function () {};
     var MAX_FILES = opts.maxFiles || 5;
     var MAX_FILE_SIZE = opts.maxFileSize || 50 * 1024 * 1024;
@@ -969,12 +976,10 @@
     btn.addEventListener('click', function () { fileInput.click(); });
     buttonContainer.appendChild(btn);
 
-    fileInput.addEventListener('change', function () {
-      if (!fileInput.files || !fileInput.files.length) {
-        fileInput.value = '';
-        return;
-      }
-      // Защита от дубликатов: сравниваем по имени+размеру.
+    // Общий путь добавления файлов — используется и из <input change>,
+    // и из drop-листенера, и (потенциально) из вызывающего кода.
+    function addFiles(fileList) {
+      if (!fileList || !fileList.length) return;
       function isDuplicate(f) {
         for (var i = 0; i < selectedFiles.length; i++) {
           if (selectedFiles[i].name === f.name && selectedFiles[i].size === f.size) return true;
@@ -982,8 +987,8 @@
         return false;
       }
       var rejected = [];
-      for (var i = 0; i < fileInput.files.length; i++) {
-        var f = fileInput.files[i];
+      for (var i = 0; i < fileList.length; i++) {
+        var f = fileList[i];
         if (selectedFiles.length >= MAX_FILES) {
           rejected.push(f.name + ' (лимит ' + MAX_FILES + ' файлов)');
           continue;
@@ -1002,8 +1007,45 @@
       renderChips();
       onChange();
       if (inputElement) inputElement.focus();
+    }
+
+    fileInput.addEventListener('change', function () {
+      addFiles(fileInput.files);
       fileInput.value = '';
     });
+
+    // Drag-and-drop на указанный элемент (обычно — область чата). При
+    // dragover подсвечиваем зону через .gc-drop-active. Слушатели не
+    // вешаем если dropZone disabled (setDisabled(true)).
+    var dropDisabled = false;
+    if (dropZone) {
+      dropZone.addEventListener('dragenter', function (e) {
+        if (dropDisabled || !e.dataTransfer || !e.dataTransfer.types) return;
+        if (e.dataTransfer.types.indexOf('Files') === -1) return;
+        e.preventDefault();
+        dropZone.classList.add('gc-drop-active');
+      });
+      dropZone.addEventListener('dragover', function (e) {
+        if (dropDisabled || !e.dataTransfer || !e.dataTransfer.types) return;
+        if (e.dataTransfer.types.indexOf('Files') === -1) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      });
+      dropZone.addEventListener('dragleave', function (e) {
+        // dragleave срабатывает при переходе на child элементы — снимаем
+        // подсветку только когда курсор реально вышел за пределы dropZone.
+        if (e.target === dropZone || !dropZone.contains(e.relatedTarget)) {
+          dropZone.classList.remove('gc-drop-active');
+        }
+      });
+      dropZone.addEventListener('drop', function (e) {
+        if (dropDisabled) return;
+        if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+        e.preventDefault();
+        dropZone.classList.remove('gc-drop-active');
+        addFiles(e.dataTransfer.files);
+      });
+    }
 
     // Перерисовка чипов всех прикреплённых файлов + индикатор кнопки.
     function renderChips() {
@@ -1062,6 +1104,8 @@
     function setDisabled(disabled) {
       btn.disabled = !!disabled;
       chipsContainer.style.display = disabled ? 'none' : '';
+      dropDisabled = !!disabled;
+      if (disabled && dropZone) dropZone.classList.remove('gc-drop-active');
     }
 
     // Извлечь один файл — внутренний helper.
@@ -1129,6 +1173,7 @@
       hasFiles: hasFiles,
       getFile: getFile,
       getFiles: getFiles,
+      addFiles: addFiles,
       clear: clear,
       removeAt: removeAt,
       cancel: cancel,

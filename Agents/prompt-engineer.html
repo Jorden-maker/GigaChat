@@ -334,7 +334,8 @@ function init() {
   attachment = GigaChat.setupAttachment({
     buttonContainer: document.getElementById('attachBtn'),
     chipsContainer: document.getElementById('attachChips'),
-    inputElement: document.getElementById('userInput')
+    inputElement: document.getElementById('userInput'),
+    dropZone: document.getElementById('chatContainer')
   });
   GigaChat.initSidebarResize({
     sidebar: document.querySelector('.sidebar'),
