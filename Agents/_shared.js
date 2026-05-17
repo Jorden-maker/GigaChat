@@ -2055,16 +2055,8 @@
 
     lastBot.innerHTML = '';
     lastBot.classList.add('gc-typewriting');
-
-    // Каретка-курсор после конца текста (мягкий мигающий блок).
-    if (!document.querySelector('style[data-gc-typewriter]')) {
-      var style = document.createElement('style');
-      style.setAttribute('data-gc-typewriter', '1');
-      style.textContent =
-        '.gc-typewriting::after{content:"\\258B";display:inline-block;margin-left:1px;color:var(--accent);animation:gcCaret 1s steps(2) infinite;vertical-align:baseline}' +
-        '@keyframes gcCaret{50%{opacity:0}}';
-      document.head.appendChild(style);
-    }
+    // Класс .gc-typewriting — только маркер для возможной кастомизации,
+    // визуальный курсор-каретка убран по требованию.
 
     var i = 0;
     // Кеш последнего отрендеренного префикса — re-render только при изменении
