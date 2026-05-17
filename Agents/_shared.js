@@ -94,27 +94,36 @@
     var dotClass = opts.dotClass || 'dot';
     if (dotEl) dotEl.className = dotClass + ' checking';
     if (textEl) textEl.textContent = labels.checking;
-    var controller = new AbortController();
-    var tid = setTimeout(function () { controller.abort(); }, PING_TIMEOUT_MS);
-    // /healthz — общий core-endpoint n8n, всегда отвечает 200 если сервер жив.
     var healthUrl = cfg.N8N_BASE.replace(/\/$/, '') + '/healthz';
-    return fetch(healthUrl, {
-      method: 'GET',
-      mode: 'no-cors',
-      signal: controller.signal
-    }).then(function () {
-      clearTimeout(tid);
-      // С mode:'no-cors' ответ всегда opaque, status=0. Сам факт резолва
-      // означает, что сервер вернул хоть что-то.
-      if (dotEl) dotEl.className = dotClass + ' online';
-      if (textEl) textEl.textContent = labels.online;
-      return true;
-    }).catch(function () {
-      clearTimeout(tid);
-      if (dotEl) dotEl.className = dotClass + ' offline';
-      if (textEl) textEl.textContent = labels.offline;
-      return false;
-    });
+
+    function pingOnce() {
+      var controller = new AbortController();
+      var tid = setTimeout(function () { controller.abort(); }, PING_TIMEOUT_MS);
+      // /healthz — core-endpoint n8n, всегда отвечает 200 если сервер жив.
+      // mode:'no-cors' — браузер не блокирует opaque-ответ из-за отсутствия
+      // CORS-заголовков на /healthz; резолв = сервер ответил.
+      return fetch(healthUrl, { method: 'GET', mode: 'no-cors', signal: controller.signal })
+        .then(function () { clearTimeout(tid); return true; })
+        .catch(function (e) { clearTimeout(tid); throw e; });
+    }
+
+    // Один retry через 2 сек на случай сетевой моргнулки. Без него одна
+    // потерянная пакета → "Офлайн" на весь 30-секундный интервал между
+    // следующими ping'ами → юзер думает, что сервер упал.
+    return pingOnce()
+      .catch(function () {
+        return new Promise(function (r) { setTimeout(r, 2000); }).then(pingOnce);
+      })
+      .then(function () {
+        if (dotEl) dotEl.className = dotClass + ' online';
+        if (textEl) textEl.textContent = labels.online;
+        return true;
+      })
+      .catch(function () {
+        if (dotEl) dotEl.className = dotClass + ' offline';
+        if (textEl) textEl.textContent = labels.offline;
+        return false;
+      });
   }
 
   // Markdown-таблица → HTML <table>. Должна работать ДО конвертации \n в <br>.
