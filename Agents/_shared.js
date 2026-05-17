@@ -314,6 +314,41 @@
   }
 
   // ============================================================
+  // TOAST — короткие уведомления внизу экрана
+  // ============================================================
+  // Используется для quota-warning, network-fail, fatal-init и т.д.
+  // Один toast стоит ~4 сек, потом fade-out. Несколько подряд кладутся
+  // в стек снизу вверх.
+  function showToast(text, kind) {
+    if (!document.getElementById('gc-toast-css')) {
+      var style = document.createElement('style');
+      style.id = 'gc-toast-css';
+      style.textContent =
+        '#gc-toast-stack{position:fixed;bottom:20px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;max-width:calc(100vw - 40px)}' +
+        '.gc-toast{background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:10px 16px;font-size:13px;line-height:1.4;box-shadow:0 4px 12px rgba(0,0,0,0.15);pointer-events:auto;max-width:380px;animation:gcToastIn .2s ease}' +
+        '.gc-toast.warn{border-left-color:#f59e0b}' +
+        '.gc-toast.error{border-left-color:#ef4444}' +
+        '.gc-toast.fade{opacity:0;transition:opacity .25s}' +
+        '@keyframes gcToastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';
+      document.head.appendChild(style);
+    }
+    var stack = document.getElementById('gc-toast-stack');
+    if (!stack) {
+      stack = document.createElement('div');
+      stack.id = 'gc-toast-stack';
+      document.body.appendChild(stack);
+    }
+    var toast = document.createElement('div');
+    toast.className = 'gc-toast' + (kind ? ' ' + kind : '');
+    toast.textContent = text;
+    stack.appendChild(toast);
+    setTimeout(function () {
+      toast.classList.add('fade');
+      setTimeout(function () { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 250);
+    }, 4000);
+  }
+
+  // ============================================================
   // БРАУЗЕРНЫЕ ПАРСЕРЫ — извлечение текста БЕЗ OCR
   // ============================================================
   // docx, xlsx, txt/md/log/csv парсим прямо в браузере через JSZip
@@ -1371,6 +1406,37 @@
     // страницы) — реликты вкладок, закрытых без clearInflight, очистятся.
     pruneStaleInflightMarkers();
 
+    // Чистка orphan-ключей: snapshot/draft/inflight записи от сессий,
+    // которых уже нет в KEY_SESSIONS (удалили в другой вкладке, или
+    // localStorage был частично сброшен). Без этой чистки localStorage
+    // постепенно накапливает мусор и упирается в quota при больших
+    // длинных сессиях.
+    function pruneOrphanedKeys() {
+      try {
+        var rawSessions = localStorage.getItem(KEY_SESSIONS);
+        var sessions = rawSessions ? JSON.parse(rawSessions) : [];
+        var valid = {};
+        for (var i = 0; i < sessions.length; i++) valid[sessions[i].id] = true;
+        var prefixes = [KEY_VIEW, KEY_DRAFT, KEY_INFLIGHT];
+        var toRemove = [];
+        for (var j = 0; j < localStorage.length; j++) {
+          var k = localStorage.key(j);
+          if (!k) continue;
+          for (var p = 0; p < prefixes.length; p++) {
+            if (k.indexOf(prefixes[p]) === 0) {
+              var sid = k.slice(prefixes[p].length);
+              if (sid && !valid[sid]) toRemove.push(k);
+              break;
+            }
+          }
+        }
+        for (var r = 0; r < toRemove.length; r++) {
+          try { localStorage.removeItem(toRemove[r]); } catch (e) {}
+        }
+      } catch (e) {}
+    }
+    pruneOrphanedKeys();
+
     // Сохранение snapshot с защитой от переполнения localStorage.
     // Стратегия при QuotaExceededError:
     //   1) Урезаем displayMessages до последних 50 сообщений и пробуем снова.
@@ -1410,22 +1476,36 @@
         store.displayMessages = msgs;
       }
       if (trySaveSnapshotTo(sid, msgs)) return;
+      // Дошли сюда → quota exceeded на полном msgs. Дальше fallback'и
+      // с уменьшением объёма. Юзеру показываем toast только один раз
+      // на сессию, чтобы не спамить.
       var trimmed = msgs.slice(-50);
       if (trySaveSnapshotTo(sid, trimmed)) {
         store.displayMessages = trimmed;
+        notifyQuotaWarning('История обрезана до последних 50 сообщений — хранилище заполнено.');
         return;
       }
       pruneOtherSnapshots(sid);
       if (trySaveSnapshotTo(sid, trimmed)) {
         store.displayMessages = trimmed;
+        notifyQuotaWarning('Освобождено место: удалены snapshot\'ы других сессий.');
         return;
       }
       var minimal = msgs.slice(-20);
       if (trySaveSnapshotTo(sid, minimal)) {
         store.displayMessages = minimal;
+        notifyQuotaWarning('История критично обрезана (20 сообщений) — хранилище переполнено.');
         return;
       }
-      // Тихий отказ — следующий saveSnapshot повторит.
+      notifyQuotaWarning('Не удалось сохранить историю — хранилище переполнено.');
+    }
+    // Toast о quota — показываем не чаще раза в минуту.
+    var lastQuotaWarn = 0;
+    function notifyQuotaWarning(text) {
+      var now = Date.now();
+      if (now - lastQuotaWarn < 60000) return;
+      lastQuotaWarn = now;
+      showToast(text, 'warn');
     }
 
     function loadSnapshot(sid) {
@@ -1907,6 +1987,7 @@
     formatMarkdownTable: formatMarkdownTable,
     toggleTheme: toggleTheme,
     applyTheme: applyTheme,
+    showToast: showToast,
     initThemeToggle: initThemeToggle,
     setupAttachment: setupAttachment,
     buildMessageWithAttachment: buildMessageWithAttachment,
