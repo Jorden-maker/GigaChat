@@ -2556,15 +2556,8 @@
       var inflight = sessionStore.getInflight(activeSessionId);
       if (inflight) {
         var elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
-        // Если у inflight есть label ("Думаю", "Считаю", "Извлекаю файлы" и т.п.) —
-        // показываем его между точками и таймером. router использует label как
-        // имя выбранного агента в спиннере; для прочих агентов — статический.
-        var labelHtml = inflight.label
-          ? '<span class="label">' + escapeHtml(inflight.label) + '</span>'
-          : '';
         html += '<div class="loading gc-inflight-loader" data-started-at="' + inflight.startedAt + '">' +
           '<span class="dots"><span></span><span></span><span></span></span>' +
-          labelHtml +
           '<span class="timer">' + elapsed + ' сек</span></div>';
       }
       var wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 30;
