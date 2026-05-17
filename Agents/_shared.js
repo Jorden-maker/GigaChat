@@ -1416,6 +1416,33 @@
 
     var PENCIL_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
 
+    // ─── Search input: вставляется ПЕРЕД sessionList (внутри sidebar). При
+    // вводе фильтрует session-item по name (case-insensitive). Filter
+    // применяется и при каждом renderList. Сам state хранится в sessionFilter.
+    var sessionFilter = '';
+    if (sessionList) {
+      var searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.className = 'gc-session-search';
+      searchInput.placeholder = 'Поиск...';
+      searchInput.setAttribute('aria-label', 'Поиск по сессиям');
+      searchInput.addEventListener('input', function () {
+        sessionFilter = (this.value || '').toLowerCase().trim();
+        applySessionFilter();
+      });
+      sessionList.parentNode.insertBefore(searchInput, sessionList);
+    }
+    function applySessionFilter() {
+      if (!sessionList) return;
+      var items = sessionList.querySelectorAll('.session-item');
+      var q = sessionFilter;
+      for (var i = 0; i < items.length; i++) {
+        var nameEl = items[i].querySelector('.name');
+        var nm = nameEl ? (nameEl.textContent || '').toLowerCase() : '';
+        items[i].style.display = (!q || nm.indexOf(q) !== -1) ? '' : 'none';
+      }
+    }
+
     function save() {
       try {
         localStorage.setItem(KEY_SESSIONS, JSON.stringify(store.sessions));
@@ -1862,6 +1889,7 @@
         }
         sessionList.appendChild(item);
       }
+      applySessionFilter(); // re-apply фильтра после перерисовки списка
     }
 
     // Multi-tab sync: если в другой вкладке этого же агента поменялся список
@@ -2167,6 +2195,10 @@
       '.sidebar-add{padding:10px 16px;border-bottom:1px solid var(--border)}' +
       '.sidebar-add button{width:100%;padding:8px;background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-secondary);border-radius:6px;cursor:pointer;font-size:13px;text-align:center}' +
       '.sidebar-add button:hover{border-color:var(--accent);color:var(--accent)}' +
+      // Search-input над списком сессий (вставляется автоматически из createSessionStore)
+      '.gc-session-search{margin:8px 16px;padding:6px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:12px;font-family:inherit;outline:none;transition:border-color .15s}' +
+      '.gc-session-search:focus{border-color:var(--accent)}' +
+      '.gc-session-search::placeholder{color:var(--text-muted)}' +
       // Session list + items
       '.session-list{flex:1;overflow-y:auto;padding:8px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}' +
       '.session-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;margin:2px 0;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text-secondary);transition:background 0.15s}' +
