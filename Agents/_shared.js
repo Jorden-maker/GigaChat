@@ -702,16 +702,16 @@
       // позволяет это (но #chat имеет overflow-y:auto и overflow-x:visible
       // по умолчанию). На случай переполнения по ширине — padding-right
       // у #chat достаточный.
-      + '.msg.user{position:relative}'
+      + '.msg.user,.msg.bot{position:relative}'
       + '.gc-msg-copy{position:absolute;left:0;top:calc(100% + 6px);display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;background:transparent;border:none;border-radius:4px;color:var(--accent);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}'
-      + '.msg.user:hover .gc-msg-copy,.msg.user:focus-within .gc-msg-copy,.gc-msg-copy:focus{opacity:1}'
+      + '.msg:hover .gc-msg-copy,.msg:focus-within .gc-msg-copy,.gc-msg-copy:focus{opacity:1}'
       + '.gc-msg-copy:hover{background:var(--bg-user)}'
       + '.gc-msg-copy svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
       + '.gc-msg-copy.copied{opacity:1}'
-      // Время «N сек/мин назад» правее copy-btn на 10px. Показывается
-      // тоже только на hover (как и copy). Цвет = text-muted, мелкий шрифт.
+      // Время «N сек/мин назад» правее copy-btn. Показывается тоже только
+      // на hover (как и copy). Цвет = text-muted, мелкий шрифт.
       + '.gc-msg-time{position:absolute;left:30px;top:calc(100% + 6px);line-height:22px;font-size:11px;color:var(--text-muted);opacity:0;transition:opacity .15s;white-space:nowrap;pointer-events:none}'
-      + '.msg.user:hover .gc-msg-time{opacity:1}'
+      + '.msg:hover .gc-msg-time{opacity:1}'
       + '';
     var style = document.createElement('style');
     style.setAttribute('data-gc-attach', '1');
@@ -746,7 +746,8 @@
 
   function attachCopyButtons(root) {
     var scope = root || document;
-    var msgs = scope.querySelectorAll('.msg.user');
+    // Обрабатываем И user, И bot — copy/time появляются под обоими типами.
+    var msgs = scope.querySelectorAll('.msg.user, .msg.bot');
     for (var i = 0; i < msgs.length; i++) {
       var msg = msgs[i];
       if (!msg.querySelector('.gc-msg-copy')) {
@@ -794,10 +795,14 @@
       if (!btn) return;
       e.preventDefault();
       e.stopPropagation();
-      var parent = btn.closest('.msg.user');
+      // Поддерживаем оба типа сообщений — user и bot.
+      var parent = btn.closest('.msg.user, .msg.bot');
       if (!parent) return;
       var clone = parent.cloneNode(true);
-      var junk = clone.querySelectorAll('.gc-msg-copy, .gc-msg-time, .inflight-agent-badge, .gc-attach-chip');
+      // Срезаем служебные элементы: саму copy-кнопку, time-бэйдж, agent-бэйдж,
+      // attachment-чипы, а также вложенные copy-кнопки (.btn-copy в prompt-block,
+      // .copy-btn в math .code-block) — иначе в буфер попадёт слово «Копировать».
+      var junk = clone.querySelectorAll('.gc-msg-copy, .gc-msg-time, .inflight-agent-badge, .gc-attach-chip, .btn-copy, .copy-btn');
       for (var ji = 0; ji < junk.length; ji++) junk[ji].remove();
       var text = (clone.textContent || '').trim();
       if (!text || !navigator.clipboard) return;
@@ -2512,7 +2517,7 @@
           var badge = userBadgeHtml(m, nextMsg) || '';
           html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">' + userBody + badge + '</div>';
         } else {
-          html += '<div class="msg bot">' + formatBotHtml(m) + '</div>';
+          html += '<div class="msg bot" data-ts="' + (m.ts || 0) + '">' + formatBotHtml(m) + '</div>';
         }
       }
       var inflight = sessionStore.getInflight(activeSessionId);
@@ -2623,6 +2628,7 @@
         if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
         var data = await res.json();
         var botMsg = parseBotMessage(data);
+        if (!botMsg.ts) botMsg.ts = Date.now();
         enrichBotMsg(botMsg);
         if (useTypewriter) {
           typewriteAssistant(sessionStore, sendSessionId, botMsg, { cps: 100 });
@@ -2633,7 +2639,7 @@
       } catch (e) {
         sessionStore.clearInflight(sendSessionId);
         if (!sendCtrl.aborted()) {
-          var errMsg = { role: 'assistant', content: 'Ошибка: ' + e.message };
+          var errMsg = { role: 'assistant', content: 'Ошибка: ' + e.message, ts: Date.now() };
           enrichBotMsg(errMsg);
           sessionStore.pushToSession(sendSessionId, errMsg);
           // Статус-индикатор переключаем в Offline ТОЛЬКО если юзер всё ещё
