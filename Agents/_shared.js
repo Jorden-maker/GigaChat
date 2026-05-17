@@ -749,10 +749,17 @@
     return Math.floor(diff / 86400) + ' дн';
   }
 
-  function attachCopyButtons(root) {
-    var scope = root || document;
-    // Обрабатываем И user, И bot — copy/time появляются под обоими типами.
-    var msgs = scope.querySelectorAll('.msg.user, .msg.bot');
+  function attachCopyButtons(rootOrEl) {
+    if (!rootOrEl) rootOrEl = document;
+    // Принимаем либо контейнер (scope для querySelectorAll), либо одиночный
+    // .msg элемент — typewriter вызывает с single-element после каждого
+    // innerHTML rewrite чтобы вернуть copy/time на место.
+    var msgs;
+    if (rootOrEl.classList && rootOrEl.classList.contains('msg')) {
+      msgs = [rootOrEl];
+    } else {
+      msgs = rootOrEl.querySelectorAll('.msg.user, .msg.bot');
+    }
     for (var i = 0; i < msgs.length; i++) {
       var msg = msgs[i];
       if (!msg.querySelector('.gc-msg-copy')) {
@@ -2054,9 +2061,6 @@
     if (!plainText) return null;
 
     lastBot.innerHTML = '';
-    lastBot.classList.add('gc-typewriting');
-    // Класс .gc-typewriting — только маркер для возможной кастомизации,
-    // визуальный курсор-каретка убран по требованию.
 
     var i = 0;
     // Кеш последнего отрендеренного префикса — re-render только при изменении
@@ -2077,7 +2081,6 @@
         // (code-block у math, prompt-block у prompt-engineer) + готовый
         // markdown. applyHighlight подсвечивает синтаксис в code-блоках.
         lastBot.innerHTML = finalHtml;
-        lastBot.classList.remove('gc-typewriting');
         applyHighlight(lastBot);
         return;
       }
@@ -2088,6 +2091,8 @@
       // bold, italic, headers, code-блоки появляются live по мере того как
       // блок завершается в потоке (Claude-style streaming).
       lastBot.innerHTML = formatMarkdown(plainText.substring(0, i));
+      // Возвращаем copy-кнопку и time-бэйдж в bot-msg — innerHTML их стёр.
+      attachCopyButtons(lastBot);
     }, tickIntervalMs);
 
     return {
@@ -2095,7 +2100,6 @@
         clearInterval(intervalId);
         if (lastBot && lastBot.isConnected) {
           lastBot.innerHTML = finalHtml;
-          lastBot.classList.remove('gc-typewriting');
           applyHighlight(lastBot);
         }
       }
@@ -2512,16 +2516,27 @@
           // Дополнительный HTML справа от user-msg (router → inflight-agent-badge).
           var nextMsg = (i + 1 < displayMessages.length) ? displayMessages[i + 1] : null;
           var badge = userBadgeHtml(m, nextMsg) || '';
-          html += '<div class="msg user" data-ts="' + (m.ts || 0) + '">' + userBody + badge + '</div>';
+          // data-ts только если ts реально есть — иначе исторические сообщения
+          // (parseHistoryMessage без ts) получают data-ts="0" → null-attribute шум.
+          var userTsAttr = m.ts ? ' data-ts="' + m.ts + '"' : '';
+          html += '<div class="msg user"' + userTsAttr + '>' + userBody + badge + '</div>';
         } else {
-          html += '<div class="msg bot" data-ts="' + (m.ts || 0) + '">' + formatBotHtml(m) + '</div>';
+          var botTsAttr = m.ts ? ' data-ts="' + m.ts + '"' : '';
+          html += '<div class="msg bot"' + botTsAttr + '>' + formatBotHtml(m) + '</div>';
         }
       }
       var inflight = sessionStore.getInflight(activeSessionId);
       if (inflight) {
         var elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
+        // Если у inflight есть label ("Думаю", "Считаю", "Извлекаю файлы" и т.п.) —
+        // показываем его между точками и таймером. router использует label как
+        // имя выбранного агента в спиннере; для прочих агентов — статический.
+        var labelHtml = inflight.label
+          ? '<span class="label">' + escapeHtml(inflight.label) + '</span>'
+          : '';
         html += '<div class="loading gc-inflight-loader" data-started-at="' + inflight.startedAt + '">' +
           '<span class="dots"><span></span><span></span><span></span></span>' +
+          labelHtml +
           '<span class="timer">' + elapsed + ' сек</span></div>';
       }
       var wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 30;

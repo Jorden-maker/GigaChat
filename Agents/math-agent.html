@@ -191,6 +191,9 @@
             navigator.clipboard.writeText(pre.textContent.trim()).then(function () {
                 btn.textContent = 'Скопировано!';
                 setTimeout(function () { btn.textContent = 'Копировать'; }, 2000);
+            }).catch(function () {
+                btn.textContent = 'Не удалось';
+                setTimeout(function () { btn.textContent = 'Копировать'; }, 2000);
             });
         }
 
