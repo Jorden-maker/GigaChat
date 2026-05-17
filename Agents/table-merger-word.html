@@ -164,7 +164,11 @@ main { max-width: 800px; }
     gap: 10px;
     justify-content: flex-end;
 }
+/* Override shared .btn-primary: НЕ растягиваем на 100%, чтобы в .actions
+   с flex-end кнопка прижималась вправо. Также сбрасываем margin-bottom. */
 .btn-primary {
+    width: auto;
+    margin-bottom: 0;
     padding: 12px 28px;
     background: var(--accent);
     color: #fff;

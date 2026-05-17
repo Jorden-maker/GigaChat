@@ -1729,6 +1729,12 @@
       store.sessionCounter++;
       var id = idPrefix + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       store.sessions.push({ id: id, name: namePrefix + store.sessionCounter });
+      // Сбрасываем фильтр поиска — иначе новая сессия может быть скрыта
+      // существующим фильтром, юзер увидит чат но не сессию в сайдбаре.
+      if (typeof searchInput !== 'undefined' && searchInput) {
+        searchInput.value = '';
+        sessionFilter = '';
+      }
       return switchTo(id, { skipHistoryLoad: true });
     }
 
@@ -2069,7 +2075,12 @@
     if (STATUS_CSS_INJECTED) return;
     STATUS_CSS_INJECTED = true;
     var css =
+      // gcPulse — пульсация статус-точек. gcBlink — мигание точек загрузки
+      // в .loading .dots (используется в OCR-search-FIO и других tool-страницах).
+      // Оба keyframe-а в одном месте, чтобы и agent-страницы (через injectAgentCss),
+      // и tool-страницы (через injectToolCss) имели доступ.
       '@keyframes gcPulse{0%,100%{opacity:1}50%{opacity:.4}}' +
+      '@keyframes gcBlink{0%,100%{opacity:.2}50%{opacity:1}}' +
       // Дефолтное (нейтральное) состояние всех точек — оранжевая пульсация.
       // Контейнер задаёт размер: header .status .dot (5px), .status-bar .dot (6px),
       // .status-dot (8px), .card-status (8px). Здесь — только цвет + анимация.
@@ -2247,7 +2258,7 @@
       '.loading .dots span{display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--text-secondary);animation:gcBlink 1.4s infinite}' +
       '.loading .dots span:nth-child(2){animation-delay:.2s}' +
       '.loading .dots span:nth-child(3){animation-delay:.4s}' +
-      '@keyframes gcBlink{0%,100%{opacity:.2}50%{opacity:1}}' +
+      // @keyframes gcBlink — в injectStatusDotCss (выше) чтобы tool-страницы тоже имели.
       // .error box
       '.error{background:rgba(239,68,68,.10);border:1px solid #cc4444;color:#cc4444;padding:12px 16px;border-radius:10px;margin:10px 0;font-size:13px}' +
       '.timer{font-family:Consolas,monospace;font-size:11px;color:var(--text-secondary);margin-left:8px}';
