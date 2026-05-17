@@ -2224,8 +2224,8 @@
       '.btn-home{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;margin:10px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);text-decoration:none;flex-shrink:0;transition:background .15s,color .15s,border-color .15s}' +
       '.btn-home:hover{background:var(--bg-input);color:var(--text-primary);border-color:var(--text-muted)}' +
       '.btn-home svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}' +
-      // Sidebar (--sidebar-width per-page, fallback 280 — стандарт для чат-агентов)
-      '.sidebar{width:var(--sidebar-width,280px);height:calc(100vh - 24px);margin:12px 0 12px 12px;background:var(--bg-sidebar);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}' +
+      // Sidebar (--sidebar-width per-page, fallback 270 — стандарт для чат-агентов)
+      '.sidebar{width:var(--sidebar-width,270px);height:calc(100vh - 24px);margin:12px 0 12px 12px;background:var(--bg-sidebar);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}' +
       '.sidebar-header{padding:0 16px 12px}' +
       '.sidebar-header h3{font-size:13px;color:var(--text-secondary);letter-spacing:1px;text-transform:uppercase}' +
       '.sidebar-add{padding:10px 16px;border-bottom:1px solid var(--border)}' +
@@ -2687,7 +2687,7 @@
     // sidebar resize / header shadow / scroll-to-bottom
     initSidebarResize({
       sidebar: opts.sidebarEl || document.querySelector('.sidebar'),
-      initialWidth: opts.sidebarInitialWidth || 280,
+      initialWidth: opts.sidebarInitialWidth || 270,
       minWidth: opts.sidebarMinWidth || 220,
       maxWidth: opts.sidebarMaxWidth || 440
     });
