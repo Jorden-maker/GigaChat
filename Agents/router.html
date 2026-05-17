@@ -398,8 +398,9 @@
                 }
             }
 
-            // Спец-эвристики для math
-            if (/^[\d\s+\-*/^().,=]+$/.test(message.trim())) scores.math += 5;
+            // Спец-эвристики для math: lookahead требует хотя бы одну цифру,
+            // иначе "+++" или "..." уезжают в math по одному только regex.
+            if (/^(?=.*\d)[\d\s+\-*/^().,=]+$/.test(message.trim())) scores.math += 5;
             if (/\d+\s*[+\-*/^%=]\s*\d+/.test(message)) scores.math += 2;
 
             // Победитель — наивысший балл. При ничье приоритет: sql > rag > math > prompt-engineer

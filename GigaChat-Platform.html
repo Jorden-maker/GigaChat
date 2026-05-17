@@ -578,33 +578,26 @@
     var mergerWordDot = document.getElementById('status-merger-word');
     if (mergerWordDot) mergerWordDot.className = 'card-status online';
 
-    function checkAgent(agent) {
-        var dot = document.getElementById('status-' + agent.id);
-        dot.className = 'card-status checking';
-        var controller = new AbortController();
-        var timeout = setTimeout(function() { controller.abort(); }, 5000);
-        fetch(agent.webhook, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: '{"message":"ping"}',
-            signal: controller.signal
-        })
-        .then(function(res) {
-            clearTimeout(timeout);
-            dot.className = (res.ok || res.status > 0) ? 'card-status online' : 'card-status offline';
-        })
-        .catch(function() {
-            clearTimeout(timeout);
-            dot.className = 'card-status offline';
-        });
+    // Один health-check на n8n (через /healthz, mode:'no-cors'), результат
+    // применяется ко всем карточкам. Раньше каждая карточка слала POST
+    // {"message":"ping"} на свой webhook — это РЕАЛЬНО запускало workflow
+    // агента с мусорным payload каждые 30 сек. См. _shared.js:80 — там
+    // подробно расписано почему пинговать webhook'и плохо.
+    function setAllCardStatus(cls) {
+        for (var i = 0; i < AGENTS.length; i++) {
+            var dot = document.getElementById('status-' + AGENTS[i].id);
+            if (dot) dot.className = cls;
+        }
     }
 
     function checkAll() {
-        // .status-bar удалена из шапки — каждый агент сам показывает своё
-        // состояние через .card-status. Глобальный пинг больше не нужен.
-        for (var i = 0; i < AGENTS.length; i++) {
-            checkAgent(AGENTS[i]);
-        }
+        setAllCardStatus('card-status checking');
+        var controller = new AbortController();
+        var timeout = setTimeout(function () { controller.abort(); }, 5000);
+        var base = (GigaChat.config.N8N_BASE || 'http://localhost:5678').replace(/\/$/, '');
+        fetch(base + '/healthz', { method: 'GET', mode: 'no-cors', signal: controller.signal })
+            .then(function () { clearTimeout(timeout); setAllCardStatus('card-status online'); })
+            .catch(function () { clearTimeout(timeout); setAllCardStatus('card-status offline'); });
     }
 
     checkAll();

@@ -135,10 +135,13 @@
   }
 
   // Markdown → HTML (заголовки, code, **bold**, *italic*, списки, ---, таблицы, переносы строк).
-  // accentColor — цвет заголовков, чтобы агент сохранял свой стиль.
+  // accentColor — цвет заголовков, чтобы агент сохранял свой стиль. Валидируем
+  // как hex-цвет (#rgb/#rrggbb/#rrggbbaa) — иначе подмена через accentColor
+  // даёт CSS-инъекцию ("};background:url(javascript:...)").
   function formatMarkdown(text, accentColor) {
     if (!text) return '';
-    accentColor = accentColor || '#7c3aed';
+    accentColor = (typeof accentColor === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(accentColor))
+      ? accentColor : '#7c3aed';
     var html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     // 1) Защищаем блоки кода плейсхолдерами, чтобы \n внутри них не превращались в <br>.
@@ -787,10 +790,11 @@
   //
   // opts:
   //   sidebar      (Element)   — .sidebar
-  //   initialWidth (number)    — стартовая ширина если сохранённой нет (по умолч. 240)
+  //   initialWidth (number)    — стартовая ширина (по умолч. 240)
   //   minWidth     (number)    — минимум при перетаскивании (по умолч. 220)
   //   maxWidth     (number)    — максимум (по умолч. 2 × min)
-  //   storageKey   (string)    — localStorage ключ для сохранения ширины
+  // Параметр storageKey удалён: by design ширина не сохраняется между
+  // открытиями страницы (см. строку «Не сохраняем в localStorage» ниже).
   function initSidebarResize(opts) {
     var sidebar = opts.sidebar;
     if (!sidebar) return;
@@ -799,7 +803,6 @@
     var initialW = opts.initialWidth || 240;
     var minW = opts.minWidth || 220;
     var maxW = opts.maxWidth || (minW * 2);
-    var storageKey = opts.storageKey || 'giga_sidebar_w';
 
     // CSS инжектится один раз для всех агентов на странице.
     if (!document.getElementById('gc-sidebar-resize-css')) {
@@ -1717,8 +1720,14 @@
     }
     window.addEventListener('storage', handleStorageEvent);
 
+    function dispose() {
+      window.removeEventListener('storage', handleStorageEvent);
+      stopInflightTicker();
+    }
+
     return {
       state: store,                              // прямой доступ к sessions/activeSessionId/displayMessages
+      dispose: dispose,                          // cleanup listener'а и таймера
       load: load,
       save: save,
       saveSnapshot: saveSnapshot,

@@ -662,12 +662,11 @@
             a.click(); URL.revokeObjectURL(a.href);
         }
         function copyCode(btn) {
-            // Берём текст из соседнего .code-body (или ближайшего pre), чтобы
-            // не пытаться вырезать слово «Копировать» из textContent родителя.
-            var codeBlock = btn.parentElement;
-            var pre = codeBlock.querySelector('.code-body') || codeBlock.querySelector('pre');
-            var code = (pre ? pre.textContent : codeBlock.textContent.replace(/^Копировать\s*/, '')).trim();
-            navigator.clipboard.writeText(code).then(function() {
+            // Берём только из pre — fallback на textContent родителя был хрупким:
+            // при гонке кликов на странице с двумя кнопками срезал не тот префикс.
+            var pre = btn.parentElement.querySelector('.code-body, pre');
+            if (!pre) return;
+            navigator.clipboard.writeText(pre.textContent.trim()).then(function() {
                 btn.textContent = 'Скопировано!';
                 setTimeout(function() { btn.textContent = 'Копировать'; }, 2000);
             });
