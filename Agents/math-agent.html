@@ -282,26 +282,23 @@
                 // убивается, следующий запрос автоматически создаёт новый —
                 // никаких перезагрузок страницы.
                 var exec = await PyodideClient.executePython(data.code);
-
-                // Если Pyodide убит по таймауту — задача не решена, но
-                // следующий запрос будет работать. Сразу возвращаем понятную
-                // ошибку, не дёргая LLM-объяснение.
-                if (exec.killed) {
-                    return {
-                        response: exec.error,
-                        code: data.code,
-                        raw_result: exec.output || ''
-                    };
-                }
                 var finalLine = extractFinalLine(exec.lines);
+
+                // ВАЖНО: даже при exec.killed или exec.ok=false идём на
+                // /math-explain. Workflow обработает error/killed поля и
+                // сохранит assistant-запись в chat_memory с понятным текстом.
+                // Если ранний return — user-запись в БД есть, assistant нет,
+                // при reload пользователь увидит свой вопрос без ответа.
 
                 ctx.setInflightLabel('Готовлю объяснение');
                 var explainUrl = ctx.sendUrl.replace(/\/math(\/?)$/, '/math-explain$1');
                 var resp;
                 try {
-                    // fetchWithRetry: 60s таймаут + 1 retry на сетевых ошибках.
-                    // Голый fetch ждал бы по дефолту 5 минут — слишком долго
-                    // для случая, когда n8n или GigaChat-LLM завис.
+                    // fetchWithRetry: 60s таймаут, БЕЗ retry (retries: 0).
+                    // Phase 2 — это INSERT в chat_memory. Если первый POST
+                    // дошёл до n8n но ответ потерялся, retry создал бы дубль
+                    // в БД (не идемпотентно). На localhost-связи дубль крайне
+                    // маловероятен, но защищаемся жёстко: одна попытка.
                     resp = await GigaChat.fetchWithRetry(explainUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -311,9 +308,10 @@
                             code: data.code,
                             raw_result: exec.output,
                             final_line: finalLine,
-                            error: exec.ok ? '' : exec.error
+                            error: exec.ok ? '' : exec.error,
+                            killed: !!exec.killed
                         })
-                    }, { timeout: 60000, retries: 1, signal: ctx.signal });
+                    }, { timeout: 60000, retries: 0, signal: ctx.signal });
                 } catch (e) {
                     // Сеть упала / отмена / таймаут. Возвращаем то, что есть локально:
                     // число пользователь хотя бы увидит, объяснения не будет.

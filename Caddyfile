@@ -24,6 +24,13 @@
 	@wasm path *.wasm
 	header @wasm Content-Type application/wasm
 
+	# python_stdlib.zip — Pyodide грузит его как ArrayBuffer. Дефолт Caddy
+	# отдаёт application/zip, что обычно работает, но превентивно фиксируем
+	# на octet-stream — если в офисе будет Caddy с кастомной MIME-таблицей
+	# (например text/plain для .zip), Pyodide может не распарсить.
+	@zip path *.zip
+	header @zip Content-Type application/octet-stream
+
 	# В логах оставляем только ошибки — каждый ping раз в 30 сек заполнял бы
 	# журнал, и было бы тяжело найти реальные проблемы.
 	log {
