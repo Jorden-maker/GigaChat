@@ -703,14 +703,14 @@
       // по умолчанию). На случай переполнения по ширине — padding-right
       // у #chat достаточный.
       + '.msg.user{position:relative}'
-      + '.gc-msg-copy{position:absolute;right:-27px;bottom:0;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;background:transparent;border:none;border-radius:4px;color:var(--accent);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}'
+      + '.gc-msg-copy{position:absolute;left:0;top:calc(100% + 6px);display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;background:transparent;border:none;border-radius:4px;color:var(--accent);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}'
       + '.msg.user:hover .gc-msg-copy,.msg.user:focus-within .gc-msg-copy,.gc-msg-copy:focus{opacity:1}'
       + '.gc-msg-copy:hover{background:var(--bg-user)}'
       + '.gc-msg-copy svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
       + '.gc-msg-copy.copied{opacity:1}'
       // Время «N сек/мин назад» правее copy-btn на 10px. Показывается
       // тоже только на hover (как и copy). Цвет = text-muted, мелкий шрифт.
-      + '.gc-msg-time{position:absolute;right:-77px;bottom:2px;font-size:11px;color:var(--text-muted);opacity:0;transition:opacity .15s;white-space:nowrap;pointer-events:none}'
+      + '.gc-msg-time{position:absolute;left:30px;top:calc(100% + 6px);line-height:22px;font-size:11px;color:var(--text-muted);opacity:0;transition:opacity .15s;white-space:nowrap;pointer-events:none}'
       + '.msg.user:hover .gc-msg-time{opacity:1}'
       + '';
     var style = document.createElement('style');
@@ -2284,7 +2284,7 @@
       '.btn-export:hover{background:var(--accent-light,rgba(212,165,116,.15));color:var(--accent);border-color:var(--accent)}' +
       // .msg общие
       '.msg{animation:gcFadeIn .25s ease;line-height:1.55;font-size:14px;color:var(--text-primary);word-wrap:break-word;overflow-wrap:anywhere}' +
-      '.msg + .msg{margin-top:32px}' +
+      '.msg + .msg{margin-top:40px}' +
       '@keyframes gcFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}' +
       '.msg.user{background:var(--bg-user);color:var(--accent);padding:10px 14px;border-radius:8px;word-break:break-all;font-size:14px;display:block;width:fit-content;max-width:min(720px,80%)}' +
       '.msg.bot{padding:0 4px;font-size:14px;display:block}' +
