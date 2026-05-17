@@ -1566,7 +1566,16 @@
       }
     }
 
-    function remove(id) {
+    function remove(id, opts) {
+      opts = opts || {};
+      // По умолчанию спрашиваем подтверждение — клик по × раньше стирал
+      // сессию вместе с историей мгновенно, промах = потеря. Передать
+      // {skipConfirm:true} можно для программных вызовов (cleanup).
+      if (!opts.skipConfirm) {
+        var sess = findSession(id);
+        var name = sess ? sess.name : 'сессию';
+        if (!window.confirm('Удалить «' + name + '»?\nИстория и черновик будут удалены безвозвратно.')) return;
+      }
       // Если в удаляемой сессии активный AbortController — отменяем fetch
       // и снимаем регистрацию, иначе pushToSession после resolve запишет
       // orphan-snapshot в удалённую сессию.
