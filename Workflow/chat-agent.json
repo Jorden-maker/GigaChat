@@ -304,7 +304,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let newSummary = '';\ntry {\n  newSummary = $input.first().json.output[0].content[0].text.trim();\n} catch(e) {\n  // GigaChat не ответил — оставляем старое резюме\n  newSummary = $('Агрегация').first().json.summary || '';\n}\n\nconst sessionId = $('Агрегация').first().json.session_id;\nconst oldSummarized = $('Нужно сжатие?').first().json.summarized || 0;\nconst compressed = $('Нужно сжатие?').first().json.toCompress || 0;\nconst newSummarized = oldSummarized + compressed;\n\n// Экранируем одинарные кавычки\nconst safeSummary = newSummary.replaceAll(\"'\", \"''\");\n\nreturn [{json: {\n  upsertQuery: \"INSERT INTO chat_summaries (session_id, summary_text, messages_summarized, updated_at) VALUES ('\" + sessionId + \"', '\" + safeSummary + \"', \" + newSummarized + \", NOW()) ON CONFLICT (session_id) DO UPDATE SET summary_text = '\" + safeSummary + \"', messages_summarized = \" + newSummarized + \", updated_at = NOW()\",\n  newSummary: newSummary\n}}];"
+        "jsCode": "let newSummary = '';\ntry {\n  newSummary = $input.first().json.output[0].content[0].text.trim();\n} catch(e) {\n  // GigaChat не ответил — оставляем старое резюме\n  newSummary = $('Агрегация').first().json.summary || '';\n}\n\nconst sessionId = $('Агрегация').first().json.session_id;\nconst oldSummarized = $('Нужно сжатие?').first().json.summarized || 0;\nconst compressed = $('Нужно сжатие?').first().json.toCompress || 0;\nconst newSummarized = oldSummarized + compressed;\n\n// Выходим с сырыми значениями — UPSERT-нода ниже передаст их через\n// параметризацию ($1, $2, $3), безопаснее любых replaceAll-экранирований.\nreturn [{json: {\n  sessionId: sessionId,\n  summary: newSummary,\n  summarized: newSummarized,\n  newSummary: newSummary\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -318,8 +318,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "={{ $json.upsertQuery }}",
-        "options": {}
+        "query": "INSERT INTO chat_summaries (session_id, summary_text, messages_summarized, updated_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (session_id) DO UPDATE SET summary_text = $2, messages_summarized = $3, updated_at = NOW()",
+        "options": {
+          "queryReplacement": "={{ $json.sessionId }},={{ $json.summary }},={{ $json.summarized }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
