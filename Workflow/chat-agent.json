@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || '').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение (минимум 2 символа)'}}];\n}\n\nif (!session_id) {\n  return [{json: {valid: 0, error: 'Поле session_id обязательно'}}];\n}\n\nif (message.length > 100000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 100000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || '').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение (минимум 2 символа)'}}];\n}\n\nif (!session_id) {\n  return [{json: {valid: 0, error: 'Поле session_id обязательно'}}];\n}\n\n// Защита от SQL-инъекций через session_id\nif (!/^[a-zA-Z0-9_-]{3,64}$/.test(session_id)) {\n  return [{json: {valid: 0, error: 'session_id содержит недопустимые символы'}}];\n}\n\nif (message.length > 100000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 100000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -83,8 +83,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT summary_text, messages_summarized FROM chat_summaries WHERE session_id = '{{ $('Валидация').first().json.session_id }}' LIMIT 1",
-        "options": {}
+        "query": "SELECT summary_text, messages_summarized FROM chat_summaries WHERE session_id = $1 LIMIT 1",
+        "options": {
+          "queryReplacement": "={{ [$('Валидация').first().json.session_id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -106,7 +108,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1))), _history AS (SELECT role, SUBSTRING(content, 1, 500) AS content, created_at FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 10), _save AS (INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2)) SELECT role, content FROM _history ORDER BY created_at DESC",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _history AS (SELECT role, SUBSTRING(content, 1, 500) AS content, created_at FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 10), _save AS (INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2) RETURNING id) SELECT h.role, h.content FROM _history h CROSS JOIN _lock CROSS JOIN _save ORDER BY h.created_at DESC",
         "options": {
           "queryReplacement": "={{ [$('Валидация').first().json.session_id, $('Валидация').first().json.message.replace(/\\[ВЛОЖЕНИЕ:[^\\]]+\\][\\s\\S]*?\\[\\/ВЛОЖЕНИЕ\\]\\s*/g, '[прикреплён файл] ').replace(/\\[не удалось обработать файл:[^\\]]+\\]\\s*/g, '[ошибка вложения] ')] }}"
         }
@@ -144,8 +146,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT COUNT(*) as total FROM chat_memory WHERE session_id = '{{ $('Агрегация').first().json.session_id }}'",
-        "options": {}
+        "query": "SELECT COUNT(*) as total FROM chat_memory WHERE session_id = $1",
+        "options": {
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -222,8 +226,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=SELECT role, SUBSTRING(content, 1, 500) AS content FROM chat_memory WHERE session_id = '{{ $('Агрегация').first().json.session_id }}' ORDER BY created_at ASC OFFSET {{ $('Нужно сжатие?').first().json.summarized }} LIMIT {{ $('Нужно сжатие?').first().json.toCompress }}",
-        "options": {}
+        "query": "SELECT role, SUBSTRING(content, 1, 500) AS content FROM chat_memory WHERE session_id = $1 ORDER BY created_at ASC OFFSET $2 LIMIT $3",
+        "options": {
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $('Нужно сжатие?').first().json.summarized, $('Нужно сжатие?').first().json.toCompress] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -374,8 +380,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT '{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ $json.response.replaceAll(\"'\", \"''\") }}' WHERE LENGTH(TRIM('{{ $json.response.replaceAll(\"'\", \"''\") }}')) > 0",
-        "options": {}
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0",
+        "options": {
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,

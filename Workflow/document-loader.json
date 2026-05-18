@@ -272,7 +272,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Извлекаем вектор из ответа эмбеддинга и готовим SQL.\ntry {\n  const data = $input.first().json;\n  const prevData = $('Нарезка на куски').first().json;\n  const fileName = prevData.fileName;\n  const chunkIndex = prevData.chunk_index;\n  const chunkText = prevData.chunk_text;\n  const totalChunks = prevData.total_chunks;\n\n  if (data.error) {\n    return [{ json: { success: false, error: 'Ошибка эмбеддинга: ' + JSON.stringify(data.error) } }];\n  }\n\n  let vector = null;\n  if (data.data && Array.isArray(data.data) && data.data[0] && data.data[0].embedding) {\n    vector = data.data[0].embedding;\n  } else if (data.embedding && Array.isArray(data.embedding)) {\n    vector = data.embedding;\n  } else if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'number') {\n    vector = data;\n  }\n\n  if (!vector || vector.length === 0) {\n    return [{ json: { success: false, error: 'Эмбеддинг вернул пустой вектор.' } }];\n  }\n\n  const safeText = chunkText.replaceAll(\"'\", \"''\");\n  const safeFileName = fileName.replaceAll(\"'\", \"''\");\n  const vectorStr = '[' + vector.join(',') + ']';\n\n  // ON CONFLICT UPDATE — идемпотентность повторной загрузки: тот же файл\n  // обновляет чанки, а не дублирует. Требует UNIQUE constraint на\n  // (filename, chunk_index) в схеме (см. PostgreSQL-Guide.md).\n  const sql = `INSERT INTO documents (filename, chunk_index, chunk_text, embedding) VALUES ('${safeFileName}', ${chunkIndex}, '${safeText}', '${vectorStr}') ON CONFLICT (filename, chunk_index) DO UPDATE SET chunk_text = EXCLUDED.chunk_text, embedding = EXCLUDED.embedding, created_at = NOW()`;\n\n  return [{ json: {\n    success: true,\n    sql: sql,\n    fileName: fileName,\n    chunk_index: chunkIndex,\n    total_chunks: totalChunks,\n    vector_size: vector.length\n  }}];\n} catch (e) {\n  return [{ json: { success: false, error: 'Ошибка обработки эмбеддинга: ' + e.message } }];\n}"
+        "jsCode": "// Извлекаем вектор из ответа эмбеддинга. Параметры для INSERT кладём как\n// есть — Postgres-нода ниже использует queryReplacement (параметризация),\n// поэтому здесь НЕ нужно делать ручной escape кавычек или склейку SQL.\ntry {\n  const data = $input.first().json;\n  const prevData = $('Нарезка на куски').first().json;\n  const fileName = prevData.fileName;\n  const chunkIndex = prevData.chunk_index;\n  const chunkText = prevData.chunk_text;\n  const totalChunks = prevData.total_chunks;\n\n  if (data.error) {\n    return [{ json: { success: false, error: 'Ошибка эмбеддинга: ' + JSON.stringify(data.error) } }];\n  }\n\n  let vector = null;\n  if (data.data && Array.isArray(data.data) && data.data[0] && data.data[0].embedding) {\n    vector = data.data[0].embedding;\n  } else if (data.embedding && Array.isArray(data.embedding)) {\n    vector = data.embedding;\n  } else if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'number') {\n    vector = data;\n  }\n\n  if (!vector || vector.length === 0) {\n    return [{ json: { success: false, error: 'Эмбеддинг вернул пустой вектор.' } }];\n  }\n\n  // Defense-in-depth: убеждаемся что вектор — это массив конечных чисел.\n  if (!vector.every(v => typeof v === 'number' && Number.isFinite(v))) {\n    return [{ json: { success: false, error: 'Невалидный вектор от эмбеддера (не числа).' } }];\n  }\n\n  // pgvector принимает строку вида '[1.0,2.0,...]'. Передаём как параметр.\n  const vectorStr = '[' + vector.join(',') + ']';\n\n  return [{ json: {\n    success: true,\n    fileName: fileName,\n    chunk_index: chunkIndex,\n    chunk_text: chunkText,\n    vector_str: vectorStr,\n    total_chunks: totalChunks,\n    vector_size: vector.length\n  }}];\n} catch (e) {\n  return [{ json: { success: false, error: 'Ошибка обработки эмбеддинга: ' + e.message } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -286,8 +286,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "={{ $json.sql }}",
-        "options": {}
+        "query": "INSERT INTO documents (filename, chunk_index, chunk_text, embedding) VALUES ($1, $2, $3, $4::vector) ON CONFLICT (filename, chunk_index) DO UPDATE SET chunk_text = EXCLUDED.chunk_text, embedding = EXCLUDED.embedding, created_at = NOW()",
+        "options": {
+          "queryReplacement": "={{ [$json.fileName, $json.chunk_index, $json.chunk_text, $json.vector_str] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -299,7 +301,7 @@
       "name": "Записать в PGVector",
       "credentials": {
         "postgres": {
-          "id": "YOUR_POSTGRES_CREDENTIAL_ID",
+          "id": "OYsyciMf7Eq9W4FS",
           "name": "Postgres"
         }
       },

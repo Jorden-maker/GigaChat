@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 100000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 100000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\n// Защита от SQL-инъекций через session_id\nif (!/^[a-zA-Z0-9_-]{3,64}$/.test(session_id)) {\n  return [{json: {valid: 0, error: 'session_id содержит недопустимые символы'}}];\n}\n\nif (message.length > 100000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 100000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -176,7 +176,7 @@
     },
     {
       "parameters": {
-        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос. Попробуйте ещё раз.' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки.' } }];\n}"
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос. Попробуйте ещё раз.' } }];\n  }\n  const text = raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text;\n  if (!text) {\n    return [{ json: { response: 'Пустой ответ от LLM. Попробуйте ещё раз.' } }];\n  }\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки.' } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -235,7 +235,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Строим SQL-запрос для поиска похожих документов в PGVector\ntry {\n  const data = $input.first().json;\n\n  if (data.error) {\n    return [{ json: { search_sql: null, fallback: 'Ошибка получения эмбеддинга. Поиск по документам недоступен.' } }];\n  }\n\n  let vector = null;\n  if (data.data && Array.isArray(data.data) && data.data[0] && data.data[0].embedding) {\n    vector = data.data[0].embedding;\n  } else if (data.embedding && Array.isArray(data.embedding)) {\n    vector = data.embedding;\n  } else if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'number') {\n    vector = data;\n  }\n\n  if (!vector || vector.length === 0) {\n    return [{ json: { search_sql: null, fallback: 'Не удалось получить вектор вопроса. Попробуйте переформулировать.' } }];\n  }\n\n  const vectorStr = '[' + vector.join(',') + ']';\n  const sql = \"SELECT filename, chunk_index, chunk_text, 1 - (embedding <=> '\" + vectorStr + \"') AS similarity FROM documents ORDER BY embedding <=> '\" + vectorStr + \"' LIMIT 5\";\n\n  return [{ json: { search_sql: sql, vector_size: vector.length } }];\n} catch (e) {\n  return [{ json: { search_sql: null, fallback: 'Ошибка обработки эмбеддинга: ' + e.message } }];\n}"
+        "jsCode": "// Готовим вектор для поиска похожих документов в PGVector.\n// SQL формируется в Postgres-ноде через queryReplacement ($1::vector) —\n// здесь нужно только извлечь вектор и проверить его валидность.\ntry {\n  const data = $input.first().json;\n\n  if (data.error) {\n    return [{ json: { search_sql: null, fallback: 'Ошибка получения эмбеддинга. Поиск по документам недоступен.' } }];\n  }\n\n  let vector = null;\n  if (data.data && Array.isArray(data.data) && data.data[0] && data.data[0].embedding) {\n    vector = data.data[0].embedding;\n  } else if (data.embedding && Array.isArray(data.embedding)) {\n    vector = data.embedding;\n  } else if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'number') {\n    vector = data;\n  }\n\n  if (!vector || vector.length === 0) {\n    return [{ json: { search_sql: null, fallback: 'Не удалось получить вектор вопроса. Попробуйте переформулировать.' } }];\n  }\n\n  // Defense-in-depth: проверяем что вектор — массив конечных чисел.\n  if (!vector.every(v => typeof v === 'number' && Number.isFinite(v))) {\n    return [{ json: { search_sql: null, fallback: 'Невалидный вектор от эмбеддера.' } }];\n  }\n\n  // search_sql теперь маркер (truthy/falsy), сам вектор передаём как vector_str\n  return [{ json: { search_sql: true, vector_str: '[' + vector.join(',') + ']', vector_size: vector.length } }];\n} catch (e) {\n  return [{ json: { search_sql: null, fallback: 'Ошибка обработки эмбеддинга: ' + e.message } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -249,8 +249,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "={{ $json.search_sql || \"SELECT '' as chunk_text, '' as filename, 0 as similarity\" }}",
-        "options": {}
+        "query": "={{ $json.search_sql ? \"SELECT filename, chunk_index, chunk_text, 1 - (embedding <=> $1::vector) AS similarity FROM documents ORDER BY embedding <=> $1::vector LIMIT 5\" : \"SELECT '' as chunk_text, '' as filename, 0 as similarity\" }}",
+        "options": {
+          "queryReplacement": "={{ $json.search_sql ? [$json.vector_str] : [] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -365,7 +367,7 @@
     },
     {
       "parameters": {
-        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос к документам. Попробуйте переформулировать.' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка генерации ответа.' } }];\n}"
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос к документам. Попробуйте переформулировать.' } }];\n  }\n  const text = raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text;\n  if (!text) {\n    return [{ json: { response: 'Пустой ответ от LLM. Попробуйте ещё раз.' } }];\n  }\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка генерации ответа.' } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -409,8 +411,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT role, SUBSTRING(content, 1, 2000) AS content FROM chat_memory WHERE session_id = '{{ $('Валидация').first().json.session_id }}' ORDER BY created_at DESC LIMIT 30",
-        "options": {}
+        "query": "SELECT role, SUBSTRING(content, 1, 2000) AS content FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 30",
+        "options": {
+          "queryReplacement": "={{ [$('Валидация').first().json.session_id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -445,8 +449,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $json.session_id }}', 'user', '{{ $json.message.replace(/\\[ВЛОЖЕНИЕ:[^\\]]+\\][\\s\\S]*?\\[\\/ВЛОЖЕНИЕ\\]\\s*/g, \"[прикреплён файл] \").replace(/\\[не удалось обработать файл:[^\\]]+\\]\\s*/g, \"[ошибка вложения] \").replaceAll(\"'\", \"''\") }}')",
-        "options": {}
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2)",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, ($json.message || '').replace(/\\[ВЛОЖЕНИЕ:[^\\]]+\\][\\s\\S]*?\\[\\/ВЛОЖЕНИЕ\\]\\s*/g, '[прикреплён файл] ').replace(/\\[не удалось обработать файл:[^\\]]+\\]\\s*/g, '[ошибка вложения] ')] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -468,8 +474,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT '{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}' WHERE LENGTH(TRIM('{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')) > 0",
-        "options": {}
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0",
+        "options": {
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -491,8 +499,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT '{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}' WHERE LENGTH(TRIM('{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')) > 0",
-        "options": {}
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0",
+        "options": {
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -514,8 +524,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT '{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($('Проверка документов').first().json.fallback_message || '').replaceAll(\"'\", \"''\") }}' WHERE LENGTH(TRIM('{{ ($('Проверка документов').first().json.fallback_message || '').replaceAll(\"'\", \"''\") }}')) > 0",
-        "options": {}
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0",
+        "options": {
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $('Проверка документов').first().json.fallback_message || ''] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,

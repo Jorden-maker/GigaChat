@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'math-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\nif (message.length > 100000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 100000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'math-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\n// Защита от SQL-инъекций через session_id\nif (!/^[a-zA-Z0-9_-]{3,64}$/.test(session_id)) {\n  return [{json: {valid: 0, error: 'session_id содержит недопустимые символы'}}];\n}\n\nif (message.length > 100000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 100000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -176,7 +176,7 @@
     },
     {
       "parameters": {
-        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос. Попробуйте ещё раз.', code: '', raw_result: '' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim(), code: '', raw_result: '' } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки.', code: '', raw_result: '' } }];\n}"
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос. Попробуйте ещё раз.', code: '', raw_result: '' } }];\n  }\n  // Безопасный доступ — LLM при таймауте может вернуть пустой output\n  const text = raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text;\n  if (!text) {\n    return [{ json: { response: 'Пустой ответ от LLM. Попробуйте ещё раз.', code: '', raw_result: '' } }];\n  }\n  return [{ json: { response: text.trim(), code: '', raw_result: '' } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки.', code: '', raw_result: '' } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -321,8 +321,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT role, SUBSTRING(content, 1, 2000) AS content FROM chat_memory WHERE session_id = '{{ $('Валидация').first().json.session_id }}' ORDER BY created_at DESC LIMIT 30",
-        "options": {}
+        "query": "SELECT role, SUBSTRING(content, 1, 2000) AS content FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 30",
+        "options": {
+          "queryReplacement": "={{ [$('Валидация').first().json.session_id] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -357,8 +359,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $json.session_id }}', 'user', '{{ $json.message.replace(/\\[ВЛОЖЕНИЕ:[^\\]]+\\][\\s\\S]*?\\[\\/ВЛОЖЕНИЕ\\]\\s*/g, \"[прикреплён файл] \").replace(/\\[не удалось обработать файл:[^\\]]+\\]\\s*/g, \"[ошибка вложения] \").replaceAll(\"'\", \"''\") }}')",
-        "options": {}
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2)",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, ($json.message || '').replace(/\\[ВЛОЖЕНИЕ:[^\\]]+\\][\\s\\S]*?\\[\\/ВЛОЖЕНИЕ\\]\\s*/g, '[прикреплён файл] ').replace(/\\[не удалось обработать файл:[^\\]]+\\]\\s*/g, '[ошибка вложения] ')] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -380,8 +384,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT '{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}' WHERE LENGTH(TRIM('{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')) > 0",
-        "options": {}
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0",
+        "options": {
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -403,8 +409,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content, extras) SELECT '{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.error || 'Код не прошёл проверку безопасности.').replaceAll(\"'\", \"''\") }}', '{{ JSON.stringify({code: $json.code || '', raw_result: ''}).replaceAll(\"'\", \"''\") }}' WHERE LENGTH(TRIM('{{ ($json.error || 'Код не прошёл проверку безопасности.').replaceAll(\"'\", \"''\") }}')) > 0",
-        "options": {}
+        "query": "INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0",
+        "options": {
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.error || 'Код не прошёл проверку безопасности.', JSON.stringify({code: $json.code || '', raw_result: ''})] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
@@ -442,7 +450,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Phase 2 — фронт уже исполнил Python в Pyodide и шлёт результат.\n// Достаём поля и нормализуем. final_line — это значение после маркера\n// «ОТВЕТ: », отделённое от полного raw_result для удобства подстановки.\n// exec_killed — true если Pyodide убит по таймауту (frontend сделал\n// worker.terminate). Отличается от exec_error: kill это не Python\n// exception, а внешнее прерывание; формулировка ответа другая.\nconst body = $input.first().json.body || {};\nreturn [{json: {\n  message: (body.message || '').trim(),\n  session_id: (body.session_id || 'math-default').trim(),\n  code: body.code || '',\n  raw_result: body.raw_result || '',\n  final_line: (body.final_line || '').trim(),\n  exec_error: body.error || '',\n  exec_killed: !!body.killed\n}}];"
+        "jsCode": "// Phase 2 — фронт уже исполнил Python в Pyodide и шлёт результат.\n// Достаём поля и нормализуем. final_line — это значение после маркера\n// «ОТВЕТ: », отделённое от полного raw_result для удобства подстановки.\n// exec_killed — true если Pyodide убит по таймауту (frontend сделал\n// worker.terminate). Отличается от exec_error: kill это не Python\n// exception, а внешнее прерывание; формулировка ответа другая.\nconst body = $input.first().json.body || {};\nconst session_id = (body.session_id || 'math-default').trim();\n\n// Защита от SQL-инъекций (этот session_id уйдёт в queryReplacement позже)\nif (!/^[a-zA-Z0-9_-]{3,64}$/.test(session_id)) {\n  return [{json: {error: 'session_id содержит недопустимые символы'}}];\n}\n\n// Защита от DoS: ограничиваем длину пользовательских полей.\n// Pyodide-результат большой = переполнение БД и chat_memory.\nconst code = (body.code || '').toString();\nconst raw_result = (body.raw_result || '').toString();\nconst final_line = (body.final_line || '').toString().trim();\nconst message = (body.message || '').toString().trim();\nif (code.length > 50000) return [{json: {error: 'code слишком длинный (>50KB)'}}];\nif (raw_result.length > 50000) return [{json: {error: 'raw_result слишком длинный (>50KB)'}}];\nif (final_line.length > 5000) return [{json: {error: 'final_line слишком длинный (>5KB)'}}];\nif (message.length > 100000) return [{json: {error: 'message слишком длинный'}}];\n\nreturn [{json: {\n  message: message,\n  session_id: session_id,\n  code: code,\n  raw_result: raw_result,\n  final_line: final_line,\n  exec_error: (body.error || '').toString().slice(0, 5000),\n  exec_killed: !!body.killed\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -508,8 +516,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content, extras) SELECT '{{ $('Извлечение полей').first().json.session_id }}', 'assistant', '{{ ($json.response_text || '').replaceAll(\"'\", \"''\") }}', '{{ JSON.stringify({code: $('Извлечение полей').first().json.code || '', raw_result: $('Извлечение полей').first().json.raw_result || ''}).replaceAll(\"'\", \"''\") }}' WHERE LENGTH(TRIM('{{ ($json.response_text || '').replaceAll(\"'\", \"''\") }}')) > 0",
-        "options": {}
+        "query": "INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0",
+        "options": {
+          "queryReplacement": "={{ [$('Извлечение полей').first().json.session_id, $json.response_text || '', JSON.stringify({code: $('Извлечение полей').first().json.code || '', raw_result: $('Извлечение полей').first().json.raw_result || ''})] }}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,

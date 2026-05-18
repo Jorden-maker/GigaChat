@@ -68,7 +68,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Проверяем, что файл загружен (binary data есть)\nconst item = $input.first();\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  return [{ json: { valid: false, error: 'Файл не загружен. Прикрепите документ или изображение.' } }];\n}\n\nconst key = Object.keys(binary)[0];\nconst info = binary[key];\n\nreturn [{\n  json: {\n    valid: true,\n    binaryKey: key,\n    fileName: info.fileName || 'unknown',\n    mimeType: info.mimeType || 'unknown'\n  },\n  binary: binary\n}];"
+        "jsCode": "// Проверяем, что файл загружен (binary data есть)\nconst item = $input.first();\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  return [{ json: { valid: false, error: 'Файл не загружен. Прикрепите документ или изображение.' } }];\n}\n\nconst key = Object.keys(binary)[0];\nconst info = binary[key];\nconst fileSize = info.fileSize || 0;\n\n// Лимит 50 МБ — как в других OCR-потоках. OCR-сервис большие файлы тормозит.\nif (fileSize > 50 * 1024 * 1024) {\n  return [{ json: { valid: false, error: 'Файл слишком большой (максимум 50 МБ).' } }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    binaryKey: key,\n    fileName: info.fileName || 'unknown',\n    mimeType: info.mimeType || 'unknown',\n    fileSize: fileSize\n  },\n  binary: binary\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -229,7 +229,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Безопасно извлекаем ответ GigaChat\ntry {\n  const raw = $input.first().json;\n\n  // Проверяем, не было ли ошибки GigaChat\n  if (raw.error) {\n    return [{ json: { response_text: 'Ошибка анализа документа. GigaChat недоступен. Попробуйте ещё раз.' } }];\n  }\n\n  const text = raw.output[0].content[0].text;\n\n  if (!text || text.trim().length === 0) {\n    return [{ json: { response_text: 'GigaChat вернул пустой ответ. Попробуйте загрузить файл ещё раз.' } }];\n  }\n\n  return [{ json: { response_text: text.trim() } }];\n\n} catch (e) {\n  return [{ json: { response_text: 'Ошибка при обработке ответа GigaChat. Попробуйте загрузить файл ещё раз.' } }];\n}"
+        "jsCode": "// Безопасно извлекаем ответ GigaChat\ntry {\n  const raw = $input.first().json;\n\n  // Проверяем, не было ли ошибки GigaChat\n  if (raw.error) {\n    return [{ json: { response_text: 'Ошибка анализа документа. GigaChat недоступен. Попробуйте ещё раз.' } }];\n  }\n\n  // Безопасный доступ — LLM при таймауте может вернуть пустой output\n  const text = raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text;\n\n  if (!text || text.trim().length === 0) {\n    return [{ json: { response_text: 'GigaChat вернул пустой ответ. Попробуйте загрузить файл ещё раз.' } }];\n  }\n\n  return [{ json: { response_text: text.trim() } }];\n\n} catch (e) {\n  return [{ json: { response_text: 'Ошибка при обработке ответа GigaChat. Попробуйте загрузить файл ещё раз.' } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
