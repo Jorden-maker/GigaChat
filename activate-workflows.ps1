@@ -10,8 +10,16 @@
 #
 # Использование:
 #   1. Поправь $apiKey и $n8n ниже, если отличаются от import-workflows.ps1.
-#   2. Из PowerShell: .\activate-workflows.ps1
-#   3. Опционально: -Deactivate чтобы наоборот всех выключить (для отладки).
+#   2. Обычный режим:
+#        .\activate-workflows.ps1
+#      Активирует все НЕактивные. Уже активные — пропускает.
+#   3. Force-reactivate (после import-workflows.ps1 для подхвата изменений):
+#        .\activate-workflows.ps1 -Force
+#      Делает deactivate → activate цикл для активных. Нужно когда обновил
+#      workflow (URL, webhook path, структуру нод) — иначе n8n может
+#      продолжать работать через старый webhook routes в памяти runtime.
+#   4. Массовое выключение (для отладки):
+#        .\activate-workflows.ps1 -Deactivate
 #
 # Требования:
 #   - PowerShell 5.1+ или PowerShell 7
@@ -20,7 +28,10 @@
 # =============================================================================
 
 param(
-    [switch]$Deactivate = $false   # .\activate-workflows.ps1 -Deactivate
+    [switch]$Deactivate = $false,  # .\activate-workflows.ps1 -Deactivate — массово выключить
+    [switch]$Force = $false        # .\activate-workflows.ps1 -Force — перезагрузить активные
+                                   # (deactivate → activate цикл). Нужно после import-workflows.ps1,
+                                   # чтобы webhook routes гарантированно перерегистрировались.
 )
 
 # ---- НАСТРОЙКИ ----
@@ -88,6 +99,7 @@ Write-Host "Найдено $($targets.Count) workflow для обработки.
 Write-Host ""
 
 $activated = 0
+$reloaded = 0
 $alreadyOk = 0
 $failed = 0
 
@@ -96,7 +108,34 @@ foreach ($wf in $targets) {
     $id = $wf.id
     $isActive = [bool]$wf.active
 
-    # Уже в нужном состоянии — пропускаем
+    # Если -Force: всегда переактивируем (deactivate → activate цикл)
+    # Это нужно после import-workflows.ps1, чтобы webhook routes
+    # n8n гарантированно перерегистрировались — иначе обновлённый workflow
+    # может работать через старый webhook в памяти runtime.
+    if ($Force -and -not $Deactivate -and $isActive) {
+        Write-Host "  - $name ... (reload)" -NoNewline
+        try {
+            Invoke-RestMethod -Method POST `
+                -Uri "$n8n/api/v1/workflows/$id/deactivate" `
+                -Headers $headers `
+                -ContentType "application/json; charset=utf-8" | Out-Null
+            Start-Sleep -Milliseconds 200
+            Invoke-RestMethod -Method POST `
+                -Uri "$n8n/api/v1/workflows/$id/activate" `
+                -Headers $headers `
+                -ContentType "application/json; charset=utf-8" | Out-Null
+            Write-Host " ПЕРЕЗАГРУЖЕН" -ForegroundColor Cyan
+            $reloaded++
+            continue
+        } catch {
+            Write-Host " FAILED (reload)" -ForegroundColor Red
+            Write-Host "      $($_.Exception.Message)" -ForegroundColor Yellow
+            $failed++
+            continue
+        }
+    }
+
+    # Уже в нужном состоянии — пропускаем (без -Force)
     if ($isActive -eq $targetState) {
         $statusWord = if ($targetState) { "уже активен" } else { "уже выключен" }
         Write-Host "  - $name : $statusWord" -ForegroundColor DarkGray
@@ -144,6 +183,9 @@ Write-Host " ИТОГ:" -ForegroundColor Green
 $actLabel = if ($targetState) { "активировано" } else { "выключено" }
 $okLabel  = if ($targetState) { "уже активных" } else { "уже выключенных" }
 Write-Host "   $actLabel`:`t$activated" -ForegroundColor Green
+if ($reloaded -gt 0) {
+    Write-Host "   перезагружено:`t$reloaded" -ForegroundColor Cyan
+}
 Write-Host "   $okLabel`:`t$alreadyOk" -ForegroundColor DarkGray
 Write-Host "   ошибок:`t`t$failed" -ForegroundColor $(if ($failed) { 'Red' } else { 'DarkGray' })
 Write-Host "=============================================================" -ForegroundColor Green

@@ -234,7 +234,15 @@ Processing: document-loader.json
 ```powershell
 .\activate-workflows.ps1
 ```
-Активирует все workflow с префиксом `[GigaChat] ` одной командой. Идемпотентный — уже активные пропускает. Для деактивации: `.\activate-workflows.ps1 -Deactivate`.
+Активирует все workflow с префиксом `[GigaChat] ` одной командой. Идемпотентный — уже активные пропускает.
+
+**После правки workflow** (`import-workflows.ps1` обновил уже активный):
+```powershell
+.\activate-workflows.ps1 -Force
+```
+Делает `deactivate → activate` для активных workflow — это **перерегистрирует webhook routes** в runtime n8n. Нужно когда изменил URL HTTP-ноды, путь webhook'а или структуру триггеров.
+
+Для деактивации: `.\activate-workflows.ps1 -Deactivate`.
 
 **Способ 2 — вручную (по одному в UI n8n):**
 1. Открой workflow.
