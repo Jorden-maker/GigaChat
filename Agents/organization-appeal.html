@@ -186,6 +186,7 @@ main { max-width: 800px; }
 </style>
 <script src="_config.js"></script>
 <script src="_shared.js"></script>
+<script src="lib/jszip.min.js"></script>
 </head>
 <body>
 
@@ -419,9 +420,23 @@ main { max-width: 800px; }
             timerEl.textContent = Math.floor((Date.now() - startTime) / 1000) + ' сек.';
         }, 1000);
         try {
-            var formData = new FormData();
-            formData.append('file', selectedFile);
-            var res = await GigaChat.fetchWithRetry(WEBHOOK_URL, { method: 'POST', body: formData }, {
+            // Для .docx читаем текст прямо в браузере через JSZip (минуя OCR-сервис).
+            // Для .pdf/.doc — отправляем файл, его обработает OCR в workflow.
+            var ext = getExtension(selectedFile.name);
+            var fetchOpts;
+            if (ext === 'docx' && GigaChat.canExtractInBrowser(selectedFile.name)) {
+                var text = await GigaChat.extractBrowserText(selectedFile);
+                fetchOpts = {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text, filename: selectedFile.name })
+                };
+            } else {
+                var formData = new FormData();
+                formData.append('file', selectedFile);
+                fetchOpts = { method: 'POST', body: formData };
+            }
+            var res = await GigaChat.fetchWithRetry(WEBHOOK_URL, fetchOpts, {
                 timeout: FETCH_TIMEOUT_MS,
                 retries: MAX_RETRIES,
                 retryDelay: RETRY_DELAY_MS

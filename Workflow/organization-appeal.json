@@ -52,11 +52,44 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-source-text",
+              "leftValue": "={{ ($json.body?.text || '').trim().length > 0 ? '1' : '' }}",
+              "rightValue": "1",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [520, 300],
+      "id": "oa-source-if-0001",
+      "name": "Источник: текст?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Текст уже извлечён в браузере через JSZip (.docx → word/document.xml → text)\n// Используем его напрямую, минуя OCR. Делаем те же проверки, что после OCR.\nconst body = $input.first().json.body || {};\nlet text = (body.text || '').trim();\n\nif (!text) {\n  return [{ json: { has_text: false, error: 'Пустой текст в запросе.' } }];\n}\n\nif (text.length < 20) {\n  return [{ json: { has_text: false, error: 'Слишком короткий текст из браузера (' + text.length + ' символов).' } }];\n}\n\n// Тот же лимит, что для OCR-пути, чтобы LLM-контекст не переполнился\nif (text.length > 15000) text = text.substring(0, 15000);\n\nreturn [{ json: { has_text: true, text: text, text_length: text.length, source: 'browser-jszip' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 100],
+      "id": "oa-text-body-0001",
+      "name": "Текст из body"
+    },
+    {
+      "parameters": {
         "jsCode": "// Валидация: убеждаемся что файл (binary) загружен\nconst item = $input.first();\nconst binary = item.binary;\n\nif (!binary || Object.keys(binary).length === 0) {\n  return [{ json: { valid: false, error: 'Файл не загружен. Прикрепите .docx или .pdf документ.' } }];\n}\n\nconst key = Object.keys(binary)[0];\nconst info = binary[key];\nconst fileName = info.fileName || 'unknown';\nconst mimeType = (info.mimeType || '').toLowerCase();\nconst fileSize = info.fileSize || 0;\n\nif (fileSize > 50 * 1024 * 1024) {\n  return [{ json: { valid: false, error: 'Файл слишком большой (максимум 50 МБ).' } }];\n}\n\nconst ext = (fileName.split('.').pop() || '').toLowerCase();\nconst allowed = ['docx', 'pdf', 'doc'];\nif (!allowed.includes(ext)) {\n  return [{ json: { valid: false, error: 'Поддерживаются только .docx и .pdf файлы. Получен: .' + ext } }];\n}\n\nreturn [{ json: { valid: true, binaryKey: key, fileName, mimeType, fileSize }, binary: binary }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [520, 300],
+      "position": [800, 500],
       "id": "oa-validate-0001",
       "name": "Валидация файла"
     },
@@ -79,7 +112,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [800, 300],
+      "position": [1080, 500],
       "id": "oa-validate-if-0001",
       "name": "Файл валиден?"
     },
@@ -91,7 +124,7 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1080, 520],
+      "position": [1360, 700],
       "id": "oa-error-file-0001",
       "name": "Ответ: ошибка файла"
     },
@@ -419,8 +452,17 @@
     "Ping?": {
       "main": [
         [{ "node": "Ответ: pong", "type": "main", "index": 0 }],
+        [{ "node": "Источник: текст?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Источник: текст?": {
+      "main": [
+        [{ "node": "Текст из body", "type": "main", "index": 0 }],
         [{ "node": "Валидация файла", "type": "main", "index": 0 }]
       ]
+    },
+    "Текст из body": {
+      "main": [[{ "node": "Текст найден?", "type": "main", "index": 0 }]]
     },
     "Валидация файла": {
       "main": [[{ "node": "Файл валиден?", "type": "main", "index": 0 }]]
