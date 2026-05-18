@@ -164,11 +164,21 @@ main { max-width: 800px; }
     checkServer();
     setInterval(checkServer, 30000);
 
+    // hasFiles: dragover на текст/ссылке/URL не должен подсвечивать зону
+    function hasFiles(e) {
+        var t = e.dataTransfer && e.dataTransfer.types;
+        if (!t) return false;
+        for (var i = 0; i < t.length; i++) if (t[i] === 'Files') return true;
+        return false;
+    }
     uploadArea.addEventListener('dragover', function(e) {
+        if (!hasFiles(e)) return;
         e.preventDefault();
         uploadArea.classList.add('dragging');
     });
-    uploadArea.addEventListener('dragleave', function() {
+    uploadArea.addEventListener('dragleave', function(e) {
+        // relatedTarget — куда уходит курсор. Если внутрь uploadArea — не снимаем.
+        if (e.relatedTarget && uploadArea.contains(e.relatedTarget)) return;
         uploadArea.classList.remove('dragging');
     });
     uploadArea.addEventListener('drop', function(e) {
@@ -243,10 +253,9 @@ main { max-width: 800px; }
         resetBtnDiv.classList.remove('show');
         startTimer();
 
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
         try {
-            var controller = new AbortController();
-            var timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
-
             // Развилка: docx / xlsx / txt — извлекаем текст в браузере и шлём JSON.
             // PDF / картинки — шлём файл как multipart, на сервере OCR.
             var res;
@@ -286,7 +295,6 @@ main { max-width: 800px; }
                 });
             }
 
-            clearTimeout(timeoutId);
             stopTimer();
             loading.classList.remove('show');
 
@@ -319,7 +327,13 @@ main { max-width: 800px; }
                     date: new Date().toLocaleString('ru-RU')
                 });
                 if (uploadHistory.length > 20) uploadHistory = uploadHistory.slice(0, 20);
-                try { localStorage.setItem('doc_upload_history', JSON.stringify(uploadHistory)); } catch(e) {}
+                try {
+                    localStorage.setItem('doc_upload_history', JSON.stringify(uploadHistory));
+                } catch(e) {
+                    // QuotaExceededError или другие — история перестанет сохраняться,
+                    // но загрузка прошла успешно. Показываем предупреждение, не блокируем.
+                    console.warn('localStorage переполнен, история не сохранена:', e);
+                }
                 renderHistory();
             }
 
@@ -336,6 +350,11 @@ main { max-width: 800px; }
                 result.textContent = 'Ошибка: ' + e.message;
             }
             result.style.display = 'block';
+        } finally {
+            // Гарантированная очистка таймера — раньше leak: clearTimeout
+            // вызывался только на success path, на throw/catch таймер жил
+            // до истечения FETCH_TIMEOUT_MS, потом неявно abort'ил уже-выполнившийся запрос.
+            clearTimeout(timeoutId);
         }
 
         isProcessing = false;

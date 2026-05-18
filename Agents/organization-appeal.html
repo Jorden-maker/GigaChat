@@ -318,8 +318,21 @@ main { max-width: 800px; }
         return (b / 1048576).toFixed(1) + ' МБ';
     }
 
-    uploadArea.addEventListener('dragover', function (e) { e.preventDefault(); uploadArea.classList.add('dragging'); });
-    uploadArea.addEventListener('dragleave', function () { uploadArea.classList.remove('dragging'); });
+    function hasFiles(e) {
+        var t = e.dataTransfer && e.dataTransfer.types;
+        if (!t) return false;
+        for (var i = 0; i < t.length; i++) if (t[i] === 'Files') return true;
+        return false;
+    }
+    uploadArea.addEventListener('dragover', function (e) {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        uploadArea.classList.add('dragging');
+    });
+    uploadArea.addEventListener('dragleave', function (e) {
+        if (e.relatedTarget && uploadArea.contains(e.relatedTarget)) return;
+        uploadArea.classList.remove('dragging');
+    });
     uploadArea.addEventListener('drop', function (e) {
         e.preventDefault();
         uploadArea.classList.remove('dragging');
@@ -428,7 +441,7 @@ main { max-width: 800px; }
                 var text = await GigaChat.extractBrowserText(selectedFile);
                 fetchOpts = {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
                     body: JSON.stringify({ text: text, filename: selectedFile.name })
                 };
             } else {

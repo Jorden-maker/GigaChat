@@ -155,11 +155,21 @@
     checkServer();
     setInterval(checkServer, 30000);
 
+    function hasFiles(e) {
+        var t = e.dataTransfer && e.dataTransfer.types;
+        if (!t) return false;
+        for (var i = 0; i < t.length; i++) if (t[i] === 'Files') return true;
+        return false;
+    }
     uploadArea.addEventListener('dragover', function(e) {
+        if (!hasFiles(e)) return;
         e.preventDefault();
         uploadArea.classList.add('dragging');
     });
-    uploadArea.addEventListener('dragleave', function() { uploadArea.classList.remove('dragging'); });
+    uploadArea.addEventListener('dragleave', function(e) {
+        if (e.relatedTarget && uploadArea.contains(e.relatedTarget)) return;
+        uploadArea.classList.remove('dragging');
+    });
     uploadArea.addEventListener('drop', function(e) {
         e.preventDefault();
         uploadArea.classList.remove('dragging');
@@ -226,6 +236,11 @@
         resetBtnDiv.classList.remove('show');
         startTimer();
 
+        // timeoutId объявляем сверху: чтобы finally видел его независимо от того,
+        // прошли мы через OCR-ветку или нет (для browser-extraction timeout не нужен,
+        // но finally всё равно сработает с null).
+        var timeoutId = null;
+
         try {
             // Развилка: docx/xlsx/txt/csv парсим в браузере (мгновенно, без OCR).
             // PDF/изображения отправляем на n8n + OCR.
@@ -281,7 +296,7 @@
 
             // PDF / изображения / прочее — через OCR на n8n.
             var controller = new AbortController();
-            var timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
+            timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
 
             var loadingTextEl2 = loading.querySelector('div');
             if (loadingTextEl2) loadingTextEl2.textContent = 'Обрабатываю через OCR...';
@@ -295,7 +310,6 @@
                 signal: controller.signal
             });
 
-            clearTimeout(timeoutId);
             stopTimer();
             loading.classList.remove('show');
 
@@ -336,6 +350,9 @@
                 ? 'Сервер не ответил за 5 минут. Возможно, файл слишком сложный.'
                 : 'Ошибка: ' + e.message;
             errorBox.style.display = 'block';
+        } finally {
+            // Гарантированная очистка таймера (был leak на throw/catch).
+            if (timeoutId) clearTimeout(timeoutId);
         }
 
         isProcessing = false;

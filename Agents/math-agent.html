@@ -237,6 +237,14 @@
                     try { PyodideClient.terminate(); } catch (_) {}
                 };
                 if (ctx.signal) ctx.signal.addEventListener('abort', onAbort, { once: true });
+                // removeOnAbort: ниже в finally снимаем listener вручную, если
+                // abort так и не произошёл. Иначе при множестве запросов
+                // listeners накапливаются на одном signal (если ctx переиспользуется).
+                var removeOnAbort = function () {
+                    if (ctx.signal) {
+                        try { ctx.signal.removeEventListener('abort', onAbort); } catch (_) {}
+                    }
+                };
 
                 checkAborted();
                 // PyodideClient сам управляет worker'ом: при первом запросе
@@ -246,7 +254,13 @@
                 // никаких перезагрузок страницы.
                 // setInflightLabel('Считаю') — убран: label в inflight-лоадере
                 // не рендерится (см. feedback_inflight_loader.md в памяти).
-                var exec = await PyodideClient.executePython(data.code);
+                var exec;
+                try {
+                    exec = await PyodideClient.executePython(data.code);
+                } catch (execErr) {
+                    removeOnAbort();
+                    throw execErr;
+                }
                 checkAborted();
                 var finalLine = extractFinalLine(exec.lines);
 
@@ -279,6 +293,7 @@
                 } catch (e) {
                     // Сеть упала / отмена / таймаут. Возвращаем то, что есть локально:
                     // число пользователь хотя бы увидит, объяснения не будет.
+                    removeOnAbort();
                     if (e.name === 'AbortError') throw e;
                     return {
                         response: exec.ok
@@ -289,6 +304,7 @@
                     };
                 }
                 if (!resp.ok) {
+                    removeOnAbort();
                     return {
                         response: exec.ok
                             ? ('Ответ: ' + finalLine + '\n\n(сервер вернул ' + resp.status + ', объяснение недоступно)')
@@ -297,6 +313,7 @@
                         raw_result: exec.output
                     };
                 }
+                removeOnAbort();
                 return await resp.json();
             }
         });
