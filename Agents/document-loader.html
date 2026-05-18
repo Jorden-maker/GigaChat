@@ -64,7 +64,10 @@ main { max-width: 800px; }
 /* .history — список загруженных файлов в этой сессии. Только в doc-loader. */
 .history { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: none; }
 .history.show { display: block; }
-.history h3 { padding: 12px 18px; background: var(--bg-input); border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); letter-spacing: 0.5px; font-weight: 600; }
+.history-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: var(--bg-input); border-bottom: 1px solid var(--border); }
+.history-head h3 { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.5px; font-weight: 600; margin: 0; padding: 0; background: none; border: none; }
+.history-clear-btn { background: none; border: 1px solid var(--border); color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; font-size: 11.5px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.history-clear-btn:hover { color: var(--error); border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); }
 .history-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
 .history-item:last-child { border-bottom: none; }
 .history-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
@@ -116,7 +119,10 @@ main { max-width: 800px; }
     </div>
 
     <div class="history" id="history">
-        <h3>Загруженные документы</h3>
+        <div class="history-head">
+            <h3>Загруженные документы</h3>
+            <button class="history-clear-btn" onclick="clearHistory()" title="Очистить локальную историю в браузере (документы в базе данных не удаляются)">Очистить</button>
+        </div>
         <div id="historyList"></div>
     </div>
 </main>
@@ -362,6 +368,20 @@ main { max-width: 800px; }
                 '<span class="info">' + escapeHtml(item.size) + ' · ' + escapeHtml(item.time) + ' · ' + escapeHtml(item.date) + '</span>';
             listDiv.appendChild(div);
         }
+    }
+
+    // Очистить локальную историю в браузере. На документы в БД не влияет — там
+    // они остаются и продолжают участвовать в поиске RAG-агента. Чтобы удалить
+    // их из БД — используется отдельный SQL (DELETE FROM documents WHERE filename = ...).
+    function clearHistory() {
+        if (uploadHistory.length === 0) return;
+        var msg = 'Очистить локальную историю в этом браузере?\n\n' +
+                  'ВНИМАНИЕ: документы из базы данных НЕ удаляются — они продолжат участвовать в поиске.\n' +
+                  'Удалится только список выше.';
+        if (!confirm(msg)) return;
+        uploadHistory = [];
+        try { localStorage.removeItem('doc_upload_history'); } catch(e) {}
+        renderHistory();
     }
 
 </script>
