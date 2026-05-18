@@ -61,6 +61,8 @@ main { max-width: 800px; }
 #result.success { background: rgba(16, 185, 129, 0.10); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; }
 #result.error { background: rgba(239, 68, 68, 0.10); border: 1px solid rgba(239, 68, 68, 0.4); color: var(--error); }
 #result.warning { background: rgba(245, 158, 11, 0.10); border: 1px solid rgba(245, 158, 11, 0.4); color: var(--warning); }
+/* Отступ под кнопкой «Загрузить другой документ» — чтобы не прилипала к .history снизу. */
+.reset-btn.show { margin-bottom: 16px; }
 /* .history — список загруженных файлов в этой сессии. Только в doc-loader. */
 .history { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: none; }
 .history.show { display: block; }
