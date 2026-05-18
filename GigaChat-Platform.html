@@ -160,13 +160,13 @@
 
         /* Двухколоночная сетка для второй строки «Инструментов». Ширина каждой
            карточки = ширина карточки из 3-колоночной сетки сверху, чтобы строки
-           визуально соответствовали друг другу. justify-content: center —
-           центрирует 2 карточки относительно контейнера. */
+           визуально соответствовали друг другу. justify-content: flex-start —
+           прижимает 2 карточки к левой стороне (под верхним рядом). */
         .cards-grid-tools-2 {
             display: grid;
             grid-template-columns: repeat(2, calc((100% - 40px) / 3));
             gap: 20px;
-            justify-content: center;
+            justify-content: flex-start;
             margin-top: 20px;
         }
 
