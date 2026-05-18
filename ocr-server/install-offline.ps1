@@ -23,12 +23,16 @@ Write-Host "==> Проверка Python..."
 $pythonVersion = python --version 2>&1
 Write-Host "    $pythonVersion"
 
-# Если есть wheels.zip и нет папки wheels — автоматически распаковываем
-if ((Test-Path "wheels.zip") -and (-not (Test-Path "wheels"))) {
-    Write-Host ""
-    Write-Host "==> Найден wheels.zip — распаковываю..."
-    Expand-Archive -Path "wheels.zip" -DestinationPath . -Force
+# Поддерживаем два имени для wheels — ocr-wheels.zip (с Release) и wheels.zip (локальный)
+$wheelsZipCandidates = @("ocr-wheels.zip", "wheels.zip")
+$wheelsZip = $wheelsZipCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 
+if ($wheelsZip -and (-not (Test-Path "wheels"))) {
+    Write-Host ""
+    Write-Host "==> Найден $wheelsZip — распаковываю в wheels/..."
+    Expand-Archive -Path $wheelsZip -DestinationPath . -Force
+
+    # Если zip содержал .whl в корне (не в подпапке wheels) — собираем их вручную
     if (-not (Test-Path "wheels")) {
         $looseWhls = Get-ChildItem -Filter "*.whl" -File
         if ($looseWhls.Count -gt 0) {
@@ -40,20 +44,43 @@ if ((Test-Path "wheels.zip") -and (-not (Test-Path "wheels"))) {
     }
 }
 
+# Аналогично для моделей EasyOCR
+$modelsZipCandidates = @("ocr-easyocr-models.zip", "easyocr_models.zip")
+$modelsZip = $modelsZipCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+if ($modelsZip -and (-not (Test-Path "easyocr_models"))) {
+    Write-Host ""
+    Write-Host "==> Найден $modelsZip — распаковываю в easyocr_models/..."
+    Expand-Archive -Path $modelsZip -DestinationPath . -Force
+
+    # Если zip содержал .pth в корне (не в подпапке) — собираем их
+    if (-not (Test-Path "easyocr_models")) {
+        $loosePths = Get-ChildItem -Filter "*.pth" -File
+        if ($loosePths.Count -gt 0) {
+            New-Item -ItemType Directory -Force -Path "easyocr_models" | Out-Null
+            foreach ($f in $loosePths) {
+                Move-Item -Path $f.FullName -Destination "easyocr_models\" -Force
+            }
+        }
+    }
+}
+
 Write-Host ""
 Write-Host "==> Проверка файлов бандла..."
 $missing = @()
 if (-not (Test-Path "requirements.txt"))   { $missing += "requirements.txt" }
 if (-not (Test-Path "server.py"))           { $missing += "server.py" }
-if (-not (Test-Path "wheels"))              { $missing += "wheels/ (папка с .whl-файлами) ИЛИ wheels.zip" }
-if (-not (Test-Path "easyocr_models"))      { $missing += "easyocr_models/ (модели EasyOCR)" }
+if (-not (Test-Path "wheels"))              { $missing += "wheels/ (или ocr-wheels.zip из GitHub Releases)" }
+if (-not (Test-Path "easyocr_models"))      { $missing += "easyocr_models/ (или ocr-easyocr-models.zip из GitHub Releases)" }
 
 if ($missing.Count -gt 0) {
     Write-Host ""
     Write-Host "ОШИБКА: в текущей папке не хватает файлов:" -ForegroundColor Red
     foreach ($m in $missing) { Write-Host "  - $m" -ForegroundColor Red }
     Write-Host ""
-    Write-Host "Скопируй всю папку ocr-server (с wheels.zip и easyocr_models) с флешки целиком."
+    Write-Host "Скачай ocr-wheels.zip и ocr-easyocr-models.zip из GitHub Releases:" -ForegroundColor Yellow
+    Write-Host "  https://github.com/Jorden-maker/GigaChat/releases/latest" -ForegroundColor Yellow
+    Write-Host "и положи рядом со скриптом."
     exit 1
 }
 

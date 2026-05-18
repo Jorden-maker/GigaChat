@@ -28,7 +28,10 @@ embedding-server/wheels.zip
 # Оффлайн-бандл OCR — лежит в GitHub Release, не в репо
 ocr-server/wheels/
 ocr-server/wheels.zip
+ocr-server/ocr-wheels.zip
 ocr-server/easyocr_models/
+ocr-server/easyocr_models.zip
+ocr-server/ocr-easyocr-models.zip
 ocr-server/_tmp_venv/
 
 # Pyodide-бандл для math-agent — лежит в репозитории, чтобы ZIP-загрузка

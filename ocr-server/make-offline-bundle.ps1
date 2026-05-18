@@ -92,12 +92,42 @@ $modelsSize = "{0:N1}" -f ((Get-ChildItem -Path "easyocr_models" -Recurse | Meas
 $modelsCount = (Get-ChildItem -Path "easyocr_models" -Recurse -File).Count
 Write-Host "    easyocr_models: $modelsCount файлов, $modelsSize MB"
 
+# ----- Паковка в zip-ы для GitHub Release -----
+Write-Host ""
+Write-Host "==> Паковка zip-ов для GitHub Release..."
+
+if (Test-Path "ocr-wheels.zip")          { Remove-Item "ocr-wheels.zip" -Force }
+if (Test-Path "ocr-easyocr-models.zip")  { Remove-Item "ocr-easyocr-models.zip" -Force }
+
+Compress-Archive -Path "wheels"         -DestinationPath "ocr-wheels.zip"         -CompressionLevel Optimal
+Compress-Archive -Path "easyocr_models" -DestinationPath "ocr-easyocr-models.zip" -CompressionLevel NoCompression
+# easyocr_models — .pth уже сжатые, повторное сжатие бесполезно и долго
+
+$wheelsZipSize = "{0:N1}" -f ((Get-Item "ocr-wheels.zip").Length / 1MB)
+$modelsZipSize = "{0:N1}" -f ((Get-Item "ocr-easyocr-models.zip").Length / 1MB)
+Write-Host "    ocr-wheels.zip:         $wheelsZipSize MB"
+Write-Host "    ocr-easyocr-models.zip: $modelsZipSize MB"
+
 Write-Host ""
 Write-Host "=============================================================" -ForegroundColor Green
 Write-Host " ГОТОВО" -ForegroundColor Green
 Write-Host "=============================================================" -ForegroundColor Green
-Write-Host " ЧТО ДАЛЬШЕ:"
-Write-Host " 1. Скопируй на флешку всю папку ocr-server целиком"
-Write-Host "    (с подпапками wheels/ и easyocr_models/)."
-Write-Host " 2. На офисном ПК запусти install-offline.ps1 из этой же папки."
+Write-Host ""
+Write-Host " ВАРИАНТ A — выложить как GitHub Release (рекомендуется):"
+Write-Host ""
+Write-Host "   gh release create v-ocr-N \`" -ForegroundColor Cyan
+Write-Host "     ocr-wheels.zip \`" -ForegroundColor Cyan
+Write-Host "     ocr-easyocr-models.zip \`" -ForegroundColor Cyan
+Write-Host "     --title `"OCR bundle vN`" \`" -ForegroundColor Cyan
+Write-Host "     --notes `"Python 3.12, win-x64`"" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "   Дальше в офисе скачиваешь zip-ы из Releases и кладёшь рядом"
+Write-Host "   с install-offline.ps1 — он сам распакует."
+Write-Host ""
+Write-Host " ВАРИАНТ B — на флешку напрямую:"
+Write-Host ""
+Write-Host "   Скопируй ocr-wheels.zip и ocr-easyocr-models.zip на флешку"
+Write-Host "   вместе с папкой ocr-server. На офисном ПК положи zip-ы рядом"
+Write-Host "   с install-offline.ps1 и запусти его — он сам распакует."
+Write-Host ""
 Write-Host "=============================================================" -ForegroundColor Green
