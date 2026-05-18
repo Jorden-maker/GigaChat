@@ -26,9 +26,15 @@ cd /d "%~dp0"
 
 set "BROWSER="
 
-REM Yandex Browser - предпочтительно для офиса
+REM Yandex Browser - предпочтительно для офиса. Проверяем 4 типичных пути:
+REM   1) Per-user install (LocalAppData) — самый частый
+REM   2) System-wide install в Program Files (64-bit OS, 64-bit Yandex)
+REM   3) System-wide install в Program Files (x86) (32-bit Yandex или legacy)
+REM   4) Нестандартный путь без подпапки Yandex (некоторые корпоративные сборки)
 if exist "%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe" set "BROWSER=%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe"
+if not defined BROWSER if exist "C:\Program Files\Yandex\YandexBrowser\Application\browser.exe" set "BROWSER=C:\Program Files\Yandex\YandexBrowser\Application\browser.exe"
 if not defined BROWSER if exist "C:\Program Files (x86)\Yandex\YandexBrowser\Application\browser.exe" set "BROWSER=C:\Program Files (x86)\Yandex\YandexBrowser\Application\browser.exe"
+if not defined BROWSER if exist "C:\Program Files\Application\browser.exe" set "BROWSER=C:\Program Files\Application\browser.exe"
 
 REM Chrome - fallback
 if not defined BROWSER if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" set "BROWSER=C:\Program Files\Google\Chrome\Application\chrome.exe"
@@ -44,7 +50,9 @@ if not defined BROWSER (
     echo Install Yandex Browser, Google Chrome, or Microsoft Edge.
     echo Checked locations:
     echo   %LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe
+    echo   C:\Program Files\Yandex\YandexBrowser\Application\browser.exe
     echo   C:\Program Files ^(x86^)\Yandex\YandexBrowser\Application\browser.exe
+    echo   C:\Program Files\Application\browser.exe
     echo   C:\Program Files\Google\Chrome\Application\chrome.exe
     echo   C:\Program Files ^(x86^)\Google\Chrome\Application\chrome.exe
     echo   %LOCALAPPDATA%\Google\Chrome\Application\chrome.exe

@@ -38,12 +38,30 @@ if not exist "%~dp0Caddyfile" (
     exit /b 1
 )
 
+REM Detect Yandex Browser preferentially (user can't set it as system default
+REM via group policy, but we open it explicitly here). Falls back to default
+REM browser if Yandex not found.
+set "BROWSER="
+if exist "%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe" set "BROWSER=%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe"
+if not defined BROWSER if exist "C:\Program Files\Yandex\YandexBrowser\Application\browser.exe" set "BROWSER=C:\Program Files\Yandex\YandexBrowser\Application\browser.exe"
+if not defined BROWSER if exist "C:\Program Files (x86)\Yandex\YandexBrowser\Application\browser.exe" set "BROWSER=C:\Program Files (x86)\Yandex\YandexBrowser\Application\browser.exe"
+if not defined BROWSER if exist "C:\Program Files\Application\browser.exe" set "BROWSER=C:\Program Files\Application\browser.exe"
+
 REM Open browser in parallel after 3 sec - Caddy will be up by then.
-start "" /b cmd /c "timeout /t 3 /nobreak >nul && start """" ""http://localhost:8765/"""
+if defined BROWSER (
+    start "" /b cmd /c "timeout /t 3 /nobreak >nul && start """" ""%BROWSER%"" ""http://localhost:8765/"""
+) else (
+    start "" /b cmd /c "timeout /t 3 /nobreak >nul && start """" ""http://localhost:8765/"""
+)
 
 echo ============================================
 echo  GigaChat Server
 echo  URL: http://localhost:8765/
+if defined BROWSER (
+    echo  Browser: %BROWSER%
+) else (
+    echo  Browser: default ^(Yandex not detected^)
+)
 echo  Close this window to stop the server.
 echo ============================================
 echo.
