@@ -335,9 +335,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _user AS (INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2) RETURNING id AS uid), _ass AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $3 WHERE LENGTH(TRIM($3)) > 0 RETURNING id AS aid) SELECT _user.uid FROM _user CROSS JOIN _lock LEFT JOIN _ass ON TRUE",
         "options": {
-          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $('Агрегация').first().json.message || '', $json.response || ''] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -360,9 +360,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _user AS (INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2) RETURNING id AS uid), _ass AS (INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $3, $4::jsonb WHERE LENGTH(TRIM($3)) > 0 RETURNING id AS aid) SELECT _user.uid FROM _user CROSS JOIN _lock LEFT JOIN _ass ON TRUE",
         "options": {
-          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || '', JSON.stringify({prompt: $json.prompt || ''})] }}"
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $('Агрегация').first().json.message || '', $json.response || '', JSON.stringify({prompt: $json.prompt || ''})] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
@@ -509,17 +509,6 @@
       ]
     },
     "Агрегация": {
-      "main": [
-        [
-          {
-            "node": "Сохранить вопрос",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Сохранить вопрос": {
       "main": [
         [
           {

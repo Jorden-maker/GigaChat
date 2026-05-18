@@ -289,7 +289,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let newSummary = '';\ntry {\n  newSummary = $input.first().json.output[0].content[0].text.trim();\n} catch(e) {\n  // GigaChat не ответил — оставляем старое резюме\n  newSummary = $('Агрегация').first().json.summary || '';\n}\n\nconst sessionId = $('Агрегация').first().json.session_id;\nconst oldSummarized = $('Нужно сжатие?').first().json.summarized || 0;\nconst compressed = $('Нужно сжатие?').first().json.toCompress || 0;\nconst newSummarized = oldSummarized + compressed;\n\n// Выходим с сырыми значениями — UPSERT-нода ниже передаст их через\n// параметризацию ($1, $2, $3), безопаснее любых replaceAll-экранирований.\nreturn [{json: {\n  sessionId: sessionId,\n  summary: newSummary,\n  summarized: newSummarized,\n  newSummary: newSummary\n}}];"
+        "jsCode": "// Проверяем, что LLM действительно сжал текст. Если упал/таймаут —\n// НЕ инкрементируем messages_summarized, иначе при следующем запросе\n// эти сообщения уже посчитаются «сжатыми» и выпадут из контекста LLM.\nlet newSummary = '';\nlet compressionOk = false;\ntry {\n  const raw = $input.first().json;\n  if (!raw.error) {\n    const text = raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text;\n    if (text && text.trim()) {\n      newSummary = text.trim();\n      compressionOk = true;\n    }\n  }\n} catch(e) {}\n\nconst oldSummary = $('Агрегация').first().json.summary || '';\nif (!compressionOk) {\n  newSummary = oldSummary;\n}\n\nconst sessionId = $('Агрегация').first().json.session_id;\nconst oldSummarized = $('Нужно сжатие?').first().json.summarized || 0;\nconst compressed = $('Нужно сжатие?').first().json.toCompress || 0;\n// Инкрементируем счётчик ТОЛЬКО при успешном сжатии. Иначе старое значение —\n// сообщения снова попадут в следующий compress-batch.\nconst newSummarized = compressionOk ? (oldSummarized + compressed) : oldSummarized;\n\n// Выходим с сырыми значениями — UPSERT-нода ниже передаст их через\n// параметризацию ($1, $2, $3), безопаснее любых replaceAll-экранирований.\nreturn [{json: {\n  sessionId: sessionId,\n  summary: newSummary,\n  summarized: newSummarized,\n  newSummary: newSummary\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -303,7 +303,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_summaries (session_id, summary_text, messages_summarized, updated_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (session_id) DO UPDATE SET summary_text = $2, messages_summarized = $3, updated_at = NOW()",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_summaries (session_id, summary_text, messages_summarized, updated_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (session_id) DO UPDATE SET summary_text = $2, messages_summarized = $3, updated_at = NOW() RETURNING session_id) SELECT _save.session_id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$json.sessionId, $json.summary, $json.summarized] }}"
         }

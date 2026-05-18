@@ -359,7 +359,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2)",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2) RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$json.session_id, ($json.message || '').replace(/\\[ВЛОЖЕНИЕ:[^\\]]+\\][\\s\\S]*?\\[\\/ВЛОЖЕНИЕ\\]\\s*/g, '[прикреплён файл] ').replace(/\\[не удалось обработать файл:[^\\]]+\\]\\s*/g, '[ошибка вложения] ')] }}"
         }
@@ -384,7 +384,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
         }
@@ -409,7 +409,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0 RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.error || 'Код не прошёл проверку безопасности.', JSON.stringify({code: $json.code || '', raw_result: ''})] }}"
         }
@@ -516,7 +516,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0 RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Извлечение полей').first().json.session_id, $json.response_text || '', JSON.stringify({code: $('Извлечение полей').first().json.code || '', raw_result: $('Извлечение полей').first().json.raw_result || ''})] }}"
         }
