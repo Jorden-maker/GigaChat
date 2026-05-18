@@ -14,6 +14,7 @@
 7. [Шпаргалка администратора](#7-шпаргалка-администратора)
 8. [Если что-то сломалось](#8-если-что-то-сломалось)
 9. [Полный SQL-справочник по этой базе](#9-полный-sql-справочник-по-этой-базе)
+10. [Миграция существующей БД при обновлении проекта](#10-миграция-существующей-бд-при-обновлении-проекта)
 
 ---
 
@@ -1113,3 +1114,99 @@ DELETE FROM clients WHERE id = 2;
 ROLLBACK TO before_delete;  -- откатились только до удаления
 COMMIT;
 ```
+
+---
+
+## 10. Миграция существующей БД при обновлении проекта
+
+Если БД уже существует и работала со старой версией GigaChat — нужно несколько SQL-команд, чтобы привести её к актуальной схеме.
+
+**Бэкап перед миграцией — опционально.** DELETE-команда ниже жёстко ограничена (`a.id > b.id AND ...`), удаляет только новейшие из пары дублей. Если боишься опечататься или эмбеддинг занимал часы — сделай бэкап (см. раздел 6). Если документов мало и можно перезалить через `/webhook/upload-doc` — пропускай.
+
+### Шаг 1. UNIQUE constraint на `documents` (обязательно)
+
+Нужен для нового workflow `document-loader` (`ON CONFLICT (filename, chunk_index)`). Без него повторная загрузка файла будет падать с ошибкой `ON CONFLICT specification requires unique index`.
+
+```sql
+-- 1.1. Очистить возможные дубли от старых загрузок
+DELETE FROM documents a USING documents b
+  WHERE a.id > b.id
+    AND a.filename = b.filename
+    AND a.chunk_index = b.chunk_index;
+
+-- 1.2. Добавить UNIQUE constraint
+ALTER TABLE documents
+  ADD CONSTRAINT documents_filename_chunk_unique
+  UNIQUE (filename, chunk_index);
+```
+
+### Шаг 2. Проверить тип `chat_memory.extras` (диагностика)
+
+```sql
+SELECT data_type FROM information_schema.columns
+WHERE table_name = 'chat_memory' AND column_name = 'extras';
+```
+
+Возможные результаты:
+
+| Результат | Что делать |
+|---|---|
+| `jsonb` | ✅ ничего, всё ок |
+| `json` (без B) | ⚠️ выполнить миграцию шага 3 |
+| `text` или другое | ⚠️ выполнить миграцию шага 3 |
+| Пусто (нет строк) | ⚠️ колонки нет, выполнить миграцию шага 3 |
+
+### Шаг 3. Миграция `extras` на JSONB (если не jsonb)
+
+```sql
+-- Если колонки extras вообще нет:
+ALTER TABLE chat_memory ADD COLUMN IF NOT EXISTS extras JSONB;
+
+-- Если колонка есть, но тип не JSONB:
+ALTER TABLE chat_memory ALTER COLUMN extras TYPE JSONB USING extras::jsonb;
+```
+
+### Шаг 4. Контрольная проверка
+
+После всех шагов выполни блок проверки готовности:
+
+```sql
+-- 1. Расширение vector
+SELECT * FROM pg_extension WHERE extname = 'vector';
+-- Должна быть 1 строка
+
+-- 2. Все таблицы на месте
+SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;
+-- Должны быть: chat_memory, chat_summaries, clients, documents, orders
+
+-- 3. UNIQUE constraint на documents
+SELECT conname FROM pg_constraint
+WHERE conrelid = 'documents'::regclass AND contype = 'u';
+-- Должна вернуть: documents_filename_chunk_unique
+
+-- 4. Индексы на месте
+SELECT indexname FROM pg_indexes WHERE tablename IN ('chat_memory', 'documents');
+-- Должны быть: idx_chat_memory_session, idx_documents_embedding, idx_documents_filename
+
+-- 5. extras в JSONB
+SELECT data_type FROM information_schema.columns
+WHERE table_name = 'chat_memory' AND column_name = 'extras';
+-- Должно вернуть: jsonb
+```
+
+Если все 5 пунктов проходят — БД готова, можно импортировать workflow'ы в n8n и запускать тесты.
+
+### Если используется pgBouncer (важно для B1)
+
+Новый chat-agent использует `pg_advisory_xact_lock` для сериализации параллельных запросов в одной сессии. Этот механизм **не работает** в pgBouncer'е с `pool_mode = transaction` (advisory-lock от одной транзакции не виден другой, даже если они идут через одно соединение).
+
+Проверь в `pgbouncer.ini`:
+
+```ini
+pool_mode = session    # ✅ работает с advisory_xact_lock
+pool_mode = transaction  # ❌ ломает B1 фикс
+pool_mode = statement    # ❌ ещё хуже, не использовать
+```
+
+Если стоит `transaction` — переключи на `session`, либо обходи pgBouncer для n8n (прямое подключение к 5432, а pgBouncer для других приложений).
+
