@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Организация обращения — GigaChat</title>
+<script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+<style>
+:root {
+    --bg-primary: #1f1f1e;
+    --bg-secondary: #1f1e1c;
+    --bg-input: #2c2c2a;
+    --bg-card: #1f1e1c;
+    --border: #363432;
+    --text-primary: #d4d4d4;
+    --text-secondary: #8a8a8a;
+    --text-muted: #5a5a5a;
+    --accent: #d4a574;
+    --accent-hover: #c08a5a;
+    --accent-light: rgba(212, 165, 116, 0.12);
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+}
+:root[data-theme="light"] {
+    --bg-primary: #fdfdfc;
+    --bg-secondary: #f3f1ec;
+    --bg-input: #fffffe;
+    --bg-card: #fffffe;
+    --border: #e3dfd5;
+    --text-primary: #1f1f1e;
+    --text-secondary: #6b6b68;
+    --text-muted: #a8a59f;
+    --accent: #b8895d;
+    --accent-hover: #a0764d;
+    --accent-light: rgba(184, 137, 93, 0.15);
+}
+/* Общие стили tool-страницы — в _shared.js через GigaChat.injectToolCss().
+   Здесь только per-page правила. */
+html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+html::-webkit-scrollbar { width: 5px; }
+html::-webkit-scrollbar-track { background: transparent; }
+html::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+html::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+main { max-width: 800px; }
+#fileInput { display: none; }
+/* Точки в .loading с blink-анимацией (gcBlink keyframe — в injectStatusDotCss). */
+.loading .dots span { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--text-secondary); animation: gcBlink 1.4s infinite; margin: 0 2px; }
+.loading .dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Контейнеры результата — три блока: extracted, steps, final */
+.result-section { display: none; margin-bottom: 16px; }
+.result-section.show { display: block; }
+.result-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 12px;
+}
+.result-card h3 {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+.result-card .field {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+}
+.result-card .field:last-child { border-bottom: none; }
+.result-card .field-label {
+    color: var(--text-secondary);
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.result-card .field-value {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: right;
+    word-break: break-word;
+}
+.result-card .field-value.empty {
+    color: var(--text-muted);
+    font-style: italic;
+    font-weight: 400;
+}
+
+/* Шаги алгоритма */
+.step-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+.step-row:last-child { border-bottom: none; }
+.step-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+}
+.step-icon.ok { background: var(--success); }
+.step-icon.not_done, .step-icon.partial { background: var(--warning); }
+.step-icon.not_found { background: var(--error); }
+.step-content { flex: 1; }
+.step-name {
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+.step-message {
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* Финальный итог */
+.final-card {
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+}
+.final-card .label {
+    font-size: 12px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+.final-card .text {
+    font-size: 16px;
+    color: var(--text-primary);
+    line-height: 1.5;
+    font-weight: 500;
+}
+
+/* Error variant финального блока — при ошибке (не пройдена идентификация и т.п.) */
+.final-card.warning {
+    background: rgba(245, 158, 11, 0.10);
+    border-color: var(--warning);
+}
+.final-card.warning .label { color: var(--warning); }
+.final-card.error {
+    background: rgba(239, 68, 68, 0.10);
+    border-color: var(--error);
+}
+.final-card.error .label { color: var(--error); }
+
+/* Простая error-секция (когда вообще не дошли до DB-цепочки) */
+#errorBox {
+    display: none;
+    padding: 20px 24px;
+    background: rgba(239, 68, 68, 0.10);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: var(--error);
+    border-radius: 12px;
+    line-height: 1.6;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+#errorBox.show { display: block; }
+</style>
+<script src="_config.js"></script>
+<script src="_shared.js"></script>
+</head>
+<body>
+
+<header>
+    <div class="header-left">
+        <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </a>
+        <h1>Организация обращения</h1>
+    </div>
+    <div class="header-right">
+        <div class="status-bar">
+            <span class="dot checking" id="statusDot"></span>
+            <span id="statusText">проверка...</span>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="intro">
+        <h2>Что делает алгоритм</h2>
+        <p>Загрузите документ обращения сотрудника (<code>.docx</code> или <code>.pdf</code>, скан или текст). Алгоритм:</p>
+        <p>1. Извлечёт <b>ФИО</b>, <b>дату рождения</b>, <b>номер сотрудника</b> из документа.<br>
+        2. Проверит идентификацию в <b>БД сотрудников</b>.<br>
+        3. Если ОК — проверит выполнение <b>Мероприятия №1</b>.<br>
+        4. Если ОК — проверит выполнение <b>Мероприятия №2</b> и выдаст итог.</p>
+    </div>
+
+    <label class="drop-zone" id="uploadArea" for="fileInput">
+        <div class="icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+            </svg>
+        </div>
+        <div class="title">Перетащите документ сюда или нажмите для выбора</div>
+        <div class="hint">Поддерживаются: PDF, DOCX. Максимум 50 МБ.</div>
+        <div class="filename" id="fileName"></div>
+        <div class="filesize" id="fileSize"></div>
+    </label>
+
+    <input type="file" id="fileInput" accept=".pdf,.docx,.doc" onchange="fileSelected(this)">
+
+    <button id="sendBtn" class="btn-primary" onclick="sendFile()" disabled>Обработать обращение</button>
+
+    <div class="loading" id="loading">
+        Обрабатываю документ
+        <span class="dots"><span>.</span><span>.</span><span>.</span></span>
+        <div class="timer" id="timer"></div>
+    </div>
+
+    <!-- Блок ошибки (когда не дошли до DB-цепочки: файл не распознан и т.п.) -->
+    <div id="errorBox"></div>
+
+    <!-- Блок 1: извлечённые данные -->
+    <div class="result-section" id="extractedSection">
+        <div class="result-card">
+            <h3>Извлечённые данные</h3>
+            <div class="field">
+                <span class="field-label">ФИО</span>
+                <span class="field-value" id="fldFio"></span>
+            </div>
+            <div class="field">
+                <span class="field-label">Дата рождения</span>
+                <span class="field-value" id="fldBirth"></span>
+            </div>
+            <div class="field">
+                <span class="field-label">Номер сотрудника</span>
+                <span class="field-value" id="fldNumber"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Блок 2: шаги алгоритма -->
+    <div class="result-section" id="stepsSection">
+        <div class="result-card">
+            <h3>Прохождение алгоритма</h3>
+            <div id="stepsList"></div>
+        </div>
+    </div>
+
+    <!-- Блок 3: финальный ответ -->
+    <div class="result-section" id="finalSection">
+        <div class="final-card" id="finalCard">
+            <div class="label">Итог</div>
+            <div class="text" id="finalText"></div>
+        </div>
+    </div>
+
+    <div class="reset-btn" id="resetBtn">
+        <button onclick="resetForm()">Загрузить другой документ</button>
+        <button onclick="copyResult()">Копировать результат</button>
+    </div>
+</main>
+
+<script>
+    GigaChat.injectToolCss();
+    var WEBHOOK_URL = GigaChat.webhookUrl('organization-appeal');
+    var FETCH_TIMEOUT_MS = 180000;
+    var MAX_RETRIES = 1;
+    var RETRY_DELAY_MS = 3000;
+    var MAX_FILE_SIZE_MB = 50;
+    var selectedFile = null;
+    var isProcessing = false;
+    var uploadArea = document.getElementById('uploadArea');
+    var sendBtn = document.getElementById('sendBtn');
+    var loading = document.getElementById('loading');
+    var errorBox = document.getElementById('errorBox');
+    var extractedSection = document.getElementById('extractedSection');
+    var stepsSection = document.getElementById('stepsSection');
+    var finalSection = document.getElementById('finalSection');
+    var resetBtnDiv = document.getElementById('resetBtn');
+    var timerEl = document.getElementById('timer');
+    var timerInterval = null;
+    var ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx'];
+
+    function checkServerStatus() {
+        return GigaChat.checkServerStatus(WEBHOOK_URL, document.getElementById('statusDot'), document.getElementById('statusText'));
+    }
+    function getExtension(fn) { return (fn || '').split('.').pop().toLowerCase(); }
+    function isAllowedFile(fn) { return ALLOWED_EXTENSIONS.indexOf(getExtension(fn)) !== -1; }
+    function formatFileSize(b) {
+        if (b < 1024) return b + ' Б';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' КБ';
+        return (b / 1048576).toFixed(1) + ' МБ';
+    }
+
+    uploadArea.addEventListener('dragover', function (e) { e.preventDefault(); uploadArea.classList.add('dragging'); });
+    uploadArea.addEventListener('dragleave', function () { uploadArea.classList.remove('dragging'); });
+    uploadArea.addEventListener('drop', function (e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragging');
+        if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+    });
+    function fileSelected(input) { if (input.files.length > 0) handleFile(input.files[0]); }
+    function handleFile(file) {
+        if (!isAllowedFile(file.name)) {
+            alert('Неподдерживаемый формат: .' + getExtension(file.name) + '\nДоступны: .pdf, .docx');
+            return;
+        }
+        if (file.size > MAX_FILE_SIZE_MB * 1048576) {
+            alert('Файл слишком большой: ' + formatFileSize(file.size) + '\nМаксимум: ' + MAX_FILE_SIZE_MB + ' МБ');
+            return;
+        }
+        selectedFile = file;
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileSize').textContent = formatFileSize(file.size);
+        sendBtn.disabled = false;
+    }
+
+    function clearResults() {
+        errorBox.classList.remove('show');
+        extractedSection.classList.remove('show');
+        stepsSection.classList.remove('show');
+        finalSection.classList.remove('show');
+    }
+
+    function renderResult(data) {
+        clearResults();
+
+        // 1. Извлечённые данные — показываем если есть FIO/birth/number
+        var extracted = data.extracted || {};
+        if (extracted.fio || extracted.birth_date || extracted.employee_number) {
+            document.getElementById('fldFio').textContent = extracted.fio || 'не указано';
+            document.getElementById('fldFio').className = 'field-value' + (extracted.fio ? '' : ' empty');
+            document.getElementById('fldBirth').textContent = extracted.birth_date || 'не указано';
+            document.getElementById('fldBirth').className = 'field-value' + (extracted.birth_date && extracted.birth_date !== 'не указано' ? '' : ' empty');
+            document.getElementById('fldNumber').textContent = extracted.employee_number || 'не указан';
+            document.getElementById('fldNumber').className = 'field-value' + (extracted.employee_number && extracted.employee_number !== 'не указан' ? '' : ' empty');
+            extractedSection.classList.add('show');
+        }
+
+        // 2. Шаги алгоритма
+        var steps = data.steps || [];
+        if (steps.length > 0) {
+            var stepsList = document.getElementById('stepsList');
+            stepsList.innerHTML = '';
+            for (var i = 0; i < steps.length; i++) {
+                var s = steps[i];
+                var iconText = s.status === 'ok' || s.status === 'done' ? '✓'
+                    : (s.status === 'partial' || s.status === 'not_done' ? '!' : '✗');
+                var row = document.createElement('div');
+                row.className = 'step-row';
+                row.innerHTML =
+                    '<div class="step-icon ' + escapeAttr(s.status) + '">' + iconText + '</div>' +
+                    '<div class="step-content">' +
+                    '<div class="step-name">Шаг ' + s.step + ' · ' + escapeHtml(s.name || '') + '</div>' +
+                    '<div class="step-message">' + escapeHtml(s.message || '') + '</div>' +
+                    '</div>';
+                stepsList.appendChild(row);
+            }
+            stepsSection.classList.add('show');
+        }
+
+        // 3. Финальный итог
+        var finalCard = document.getElementById('finalCard');
+        finalCard.classList.remove('warning', 'error');
+        // Окрашиваем итоговую плашку по итогу последнего шага (если есть)
+        if (steps.length > 0) {
+            var last = steps[steps.length - 1];
+            if (last.status === 'partial' || last.status === 'not_done') finalCard.classList.add('warning');
+            else if (last.status === 'not_found') finalCard.classList.add('error');
+        }
+        document.getElementById('finalText').textContent = data.response || '—';
+        finalSection.classList.add('show');
+    }
+
+    function escapeHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = String(s == null ? '' : s);
+        return d.innerHTML;
+    }
+    function escapeAttr(s) {
+        return String(s == null ? '' : s).replace(/[^a-z0-9_-]/gi, '');
+    }
+
+    async function sendFile() {
+        if (!selectedFile || isProcessing) return;
+        isProcessing = true;
+        sendBtn.disabled = true;
+        loading.classList.add('show');
+        clearResults();
+        resetBtnDiv.classList.remove('show');
+        var startTime = Date.now();
+        timerEl.textContent = '';
+        timerInterval = setInterval(function () {
+            timerEl.textContent = Math.floor((Date.now() - startTime) / 1000) + ' сек.';
+        }, 1000);
+        try {
+            var formData = new FormData();
+            formData.append('file', selectedFile);
+            var res = await GigaChat.fetchWithRetry(WEBHOOK_URL, { method: 'POST', body: formData }, {
+                timeout: FETCH_TIMEOUT_MS,
+                retries: MAX_RETRIES,
+                retryDelay: RETRY_DELAY_MS
+            });
+            clearInterval(timerInterval);
+            loading.classList.remove('show');
+            if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
+            var data;
+            try { data = await res.json(); }
+            catch (parseErr) { throw new Error('Сервер вернул некорректный ответ (не JSON).'); }
+
+            // Если нет ни extracted, ни steps — значит ошибка раньше DB-цепочки
+            if (!data.extracted && (!data.steps || data.steps.length === 0)) {
+                errorBox.textContent = data.response || data.error || 'Ошибка обработки документа.';
+                errorBox.classList.add('show');
+            } else {
+                renderResult(data);
+            }
+            document.getElementById('statusDot').className = 'dot online';
+            document.getElementById('statusText').textContent = 'Онлайн';
+        } catch (e) {
+            clearInterval(timerInterval);
+            loading.classList.remove('show');
+            errorBox.textContent = 'Ошибка: ' + e.message;
+            errorBox.classList.add('show');
+            document.getElementById('statusDot').className = 'dot offline';
+            document.getElementById('statusText').textContent = 'Офлайн';
+        }
+        isProcessing = false;
+        resetBtnDiv.classList.add('show');
+    }
+
+    function resetForm() {
+        selectedFile = null;
+        document.getElementById('fileInput').value = '';
+        document.getElementById('fileName').textContent = '';
+        document.getElementById('fileSize').textContent = '';
+        sendBtn.disabled = true;
+        clearResults();
+        resetBtnDiv.classList.remove('show');
+        if (timerInterval) clearInterval(timerInterval);
+    }
+
+    function copyResult() {
+        // Собираем читаемый текст из всех видимых блоков
+        var lines = [];
+        if (extractedSection.classList.contains('show')) {
+            lines.push('ИЗВЛЕЧЁННЫЕ ДАННЫЕ:');
+            lines.push('  ФИО: ' + document.getElementById('fldFio').textContent);
+            lines.push('  Дата рождения: ' + document.getElementById('fldBirth').textContent);
+            lines.push('  Номер сотрудника: ' + document.getElementById('fldNumber').textContent);
+            lines.push('');
+        }
+        if (stepsSection.classList.contains('show')) {
+            lines.push('ХОД АЛГОРИТМА:');
+            var rows = document.querySelectorAll('#stepsList .step-row');
+            rows.forEach(function (r) {
+                var name = r.querySelector('.step-name').textContent;
+                var msg = r.querySelector('.step-message').textContent;
+                lines.push('  · ' + name + ': ' + msg);
+            });
+            lines.push('');
+        }
+        if (finalSection.classList.contains('show')) {
+            lines.push('ИТОГ: ' + document.getElementById('finalText').textContent);
+        }
+        if (errorBox.classList.contains('show')) {
+            lines.push('ОШИБКА: ' + errorBox.textContent);
+        }
+        var text = lines.join('\n');
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(function () { alert('Скопировано'); });
+        } else {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            alert('Скопировано');
+        }
+    }
+
+    checkServerStatus();
+    setInterval(checkServerStatus, 30000);
+</script>
+</body>
+</html>

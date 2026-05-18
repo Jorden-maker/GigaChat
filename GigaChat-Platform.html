@@ -503,6 +503,19 @@
 
     </div>
 
+    <div class="cards-section-title">Алгоритмы</div>
+    <div class="cards-grid">
+
+        <a class="card card-org-appeal" href="Agents/organization-appeal.html" id="card-org-appeal">
+            <div class="card-status checking" id="status-org-appeal"></div>
+            <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+            <div class="card-title">Организация обращения</div>
+            <div class="card-desc">Извлекает ФИО/ДР/номер из документа и проходит 3-ступенчатую идентификацию по БД сотрудников и мероприятий.</div>
+            <span class="card-tag">Алгоритм</span>
+        </a>
+
+    </div>
+
     <div class="footer">
         GigaChat &middot; ПЛАТФОРМА &middot; <span id="currentYear"></span>
     </div>
@@ -556,6 +569,11 @@
         <div class="gateway-agent-item"><code>/webhook/table-merger-excel</code><span class="desc">объединение Excel-таблиц</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/table-merger-excel')" aria-label="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
       </div>
 
+      <h3>Доступные алгоритмы</h3>
+      <div class="gateway-agents-list">
+        <div class="gateway-agent-item"><code>/webhook/organization-appeal</code><span class="desc">организация обращения (3-ступенчатая идентификация)</span><button class="gateway-copy-btn" onclick="copyAgentUrl(this, '/webhook/organization-appeal')" aria-label="Копировать URL агента"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -572,7 +590,8 @@
         { id: 'ocr',    webhook: GigaChat.webhookUrl('ocr') },
         { id: 'docs',   webhook: GigaChat.webhookUrl('upload-doc') },
         { id: 'extract', webhook: GigaChat.webhookUrl('extract-text') },
-        { id: 'merger-excel', webhook: GigaChat.webhookUrl('table-merger-excel') }
+        { id: 'merger-excel', webhook: GigaChat.webhookUrl('table-merger-excel') },
+        { id: 'org-appeal', webhook: GigaChat.webhookUrl('organization-appeal') }
         // merger-word работает целиком в браузере (JSZip + DOMParser) —
         // без webhook'а, всегда «онлайн», статус-чек не нужен.
     ];

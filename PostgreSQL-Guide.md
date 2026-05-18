@@ -148,6 +148,60 @@ CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents (filename);
 --     WHERE a.id > b.id AND a.filename = b.filename AND a.chunk_index = b.chunk_index;
 --   ALTER TABLE documents ADD CONSTRAINT documents_filename_chunk_unique UNIQUE (filename, chunk_index);
 
+-- 5b. Таблицы для алгоритма «Организация обращения»
+-- Алгоритм извлекает ФИО/ДР/номер из документа и проводит идентификацию
+-- по 3 БД (сотрудники + 2 справочника мероприятий). Все 3 таблицы лежат
+-- в одной БД gigachat для удобства администрирования.
+
+CREATE TABLE IF NOT EXISTS appeal_employees (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(200) NOT NULL,
+    employee_number VARCHAR(50) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_appeal_employees_name ON appeal_employees (full_name);
+CREATE INDEX IF NOT EXISTS idx_appeal_employees_number ON appeal_employees (employee_number);
+
+CREATE TABLE IF NOT EXISTS appeal_event1 (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(200) NOT NULL,
+    is_done BOOLEAN NOT NULL DEFAULT FALSE,
+    done_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_appeal_event1_name ON appeal_event1 (full_name);
+
+CREATE TABLE IF NOT EXISTS appeal_event2 (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(200) NOT NULL,
+    is_done BOOLEAN NOT NULL DEFAULT FALSE,
+    done_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_appeal_event2_name ON appeal_event2 (full_name);
+
+-- Тестовые данные для отладки алгоритма
+-- Иванов — полный успех (пройдёт все 3 шага → «Для данного ФИО проводится проверка»)
+-- Петров — успех шага 1, нет в event1 → «Сведения о данном ФИО отсутствуют»
+-- Сидоров — успех шага 1, event1 не выполнено → «Мероприятие №1 для ФИО не выполнено»
+-- Кузнецов — нет в employees вообще → «Невозможно идентифицировать»
+-- Смирнов — есть в employees, но с другим номером → «Идентификация прошла частично»
+
+INSERT INTO appeal_employees (full_name, employee_number) VALUES
+    ('Иванов Иван Иванович',     '12345'),
+    ('Петров Пётр Петрович',     '67890'),
+    ('Сидоров Сидор Сидорович',  '11111'),
+    ('Смирнов Семён Семёнович',  '22222')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO appeal_event1 (full_name, is_done, done_at) VALUES
+    ('Иванов Иван Иванович',     TRUE,  NOW() - INTERVAL '30 days'),
+    ('Сидоров Сидор Сидорович',  FALSE, NULL),
+    ('Смирнов Семён Семёнович',  TRUE,  NOW() - INTERVAL '15 days')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO appeal_event2 (full_name, is_done, done_at) VALUES
+    ('Иванов Иван Иванович',     TRUE,  NOW() - INTERVAL '10 days'),
+    ('Смирнов Семён Семёнович',  FALSE, NULL)
+ON CONFLICT DO NOTHING;
+
 -- 6. История диалогов (используется всеми агентами)
 CREATE TABLE IF NOT EXISTS chat_memory (
     id SERIAL PRIMARY KEY,
