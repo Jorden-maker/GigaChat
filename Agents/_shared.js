@@ -2145,7 +2145,11 @@
 
     // Stop-кнопка: подменяем send-icon на stop-icon, меняем aria-label.
     // При клике sendMsg в фабрике увидит class='streaming' и вызовет stop.
-    var origSendIcon = sendBtn ? sendBtn.innerHTML : '';
+    // ВАЖНО: origSendIcon фиксируем как SEND_ICON_SVG, а не sendBtn.innerHTML
+    // — потому что к моменту вызова typewriteAssistant фабрика sendMsg уже
+    // вызвала makeCancellableSend, который установил STOP_ICON_SVG. Если
+    // считать «оригинал» из DOM — после typewriter restoreSendButton вернёт
+    // STOP_ICON_SVG, кнопка останется квадратом навсегда.
     var origSendLabel = sendBtn ? sendBtn.getAttribute('aria-label') : null;
     if (sendBtn) {
       sendBtn.classList.add('streaming');
@@ -2157,7 +2161,7 @@
       if (!sendBtn) return;
       sendBtn.classList.remove('streaming');
       if (origSendLabel) sendBtn.setAttribute('aria-label', origSendLabel);
-      sendBtn.innerHTML = origSendIcon;
+      sendBtn.innerHTML = SEND_ICON_SVG;
     }
 
     var i = 0;
@@ -2754,14 +2758,23 @@
         }
         var built = buildMessageWithAttachment(text, extractedList);
         messageForAgent = built.messageForAgent;
-        var msgs2 = sessionStore.state.displayMessages;
-        for (var j = msgs2.length - 1; j >= 0; j--) {
-          if (msgs2[j].role === 'user') {
-            msgs2[j].attachments = built.attachments;
-            break;
+        // ВАЖНО: после долгого await extract() юзер мог переключиться в
+        // другую сессию. displayMessages теперь ОТНОСИТСЯ к новой активной
+        // сессии, и мутация прикрепила бы наши файлы к её user-msg → порча.
+        // Поэтому мутируем только если sendSession всё ещё активна.
+        // Если нет — chips с файлами были видны в момент отправки, юзер
+        // увидит их при возврате в сессию через snapshot (push сохранил
+        // attachments=[{fileName,error:false}] ранее).
+        if (sessionStore.state.activeSessionId === sendSessionId) {
+          var msgs2 = sessionStore.state.displayMessages;
+          for (var j = msgs2.length - 1; j >= 0; j--) {
+            if (msgs2[j].role === 'user') {
+              msgs2[j].attachments = built.attachments;
+              break;
+            }
           }
+          sessionStore.saveSnapshot();
         }
-        sessionStore.saveSnapshot();
         sessionStore.setInflight(sendSessionId, getInflightLabel('send'));
       }
 
