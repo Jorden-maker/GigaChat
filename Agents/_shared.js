@@ -1715,6 +1715,11 @@
     }
     function setInflight(sid, label) {
       if (!sid) return;
+      // Защита от race: если сессия была удалена за время await
+      // (extract длится секунды), не восстанавливаем inflight-маркер —
+      // иначе он зависнет в localStorage до pruneStaleInflightMarkers (10 мин)
+      // и будет показываться как «осиротевший» loader на другой сессии.
+      if (!findSession(sid)) return;
       try {
         localStorage.setItem(KEY_INFLIGHT + sid, JSON.stringify({
           label: String(label || 'Обработка'),
@@ -2203,7 +2208,10 @@
       // Прячем партиальные таблицы/код-блоки — иначе юзер видит сырой MD
       var safePrefix = trimUnsafeMarkdown(prefix);
       lastBot.innerHTML = formatMarkdown(safePrefix);
-      attachCopyButtons(lastBot);
+      // attachCopyButtons был тут на каждый тик (30 fps) — на длинных ответах
+      // (10K+ символов) это лишние allocations querySelector + DOM-mutations.
+      // Код-блоки во время typing всё равно incomplete (trimUnsafeMarkdown их
+      // скрывает), кнопки появятся в финальной фазе ниже.
       if (chatEl && wasAtBottom) chatEl.scrollTop = chatEl.scrollHeight;
     }, tickIntervalMs);
 
@@ -2677,12 +2685,18 @@
       if (wasAtBottom) chat.scrollTop = chat.scrollHeight;
     }
 
-    async function sendMsg() {
+    async function sendMsg(opts) {
+      // opts.viaButton = true (default) — клик по кнопке = отмена запущенного запроса.
+      // opts.viaButton = false — Enter, который НЕ должен отменять (двусмысленный UX:
+      // юзер хочет «отправить второе», а получал «отменить первое»).
+      var viaButton = !opts || opts.viaButton !== false;
+
       // Если typewriter сейчас печатает, эта кнопка — стоп-кнопка.
       // Останавливаем typewriter (текст после остановки не появится),
       // показываем стрелку отправки. Сам запрос НЕ отправляем.
       // Юзер сможет ввести новый запрос и кликнуть send заново.
       if (sendBtn.classList.contains('streaming') && sendBtn._typewriterController) {
+        if (!viaButton) return; // Enter не останавливает typewriter
         sendBtn._typewriterController.stop();
         return;
       }
@@ -2690,8 +2704,16 @@
       var sessions = sessionStore.state.sessions;
       if (!activeSessionId || !sessions.find(function (s) { return s.id === activeSessionId; })) return;
       var existing = getSendController(activeSessionId);
-      if (existing) { existing.abort(); return; }
-      if (sessionStore.getInflight(activeSessionId)) { sessionStore.clearInflight(activeSessionId); return; }
+      if (existing) {
+        if (!viaButton) return; // Enter не отменяет активный запрос
+        existing.abort();
+        return;
+      }
+      if (sessionStore.getInflight(activeSessionId)) {
+        if (!viaButton) return;
+        sessionStore.clearInflight(activeSessionId);
+        return;
+      }
       var text = input.value.trim();
       var hasFiles = attachment && attachment.hasFiles();
       if (!text && !hasFiles) return;
@@ -2873,12 +2895,18 @@
         lines.push(m.content || '');
         lines.push('');
       }
-      var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+      // BOM ﻿ — для корректного открытия в Excel/Notepad на Windows
+      // (кириллица без BOM может рендериться кракозябрами).
+      var blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/plain;charset=utf-8' });
       var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      var url = URL.createObjectURL(blob);
+      a.href = url;
       a.download = sessionName + '_' + new Date().toISOString().slice(0, 10) + '.txt';
       a.click();
-      URL.revokeObjectURL(a.href);
+      // Не отзываем URL сразу: a.click() асинхронен, в медленных браузерах/ОС
+      // скачивание может ещё не начаться к моменту revoke. Задержка 1 сек —
+      // запас, после download уже запущен и blob можно освободить.
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     }
 
     // attachment setup
@@ -2918,10 +2946,12 @@
 
     // Keydown: Enter — отправить (Shift+Enter — перенос). isComposing/keyCode 229
     // защищает от срабатывания во время IME-ввода (китайский/японский).
+    // viaButton: false — Enter не отменяет активный запрос (двусмысленный UX),
+    // только кнопка-стоп явно отменяет.
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
-        sendMsg();
+        sendMsg({ viaButton: false });
       }
     });
     input.addEventListener('input', function () {
