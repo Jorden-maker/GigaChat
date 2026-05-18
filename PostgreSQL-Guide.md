@@ -2,6 +2,9 @@
 
 > Только то, что реально нужно для запуска и поддержки в офисе.
 > Всё работает в локальной сети, без интернета.
+>
+> **Имя БД:** `ai_agent` (создаётся в разделе 3).
+> **Настройка таблиц алгоритма «Организация обращения»** — отдельный гайд: [OrgAppeal-Setup.md](OrgAppeal-Setup.md).
 
 ## Содержание
 
@@ -60,7 +63,7 @@ psql -U postgres
 ```
 
 ```sql
-\c n8n_db
+\c ai_agent
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
@@ -97,8 +100,8 @@ psql -U postgres
 
 ```sql
 -- 1. База данных
-CREATE DATABASE n8n_db;
-\c n8n_db
+CREATE DATABASE ai_agent;
+\c ai_agent
 
 -- 2. Расширение для векторов
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -148,60 +151,6 @@ CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents (filename);
 --     WHERE a.id > b.id AND a.filename = b.filename AND a.chunk_index = b.chunk_index;
 --   ALTER TABLE documents ADD CONSTRAINT documents_filename_chunk_unique UNIQUE (filename, chunk_index);
 
--- 5b. Таблицы для алгоритма «Организация обращения»
--- Алгоритм извлекает ФИО/ДР/номер из документа и проводит идентификацию
--- по 3 БД (сотрудники + 2 справочника мероприятий). Все 3 таблицы лежат
--- в одной БД gigachat для удобства администрирования.
-
-CREATE TABLE IF NOT EXISTS appeal_employees (
-    id SERIAL PRIMARY KEY,
-    full_name VARCHAR(200) NOT NULL,
-    employee_number VARCHAR(50) NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_appeal_employees_name ON appeal_employees (full_name);
-CREATE INDEX IF NOT EXISTS idx_appeal_employees_number ON appeal_employees (employee_number);
-
-CREATE TABLE IF NOT EXISTS appeal_event1 (
-    id SERIAL PRIMARY KEY,
-    full_name VARCHAR(200) NOT NULL,
-    is_done BOOLEAN NOT NULL DEFAULT FALSE,
-    done_at TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_appeal_event1_name ON appeal_event1 (full_name);
-
-CREATE TABLE IF NOT EXISTS appeal_event2 (
-    id SERIAL PRIMARY KEY,
-    full_name VARCHAR(200) NOT NULL,
-    is_done BOOLEAN NOT NULL DEFAULT FALSE,
-    done_at TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_appeal_event2_name ON appeal_event2 (full_name);
-
--- Тестовые данные для отладки алгоритма
--- Иванов — полный успех (пройдёт все 3 шага → «Для данного ФИО проводится проверка»)
--- Петров — успех шага 1, нет в event1 → «Сведения о данном ФИО отсутствуют»
--- Сидоров — успех шага 1, event1 не выполнено → «Мероприятие №1 для ФИО не выполнено»
--- Кузнецов — нет в employees вообще → «Невозможно идентифицировать»
--- Смирнов — есть в employees, но с другим номером → «Идентификация прошла частично»
-
-INSERT INTO appeal_employees (full_name, employee_number) VALUES
-    ('Иванов Иван Иванович',     '12345'),
-    ('Петров Пётр Петрович',     '67890'),
-    ('Сидоров Сидор Сидорович',  '11111'),
-    ('Смирнов Семён Семёнович',  '22222')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO appeal_event1 (full_name, is_done, done_at) VALUES
-    ('Иванов Иван Иванович',     TRUE,  NOW() - INTERVAL '30 days'),
-    ('Сидоров Сидор Сидорович',  FALSE, NULL),
-    ('Смирнов Семён Семёнович',  TRUE,  NOW() - INTERVAL '15 days')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO appeal_event2 (full_name, is_done, done_at) VALUES
-    ('Иванов Иван Иванович',     TRUE,  NOW() - INTERVAL '10 days'),
-    ('Смирнов Семён Семёнович',  FALSE, NULL)
-ON CONFLICT DO NOTHING;
-
 -- 6. История диалогов (используется всеми агентами)
 CREATE TABLE IF NOT EXISTS chat_memory (
     id SERIAL PRIMARY KEY,
@@ -233,7 +182,7 @@ SELECT 'Готово!' AS result;
 Если ты обновляешься со старой версии и колонки `extras` нет:
 
 ```sql
-\c n8n_db
+\c ai_agent
 ALTER TABLE chat_memory ADD COLUMN IF NOT EXISTS extras JSONB;
 ```
 
@@ -254,7 +203,7 @@ ALTER TABLE chat_memory ADD COLUMN IF NOT EXISTS extras JSONB;
 | Поле | Значение |
 |------|----------|
 | Host | `localhost` (или IP сервера БД) |
-| Database | `n8n_db` |
+| Database | `ai_agent` |
 | User | `postgres` |
 | Password | твой пароль |
 | Port | `5432` |
@@ -287,7 +236,7 @@ listen_addresses = '*'
 Открой `C:\Program Files\PostgreSQL\16\data\pg_hba.conf`, добавь строку (под нужную подсеть, например `192.168.0.0/16`):
 
 ```
-host    n8n_db    postgres    192.168.0.0/16    scram-sha-256
+host    ai_agent    postgres    192.168.0.0/16    scram-sha-256
 ```
 
 ### Шаг 3. Открыть порт 5432 в firewall
@@ -301,7 +250,7 @@ net stop postgresql-x64-16
 net start postgresql-x64-16
 ```
 
-Проверка с другой машины: `psql -h IP_СЕРВЕРА_БД -U postgres -d n8n_db`.
+Проверка с другой машины: `psql -h IP_СЕРВЕРА_БД -U postgres -d ai_agent`.
 
 ---
 
@@ -310,7 +259,7 @@ net start postgresql-x64-16
 ### Бэкап одной командой
 
 ```
-pg_dump -U postgres -d n8n_db -Fc -f backup.dump
+pg_dump -U postgres -d ai_agent -Fc -f backup.dump
 ```
 
 Параметр `-Fc` — сжатый формат (сильно меньше по размеру).
@@ -323,7 +272,7 @@ pg_dump -U postgres -d n8n_db -Fc -f backup.dump
 @echo off
 set BACKUP_DIR=C:\GigaChat\backups
 set TS=%date:~6,4%-%date:~3,2%-%date:~0,2%
-pg_dump -U postgres -d n8n_db -Fc -f "%BACKUP_DIR%\n8n_db_%TS%.dump"
+pg_dump -U postgres -d ai_agent -Fc -f "%BACKUP_DIR%\ai_agent_%TS%.dump"
 ```
 
 В Task Scheduler: создать ежедневную задачу → запускать `backup.bat`.
@@ -333,13 +282,13 @@ pg_dump -U postgres -d n8n_db -Fc -f "%BACKUP_DIR%\n8n_db_%TS%.dump"
 Если база уже создана и пустая:
 
 ```
-pg_restore -U postgres -d n8n_db backup.dump
+pg_restore -U postgres -d ai_agent backup.dump
 ```
 
 Если нужно полностью перезаписать:
 
 ```
-pg_restore -U postgres -d n8n_db --clean backup.dump
+pg_restore -U postgres -d ai_agent --clean backup.dump
 ```
 
 ---
@@ -349,7 +298,7 @@ pg_restore -U postgres -d n8n_db --clean backup.dump
 ### Зайти в БД
 
 ```
-psql -U postgres -d n8n_db
+psql -U postgres -d ai_agent
 ```
 
 ### Базовые команды psql
@@ -369,7 +318,7 @@ psql -U postgres -d n8n_db
 
 ```sql
 -- Размер всей базы
-SELECT pg_size_pretty(pg_database_size('n8n_db'));
+SELECT pg_size_pretty(pg_database_size('ai_agent'));
 
 -- Размер каждой таблицы
 SELECT
@@ -489,7 +438,7 @@ SELECT current_database();
 \dt
 ```
 
-Возможно ты не в той базе — `\c n8n_db`. Если таблиц действительно нет — выполни скрипт из раздела 3.
+Возможно ты не в той базе — `\c ai_agent`. Если таблиц действительно нет — выполни скрипт из раздела 3.
 
 ### `could not open extension control file "vector.control"`
 
@@ -537,10 +486,10 @@ C:\Program Files\PostgreSQL\16\data\log\
 
 ## 9. Полный SQL-справочник по этой базе
 
-Все команды ниже — для базы `n8n_db` с твоими 5 таблицами. Подключайся:
+Все команды ниже — для базы `ai_agent` с твоими 5 таблицами. Подключайся:
 
 ```
-psql -U postgres -d n8n_db
+psql -U postgres -d ai_agent
 ```
 
 ### 9.1. Таблица `clients`
@@ -1095,10 +1044,10 @@ SELECT NOW();
 -- Кто сейчас подключён
 SELECT pid, usename, client_addr, state, query
 FROM pg_stat_activity
-WHERE datname = 'n8n_db';
+WHERE datname = 'ai_agent';
 
 -- Размер базы
-SELECT pg_size_pretty(pg_database_size('n8n_db'));
+SELECT pg_size_pretty(pg_database_size('ai_agent'));
 
 -- Размер каждой таблицы
 SELECT
