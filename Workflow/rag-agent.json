@@ -205,7 +205,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://EMBED_HOST:8001/embed",
+        "url": "http://<EMBEDDING_HOST>:8001/embed",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

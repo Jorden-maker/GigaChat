@@ -179,7 +179,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:8055/extract",
+        "url": "http://<OCR_HOST>:8055/extract",
         "sendHeaders": false,
         "sendQuery": false,
         "sendBody": true,
