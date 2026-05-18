@@ -69,11 +69,15 @@ python -m pip install --no-index --find-links=wheels easyocr | Out-Null
 
 New-Item -ItemType Directory -Force -Path "easyocr_models" | Out-Null
 
+# EasyOCR-овский progress hook печатает символ '█' (U+2588), который не лезет
+# в дефолтную cp1251 Windows-консоли — нужен UTF-8 stdout
+$env:PYTHONIOENCODING = 'utf-8'
+
 # Этот скрипт скачает модели в easyocr_models и закроется
 $prefetch = @"
 import easyocr, sys
 print('Downloading EasyOCR models to easyocr_models/ ...')
-r = easyocr.Reader(['ru', 'en'], gpu=False, model_storage_directory='easyocr_models', download_enabled=True, verbose=True)
+r = easyocr.Reader(['ru', 'en'], gpu=False, model_storage_directory='easyocr_models', download_enabled=True, verbose=False)
 print('Done.')
 "@
 $prefetch | python -
