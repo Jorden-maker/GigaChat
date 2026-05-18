@@ -125,7 +125,11 @@
         #msg:focus { border-color: var(--accent); }
         #msg:disabled { opacity: 0.4; }
         #msg::placeholder { color: var(--text-secondary); opacity: 0.5; }
-        .empty-chat { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: 14px; gap: 8px; padding: 20px; text-align: center; }
+        /* .empty-chat — база (flex/center/gap/font-size) в _shared.js. Здесь
+           только router-specific переопределения: color чуть ярче чем default
+           muted, padding+text-align для длинного multi-line подсказывающего
+           текста, .hint для дополнительной строки в empty-state. */
+        .empty-chat { color: var(--text-secondary); padding: 20px; text-align: center; }
         .empty-chat .hint { font-size: 12px; opacity: 0.7; max-width: 400px; line-height: 1.5; }
         /* .history-loading вынесен в _shared.js */
     </style>

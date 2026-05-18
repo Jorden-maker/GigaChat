@@ -2344,7 +2344,16 @@
       '.timer{font-family:Consolas,monospace;font-size:11px;color:var(--text-secondary);margin-left:8px}' +
       // .history-loading — состояние "Загружаю историю...". Используется дефолтным
       // historyLoadingHtml фабрики; раньше дублировался per-page в 2 файлах.
-      '.history-loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);font-size:14px;font-style:italic}';
+      '.history-loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);font-size:14px;font-style:italic}' +
+      // .empty-chat — стартовое состояние «Создайте новую сессию для начала работы».
+      // Раньше дублировалось в каждом HTML per-page (math/chat/rag/sql/router),
+      // а prompt-engineer забыли — там текст висел в левом верхнем углу.
+      // flex-direction:column + gap:8px — чтобы chat/router c многоэлементным
+      // empty-state (memory-note, hint) корректно расставляли дочерние элементы.
+      // Локальные :empty-chat в HTML агента переопределят дефолты (color/padding/
+      // text-align в router и т.п.) — shared CSS вставлен в начало head, инлайн
+      // в HTML идёт после, выигрывает каскад.
+      '.empty-chat{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:14px;gap:8px}';
     var style = document.createElement('style');
     style.setAttribute('data-gc-agent-css', '1');
     style.textContent = css;
