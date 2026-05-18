@@ -117,29 +117,39 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_appeal_employees_unique
 -- =============================================================
 -- ТАБЛИЦА 2: Журнал Мероприятия №1
 -- =============================================================
+-- ВАЖНО: пара (full_name, employee_number) — нужна, чтобы не было
+-- ложно-положительных совпадений на тёзках (двух Ивановых с разными
+-- табельными номерами). Алгоритм матчит запись именно по паре.
 CREATE TABLE IF NOT EXISTS appeal_event1 (
-    id          SERIAL PRIMARY KEY,
-    full_name   VARCHAR(200) NOT NULL,
-    is_done     BOOLEAN      NOT NULL DEFAULT FALSE,
-    done_at     TIMESTAMP,
-    created_at  TIMESTAMP    DEFAULT NOW()
+    id              SERIAL PRIMARY KEY,
+    full_name       VARCHAR(200) NOT NULL,
+    employee_number VARCHAR(50)  NOT NULL,
+    is_done         BOOLEAN      NOT NULL DEFAULT FALSE,
+    done_at         TIMESTAMP,
+    created_at      TIMESTAMP    DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_appeal_event1_name
     ON appeal_event1 (full_name);
+-- Уникальность по паре — нужна для ON CONFLICT в INSERT-блоках раздела 5
+CREATE UNIQUE INDEX IF NOT EXISTS idx_appeal_event1_unique
+    ON appeal_event1 (full_name, employee_number);
 
 
 -- =============================================================
 -- ТАБЛИЦА 3: Журнал Мероприятия №2
 -- =============================================================
 CREATE TABLE IF NOT EXISTS appeal_event2 (
-    id          SERIAL PRIMARY KEY,
-    full_name   VARCHAR(200) NOT NULL,
-    is_done     BOOLEAN      NOT NULL DEFAULT FALSE,
-    done_at     TIMESTAMP,
-    created_at  TIMESTAMP    DEFAULT NOW()
+    id              SERIAL PRIMARY KEY,
+    full_name       VARCHAR(200) NOT NULL,
+    employee_number VARCHAR(50)  NOT NULL,
+    is_done         BOOLEAN      NOT NULL DEFAULT FALSE,
+    done_at         TIMESTAMP,
+    created_at      TIMESTAMP    DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_appeal_event2_name
     ON appeal_event2 (full_name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_appeal_event2_unique
+    ON appeal_event2 (full_name, employee_number);
 
 
 -- Проверим
@@ -233,52 +243,52 @@ ON CONFLICT DO NOTHING;
 38 строк: 26 выполнено + 12 не выполнено. Часть сотрудников из реестра вообще не попала в журнал — это тест-кейс «Сведения отсутствуют».
 
 ```sql
-INSERT INTO appeal_event1 (full_name, is_done, done_at) VALUES
+INSERT INTO appeal_event1 (full_name, employee_number, is_done, done_at) VALUES
 -- === Именованные тест-кейсы ===
-('Иванов Иван Иванович',                TRUE,  NOW() - INTERVAL '30 days'),
-('Сидоров Сидор Сидорович',             FALSE, NULL),                       -- не выполнено!
-('Смирнов Семён Семёнович',             TRUE,  NOW() - INTERVAL '15 days'),
-('Васильев Андрей Сергеевич',           TRUE,  NOW() - INTERVAL '45 days'),
-('Михайлов Дмитрий Александрович',      TRUE,  NOW() - INTERVAL '60 days'),
--- Петров Пётр Петрович — В event1 НЕ ДОБАВЛЯЕМ (тест-кейс «сведения отсутствуют»)
+('Иванов Иван Иванович',                '10001', TRUE,  NOW() - INTERVAL '30 days'),
+('Сидоров Сидор Сидорович',             '10003', FALSE, NULL),                       -- не выполнено!
+('Смирнов Семён Семёнович',             '10004', TRUE,  NOW() - INTERVAL '15 days'),
+('Васильев Андрей Сергеевич',           '10005', TRUE,  NOW() - INTERVAL '45 days'),
+('Михайлов Дмитрий Александрович',      '10006', TRUE,  NOW() - INTERVAL '60 days'),
+-- Петров Пётр Петрович (10002) — В event1 НЕ ДОБАВЛЯЕМ (тест-кейс «сведения отсутствуют»)
 
 -- === Массовая выборка: выполнено ===
-('Фёдоров Алексей Николаевич',          TRUE,  NOW() - INTERVAL '12 days'),
-('Морозов Никита Викторович',           TRUE,  NOW() - INTERVAL '5 days'),
-('Волков Артём Денисович',              TRUE,  NOW() - INTERVAL '90 days'),
-('Алексеев Максим Игоревич',            TRUE,  NOW() - INTERVAL '21 days'),
-('Лебедев Кирилл Андреевич',            TRUE,  NOW() - INTERVAL '7 days'),
-('Семёнов Илья Михайлович',             TRUE,  NOW() - INTERVAL '14 days'),
-('Егоров Антон Юрьевич',                TRUE,  NOW() - INTERVAL '33 days'),
-('Павлов Роман Олегович',               TRUE,  NOW() - INTERVAL '120 days'),
-('Соколов Глеб Дмитриевич',             TRUE,  NOW() - INTERVAL '40 days'),
-('Виноградов Тимофей Алексеевич',       TRUE,  NOW() - INTERVAL '8 days'),
-('Орлов Матвей Александрович',          TRUE,  NOW() - INTERVAL '17 days'),
-('Андреев Захар Тимофеевич',            TRUE,  NOW() - INTERVAL '52 days'),
-('Беляев Марк Романович',               TRUE,  NOW() - INTERVAL '3 days'),
-('Соловьёв Григорий Петрович',          TRUE,  NOW() - INTERVAL '74 days'),
-('Королёв Платон Кириллович',           TRUE,  NOW() - INTERVAL '28 days'),
-('Иванова Анна Ивановна',               TRUE,  NOW() - INTERVAL '11 days'),
-('Петрова Мария Петровна',              TRUE,  NOW() - INTERVAL '19 days'),
-('Соколова Татьяна Сергеевна',          TRUE,  NOW() - INTERVAL '46 days'),
-('Лебедева Ирина Алексеевна',           TRUE,  NOW() - INTERVAL '6 days'),
-('Морозова Юлия Александровна',         TRUE,  NOW() - INTERVAL '85 days'),
-('Михайлова Полина Романовна',          TRUE,  NOW() - INTERVAL '23 days'),
-('Романов Кирилл Германович',           TRUE,  NOW() - INTERVAL '55 days'),
+('Фёдоров Алексей Николаевич',          '10007', TRUE,  NOW() - INTERVAL '12 days'),
+('Морозов Никита Викторович',           '10008', TRUE,  NOW() - INTERVAL '5 days'),
+('Волков Артём Денисович',              '10009', TRUE,  NOW() - INTERVAL '90 days'),
+('Алексеев Максим Игоревич',            '10010', TRUE,  NOW() - INTERVAL '21 days'),
+('Лебедев Кирилл Андреевич',            '10011', TRUE,  NOW() - INTERVAL '7 days'),
+('Семёнов Илья Михайлович',             '10012', TRUE,  NOW() - INTERVAL '14 days'),
+('Егоров Антон Юрьевич',                '10013', TRUE,  NOW() - INTERVAL '33 days'),
+('Павлов Роман Олегович',               '10014', TRUE,  NOW() - INTERVAL '120 days'),
+('Соколов Глеб Дмитриевич',             '10016', TRUE,  NOW() - INTERVAL '40 days'),
+('Виноградов Тимофей Алексеевич',       '10017', TRUE,  NOW() - INTERVAL '8 days'),
+('Орлов Матвей Александрович',          '10022', TRUE,  NOW() - INTERVAL '17 days'),
+('Андреев Захар Тимофеевич',            '10023', TRUE,  NOW() - INTERVAL '52 days'),
+('Беляев Марк Романович',               '10025', TRUE,  NOW() - INTERVAL '3 days'),
+('Соловьёв Григорий Петрович',          '10027', TRUE,  NOW() - INTERVAL '74 days'),
+('Королёв Платон Кириллович',           '10030', TRUE,  NOW() - INTERVAL '28 days'),
+('Иванова Анна Ивановна',               '10045', TRUE,  NOW() - INTERVAL '11 days'),
+('Петрова Мария Петровна',              '10046', TRUE,  NOW() - INTERVAL '19 days'),
+('Соколова Татьяна Сергеевна',          '10049', TRUE,  NOW() - INTERVAL '46 days'),
+('Лебедева Ирина Алексеевна',           '10051', TRUE,  NOW() - INTERVAL '6 days'),
+('Морозова Юлия Александровна',         '10054', TRUE,  NOW() - INTERVAL '85 days'),
+('Михайлова Полина Романовна',          '10057', TRUE,  NOW() - INTERVAL '23 days'),
+('Романов Кирилл Германович',           '10034', TRUE,  NOW() - INTERVAL '55 days'),
 
 -- === Массовая выборка: НЕ выполнено ===
-('Козлов Степан Петрович',              FALSE, NULL),
-('Богданов Владислав Сергеевич',        FALSE, NULL),
-('Воробьёв Святослав Иванович',         FALSE, NULL),
-('Никитин Артемий Никитич',             FALSE, NULL),
-('Макаров Лев Юрьевич',                 FALSE, NULL),
-('Тарасов Михаил Дмитриевич',           FALSE, NULL),
-('Куликов Анатолий Игнатьевич',         FALSE, NULL),
-('Кузнецова Ольга Андреевна',           FALSE, NULL),
-('Попова Наталья Михайловна',           FALSE, NULL),
-('Полякова Софья Игоревна',             FALSE, NULL),
-('Власов Артур Александрович',          FALSE, NULL)
-ON CONFLICT DO NOTHING;
+('Козлов Степан Петрович',              '10015', FALSE, NULL),
+('Богданов Владислав Сергеевич',        '10018', FALSE, NULL),
+('Воробьёв Святослав Иванович',         '10019', FALSE, NULL),
+('Никитин Артемий Никитич',             '10021', FALSE, NULL),
+('Макаров Лев Юрьевич',                 '10024', FALSE, NULL),
+('Тарасов Михаил Дмитриевич',           '10026', FALSE, NULL),
+('Куликов Анатолий Игнатьевич',         '10033', FALSE, NULL),
+('Кузнецова Ольга Андреевна',           '10048', FALSE, NULL),
+('Попова Наталья Михайловна',           '10050', FALSE, NULL),
+('Полякова Софья Игоревна',             '10058', FALSE, NULL),
+('Власов Артур Александрович',          '10044', FALSE, NULL)
+ON CONFLICT (full_name, employee_number) DO NOTHING;
 ```
 
 ### 5.3. Журнал Мероприятия №2 (`appeal_event2`)
@@ -286,38 +296,38 @@ ON CONFLICT DO NOTHING;
 23 строки: 14 выполнено + 9 не выполнено. Часть успешно прошедших шаг 2 сотрудников в event2 не попадает — это тест-кейс «Мероприятие №2 не зафиксировано».
 
 ```sql
-INSERT INTO appeal_event2 (full_name, is_done, done_at) VALUES
+INSERT INTO appeal_event2 (full_name, employee_number, is_done, done_at) VALUES
 -- === Именованные тест-кейсы ===
-('Иванов Иван Иванович',                TRUE,  NOW() - INTERVAL '10 days'),
-('Васильев Андрей Сергеевич',           FALSE, NULL),                       -- не выполнено!
--- Михайлов Дмитрий Александрович — В event2 НЕ ДОБАВЛЯЕМ (тест-кейс «сведения о мероприятии №2 отсутствуют»)
--- Смирнов Семён Семёнович — оставляем тест-кейс на partial-identification, до event2 он не дойдёт
+('Иванов Иван Иванович',                '10001', TRUE,  NOW() - INTERVAL '10 days'),
+('Васильев Андрей Сергеевич',           '10005', FALSE, NULL),                       -- не выполнено!
+-- Михайлов Дмитрий Александрович (10006) — В event2 НЕ ДОБАВЛЯЕМ (тест-кейс «сведения о мероприятии №2 отсутствуют»)
+-- Смирнов Семён Семёнович (10004) — оставляем тест-кейс на partial-identification, до event2 он не дойдёт
 
 -- === Массовая выборка: выполнено ===
-('Фёдоров Алексей Николаевич',          TRUE,  NOW() - INTERVAL '4 days'),
-('Морозов Никита Викторович',           TRUE,  NOW() - INTERVAL '2 days'),
-('Волков Артём Денисович',              TRUE,  NOW() - INTERVAL '38 days'),
-('Лебедев Кирилл Андреевич',            TRUE,  NOW() - INTERVAL '1 day'),
-('Семёнов Илья Михайлович',             TRUE,  NOW() - INTERVAL '9 days'),
-('Егоров Антон Юрьевич',                TRUE,  NOW() - INTERVAL '13 days'),
-('Орлов Матвей Александрович',          TRUE,  NOW() - INTERVAL '7 days'),
-('Беляев Марк Романович',               TRUE,  NOW() - INTERVAL '2 days'),
-('Соловьёв Григорий Петрович',          TRUE,  NOW() - INTERVAL '20 days'),
-('Иванова Анна Ивановна',               TRUE,  NOW() - INTERVAL '5 days'),
-('Петрова Мария Петровна',              TRUE,  NOW() - INTERVAL '11 days'),
-('Соколова Татьяна Сергеевна',          TRUE,  NOW() - INTERVAL '16 days'),
-('Михайлова Полина Романовна',          TRUE,  NOW() - INTERVAL '8 days'),
+('Фёдоров Алексей Николаевич',          '10007', TRUE,  NOW() - INTERVAL '4 days'),
+('Морозов Никита Викторович',           '10008', TRUE,  NOW() - INTERVAL '2 days'),
+('Волков Артём Денисович',              '10009', TRUE,  NOW() - INTERVAL '38 days'),
+('Лебедев Кирилл Андреевич',            '10011', TRUE,  NOW() - INTERVAL '1 day'),
+('Семёнов Илья Михайлович',             '10012', TRUE,  NOW() - INTERVAL '9 days'),
+('Егоров Антон Юрьевич',                '10013', TRUE,  NOW() - INTERVAL '13 days'),
+('Орлов Матвей Александрович',          '10022', TRUE,  NOW() - INTERVAL '7 days'),
+('Беляев Марк Романович',               '10025', TRUE,  NOW() - INTERVAL '2 days'),
+('Соловьёв Григорий Петрович',          '10027', TRUE,  NOW() - INTERVAL '20 days'),
+('Иванова Анна Ивановна',               '10045', TRUE,  NOW() - INTERVAL '5 days'),
+('Петрова Мария Петровна',              '10046', TRUE,  NOW() - INTERVAL '11 days'),
+('Соколова Татьяна Сергеевна',          '10049', TRUE,  NOW() - INTERVAL '16 days'),
+('Михайлова Полина Романовна',          '10057', TRUE,  NOW() - INTERVAL '8 days'),
 
 -- === Массовая выборка: НЕ выполнено ===
-('Алексеев Максим Игоревич',            FALSE, NULL),
-('Соколов Глеб Дмитриевич',             FALSE, NULL),
-('Виноградов Тимофей Алексеевич',       FALSE, NULL),
-('Андреев Захар Тимофеевич',            FALSE, NULL),
-('Королёв Платон Кириллович',           FALSE, NULL),
-('Лебедева Ирина Алексеевна',           FALSE, NULL),
-('Морозова Юлия Александровна',         FALSE, NULL),
-('Романов Кирилл Германович',           FALSE, NULL)
-ON CONFLICT DO NOTHING;
+('Алексеев Максим Игоревич',            '10010', FALSE, NULL),
+('Соколов Глеб Дмитриевич',             '10016', FALSE, NULL),
+('Виноградов Тимофей Алексеевич',       '10017', FALSE, NULL),
+('Андреев Захар Тимофеевич',            '10023', FALSE, NULL),
+('Королёв Платон Кириллович',           '10030', FALSE, NULL),
+('Лебедева Ирина Алексеевна',           '10051', FALSE, NULL),
+('Морозова Юлия Александровна',         '10054', FALSE, NULL),
+('Романов Кирилл Германович',           '10034', FALSE, NULL)
+ON CONFLICT (full_name, employee_number) DO NOTHING;
 ```
 
 ---
@@ -344,10 +354,15 @@ SELECT is_done, COUNT(*) FROM appeal_event2 GROUP BY is_done;
 -- Ожидаемо: TRUE = 14, FALSE = 9
 
 -- 4. Сотрудники, прошедшие ВСЕ 3 шага (Мероприятие №1 + №2 выполнены)
+-- JOIN по паре (full_name, employee_number) — устойчиво к тёзкам
 SELECT e.full_name, e.employee_number
 FROM appeal_employees e
-JOIN appeal_event1 ev1 ON ev1.full_name = e.full_name AND ev1.is_done = TRUE
-JOIN appeal_event2 ev2 ON ev2.full_name = e.full_name AND ev2.is_done = TRUE
+JOIN appeal_event1 ev1 ON ev1.full_name = e.full_name
+                     AND ev1.employee_number = e.employee_number
+                     AND ev1.is_done = TRUE
+JOIN appeal_event2 ev2 ON ev2.full_name = e.full_name
+                     AND ev2.employee_number = e.employee_number
+                     AND ev2.is_done = TRUE
 ORDER BY e.full_name;
 -- Среди них должен быть «Иванов Иван Иванович» (10001) — главный «зелёный» тест.
 ```
@@ -418,14 +433,14 @@ INSERT INTO appeal_employees (full_name, employee_number) VALUES
 ### Отметить выполнение Мероприятия №1
 
 ```sql
--- Если записи ещё нет — добавить
-INSERT INTO appeal_event1 (full_name, is_done, done_at) VALUES
-    ('Новиков Артём Игоревич', TRUE, NOW());
+-- Если записи ещё нет — добавить (ОБЯЗАТЕЛЬНО указать employee_number)
+INSERT INTO appeal_event1 (full_name, employee_number, is_done, done_at) VALUES
+    ('Новиков Артём Игоревич', '20001', TRUE, NOW());
 
 -- Если запись есть, но is_done = FALSE — обновить
 UPDATE appeal_event1
 SET is_done = TRUE, done_at = NOW()
-WHERE full_name = 'Новиков Артём Игоревич';
+WHERE full_name = 'Новиков Артём Игоревич' AND employee_number = '20001';
 ```
 
 ### Снять отметку (на случай ошибки)
@@ -433,7 +448,7 @@ WHERE full_name = 'Новиков Артём Игоревич';
 ```sql
 UPDATE appeal_event1
 SET is_done = FALSE, done_at = NULL
-WHERE full_name = 'Новиков Артём Игоревич';
+WHERE full_name = 'Новиков Артём Игоревич' AND employee_number = '20001';
 ```
 
 ### Найти всех «застрявших» на Мероприятии №1
@@ -446,6 +461,7 @@ SELECT e.full_name, e.employee_number,
        NOW() - ev1.created_at AS overdue
 FROM appeal_employees e
 JOIN appeal_event1 ev1 ON ev1.full_name = e.full_name
+                     AND ev1.employee_number = e.employee_number
 WHERE ev1.is_done = FALSE
 ORDER BY ev1.created_at;
 ```
@@ -456,6 +472,7 @@ ORDER BY ev1.created_at;
 SELECT e.full_name, e.employee_number
 FROM appeal_employees e
 LEFT JOIN appeal_event1 ev1 ON ev1.full_name = e.full_name
+                          AND ev1.employee_number = e.employee_number
 WHERE ev1.id IS NULL
 ORDER BY e.full_name;
 ```
@@ -478,7 +495,9 @@ SELECT
     END AS event2_status
 FROM appeal_employees e
 LEFT JOIN appeal_event1 ev1 ON ev1.full_name = e.full_name
+                          AND ev1.employee_number = e.employee_number
 LEFT JOIN appeal_event2 ev2 ON ev2.full_name = e.full_name
+                          AND ev2.employee_number = e.employee_number
 ORDER BY e.full_name;
 ```
 

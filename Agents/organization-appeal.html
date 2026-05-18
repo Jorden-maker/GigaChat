@@ -478,6 +478,9 @@ main { max-width: 800px; }
         clearResults();
         resetBtnDiv.classList.remove('show');
         if (timerInterval) clearInterval(timerInterval);
+        // Гарантия: если предыдущий запуск завис на каком-то исключении —
+        // ресет сбрасывает флаг, чтобы следующий sendFile() не отказался стартовать
+        isProcessing = false;
     }
 
     function copyResult() {
