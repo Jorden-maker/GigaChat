@@ -176,7 +176,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($('Проверка ответа GEN').first().json) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "id": "pe-respond-general",
       "name": "Ответ: GENERAL",
@@ -243,7 +260,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($('Извлечь промпт').first().json) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "id": "pe-respond-ok",
       "name": "Ответ: результат",
@@ -258,7 +292,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ response: $json.error, prompt: '' }) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "id": "pe-respond-err",
       "name": "Ответ: ошибка",

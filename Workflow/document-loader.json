@@ -57,7 +57,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: 'pong'}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -228,7 +245,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Нарезаем текст на куски по ~500 слов с перекрытием 50 слов.\n// На входе $json.text (от браузера) или после OCR — тоже text.\nconst text = $json.text;\nconst fileName = $json.fileName;\nconst source = $json.source || 'unknown';\n\nconst CHUNK_SIZE = 500;\nconst OVERLAP = 50;\n\nconst words = String(text || '').split(/\\s+/).filter(w => w.length > 0);\n\nif (words.length === 0) {\n  return [{ json: { error: 'Текст пустой после обработки.' } }];\n}\n\nconst chunks = [];\nlet start = 0;\n\nwhile (start < words.length) {\n  const end = Math.min(start + CHUNK_SIZE, words.length);\n  const chunkText = words.slice(start, end).join(' ');\n\n  chunks.push({\n    json: {\n      fileName: fileName,\n      chunk_index: chunks.length,\n      chunk_text: chunkText,\n      total_chunks: 0,\n      source: source\n    }\n  });\n\n  if (end >= words.length) break;\n  start += CHUNK_SIZE - OVERLAP;\n}\n\nfor (const chunk of chunks) {\n  chunk.json.total_chunks = chunks.length;\n}\n\nreturn chunks;"
+        "jsCode": "// Нарезаем текст на куски, сохраняя семантические границы абзацев.\n//\n// Старая версия делала split(/\\s+/) и теряла всё форматирование —\n// заголовки, абзацы сливались в один поток слов, эмбеддинги получались\n// размытыми, RAG-поиск промахивался.\n//\n// Новая логика:\n// 1) Бьём по двойным переносам (абзацы) или одиночным (если их нет).\n// 2) Аккумулируем абзацы в чанк до лимита CHUNK_WORDS.\n// 3) Если один абзац больше CHUNK_WORDS — разбиваем его на слова (старая логика).\n// 4) Перекрытие OVERLAP — последние N слов из предыдущего чанка добавляем в начало следующего.\n\nconst text = $json.text;\nconst fileName = $json.fileName;\nconst source = $json.source || 'unknown';\n\nconst CHUNK_WORDS = 500;\nconst OVERLAP = 50;\n\nconst raw = String(text || '');\nif (!raw.trim()) {\n  return [{ json: { error: 'Текст пустой после обработки.' } }];\n}\n\n// 1) Разбиваем на параграфы. Если двойных переносов нет — на одинарные.\nlet paragraphs = raw.split(/\\n\\n+/).map(p => p.trim()).filter(p => p.length > 0);\nif (paragraphs.length <= 1) {\n  paragraphs = raw.split(/\\n/).map(p => p.trim()).filter(p => p.length > 0);\n}\nif (paragraphs.length === 0) {\n  paragraphs = [raw];\n}\n\nfunction wordCount(s) { return s.split(/\\s+/).filter(w => w.length > 0).length; }\n\nconst chunks = [];\nlet buffer = [];\nlet bufferWords = 0;\n\nfunction flushBuffer() {\n  if (buffer.length === 0) return;\n  const text = buffer.join('\\n\\n');\n  chunks.push({\n    json: {\n      fileName: fileName,\n      chunk_index: chunks.length,\n      chunk_text: text,\n      total_chunks: 0,\n      source: source\n    }\n  });\n  // Перекрытие: оставляем хвост последнего абзаца (OVERLAP слов)\n  const lastWords = text.split(/\\s+/).filter(w => w.length > 0);\n  const tail = lastWords.slice(-OVERLAP).join(' ');\n  buffer = tail ? [tail] : [];\n  bufferWords = tail ? OVERLAP : 0;\n}\n\nfor (const p of paragraphs) {\n  const pw = wordCount(p);\n  if (pw === 0) continue;\n\n  // Большой абзац — режем его внутри по словам\n  if (pw > CHUNK_WORDS) {\n    if (buffer.length > 0) flushBuffer();\n    const words = p.split(/\\s+/).filter(w => w.length > 0);\n    let start = 0;\n    while (start < words.length) {\n      const end = Math.min(start + CHUNK_WORDS, words.length);\n      chunks.push({\n        json: {\n          fileName: fileName,\n          chunk_index: chunks.length,\n          chunk_text: words.slice(start, end).join(' '),\n          total_chunks: 0,\n          source: source\n        }\n      });\n      if (end >= words.length) break;\n      start += CHUNK_WORDS - OVERLAP;\n    }\n    continue;\n  }\n\n  // Обычный абзац — вместился бы в текущий буфер?\n  if (bufferWords + pw > CHUNK_WORDS && buffer.length > 0) {\n    flushBuffer();\n  }\n  buffer.push(p);\n  bufferWords += pw;\n}\n\nflushBuffer();\n\nif (chunks.length === 0) {\n  return [{ json: { error: 'Текст пустой после обработки.' } }];\n}\n\nfor (const c of chunks) c.json.total_chunks = chunks.length;\nreturn chunks;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -325,7 +342,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ response: $json.response }) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -340,7 +374,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ response: $json.error || 'Файл не загружен.' }) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -355,7 +406,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ response: $json.error || 'OCR не распознал текст.' }) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,

@@ -58,7 +58,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: 'pong'}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -165,7 +182,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: $json.error, error: $json.error}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -262,7 +296,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: $json.error, error: $json.error}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -362,7 +413,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: $('Парсинг данных').first().json.error || 'Не удалось извлечь данные.', error: $('Парсинг данных').first().json.error || 'Не удалось извлечь данные.'}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -448,7 +516,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: $('Классификация шага 1').first().json.message, extracted: {fio: $('Парсинг данных').first().json.fio, birth_date: $('Парсинг данных').first().json.birth_date, employee_number: $('Парсинг данных').first().json.employee_number}, steps: [$('Классификация шага 1').first().json]}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -534,7 +619,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: $('Классификация шага 2').first().json.message, extracted: {fio: $('Парсинг данных').first().json.fio, birth_date: $('Парсинг данных').first().json.birth_date, employee_number: $('Парсинг данных').first().json.employee_number}, steps: [$('Классификация шага 1').first().json, $('Классификация шага 2').first().json]}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -587,7 +689,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: $('Классификация шага 3').first().json.message, extracted: {fio: $('Парсинг данных').first().json.fio, birth_date: $('Парсинг данных').first().json.birth_date, employee_number: $('Парсинг данных').first().json.employee_number}, steps: [$('Классификация шага 1').first().json, $('Классификация шага 2').first().json, $('Классификация шага 3').first().json]}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,

@@ -69,7 +69,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: $json.error}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -191,7 +208,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($('Проверка ответа GEN').first().json) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -333,7 +367,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($('Проверка ответа SQL').first().json) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -410,7 +461,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('Не удалось обработать запрос. Попробуйте ещё раз.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat недоступен. Попробуйте позже.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к базе данных. Попробуйте переформулировать.','Ошибка обработки ответа.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
         }
@@ -435,7 +486,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('Не удалось обработать запрос. Попробуйте ещё раз.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat недоступен. Попробуйте позже.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к базе данных. Попробуйте переформулировать.','Ошибка обработки ответа.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
         }

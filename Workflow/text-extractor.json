@@ -55,7 +55,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: 'pong'}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -263,7 +280,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Декодируем текстовый файл (txt/md/log) в строку.\n// Получаем буфер через n8n helper — он сам разбирается, лежат данные в памяти\n// или на диске. Прямое чтение binary.data как base64 НЕ работает в filesystem-режиме.\ntry {\n  const meta = $('Валидация и тип').first().json;\n  const buf = await this.helpers.getBinaryDataBuffer(0, meta.binaryKey);\n\n  if (!buf || buf.length === 0) {\n    return [{ json: { ok: false, error: 'Файл пустой или не удалось прочитать содержимое.' } }];\n  }\n\n  function decodeUtf8(b) {\n    if (b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return b.slice(3).toString('utf8');\n    return b.toString('utf8');\n  }\n  function decodeUtf16le(b) {\n    if (b[0] === 0xFF && b[1] === 0xFE) return b.slice(2).toString('utf16le');\n    return b.toString('utf16le');\n  }\n  function countReplacement(s) {\n    let n = 0;\n    for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 0xFFFD) n++;\n    return n;\n  }\n  // CP1251 → Unicode: ручная таблица, в Node нет встроенного.\n  const CP1251_TO_UNICODE = (function () {\n    const map = new Array(256);\n    for (let i = 0; i < 128; i++) map[i] = i;\n    const high = 'ЂЃ‚ѓ„…†‡€‰Љ‹ЊЌЋЏ'\n      + 'ђ‘’“”•–—?™љ›њќћџ'\n      + ' ЎўЈ¤Ґ¦§Ё©Є«¬­®Ї'\n      + '°±Ііґµ¶·ё№є»јЅѕї';\n    for (let i = 0; i < high.length; i++) map[128 + i] = high.charCodeAt(i);\n    for (let i = 0; i < 64; i++) map[0xC0 + i] = 0x0410 + i;\n    return map;\n  })();\n  function decodeCp1251(b) {\n    let s = '';\n    for (let i = 0; i < b.length; i++) s += String.fromCharCode(CP1251_TO_UNICODE[b[i]]);\n    return s;\n  }\n\n  let text;\n  if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) {\n    text = decodeUtf16le(buf);\n  } else {\n    const asUtf8 = decodeUtf8(buf);\n    const bad = countReplacement(asUtf8);\n    if (bad === 0) {\n      text = asUtf8;\n    } else {\n      const asCp = decodeCp1251(buf);\n      text = (countReplacement(asCp) < bad) ? asCp : asUtf8;\n    }\n  }\n\n  if (!text || text.length < 1) {\n    return [{ json: { ok: false, error: 'Файл пустой.' } }];\n  }\n\n  return [{ json: {\n    ok: true,\n    text: text,\n    fileName: meta.fileName,\n    mimeType: meta.mimeType,\n    source: 'text'\n  } }];\n} catch (e) {\n  return [{ json: { ok: false, error: 'Ошибка чтения текстового файла: ' + e.message } }];\n}"
+        "jsCode": "// Декодируем текстовый файл (txt/md/log) в строку.\n// Получаем буфер через n8n helper — он сам разбирается, лежат данные в памяти\n// или на диске. Прямое чтение binary.data как base64 НЕ работает в filesystem-режиме.\ntry {\n  const meta = $('Валидация и тип').first().json;\n  const buf = await this.helpers.getBinaryDataBuffer(0, meta.binaryKey);\n\n  if (!buf || buf.length === 0) {\n    return [{ json: { ok: false, error: 'Файл пустой или не удалось прочитать содержимое.' } }];\n  }\n\n  function decodeUtf8(b) {\n    if (b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return b.slice(3).toString('utf8');\n    return b.toString('utf8');\n  }\n  function decodeUtf16le(b) {\n    if (b[0] === 0xFF && b[1] === 0xFE) return b.slice(2).toString('utf16le');\n    return b.toString('utf16le');\n  }\n  function countReplacement(s) {\n    let n = 0;\n    for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 0xFFFD) n++;\n    return n;\n  }\n  // CP1251 → Unicode: ручная таблица, в Node нет встроенного.\n  const CP1251_TO_UNICODE = (function () {\n    const map = new Array(256);\n    for (let i = 0; i < 128; i++) map[i] = i;\n    const high = 'ЂЃ‚ѓ„…†‡€‰Љ‹ЊЌЋЏ'\n      + 'ђ‘’“”•–—?™љ›њќћџ'\n      + ' ЎўЈ¤Ґ¦§Ё©Є«¬­®Ї'\n      + '°±Ііґµ¶·ё№є»јЅѕї';\n    for (let i = 0; i < high.length; i++) map[128 + i] = high.charCodeAt(i);\n    for (let i = 0; i < 64; i++) map[0xC0 + i] = 0x0410 + i;\n    return map;\n  })();\n  function decodeCp1251(b) {\n    let s = '';\n    for (let i = 0; i < b.length; i++) s += String.fromCharCode(CP1251_TO_UNICODE[b[i]]);\n    return s;\n  }\n\n  let text;\n  if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) {\n    text = decodeUtf16le(buf);\n  } else {\n    const asUtf8 = decodeUtf8(buf);\n    const bad = countReplacement(asUtf8);\n    if (bad === 0) {\n      text = asUtf8;\n    } else {\n      const asCp = decodeCp1251(buf);\n      text = (countReplacement(asCp) < bad) ? asCp : asUtf8;\n    }\n  }\n\n  if (!text || text.trim().length < 1) {\n    return [{ json: { ok: false, error: 'Файл пустой (нет текста кроме пробелов/переносов).' } }];\n  }\n\n  return [{ json: {\n    ok: true,\n    text: text,\n    fileName: meta.fileName,\n    mimeType: meta.mimeType,\n    source: 'text'\n  } }];\n} catch (e) {\n  return [{ json: { ok: false, error: 'Ошибка чтения текстового файла: ' + e.message } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -325,7 +342,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -340,7 +374,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ response: $json.error || 'Файл не загружен.', success: false }) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,

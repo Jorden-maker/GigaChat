@@ -69,7 +69,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: $json.error, code: '', raw_result: ''}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -191,7 +208,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify($('Проверка ответа GEN').first().json) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -243,7 +277,7 @@
     },
     {
       "parameters": {
-        "jsCode": "try {\n  const raw = $input.first().json;\n\n  if (raw.error) {\n    return [{ json: { success: 0, code: '', error: 'GigaChat недоступен. Попробуйте позже.' } }];\n  }\n\n  let code = raw.output[0].content[0].text;\n\n  // Убираем markdown-обёртки\n  code = code.replace(/```python\\s*/gi, '').replace(/```\\s*/g, '').trim();\n\n  // Убираем текст до первого import или первой переменной\n  const lines = code.split('\\n');\n  let startIdx = 0;\n  for (let i = 0; i < lines.length; i++) {\n    const line = lines[i].trim();\n    if (line.startsWith('import ') || line.startsWith('from ') ||\n        line.match(/^[a-zA-Z_]/) || line.startsWith('#') ||\n        line.startsWith('print(')) {\n      startIdx = i;\n      break;\n    }\n  }\n  code = lines.slice(startIdx).join('\\n').trim();\n\n  if (!code || code.length < 5) {\n    return [{ json: { success: 0, code: '', error: 'GigaChat не смог сгенерировать код.' } }];\n  }\n\n  // ПРОВЕРКА БЕЗОПАСНОСТИ\n  // На Варианте A в Pyodide-бандле только stdlib — sympy/numpy/scipy и т.п.\n  // отсутствуют. Если LLM их импортирует, упадёт ModuleNotFoundError + Pyodide\n  // полезет в CDN с DNS-таймаутом. Лучше ловить тут и сразу отвечать\n  // понятной ошибкой.\n  const dangerous = [\n    // Опасный системный доступ — import X\n    'import os', 'import sys', 'import subprocess', 'import shutil',\n    'import pathlib', 'import socket', 'import http', 'import requests',\n    'import urllib', 'import ftplib', 'import smtplib', 'import pickle',\n    // Опасный системный доступ — from X import / from X.Y import\n    'from os ', 'from os.', 'from sys ', 'from sys.',\n    'from subprocess ', 'from subprocess.',\n    'from shutil ', 'from shutil.',\n    'from pathlib ', 'from pathlib.',\n    'from socket ', 'from socket.',\n    'from http ', 'from http.',\n    'from requests ', 'from requests.',\n    'from urllib ', 'from urllib.',\n    'from ftplib ', 'from ftplib.',\n    'from smtplib ', 'from smtplib.',\n    'from pickle ', 'from pickle.',\n    // Недоступные модули (нет в Pyodide-core бандле) — ловим до runtime\n    'import sympy', 'from sympy ', 'from sympy.',\n    'import numpy', 'from numpy ', 'from numpy.',\n    'import scipy', 'from scipy ', 'from scipy.',\n    'import pandas', 'from pandas ', 'from pandas.',\n    'import matplotlib', 'from matplotlib ', 'from matplotlib.',\n    'import sklearn', 'from sklearn ', 'from sklearn.',\n    // Опасные builtins\n    'open(', 'exec(', 'eval(', '__import__', 'compile(',\n    'globals(', 'locals(', 'getattr(', 'setattr(', 'delattr(',\n    'os.', 'sys.', 'subprocess.', 'shutil.', 'pathlib.',\n    'socket.', 'requests.', 'input('\n  ];\n\n  const codeLower = code.toLowerCase();\n  for (const d of dangerous) {\n    if (codeLower.includes(d.toLowerCase())) {\n      return [{ json: { success: 0, code: code, error: 'Код содержит запрещённую операцию: ' + d } }];\n    }\n  }\n\n  // Если LLM забыла print() — пытаемся найти последнюю присвоенную\n  // переменную regex'ом и напечатать её с маркером ОТВЕТ:.\n  // Слепое `print(result)` падало с NameError если LLM назвала переменную\n  // иначе (x, final, answer и т.п.).\n  if (!code.includes('print(') && !code.includes('print (')) {\n    const assignments = [...code.matchAll(/^[\\t ]*([a-zA-Z_][a-zA-Z0-9_]*)\\s*=(?!=)/gm)];\n    if (assignments.length > 0) {\n      const lastVar = assignments[assignments.length - 1][1];\n      code += `\\nprint(f\"ОТВЕТ: {${lastVar}}\")`;\n    } else {\n      // Нет ни print, ни присваиваний — код некорректен\n      return [{ json: { success: 0, code: code, error: 'GigaChat сгенерировал код без вывода. Попробуйте перефразировать задачу.' } }];\n    }\n  }\n\n  return [{ json: { success: 1, code: code, error: '' } }];\n\n} catch (e) {\n  return [{ json: { success: 0, code: '', error: 'Ошибка обработки ответа GigaChat: ' + e.message } }];\n}"
+        "jsCode": "try {\n  const raw = $input.first().json;\n\n  if (raw.error) {\n    return [{ json: { success: 0, code: '', error: 'GigaChat недоступен. Попробуйте позже.' } }];\n  }\n\n  // Безопасный доступ к ответу LLM\n  let code = raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text;\n  if (!code) {\n    return [{ json: { success: 0, code: '', error: 'Пустой ответ от LLM.' } }];\n  }\n\n  // Убираем markdown-обёртки\n  code = code.replace(/```python\\s*/gi, '').replace(/```\\s*/g, '').trim();\n\n  // Убираем текст до первого import или первой переменной\n  const lines = code.split('\\n');\n  let startIdx = 0;\n  for (let i = 0; i < lines.length; i++) {\n    const line = lines[i].trim();\n    if (line.startsWith('import ') || line.startsWith('from ') ||\n        line.match(/^[a-zA-Z_]/) || line.startsWith('#') ||\n        line.startsWith('print(')) {\n      startIdx = i;\n      break;\n    }\n  }\n  code = lines.slice(startIdx).join('\\n').trim();\n\n  if (!code || code.length < 5) {\n    return [{ json: { success: 0, code: '', error: 'GigaChat не смог сгенерировать код.' } }];\n  }\n\n  // === БЕЗОПАСНОСТЬ: whitelist-подход ===\n  // Старый blacklist через includes() был обходим: 'eval (' с пробелом,\n  // '__builtins__.eval', unicode-escape '\\u0065val(' и т.п. Whitelist\n  // надёжнее: разрешаем только импорты математических модулей stdlib.\n\n  // Декодируем unicode-escapes до проверок (защита от \\u0065val).\n  const decoded = code.replace(/\\\\u([0-9a-fA-F]{4})/g, (m, hex) =>\n    String.fromCharCode(parseInt(hex, 16))\n  );\n\n  // 1) Все import'ы и from-import'ы должны быть из whitelist'a\n  const ALLOWED_MODULES = new Set([\n    'math', 'statistics', 'decimal', 'fractions', 'cmath',\n    'itertools', 'functools', 'collections', 'bisect', 'heapq',\n    'random', 're', 'string', 'operator', 'numbers'\n  ]);\n  const importLines = decoded.match(/^[\\t ]*(?:import|from)\\s+[\\w.]+/gm) || [];\n  for (const line of importLines) {\n    const m = line.match(/(?:import|from)\\s+([\\w.]+)/);\n    if (!m) continue;\n    const rootModule = m[1].split('.')[0];\n    if (!ALLOWED_MODULES.has(rootModule)) {\n      return [{ json: { success: 0, code: code, error: 'Модуль не разрешён: ' + rootModule + '. Доступны только: ' + [...ALLOWED_MODULES].join(', ') } }];\n    }\n  }\n\n  // 2) Запрет любых dunder-методов (__import__, __class__.__bases__, etc.)\n  if (/\\b__\\w+__\\b/.test(decoded)) {\n    return [{ json: { success: 0, code: code, error: 'Запрещены dunder-методы (__name__).' } }];\n  }\n\n  // 3) Запрет опасных функций через regex с word-boundary и опциональным\n  //    пробелом перед '(' (eval (, exec ( и т.п. — теперь ловятся).\n  const BANNED_BUILTINS = [\n    'eval', 'exec', 'compile', 'open', 'input',\n    'globals', 'locals', 'vars', 'getattr', 'setattr', 'delattr',\n    'breakpoint', 'help'\n  ];\n  for (const fn of BANNED_BUILTINS) {\n    const re = new RegExp('\\\\b' + fn + '\\\\s*\\\\(');\n    if (re.test(decoded)) {\n      return [{ json: { success: 0, code: code, error: 'Запрещённый builtin: ' + fn + '()' } }];\n    }\n  }\n\n  // Если LLM забыла print() — пытаемся найти последнюю присвоенную\n  // переменную regex'ом и напечатать её с маркером ОТВЕТ:.\n  if (!/\\bprint\\s*\\(/.test(code)) {\n    const assignments = [...code.matchAll(/^[\\t ]*([a-zA-Z_][a-zA-Z0-9_]*)\\s*=(?!=)/gm)];\n    if (assignments.length > 0) {\n      const lastVar = assignments[assignments.length - 1][1];\n      code += `\\nprint(f\"ОТВЕТ: {${lastVar}}\")`;\n    } else {\n      return [{ json: { success: 0, code: code, error: 'GigaChat сгенерировал код без вывода. Попробуйте перефразировать задачу.' } }];\n    }\n  }\n\n  return [{ json: { success: 1, code: code, error: '' } }];\n\n} catch (e) {\n  return [{ json: { success: 0, code: '', error: 'Ошибка обработки ответа GigaChat: ' + e.message } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -292,7 +326,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ response: '', code: $('Проверка кода').first().json.code || '', raw_result: '', stage: 'execute' }) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -307,7 +358,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ response: $('Проверка кода').first().json.error || 'Код не прошёл проверку безопасности.', code: $('Проверка кода').first().json.code || '', raw_result: '' }) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -384,7 +452,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('Не удалось обработать запрос. Попробуйте ещё раз.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat недоступен. Попробуйте позже.','Пустой ответ от LLM. Попробуйте ещё раз.','Ошибка обработки ответа.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
         }
@@ -409,7 +477,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0 RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('Не удалось обработать запрос. Попробуйте ещё раз.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat недоступен. Попробуйте позже.','Пустой ответ от LLM. Попробуйте ещё раз.','Ошибка обработки ответа.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.error || 'Код не прошёл проверку безопасности.', JSON.stringify({code: $json.code || '', raw_result: ''})] }}"
         }
@@ -516,7 +584,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0 RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('Не удалось обработать запрос. Попробуйте ещё раз.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat недоступен. Попробуйте позже.','Пустой ответ от LLM. Попробуйте ещё раз.','Ошибка обработки ответа.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Извлечение полей').first().json.session_id, $json.response_text || '', JSON.stringify({code: $('Извлечение полей').first().json.code || '', raw_result: $('Извлечение полей').first().json.raw_result || ''})] }}"
         }
@@ -542,7 +610,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ response: $('Сборка финального ответа').first().json.response_text, code: $('Извлечение полей').first().json.code || '', raw_result: $('Извлечение полей').first().json.raw_result || '' }) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,

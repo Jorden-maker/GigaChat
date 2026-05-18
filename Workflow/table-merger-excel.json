@@ -57,7 +57,24 @@
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({response: 'pong'}) }}",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -70,7 +87,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Webhook с multipart складывает все файлы в одно item.binary с ключами\n// data, data_0, data_1, ... Для последующего Spreadsheet File нужно, чтобы\n// каждый файл был отдельным item с одним фиксированным binary-ключом «data».\n//\n// Binary получаем через helpers.getBinaryDataBuffer/prepareBinaryData, а не\n// копированием meta-объекта — иначе в filesystem-mode n8n ссылка на исходный\n// файл может потеряться.\n//\n// При любой ошибке валидации возвращаем один item с success:false, чтобы\n// IF-нода ниже перенаправила в JSON-ответ с кодом 400.\n\nconst input = $input.first();\nconst binary = input.binary || {};\nconst keys = Object.keys(binary);\n\nif (keys.length === 0) {\n  return [{ json: { success: false, error: 'Не загружено ни одного файла.' } }];\n}\n\nconst items = [];\nlet fileIndex = 0;\nfor (const key of keys) {\n  const meta = binary[key] || {};\n  const fileName = meta.fileName || ('file-' + fileIndex + '.xlsx');\n  const lower = fileName.toLowerCase();\n  if (!(lower.endsWith('.xlsx') || lower.endsWith('.xlsm'))) {\n    return [{ json: { success: false, error: 'Файл «' + fileName + '» имеет неподдерживаемое расширение. Принимаются только .xlsx и .xlsm.' } }];\n  }\n\n  // Читаем буфер явно и пересоздаём binary entry — это надёжнее, чем передавать meta\n  let buf;\n  try {\n    buf = await this.helpers.getBinaryDataBuffer(0, key);\n  } catch (e) {\n    return [{ json: { success: false, error: 'Не удалось прочитать файл «' + fileName + '»: ' + (e.message || e) } }];\n  }\n  const binaryData = await this.helpers.prepareBinaryData(\n    Buffer.from(buf),\n    fileName,\n    meta.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'\n  );\n\n  items.push({\n    json: { fileIndex: fileIndex, fileName: fileName, success: true },\n    binary: { data: binaryData }\n  });\n  fileIndex++;\n}\n\nreturn items;"
+        "jsCode": "// Webhook с multipart складывает все файлы в одно item.binary с ключами\n// data, data_0, data_1, ... Для последующего Spreadsheet File нужно, чтобы\n// каждый файл был отдельным item с одним фиксированным binary-ключом «data».\n//\n// Binary получаем через helpers.getBinaryDataBuffer/prepareBinaryData, а не\n// копированием meta-объекта — иначе в filesystem-mode n8n ссылка на исходный\n// файл может потеряться.\n//\n// При любой ошибке валидации возвращаем один item с success:false, чтобы\n// IF-нода ниже перенаправила в JSON-ответ с кодом 400.\n\nconst input = $input.first();\nconst binary = input.binary || {};\n// Сортировка по числовой части суффикса: data, data_0, data_1, ..., data_10.\n// Object.keys() не гарантирует ни лексикографический, ни числовой порядок.\n// Без сортировки 11 файлов могли смерджиться в неожиданном порядке.\nconst keys = Object.keys(binary).sort((a, b) => {\n  const na = parseInt((a.match(/\\d+/) || ['0'])[0], 10);\n  const nb = parseInt((b.match(/\\d+/) || ['0'])[0], 10);\n  // key 'data' без числа считаем 0, 'data_0' тоже 0 — стабильно сортирует\n  return na - nb;\n});\n\nif (keys.length === 0) {\n  return [{ json: { success: false, error: 'Не загружено ни одного файла.' } }];\n}\n\nconst items = [];\nlet fileIndex = 0;\nfor (const key of keys) {\n  const meta = binary[key] || {};\n  const fileName = meta.fileName || ('file-' + fileIndex + '.xlsx');\n  const lower = fileName.toLowerCase();\n  if (!(lower.endsWith('.xlsx') || lower.endsWith('.xlsm'))) {\n    return [{ json: { success: false, error: 'Файл «' + fileName + '» имеет неподдерживаемое расширение. Принимаются только .xlsx и .xlsm.' } }];\n  }\n\n  // Читаем буфер явно и пересоздаём binary entry — это надёжнее, чем передавать meta\n  let buf;\n  try {\n    buf = await this.helpers.getBinaryDataBuffer(0, key);\n  } catch (e) {\n    return [{ json: { success: false, error: 'Не удалось прочитать файл «' + fileName + '»: ' + (e.message || e) } }];\n  }\n  const binaryData = await this.helpers.prepareBinaryData(\n    Buffer.from(buf),\n    fileName,\n    meta.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'\n  );\n\n  items.push({\n    json: { fileIndex: fileIndex, fileName: fileName, success: true },\n    binary: { data: binaryData }\n  });\n  fileIndex++;\n}\n\nreturn items;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -135,7 +152,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Прикрепляем к каждой строке индекс исходного файла через явный\n// $('Разбить на items').item — n8n сам резолвит соответствие через\n// pairedItem, нам не нужно полагаться на это вручную.\n// Этот узел работает в режиме «runOnceForEachItem», что и активирует\n// корректную работу $('node').item для текущего item.\n\nconst fileIndex = $('Разбить на items').item.json.fileIndex;\nconst fileName = $('Разбить на items').item.json.fileName;\nreturn {\n  json: Object.assign({}, $json, { _fileIndex: fileIndex, _fileName: fileName })\n};"
+        "jsCode": "// Прикрепляем к каждой строке индекс исходного файла через явный\n// $('Разбить на items').item — n8n сам резолвит соответствие через\n// pairedItem.\n//\n// ВНИМАНИЕ: pairedItem может дропаться в некоторых версиях n8n после\n// Spreadsheet-ноды. Если merge даёт удвоение первого файла при 2+ файлах —\n// это значит pairedItem потерян. Защита через явный fallback:\n// если paired-item возвращает что-то странное, используем меньшее зло —\n// fileIndex=0 для всех строк (явный признак сбоя в merge).\n// Долгосрочный фикс: заменить Spreadsheet-ноду на ExcelJS-Code-ноду\n// (контроль над парсингом и явная группировка по файлу).\n\nlet fileIndex = 0;\nlet fileName = 'unknown';\ntry {\n  const sourceItem = $('Разбить на items').item;\n  if (sourceItem && sourceItem.json) {\n    fileIndex = typeof sourceItem.json.fileIndex === 'number' ? sourceItem.json.fileIndex : 0;\n    fileName = sourceItem.json.fileName || 'unknown';\n  }\n} catch (e) {\n  // pairedItem не резолвится — оставляем дефолт 0, merge даст один блок\n}\nreturn {\n  json: Object.assign({}, $json, { _fileIndex: fileIndex, _fileName: fileName })\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -215,7 +232,24 @@
     {
       "parameters": {
         "respondWith": "binary",
-        "options": {}
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
@@ -231,7 +265,23 @@
         "respondWith": "json",
         "responseBody": "={{ JSON.stringify({ error: $json.error || 'Ошибка обработки' }) }}",
         "options": {
-          "responseCode": 400
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
