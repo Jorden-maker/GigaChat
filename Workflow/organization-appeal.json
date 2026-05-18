@@ -10,7 +10,10 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [0, 300],
+      "position": [
+        0,
+        300
+      ],
       "id": "oa-webhook-0001",
       "name": "Webhook OrgAppeal",
       "webhookId": "organization-appeal-webhook-001"
@@ -18,13 +21,20 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-ping-oa",
               "leftValue": "={{ $json.query?.ping || $json.body?.ping || ($json.body?.message === 'ping' ? '1' : '') }}",
               "rightValue": "1",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -34,7 +44,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [240, 100],
+      "position": [
+        240,
+        300
+      ],
       "id": "oa-ping-if-0001",
       "name": "Ping?"
     },
@@ -46,20 +59,30 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [520, 0],
+      "position": [
+        520,
+        100
+      ],
       "id": "oa-ping-resp-0001",
       "name": "Ответ: pong"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-source-text",
               "leftValue": "={{ ($json.body?.text || '').trim().length > 0 ? '1' : '' }}",
               "rightValue": "1",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -69,7 +92,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 300],
+      "position": [
+        520,
+        300
+      ],
       "id": "oa-source-if-0001",
       "name": "Источник: текст?"
     },
@@ -79,7 +105,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [800, 100],
+      "position": [
+        800,
+        100
+      ],
       "id": "oa-text-body-0001",
       "name": "Текст из body"
     },
@@ -89,20 +118,30 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [800, 500],
+      "position": [
+        800,
+        500
+      ],
       "id": "oa-validate-0001",
       "name": "Валидация файла"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-valid-oa",
               "leftValue": "={{ $json.valid }}",
               "rightValue": "",
-              "operator": { "type": "boolean", "operation": "true" }
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -112,7 +151,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1080, 500],
+      "position": [
+        1080,
+        500
+      ],
       "id": "oa-validate-if-0001",
       "name": "Файл валиден?"
     },
@@ -124,7 +166,10 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1360, 700],
+      "position": [
+        1080,
+        700
+      ],
       "id": "oa-error-file-0001",
       "name": "Ответ: ошибка файла"
     },
@@ -146,13 +191,20 @@
           ]
         },
         "options": {
-          "response": { "response": { "fullResponse": false } },
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          },
           "timeout": 120000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1080, 200],
+      "position": [
+        1360,
+        500
+      ],
       "id": "oa-ocr-0001",
       "name": "OCR (text extraction)",
       "onError": "continueRegularOutput"
@@ -163,20 +215,30 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1360, 200],
+      "position": [
+        1640,
+        500
+      ],
       "id": "oa-extract-text-0001",
       "name": "Извлечь текст"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-has-text-oa",
               "leftValue": "={{ $json.has_text }}",
               "rightValue": "",
-              "operator": { "type": "boolean", "operation": "true" }
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -186,7 +248,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1640, 200],
+      "position": [
+        1920,
+        300
+      ],
       "id": "oa-text-if-0001",
       "name": "Текст найден?"
     },
@@ -198,13 +263,20 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1920, 420],
+      "position": [
+        1920,
+        500
+      ],
       "id": "oa-error-ocr-0001",
       "name": "Ответ: OCR не распознал"
     },
     {
       "parameters": {
-        "modelId": { "__rl": true, "value": ".", "mode": "id" },
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
         "responses": {
           "values": [
             {
@@ -217,15 +289,23 @@
           ]
         },
         "builtInTools": {},
-        "options": { "timeout": 60000 }
+        "options": {
+          "timeout": 60000
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
-      "position": [1920, 200],
+      "position": [
+        2200,
+        300
+      ],
       "id": "oa-llm-extract-0001",
       "name": "LLM извлечь данные",
       "credentials": {
-        "openAiApi": { "id": "Qwyuj8GrADL2wlnl", "name": "GigaChat" }
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
       },
       "onError": "continueRegularOutput"
     },
@@ -235,20 +315,30 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2200, 200],
+      "position": [
+        2480,
+        300
+      ],
       "id": "oa-parse-data-0001",
       "name": "Парсинг данных"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-parsed-oa",
               "leftValue": "={{ $json.parsed_ok }}",
               "rightValue": "",
-              "operator": { "type": "boolean", "operation": "true" }
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
             }
           ],
           "combinator": "and"
@@ -258,7 +348,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [2480, 200],
+      "position": [
+        2760,
+        300
+      ],
       "id": "oa-parsed-if-0001",
       "name": "Данные извлечены?"
     },
@@ -270,7 +363,10 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [2760, 420],
+      "position": [
+        2760,
+        500
+      ],
       "id": "oa-error-parse-0001",
       "name": "Ответ: данные не извлечены"
     },
@@ -284,11 +380,17 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2760, 200],
+      "position": [
+        3040,
+        300
+      ],
       "id": "oa-db1-0001",
       "name": "БД №1: appeal_employees",
       "credentials": {
-        "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" }
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
@@ -299,20 +401,30 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3040, 200],
+      "position": [
+        3320,
+        300
+      ],
       "id": "oa-classify-step1-0001",
       "name": "Классификация шага 1"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-step1-ok",
               "leftValue": "={{ $json.status }}",
               "rightValue": "ok",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -322,7 +434,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [3320, 200],
+      "position": [
+        3600,
+        300
+      ],
       "id": "oa-step1-if-0001",
       "name": "Шаг 1 успешен?"
     },
@@ -334,7 +449,10 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [3600, 420],
+      "position": [
+        3600,
+        500
+      ],
       "id": "oa-respond-step1-0001",
       "name": "Ответ: шаг 1 не успех"
     },
@@ -348,11 +466,17 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3600, 200],
+      "position": [
+        3880,
+        300
+      ],
       "id": "oa-db2-0001",
       "name": "БД №2: appeal_event1",
       "credentials": {
-        "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" }
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
@@ -363,20 +487,30 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3880, 200],
+      "position": [
+        4160,
+        300
+      ],
       "id": "oa-classify-step2-0001",
       "name": "Классификация шага 2"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-step2-done",
               "leftValue": "={{ $json.status }}",
               "rightValue": "done",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -386,7 +520,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [4160, 200],
+      "position": [
+        4440,
+        300
+      ],
       "id": "oa-step2-if-0001",
       "name": "Шаг 2 выполнен?"
     },
@@ -398,7 +535,10 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [4440, 420],
+      "position": [
+        4440,
+        500
+      ],
       "id": "oa-respond-step2-0001",
       "name": "Ответ: шаг 2 не done"
     },
@@ -412,11 +552,17 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [4440, 200],
+      "position": [
+        4720,
+        300
+      ],
       "id": "oa-db3-0001",
       "name": "БД №3: appeal_event2",
       "credentials": {
-        "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" }
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
@@ -427,7 +573,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [4720, 200],
+      "position": [
+        5000,
+        300
+      ],
       "id": "oa-classify-step3-0001",
       "name": "Классификация шага 3"
     },
@@ -439,7 +588,10 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [5000, 200],
+      "position": [
+        5280,
+        300
+      ],
       "id": "oa-final-respond-0001",
       "name": "Финальный ответ"
     }
@@ -447,89 +599,279 @@
   "pinData": {},
   "connections": {
     "Webhook OrgAppeal": {
-      "main": [[{ "node": "Ping?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Ping?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Ping?": {
       "main": [
-        [{ "node": "Ответ: pong", "type": "main", "index": 0 }],
-        [{ "node": "Источник: текст?", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Ответ: pong",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Источник: текст?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Источник: текст?": {
       "main": [
-        [{ "node": "Текст из body", "type": "main", "index": 0 }],
-        [{ "node": "Валидация файла", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Текст из body",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Валидация файла",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Текст из body": {
-      "main": [[{ "node": "Текст найден?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Текст найден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Валидация файла": {
-      "main": [[{ "node": "Файл валиден?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Файл валиден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Файл валиден?": {
       "main": [
-        [{ "node": "OCR (text extraction)", "type": "main", "index": 0 }],
-        [{ "node": "Ответ: ошибка файла", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "OCR (text extraction)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка файла",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "OCR (text extraction)": {
-      "main": [[{ "node": "Извлечь текст", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Извлечь текст",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Извлечь текст": {
-      "main": [[{ "node": "Текст найден?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Текст найден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Текст найден?": {
       "main": [
-        [{ "node": "LLM извлечь данные", "type": "main", "index": 0 }],
-        [{ "node": "Ответ: OCR не распознал", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "LLM извлечь данные",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: OCR не распознал",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "LLM извлечь данные": {
-      "main": [[{ "node": "Парсинг данных", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Парсинг данных",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Парсинг данных": {
-      "main": [[{ "node": "Данные извлечены?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Данные извлечены?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Данные извлечены?": {
       "main": [
-        [{ "node": "БД №1: appeal_employees", "type": "main", "index": 0 }],
-        [{ "node": "Ответ: данные не извлечены", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "БД №1: appeal_employees",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: данные не извлечены",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "БД №1: appeal_employees": {
-      "main": [[{ "node": "Классификация шага 1", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Классификация шага 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Классификация шага 1": {
-      "main": [[{ "node": "Шаг 1 успешен?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Шаг 1 успешен?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Шаг 1 успешен?": {
       "main": [
-        [{ "node": "БД №2: appeal_event1", "type": "main", "index": 0 }],
-        [{ "node": "Ответ: шаг 1 не успех", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "БД №2: appeal_event1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: шаг 1 не успех",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "БД №2: appeal_event1": {
-      "main": [[{ "node": "Классификация шага 2", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Классификация шага 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Классификация шага 2": {
-      "main": [[{ "node": "Шаг 2 выполнен?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Шаг 2 выполнен?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Шаг 2 выполнен?": {
       "main": [
-        [{ "node": "БД №3: appeal_event2", "type": "main", "index": 0 }],
-        [{ "node": "Ответ: шаг 2 не done", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "БД №3: appeal_event2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: шаг 2 не done",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "БД №3: appeal_event2": {
-      "main": [[{ "node": "Классификация шага 3", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Классификация шага 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Классификация шага 3": {
-      "main": [[{ "node": "Финальный ответ", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Финальный ответ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "versionId": "org-appeal-v1",
   "meta": {
     "templateCredsSetupCompleted": true,
