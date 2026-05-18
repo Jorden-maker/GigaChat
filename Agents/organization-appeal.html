@@ -209,7 +209,7 @@ main { max-width: 800px; }
         <h2>Что делает алгоритм</h2>
         <p>Загрузите документ обращения (Word или PDF)</p>
         <p>Алгоритм:<br>
-        1. Извлечёт <b>ФИО</b>, <b>дату рождения</b>, <b>личный номер</b> из документа.<br>
+        1. Извлечёт <b>ФИО</b>, <b>дату рождения</b>, <b>табельный номер</b> из документа.<br>
         2. Проверит идентификацию в <b>базе данных</b>.<br>
         3. Если ОК — проверит выполнение <b>Мероприятия №1</b>.<br>
         4. Если ОК — проверит выполнение <b>Мероприятия №2</b> и выдаст итог.</p>
@@ -257,7 +257,7 @@ main { max-width: 800px; }
                 <span class="field-value" id="fldBirth"></span>
             </div>
             <div class="field">
-                <span class="field-label">Личный номер</span>
+                <span class="field-label">Табельный номер</span>
                 <span class="field-value" id="fldNumber"></span>
             </div>
         </div>
@@ -472,7 +472,7 @@ main { max-width: 800px; }
             lines.push('ИЗВЛЕЧЁННЫЕ ДАННЫЕ:');
             lines.push('  ФИО: ' + document.getElementById('fldFio').textContent);
             lines.push('  Дата рождения: ' + document.getElementById('fldBirth').textContent);
-            lines.push('  Личный номер: ' + document.getElementById('fldNumber').textContent);
+            lines.push('  Табельный номер: ' + document.getElementById('fldNumber').textContent);
             lines.push('');
         }
         if (stepsSection.classList.contains('show')) {
