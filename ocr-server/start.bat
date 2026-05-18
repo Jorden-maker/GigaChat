@@ -30,8 +30,8 @@ set OCR_EASYOCR_DIR=C:\models\easyocr
 rem -- Jazyki dlja raspoznavanija (cherez zapjatuju, bez probelov)
 set OCR_LANGS=ru,en
 
-rem -- Port servera (zashit v workflow http://localhost:8080/v1/file/text/)
-set OCR_PORT=8080
+rem -- Port servera (zashit v workflow http://localhost:8055/extract)
+set OCR_PORT=8055
 
 if not "%OCR_EASYOCR_DIR%"=="" if not exist "%OCR_EASYOCR_DIR%" (
     echo.
@@ -47,8 +47,9 @@ echo === Zapusk OCR-servera ===
 echo Port:        %OCR_PORT%
 echo Langs:       %OCR_LANGS%
 echo EasyOCR dir: %OCR_EASYOCR_DIR%
-echo Endpoint:    http://localhost:%OCR_PORT%/v1/file/text/
-echo Health:      http://localhost:%OCR_PORT%/health
+echo Endpoint:    http://localhost:%OCR_PORT%/extract
+echo Image-only:  http://localhost:%OCR_PORT%/extract/image
+echo Status:      http://localhost:%OCR_PORT%/status
 echo Stop:        Ctrl+C ili zakroj eto okno
 echo ===========================
 echo.

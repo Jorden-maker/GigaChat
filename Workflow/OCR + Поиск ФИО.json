@@ -115,7 +115,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:8080/v1/file/text/",
+        "url": "http://localhost:8055/extract",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {

@@ -123,8 +123,8 @@ Write-Host " 1. Запусти сервер двойным кликом по:"
 Write-Host "      start.bat" -ForegroundColor Cyan
 Write-Host ""
 Write-Host " 2. В новом окне PowerShell проверь, что отвечает:"
-Write-Host "      curl http://localhost:8080/health" -ForegroundColor Cyan
+Write-Host "      curl http://localhost:8055/status" -ForegroundColor Cyan
 Write-Host ""
 Write-Host " 3. Тест извлечения текста из PDF:"
-Write-Host "      curl -X POST -F `"file=@some.pdf`" http://localhost:8080/v1/file/text/" -ForegroundColor Cyan
+Write-Host "      curl -X POST -F `"file=@some.pdf`" http://localhost:8055/extract" -ForegroundColor Cyan
 Write-Host "=============================================================" -ForegroundColor Green

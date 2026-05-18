@@ -10,7 +10,7 @@
   - TXT/MD/CSV: просто читаем как UTF-8.
 
 n8n-workflow «organization-appeal» (и другие, использующие OCR) шлют файлы
-на эндпоинт POST /v1/file/text/ с полем multipart `file` и ожидают JSON
+на эндпоинт POST /extract с полем multipart `file` и ожидают JSON
 с полем `text`.
 
 Запуск:
@@ -19,7 +19,7 @@ n8n-workflow «organization-appeal» (и другие, использующие 
 
 Конфигурация через переменные окружения:
     OCR_HOST           — на каком интерфейсе слушать. По умолчанию: 0.0.0.0
-    OCR_PORT           — порт. По умолчанию: 8080
+    OCR_PORT           — порт. По умолчанию: 8055
     OCR_LANGS          — языки для EasyOCR. По умолчанию: ru,en
     OCR_PDF_MIN_TEXT   — если PDF после PyMuPDF дал меньше N символов —
                           fallback на EasyOCR. По умолчанию: 50
@@ -30,14 +30,14 @@ n8n-workflow «organization-appeal» (и другие, использующие 
     OCR_DEVICE         — cpu / cuda. По умолчанию: auto.
 
 API:
-    GET  /health
+    GET  /status
         resp: {"status": "ok", "easyocr_ready": bool, "device": "cpu|cuda"}
 
-    POST /v1/file/text/
+    POST /extract
         multipart: file=<binary>
         resp: {"text": "...", "source": "pymupdf|pymupdf+easyocr|docx|easyocr|plain", "filename": "..."}
 
-    POST /v1/image/text/
+    POST /extract/image
         multipart: file=<binary>
         resp: {"text": "...", "source": "easyocr"}
 """
@@ -57,7 +57,7 @@ import uvicorn
 from fastapi import FastAPI, UploadFile, File, HTTPException
 
 HOST = os.environ.get('OCR_HOST', '0.0.0.0')
-PORT = int(os.environ.get('OCR_PORT', '8080'))
+PORT = int(os.environ.get('OCR_PORT', '8055'))
 LANGS = os.environ.get('OCR_LANGS', 'ru,en').split(',')
 PDF_MIN_TEXT = int(os.environ.get('OCR_PDF_MIN_TEXT', '50'))
 PDF_MAX_PAGES = int(os.environ.get('OCR_PDF_MAX_PAGES', '50'))
@@ -216,8 +216,8 @@ def extract_plain(data: bytes) -> tuple[str, str]:
 app = FastAPI(title='GigaChat OCR Server')
 
 
-@app.get('/health')
-def health():
+@app.get('/status')
+def status():
     """Лёгкий health-check. НЕ инициализирует EasyOCR."""
     return {
         'status': 'ok',
@@ -233,8 +233,8 @@ IMAGE_EXTS = {'png', 'jpg', 'jpeg', 'tiff', 'tif', 'bmp', 'webp'}
 PLAIN_EXTS = {'txt', 'md', 'csv', 'log'}
 
 
-@app.post('/v1/file/text/')
-async def file_text(file: UploadFile = File(...)):
+@app.post('/extract')
+async def extract(file: UploadFile = File(...)):
     """
     Основной эндпоинт. Принимает любой документ, отдаёт извлечённый текст.
     Совместим с тем, что ожидают workflow'ы organization-appeal, document-loader и др.
@@ -277,8 +277,8 @@ async def file_text(file: UploadFile = File(...)):
     }
 
 
-@app.post('/v1/image/text/')
-async def image_text(file: UploadFile = File(...)):
+@app.post('/extract/image')
+async def extract_image_endpoint(file: UploadFile = File(...)):
     """Отдельный эндпоинт для картинок — всегда через EasyOCR."""
     data = await file.read()
     if not data:
