@@ -25,6 +25,12 @@ __pycache__/
 embedding-server/wheels/
 embedding-server/wheels.zip
 
+# Оффлайн-бандл OCR — лежит в GitHub Release, не в репо
+ocr-server/wheels/
+ocr-server/wheels.zip
+ocr-server/easyocr_models/
+ocr-server/_tmp_venv/
+
 # Pyodide-бандл для math-agent — лежит в репозитории, чтобы ZIP-загрузка
 # с GitHub содержала всё необходимое для офисного офлайн-развёртывания.
 

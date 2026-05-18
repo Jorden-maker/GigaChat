@@ -321,3 +321,4 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new()
 - [README основного проекта](README.md) — общая структура GigaChat (если есть).
 - [`PostgreSQL-Guide.md`](PostgreSQL-Guide.md) — настройка БД, в которую пишут workflow.
 - [`embedding-server/README.md`](embedding-server/README.md) — локальный сервис эмбеддингов, без него `document-loader` и `rag-agent` не работают.
+- [`ocr-server/README.md`](ocr-server/README.md) — локальный OCR-сервис (PDF и картинки → текст), используется в `document-loader`, `organization-appeal` и `text-extractor`.
