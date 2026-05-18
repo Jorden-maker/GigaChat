@@ -44,7 +44,7 @@ class GigaChatHTTPError(GigaChatError):
 
 
 class GigaChatClient:
-    """Клиент для всех 6 агентов GigaChat через единый n8n шлюз.
+    """Клиент для агентов GigaChat через единый n8n шлюз.
 
     Сессии изолируются по префиксу: каждый session_id получает вид
     `{prefix}_{agent_short}_{user_id}`, чтобы не пересекаться с сессиями
@@ -54,11 +54,26 @@ class GigaChatClient:
         chat(message, user_id)     — универсальный чат-агент
         rag(message, user_id)      — поиск по загруженным документам
         sql(message, user_id)      — запросы к БД на естественном языке
-        math(message, user_id)     — математические вычисления (возвращает dict)
-        route(message, user_id)    — авто-маршрутизация: сам выберет агента
+        math(message, user_id)     — генерация Python-кода для задачи (см. note)
         prompt(message, user_id)   — генерация и улучшение промптов
 
     Sync-варианты: те же имена с суффиксом `_sync`.
+
+    Note про math:
+        После перехода math-агента на двухфазную архитектуру (Pyodide
+        в браузере) этот endpoint возвращает только СГЕНЕРИРОВАННЫЙ КОД
+        для задачи, не готовое число. Поле `response` пустое, `code`
+        содержит Python для исполнения. Готовый ответ с пояснением
+        собирается ТОЛЬКО в Web UI через Pyodide + второй webhook
+        /math-explain. Из Django:
+        - либо исполняй code на своей стороне (subprocess/exec — security!)
+        - либо показывай code пользователю как есть
+        - либо не используй math из API, а только из Web UI
+
+    Auto-routing (router) НЕ доступен через API: реальная маршрутизация
+    живёт в router.html фронте (классифицирует сообщение и динамически
+    выбирает webhook). /webhook/router в n8n — только пинг-стаб.
+    Из Django: вызывай конкретного агента напрямую.
     """
 
     def __init__(
@@ -114,33 +129,28 @@ class GigaChatClient:
     # ---------- async API ----------
 
     async def chat(self, message: str, user_id: str) -> str:
-        data = await self._post_async("chat-agent", {
+        data = await self._post_async("chat", {
             "message": message, "session_id": self._sid(user_id, "chat")
         })
         return data.get("response", "")
 
     async def rag(self, message: str, user_id: str) -> str:
-        data = await self._post_async("rag-agent", {
+        data = await self._post_async("rag", {
             "message": message, "session_id": self._sid(user_id, "rag")
         })
         return data.get("response", "")
 
     async def sql(self, message: str, user_id: str) -> str:
-        data = await self._post_async("sql-agent", {
+        data = await self._post_async("sql", {
             "message": message, "session_id": self._sid(user_id, "sql")
         })
         return data.get("response", "")
 
     async def math(self, message: str, user_id: str) -> Dict[str, Any]:
-        # math возвращает {response, code, raw_result}
-        return await self._post_async("math-agent", {
+        # Возвращает {stage:'execute', code, response:'', raw_result:''}.
+        # См. docstring класса: response пустой, code нужно исполнять самостоятельно.
+        return await self._post_async("math", {
             "message": message, "session_id": self._sid(user_id, "math")
-        })
-
-    async def route(self, message: str, user_id: str) -> Dict[str, Any]:
-        # router сам выбирает агента, возвращает {response, agent}
-        return await self._post_async("router", {
-            "message": message, "session_id": self._sid(user_id, "router")
         })
 
     async def prompt(self, message: str, user_id: str) -> Dict[str, Any]:
@@ -152,31 +162,27 @@ class GigaChatClient:
     # ---------- sync API (те же методы с суффиксом _sync) ----------
 
     def chat_sync(self, message: str, user_id: str) -> str:
-        data = self._post_sync("chat-agent", {
+        data = self._post_sync("chat", {
             "message": message, "session_id": self._sid(user_id, "chat")
         })
         return data.get("response", "")
 
     def rag_sync(self, message: str, user_id: str) -> str:
-        data = self._post_sync("rag-agent", {
+        data = self._post_sync("rag", {
             "message": message, "session_id": self._sid(user_id, "rag")
         })
         return data.get("response", "")
 
     def sql_sync(self, message: str, user_id: str) -> str:
-        data = self._post_sync("sql-agent", {
+        data = self._post_sync("sql", {
             "message": message, "session_id": self._sid(user_id, "sql")
         })
         return data.get("response", "")
 
     def math_sync(self, message: str, user_id: str) -> Dict[str, Any]:
-        return self._post_sync("math-agent", {
+        # См. docstring класса: возвращает только код, не готовый ответ.
+        return self._post_sync("math", {
             "message": message, "session_id": self._sid(user_id, "math")
-        })
-
-    def route_sync(self, message: str, user_id: str) -> Dict[str, Any]:
-        return self._post_sync("router", {
-            "message": message, "session_id": self._sid(user_id, "router")
         })
 
     def prompt_sync(self, message: str, user_id: str) -> Dict[str, Any]:

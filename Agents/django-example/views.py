@@ -92,7 +92,11 @@ def _call_giga(method_name: str, message: str, user_id: str):
 @require_POST
 def ai_ask(request):
     """POST /giga/ask
-    Body: { "message": "...", "agent": "chat" | "rag" | "sql" | "math" | "route" | "prompt" }
+    Body: { "message": "...", "agent": "chat" | "rag" | "sql" | "math" | "prompt" }
+
+    Note: "route" (auto-routing) НЕ поддерживается через API — реальная
+    маршрутизация живёт только в Web UI (router.html). Из Django вызывай
+    конкретного агента напрямую. См. README.md → секция «Auto-routing».
     """
     message, err = _parse_message(request)
     if err:
@@ -103,7 +107,7 @@ def ai_ask(request):
     except ValueError:
         body = {}
     agent = (body.get("agent") or "chat").lower()
-    valid = {"chat", "rag", "sql", "math", "route", "prompt"}
+    valid = {"chat", "rag", "sql", "math", "prompt"}
     if agent not in valid:
         return HttpResponseBadRequest(f"agent должен быть одним из: {', '.join(sorted(valid))}")
 
@@ -113,7 +117,7 @@ def ai_ask(request):
     if err_resp:
         return err_resp
 
-    # chat/rag/sql возвращают str; math/route/prompt возвращают dict.
+    # chat/rag/sql возвращают str; math/prompt возвращают dict.
     if isinstance(result, str):
         return JsonResponse({"response": result})
     return JsonResponse(result)
