@@ -1052,7 +1052,13 @@
       restore: function () {
         if (sid) unregisterSendController(sid);
         btn.disabled = false;
-        btn.innerHTML = SEND_ICON_SVG;
+        // Не перетираем иконку если typewriter сейчас печатает (он уже
+        // переключил на STOP-иконку через .streaming class). Иначе
+        // restore() из finally{} перебил бы typewriter'у его STOP-режим
+        // обратно на стрелку, и нажатие «остановить» не работало бы.
+        if (!btn.classList.contains('streaming')) {
+          btn.innerHTML = SEND_ICON_SVG;
+        }
       }
     };
   }
@@ -2060,10 +2066,54 @@
   //
   // Если юзер переключился на другую сессию во время typewriter — печать
   // прерывается тихо; при возврате он увидит полный текст из snapshot.
+  // trimUnsafeMarkdown — отрезает от конца текста незавершённые markdown-блоки.
+  // Зачем: пока поток пишет таблицу или код-блок по символам, парсер видит
+  // незакрытый `|...|` или ```, не понимает что это, и отдаёт как сырые
+  // символы. Юзер видит «мусор MD». Решение: пока блок не дописан до
+  // безопасной точки, его символы скрываются. Когда поток допишет
+  // закрывающую часть — блок появится сразу целиком (или построчно у
+  // больших таблиц, по мере добавления строк).
+  function trimUnsafeMarkdown(text) {
+    // 1. Незакрытый код-блок (нечётное число ```)
+    var ticks = (text.match(/```/g) || []).length;
+    if (ticks % 2 === 1) {
+      var lastTicks = text.lastIndexOf('```');
+      text = text.substring(0, lastTicks);
+    }
+    // 2. Незавершённая таблица в конце: подряд идущие `|...|`-строки без
+    //    separator-row `|---|`. Тогда это незаконченная разметка таблицы —
+    //    прячем эти строки до появления separator'а.
+    var lines = text.split('\n');
+    var i = lines.length - 1;
+    // Считаем сколько с конца идёт `|...|` строк подряд
+    while (i >= 0 && lines[i].trim().startsWith('|')) i--;
+    var tableStart = i + 1;
+    if (tableStart < lines.length) {
+      var hasSeparator = false;
+      for (var j = tableStart; j < lines.length; j++) {
+        if (/^\s*\|[-:|\s]+\|\s*$/.test(lines[j])) { hasSeparator = true; break; }
+      }
+      if (!hasSeparator) lines = lines.slice(0, tableStart);
+    }
+    return lines.join('\n');
+  }
+
+  // typewriteAssistant — псевдо-стриминг ответа с поддержкой:
+  //   - smart auto-scroll (sticky bottom, при ручном скролле вверх — пауза)
+  //   - stop-кнопка во время печати (sendBtn становится квадратом-стопом)
+  //   - input разблокирован, юзер может писать новый запрос
+  //   - при stop — отображаемый текст ОБРЕЗАЕТСЯ (полный есть в chat_memory)
+  //   - trimUnsafeMarkdown скрывает партиальные таблицы/код-блоки
+  //
+  // Options:
+  //   cps        — символов в секунду (default 200)
+  //   sendBtn    — DOM-элемент кнопки «Отправить» (станет «Стоп» во время печати)
+  //   input      — textarea ввода (не блокируется, чтобы юзер мог печатать)
   function typewriteAssistant(sessionStore, sid, msg, options) {
     options = options || {};
-    var cps = options.cps || 60;
+    var cps = options.cps || 200;
     var containerSelector = options.containerSelector || '.msg.bot';
+    var sendBtn = options.sendBtn || null;
     var tickFps = 30;
     var tickIntervalMs = 1000 / tickFps;
     var charsPerTick = Math.max(1, Math.round(cps / tickFps));
@@ -2084,48 +2134,96 @@
 
     lastBot.innerHTML = '';
 
+    // Auto-scroll: липкое дно. Перед каждым re-render запоминаем — был ли
+    // юзер у дна. Если был — скроллим. Если нет (скроллил вверх) — не
+    // трогаем. Возврат к низу автоматически возобновляет sticky-режим.
+    var chatEl = lastBot.closest('#chat') || document.getElementById('chat');
+    function isAtBottom() {
+      if (!chatEl) return false;
+      return chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 30;
+    }
+
+    // Stop-кнопка: подменяем send-icon на stop-icon, меняем aria-label.
+    // При клике sendMsg в фабрике увидит class='streaming' и вызовет stop.
+    var origSendIcon = sendBtn ? sendBtn.innerHTML : '';
+    var origSendLabel = sendBtn ? sendBtn.getAttribute('aria-label') : null;
+    if (sendBtn) {
+      sendBtn.classList.add('streaming');
+      sendBtn.setAttribute('aria-label', 'Остановить печать');
+      sendBtn.innerHTML = STOP_ICON_SVG;
+    }
+    var stopped = false;
+    function restoreSendButton() {
+      if (!sendBtn) return;
+      sendBtn.classList.remove('streaming');
+      if (origSendLabel) sendBtn.setAttribute('aria-label', origSendLabel);
+      sendBtn.innerHTML = origSendIcon;
+    }
+
     var i = 0;
-    // Кеш последнего отрендеренного префикса — re-render только при изменении
-    // i (избегаем лишних innerHTML записей если ничего не накопилось за тик).
     var lastRendered = -1;
     var intervalId = setInterval(function () {
       if (sid !== sessionStore.state.activeSessionId) {
         clearInterval(intervalId);
+        restoreSendButton();
         return;
       }
       if (!lastBot.isConnected) {
         clearInterval(intervalId);
+        restoreSendButton();
+        return;
+      }
+      if (stopped) {
+        // Юзер нажал Стоп — оставляем то что уже видно, дальше не рисуем.
+        clearInterval(intervalId);
+        attachCopyButtons(lastBot);
+        applyHighlight(lastBot);
+        restoreSendButton();
         return;
       }
       if (i >= plainText.length) {
         clearInterval(intervalId);
-        // Финальный swap: переключаемся на finalHtml который содержит extras
-        // (code-block у math, prompt-block у prompt-engineer) + готовый
-        // markdown. applyHighlight подсвечивает синтаксис в code-блоках.
+        // Финальный swap: переключаемся на finalHtml с extras + highlight.
         lastBot.innerHTML = finalHtml;
         applyHighlight(lastBot);
+        attachCopyButtons(lastBot);
+        if (chatEl && isAtBottom()) chatEl.scrollTop = chatEl.scrollHeight;
+        restoreSendButton();
         return;
       }
+      var wasAtBottom = isAtBottom();
       i = Math.min(i + charsPerTick, plainText.length);
       if (i === lastRendered) return;
       lastRendered = i;
-      // Прогрессивный markdown: каждый тик парсим префикс заново. Таблицы,
-      // bold, italic, headers, code-блоки появляются live по мере того как
-      // блок завершается в потоке (Claude-style streaming).
-      lastBot.innerHTML = formatMarkdown(plainText.substring(0, i));
-      // Возвращаем copy-кнопку и time-бэйдж в bot-msg — innerHTML их стёр.
+      var prefix = plainText.substring(0, i);
+      // Прячем партиальные таблицы/код-блоки — иначе юзер видит сырой MD
+      var safePrefix = trimUnsafeMarkdown(prefix);
+      lastBot.innerHTML = formatMarkdown(safePrefix);
       attachCopyButtons(lastBot);
+      if (chatEl && wasAtBottom) chatEl.scrollTop = chatEl.scrollHeight;
     }, tickIntervalMs);
 
-    return {
+    var controller = {
+      // cancel — внешняя отмена (свитч сессии и т.п.) — показывает полный текст
       cancel: function () {
         clearInterval(intervalId);
         if (lastBot && lastBot.isConnected) {
           lastBot.innerHTML = finalHtml;
           applyHighlight(lastBot);
         }
-      }
+        restoreSendButton();
+      },
+      // stop — юзер нажал стоп-кнопку — оставляет обрезанный текст
+      stop: function () {
+        stopped = true;
+      },
+      isRunning: function () { return !stopped && i < plainText.length; }
     };
+
+    // Сохраняем controller на sendBtn чтобы фабрика sendMsg могла его дёрнуть
+    if (sendBtn) sendBtn._typewriterController = controller;
+
+    return controller;
   }
 
   // ============================================================
@@ -2576,6 +2674,14 @@
     }
 
     async function sendMsg() {
+      // Если typewriter сейчас печатает, эта кнопка — стоп-кнопка.
+      // Останавливаем typewriter (текст после остановки не появится),
+      // показываем стрелку отправки. Сам запрос НЕ отправляем.
+      // Юзер сможет ввести новый запрос и кликнуть send заново.
+      if (sendBtn.classList.contains('streaming') && sendBtn._typewriterController) {
+        sendBtn._typewriterController.stop();
+        return;
+      }
       var activeSessionId = sessionStore.state.activeSessionId;
       var sessions = sessionStore.state.sessions;
       if (!activeSessionId || !sessions.find(function (s) { return s.id === activeSessionId; })) return;
@@ -2693,7 +2799,10 @@
         if (!botMsg.ts) botMsg.ts = Date.now();
         enrichBotMsg(botMsg);
         if (useTypewriter) {
-          typewriteAssistant(sessionStore, sendSessionId, botMsg, { cps: 100 });
+          typewriteAssistant(sessionStore, sendSessionId, botMsg, {
+            cps: 200,
+            sendBtn: sendBtn
+          });
         } else {
           sessionStore.pushToSession(sendSessionId, botMsg);
         }

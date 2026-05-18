@@ -46,42 +46,6 @@
         #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
         /* Math: активная сессия с border (в shared — без), переопределяем тут. */
         .session-item.active { color: var(--accent); border: 1px solid var(--border); }
-        .code-block {
-            background: var(--code-bg);
-            border: 1px solid #30363d;
-            border-radius: 8px;
-            padding: 12px;
-            margin: 10px 0;
-            font-family: Consolas, monospace;
-            font-size: 13px;
-            color: var(--code-text);
-            white-space: pre-wrap;
-            overflow-x: auto;
-            position: relative;
-        }
-        .code-block .copy-btn {
-            position: absolute;
-            top: 6px;
-            right: 6px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            padding: 3px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-        }
-        .code-block .copy-btn:hover { background: var(--bg-hover); color: var(--accent); border-color: var(--accent); }
-        .code-block .code-body { margin: 0; font: inherit; background: transparent; color: inherit; white-space: pre-wrap; }
-        .raw-result {
-            background: var(--bg-secondary);
-            border-left: 3px solid var(--accent);
-            padding: 8px 12px;
-            margin: 8px 0;
-            font-family: Consolas, monospace;
-            font-size: 14px;
-            color: var(--accent);
-        }
         .bottom-area { padding: 0 20px 20px; flex-shrink: 0; }
         /* Поле ввода: textarea + иконка-отправки (внутри) + скрепка (снаружи).
            Базовая раскладка задаётся классом .gc-input-row в _shared.js. */
@@ -180,9 +144,16 @@
                 .map(function (l) { return String(l).trim(); })
                 .filter(function (l) { return l.length > 0; });
             if (!trimmed.length) return '';
-            var hasMarker = function (s) { return /^(?:ОТВЕТ|ответ|ANSWER|FINAL)\s*[:：]/.test(s); };
+            // GigaChat пишет маркер ОТВЕТ криво — часто опечатывается. Регулярка
+            // ловит и каноничный ОТВЕТ, и распространённые галлюцинации:
+            // ОТВЕРД, ОТВЕРЖДЕНИЕ, ОТВЕРЖДАЕТСЯ — корень «ОТВЕР» + любые буквы.
+            // Без этого finalLine брался без маркера и в чат попадал мусор
+            // вроде «ОТВЕРД: 42».
+            var markerRe = /^(?:ОТВЕТ|ответ|ОТВЕР[А-ЯЁа-яё]*|ANSWER|FINAL|RESULT)\s*[:：]/i;
+            var stripRe = /^(?:ОТВЕТ|ответ|ОТВЕР[А-ЯЁа-яё]*|ANSWER|FINAL|RESULT)\s*[:：]\s*(.+)$/i;
+            var hasMarker = function (s) { return markerRe.test(s); };
             var stripMarker = function (s) {
-                var m = s.match(/^(?:ОТВЕТ|ответ|ANSWER|FINAL)\s*[:：]\s*(.+)$/);
+                var m = s.match(stripRe);
                 return m ? m[1].trim() : s;
             };
             var isDiagnostic = function (s) {
@@ -214,35 +185,12 @@
             return html;
         }
 
-        // Кастомный рендер bot-сообщения: extras.code → code-block с copy-btn,
-        // extras.raw_result → raw-result панель, потом explanatory text.
+        // Кастомный рендер bot-сообщения: только текст ответа («Ответ: X»
+        // + пояснение). Python-код и raw-output больше НЕ показываются —
+        // юзеру нужна только формулировка и число. Код по-прежнему живёт
+        // в chat_memory.extras на случай отладки через БД.
         function formatBotMessage(msg) {
-            var html = '';
-            var extras = msg.extras || {};
-            var code = extras.code || msg.code || '';
-            var raw = extras.raw_result || msg.raw_result || '';
-            if (code) {
-                html += '<div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Копировать</button><pre class="code-body">' + escapeHtml(code) + '</pre></div>';
-            }
-            if (raw) {
-                html += '<div class="raw-result">' + escapeHtml(raw) + '</div>';
-            }
-            html += formatText(msg.content || '');
-            return html;
-        }
-
-        // Copy-кнопка в .code-block. Берём text только из <pre> (.code-body),
-        // fallback на textContent родителя был хрупким при гонке кликов.
-        function copyCode(btn) {
-            var pre = btn.parentElement.querySelector('.code-body, pre');
-            if (!pre) return;
-            navigator.clipboard.writeText(pre.textContent.trim()).then(function () {
-                btn.textContent = 'Скопировано!';
-                setTimeout(function () { btn.textContent = 'Копировать'; }, 2000);
-            }).catch(function () {
-                btn.textContent = 'Не удалось';
-                setTimeout(function () { btn.textContent = 'Копировать'; }, 2000);
-            });
+            return formatText(msg.content || '');
         }
 
         GigaChat.createChatAgent({
@@ -272,6 +220,26 @@
             interceptBotData: async function (data, ctx) {
                 if (data.stage !== 'execute' || !data.code) return data;
 
+                // Хелпер: если юзер нажал «отмена», прерываемся не дожидаясь
+                // окончания Pyodide / fetch. Без этих проверок отмена ждала
+                // полного завершения worker'а (до 15 сек таймаута).
+                function checkAborted() {
+                    if (ctx.signal && ctx.signal.aborted) {
+                        var err = new Error('Запрос отменён');
+                        err.name = 'AbortError';
+                        throw err;
+                    }
+                }
+
+                // Если юзер отменит во время Pyodide-исполнения — убиваем
+                // worker, иначе ждали бы до 15 сек таймаута. terminate()
+                // безопасно — следующий запрос автоматически создаст новый.
+                var onAbort = function () {
+                    try { PyodideClient.terminate(); } catch (_) {}
+                };
+                if (ctx.signal) ctx.signal.addEventListener('abort', onAbort, { once: true });
+
+                checkAborted();
                 ctx.setInflightLabel('Считаю');
                 // PyodideClient сам управляет worker'ом: при первом запросе
                 // тратится ~1-2 сек на загрузку Pyodide в worker, дальше
@@ -279,6 +247,7 @@
                 // убивается, следующий запрос автоматически создаёт новый —
                 // никаких перезагрузок страницы.
                 var exec = await PyodideClient.executePython(data.code);
+                checkAborted();
                 var finalLine = extractFinalLine(exec.lines);
 
                 // ВАЖНО: даже при exec.killed или exec.ok=false идём на

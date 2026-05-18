@@ -106,7 +106,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1))), _history AS (SELECT role, SUBSTRING(content, 1, 2000) AS content, created_at FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 30), _save AS (INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2)) SELECT role, content FROM _history ORDER BY created_at DESC",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1))), _history AS (SELECT role, SUBSTRING(content, 1, 500) AS content, created_at FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 10), _save AS (INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2)) SELECT role, content FROM _history ORDER BY created_at DESC",
         "options": {
           "queryReplacement": "={{ [$('Валидация').first().json.session_id, $('Валидация').first().json.message.replace(/\\[ВЛОЖЕНИЕ:[^\\]]+\\][\\s\\S]*?\\[\\/ВЛОЖЕНИЕ\\]\\s*/g, '[прикреплён файл] ').replace(/\\[не удалось обработать файл:[^\\]]+\\]\\s*/g, '[ошибка вложения] ')] }}"
         }
@@ -222,7 +222,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=SELECT role, SUBSTRING(content, 1, 2000) AS content FROM chat_memory WHERE session_id = '{{ $('Агрегация').first().json.session_id }}' ORDER BY created_at ASC OFFSET {{ $('Нужно сжатие?').first().json.summarized }} LIMIT {{ $('Нужно сжатие?').first().json.toCompress }}",
+        "query": "=SELECT role, SUBSTRING(content, 1, 500) AS content FROM chat_memory WHERE session_id = '{{ $('Агрегация').first().json.session_id }}' ORDER BY created_at ASC OFFSET {{ $('Нужно сжатие?').first().json.summarized }} LIMIT {{ $('Нужно сжатие?').first().json.toCompress }}",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
