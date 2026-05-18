@@ -129,11 +129,23 @@ CREATE TABLE IF NOT EXISTS documents (
     chunk_index INTEGER NOT NULL,
     chunk_text TEXT NOT NULL,
     embedding vector(1024),
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    -- UNIQUE нужен для ON CONFLICT в document-loader workflow: при
+    -- повторной загрузке одного и того же файла чанки обновляются
+    -- (UPDATE), а не дублируются. Без этого constraint в БД накапливались
+    -- бы дубли, и RAG-выдача показывала бы 2x, 3x копии «разных
+    -- релевантных источников».
+    CONSTRAINT documents_filename_chunk_unique UNIQUE (filename, chunk_index)
 );
 CREATE INDEX IF NOT EXISTS idx_documents_embedding
 ON documents USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 CREATE INDEX IF NOT EXISTS idx_documents_filename ON documents (filename);
+
+-- ⚠️ Если таблица documents УЖЕ существует без UNIQUE constraint, добавь
+-- его отдельно (предварительно очистив возможные дубли):
+--   DELETE FROM documents a USING documents b
+--     WHERE a.id > b.id AND a.filename = b.filename AND a.chunk_index = b.chunk_index;
+--   ALTER TABLE documents ADD CONSTRAINT documents_filename_chunk_unique UNIQUE (filename, chunk_index);
 
 -- 6. История диалогов (используется всеми агентами)
 CREATE TABLE IF NOT EXISTS chat_memory (

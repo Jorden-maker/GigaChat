@@ -83,7 +83,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT role, content, extras, created_at FROM chat_memory WHERE session_id = '{{ $json.session_id }}' ORDER BY created_at ASC LIMIT {{ $json.limit }}",
+        "query": "SELECT role, content, extras, created_at FROM (SELECT role, SUBSTRING(content, 1, 50000) AS content, extras, created_at FROM chat_memory WHERE session_id = '{{ $json.session_id }}' ORDER BY created_at DESC LIMIT {{ $json.limit }}) sub ORDER BY created_at ASC",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",

@@ -272,7 +272,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT role, content FROM chat_memory WHERE session_id = '{{ $('Валидация').first().json.session_id }}' ORDER BY created_at DESC LIMIT 30",
+        "query": "SELECT role, SUBSTRING(content, 1, 2000) AS content FROM chat_memory WHERE session_id = '{{ $('Валидация').first().json.session_id }}' ORDER BY created_at DESC LIMIT 30",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -331,7 +331,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')",
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT '{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}' WHERE LENGTH(TRIM('{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')) > 0",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -354,7 +354,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content, extras) VALUES ('{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}', '{{ JSON.stringify({prompt: $json.prompt || ''}).replaceAll(\"'\", \"''\") }}')",
+        "query": "INSERT INTO chat_memory (session_id, role, content, extras) SELECT '{{ $('Агрегация').first().json.session_id }}', 'assistant', '{{ ($json.response || '').replaceAll(\"'\", \"''\") }}', '{{ JSON.stringify({prompt: $json.prompt || ''}).replaceAll(\"'\", \"''\") }}' WHERE LENGTH(TRIM('{{ ($json.response || '').replaceAll(\"'\", \"''\") }}')) > 0",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
