@@ -145,12 +145,11 @@
                 .filter(function (l) { return l.length > 0; });
             if (!trimmed.length) return '';
             // GigaChat пишет маркер ОТВЕТ криво — часто опечатывается. Регулярка
-            // ловит и каноничный ОТВЕТ, и распространённые галлюцинации:
-            // ОТВЕРД, ОТВЕРЖДЕНИЕ, ОТВЕРЖДАЕТСЯ — корень «ОТВЕР» + любые буквы.
-            // Без этого finalLine брался без маркера и в чат попадал мусор
-            // вроде «ОТВЕРД: 42».
-            var markerRe = /^(?:ОТВЕТ|ответ|ОТВЕР[А-ЯЁа-яё]*|ANSWER|FINAL|RESULT)\s*[:：]/i;
-            var stripRe = /^(?:ОТВЕТ|ответ|ОТВЕР[А-ЯЁа-яё]*|ANSWER|FINAL|RESULT)\s*[:：]\s*(.+)$/i;
+            // ловит и каноничный ОТВЕТ, и распространённые галлюцинации
+            // (whitelist — не корень «ОТВЕР*», чтобы не зацепить ложно слова
+            // типа «ОТВЕРСТИЕ» или «ОТВЕРНУТЬ» в выводе геометрии).
+            var markerRe = /^(?:ОТВЕТ|ОТВЕРД|ОТВЕРЖДЕНИЕ|ОТВЕРЖДАЕТСЯ|ОТВЕРЖДЁН|ANSWER|FINAL|RESULT)\s*[:：]/i;
+            var stripRe = /^(?:ОТВЕТ|ОТВЕРД|ОТВЕРЖДЕНИЕ|ОТВЕРЖДАЕТСЯ|ОТВЕРЖДЁН|ANSWER|FINAL|RESULT)\s*[:：]\s*(.+)$/i;
             var hasMarker = function (s) { return markerRe.test(s); };
             var stripMarker = function (s) {
                 var m = s.match(stripRe);
@@ -240,12 +239,13 @@
                 if (ctx.signal) ctx.signal.addEventListener('abort', onAbort, { once: true });
 
                 checkAborted();
-                ctx.setInflightLabel('Считаю');
                 // PyodideClient сам управляет worker'ом: при первом запросе
                 // тратится ~1-2 сек на загрузку Pyodide в worker, дальше
                 // мгновенно. При таймауте (15 сек по умолчанию) worker
                 // убивается, следующий запрос автоматически создаёт новый —
                 // никаких перезагрузок страницы.
+                // setInflightLabel('Считаю') — убран: label в inflight-лоадере
+                // не рендерится (см. feedback_inflight_loader.md в памяти).
                 var exec = await PyodideClient.executePython(data.code);
                 checkAborted();
                 var finalLine = extractFinalLine(exec.lines);
@@ -255,8 +255,6 @@
                 // сохранит assistant-запись в chat_memory с понятным текстом.
                 // Если ранний return — user-запись в БД есть, assistant нет,
                 // при reload пользователь увидит свой вопрос без ответа.
-
-                ctx.setInflightLabel('Готовлю объяснение');
                 var explainUrl = ctx.sendUrl.replace(/\/math(\/?)$/, '/math-explain$1');
                 var resp;
                 try {

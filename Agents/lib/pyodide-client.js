@@ -206,6 +206,24 @@
             worker = null;
         }
         workerReady = false;
+        // КРИТИЧНО: если был запущенный run — резолвим его как killed,
+        // иначе caller (math-agent interceptBotData) висит на await до
+        // срабатывания внутреннего soft-timeout (15 сек). При abort'е
+        // юзера это означает что cancel-кнопка «думает» 15 сек до того
+        // как UI разморозится.
+        if (pendingRun) {
+            clearTimeout(pendingRun.timeoutId);
+            var r = pendingRun.resolve;
+            pendingRun = null;
+            r({ ok: false, output: '', lines: [], error: 'Прервано пользователем', killed: true });
+        }
+        // Также чистим очередь — следующие запросы получат отказ.
+        // Они смогут запустить новый worker через ensureReady() при
+        // следующем executePython.
+        while (runQueue.length > 0) {
+            var dropped = runQueue.shift();
+            dropped.resolve({ ok: false, output: '', lines: [], error: 'Очередь сброшена при отмене', killed: true });
+        }
     }
 
     function isAlive() {
