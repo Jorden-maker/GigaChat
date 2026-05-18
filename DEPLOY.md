@@ -13,6 +13,8 @@
 - [Возможные проблемы и решения](#возможные-проблемы-и-решения)
 - [Чеклист диагностики «когда что-то не работает»](#чеклист-диагностики-когда-что-то-не-работает)
 - [Полезные команды для диагностики](#полезные-команды-для-диагностики)
+- [Куда стучаться, если ничего не помогает](#куда-стучаться-если-ничего-не-помогает)
+- [CORS — что это и как чинить (подробно)](#cors--что-это-и-как-чинить-подробно)
 
 ---
 
@@ -724,3 +726,230 @@ log {
 2. **Открой `Executions` в n8n** → последний фейл → детали ноды, где упало.
 3. **Окно Caddy** — если оно ещё открыто, в нём логи последних HTTP-запросов и ошибок.
 4. **Журнал событий Windows:** `eventvwr.msc` → Windows Logs → Application — там увидишь, что антивирус заблокировал или приложение упало.
+
+---
+
+## CORS — что это и как чинить (подробно)
+
+**CORS** = Cross-Origin Resource Sharing. Это **защитный механизм браузера**, не позволяющий зловредному сайту дёргать API других сайтов от твоего имени. В GigaChat-офисном деплое CORS — самая частая причина «индикаторы красные на чужом ПК, а на моём зелёные».
+
+### Когда CORS вообще релевантен
+
+`Origin` = протокол + хост + порт. Например:
+- `http://130.100.94.119:8765` — origin A
+- `http://130.100.94.119:5678` — origin B (порт отличается → ДРУГОЙ origin)
+- `http://localhost:8765` и `http://130.100.94.119:8765` — разные (хост отличается)
+
+Если JS на странице делает `fetch()` к URL **с другим origin** — это cross-origin запрос. Сервер должен явно разрешить через заголовок `Access-Control-Allow-Origin`, иначе браузер **молча блокирует ответ** (промис в JS отклоняется, в Console — ошибка).
+
+### Когда у тебя точно будет CORS
+
+Любой из этих случаев:
+
+1. **Caddy на твоём ПК + n8n на другом сервере** (типовой офисный сетап):
+   - Страница: `http://130.100.94.119:8765` ← Caddy
+   - Webhook'и: `http://<n8n-server-ip>:5678` ← n8n
+   - Разные хосты → cross-origin
+
+2. **Caddy и n8n на одной машине, но разные порты:**
+   - Страница: `http://localhost:8765` ← Caddy
+   - Webhook'и: `http://localhost:5678` ← n8n
+   - Разные порты → cross-origin
+
+3. **Открытие через `file://` (GigaChat-NoServer.bat вариант):**
+   - Страница: `file:///C:/GigaChat/...`
+   - Webhook'и: `http://<n8n-ip>:5678`
+   - Chromium для file:// шлёт `Origin: null` → cross-origin с особенностями
+
+**Когда CORS НЕ нужен:** если страница и n8n на одном origin (один хост + один порт). В GigaChat-сетапе это редко.
+
+### Pre-flight (двойной запрос)
+
+Когда браузер делает POST с `Content-Type: application/json` (это «непростой» запрос по спецификации), он **сначала** делает пробный OPTIONS-запрос («можно?»). Только если сервер ответил с правильными CORS-заголовками, идёт настоящий POST.
+
+```
+Браузер → n8n:    OPTIONS /webhook/chat
+                  Origin: http://130.100.94.119:8765
+                  Access-Control-Request-Method: POST
+                  Access-Control-Request-Headers: Content-Type
+
+n8n    → Браузер: 200 OK
+                  Access-Control-Allow-Origin: *
+                  Access-Control-Allow-Methods: POST
+                  Access-Control-Allow-Headers: Content-Type
+
+Браузер → n8n:    POST /webhook/chat (настоящий запрос)
+                  ...
+```
+
+Если OPTIONS не отвечает или возвращает не те заголовки, до POST дело не доходит.
+
+### Как точно понять что у тебя CORS-проблема
+
+#### Шаг 1. Открой F12 → вкладка Console
+
+Конкретные сообщения, означающие CORS:
+
+```
+Access to fetch at 'http://<n8n-ip>:5678/webhook/chat?ping=1'
+from origin 'http://130.100.94.119:8765' has been blocked by CORS policy:
+No 'Access-Control-Allow-Origin' header is present on the requested resource.
+```
+
+→ **n8n не отдаёт CORS-заголовков совсем**. Самый частый случай.
+
+```
+Access to fetch at '...' from origin '...' has been blocked by CORS policy:
+The 'Access-Control-Allow-Origin' header has a value 'http://localhost:8765'
+that is not equal to the supplied origin.
+```
+
+→ **n8n отдаёт CORS только на конкретный origin**, и текущий не в whitelist.
+
+```
+Access to fetch at '...' has been blocked by CORS policy:
+Response to preflight request doesn't pass access control check
+```
+
+→ **OPTIONS-запрос (preflight) не прошёл**. n8n не отвечает на OPTIONS или не присылает нужных заголовков.
+
+#### Шаг 2. F12 → вкладка Network → клик на любой ping-запрос к webhook
+
+В правой панели появится разбивка. Смотри:
+
+- **Status:** должен быть `200`. Если `0` или `(failed)` — браузер не получил ответ вообще (заблокировал).
+- **Headers → Response Headers**: ищи строку `access-control-allow-origin`.
+  - Если её нет → CORS не настроен у n8n
+  - Если есть со значением `*` → разрешено всем
+  - Если есть с конкретным URL → разрешено только этому origin
+
+### Как чинить — на стороне n8n (не на твоём ПК!)
+
+CORS-настройка делается **на машине где запущен n8n**, не на твоём ПК с Caddy. Если у тебя нет доступа к этой машине — попроси админа n8n.
+
+n8n управляется через переменные окружения. Нужная переменная — `N8N_CORS_ALLOW_ORIGIN`.
+
+#### Универсальное решение (для офисного MVP)
+
+Разрешить запросы со всех origin'ов:
+
+```
+N8N_CORS_ALLOW_ORIGIN=*
+```
+
+В корпоративной LAN, отделённой от интернета, это безопасно — webhook'и n8n и так доступны любой машине в LAN (нет аутентификации).
+
+#### Более строгое решение (для прода)
+
+Указать конкретные origin'ы через запятую:
+
+```
+N8N_CORS_ALLOW_ORIGIN=http://130.100.94.119:8765,http://gigachat.office:8765,http://localhost:8765
+```
+
+Менее удобно — каждый раз когда меняется IP или добавляется хост, надо обновлять.
+
+### Как применить env-переменную к n8n
+
+Зависит от того, как n8n запущен на твоём сервере.
+
+#### Вариант A: n8n в Docker
+
+```bash
+docker stop n8n
+docker rm n8n
+docker run -d --name n8n -p 5678:5678 \
+  --restart=unless-stopped \
+  -e N8N_CORS_ALLOW_ORIGIN='*' \
+  -v n8n_data:/home/node/.n8n \
+  n8nio/n8n
+```
+
+Или если используется `docker-compose.yml`, добавить в секцию environment:
+
+```yaml
+services:
+  n8n:
+    image: n8nio/n8n
+    environment:
+      - N8N_CORS_ALLOW_ORIGIN=*
+      # ... остальные env ...
+```
+
+И перезапустить: `docker-compose up -d`.
+
+#### Вариант B: n8n как Windows-сервис (через nssm или PM2)
+
+1. Найди скрипт запуска или конфиг сервиса (обычно `.bat` или `.json` рядом с n8n)
+2. Добавь установку env перед запуском:
+   ```batch
+   set N8N_CORS_ALLOW_ORIGIN=*
+   n8n start
+   ```
+3. Перезапусти сервис:
+   ```powershell
+   Stop-Service n8n
+   Start-Service n8n
+   ```
+
+#### Вариант C: n8n через npm/Node.js напрямую
+
+Найди `.env` файл в директории установки n8n (или в `~/.n8n/`). Добавь строку:
+
+```
+N8N_CORS_ALLOW_ORIGIN=*
+```
+
+Перезапусти n8n (Ctrl+C → `n8n start` снова).
+
+#### Вариант D: n8n.io Cloud
+
+CORS управляется через интерфейс n8n Cloud, нужно искать в настройках workspace. Менее вероятный сценарий для офисного развёртывания, обычно офисы хостят сами.
+
+### Как проверить что починилось
+
+После перезапуска n8n:
+
+1. **Локально с твоего ПК:**
+   - Открой `http://localhost:8765/` (или твой Caddy-URL)
+   - Все индикаторы должны быть зелёные
+
+2. **С другого ПК в LAN:**
+   - Открой `http://130.100.94.119:8765/` (твой IP)
+   - Все индикаторы должны стать зелёные
+
+3. **В F12 → Network → любой ping-запрос → Response Headers:**
+   - Должна быть строка `access-control-allow-origin: *` (или твой origin)
+
+### Подводные камни
+
+#### Pre-flight кэшируется
+
+После настройки CORS, **закрой и снова открой вкладку браузера** — иначе старый preflight в кэше может продолжать блокировать. Или используй Ctrl+Shift+R (хард-перезагрузка).
+
+#### n8n версия имеет значение
+
+В очень старых версиях n8n (до 0.150 или около того) переменная называлась иначе или была глючная. Если N8N_CORS_ALLOW_ORIGIN не работает — обнови n8n до актуальной.
+
+#### Webhook без авторизации
+
+CORS — это только защита браузера. **Любая машина в LAN может сделать `curl http://n8n-ip:5678/webhook/chat`** без CORS-проблем (curl не браузер). CORS не заменяет аутентификацию. Если webhook'и должны быть закрыты от чужих машин — нужна отдельная авторизация (Basic Auth, JWT, IP whitelist в reverse-proxy).
+
+#### Если N8N_CORS_ALLOW_ORIGIN=* не помогает
+
+- Проверь что n8n РЕАЛЬНО перезапустился (env-переменная применяется только при старте). `docker ps` или `Get-Service n8n` или `ps aux | grep n8n`.
+- Проверь что в Response Headers (F12) появилась строка — если не появилась, env не применилась.
+- Возможно за n8n стоит reverse-proxy (nginx/traefik), который режет CORS-заголовки. Проверь конфиг proxy.
+
+### Краткая шпаргалка диагностики
+
+```
+Симптом                          | Причина             | Действие
+─────────────────────────────────|─────────────────────|─────────────────────
+F12 Console: "blocked by CORS"   | N8N не отдаёт CORS  | N8N_CORS_ALLOW_ORIGIN=*
+F12 Network status: 0 / failed   | preflight упал       | то же
+Response Headers: нет CORS строк | N8N не отдаёт CORS  | то же
+Response: ALL-O: localhost:8765  | whitelist узкий     | N8N_CORS_ALLOW_ORIGIN=*
+Локально зелёные, в LAN красные  | whitelist на лок-IP | то же
+Всё всегда красные               | n8n не запущен      | проверить процесс
+```
