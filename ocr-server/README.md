@@ -38,17 +38,17 @@ Workflow «Организация обращения» (и другие RAG-аг
 
 ## 2. Требования
 
-**На домашнем ПК (для сборки бандла):**
-- Python 3.10–3.12 в PATH
-- Интернет
-- Свободное место: ~1 ГБ для wheels + ~95 МБ для моделей EasyOCR
-
 **На офисном ПК (для установки и работы):**
-- Python 3.10–3.12 в PATH (та же мажорная версия, что и на домашнем!)
+- **Python 3.12.x** в PATH (готовый Release собран строго под 3.12; для 3.10/3.11 нужно пересобирать бандл — см. раздел 11)
 - ~2 ГБ свободного места на диске
 - 4+ ГБ ОЗУ (EasyOCR грузит модели в память)
 - CPU x86_64 (на ARM-Windows бандл не пойдёт, нужно собирать прямо там)
 - GPU **не нужен** (бандл собирается с CPU-вариантом PyTorch)
+
+**На ПК с интернетом (только если собираешь свой бандл — см. раздел 11):**
+- Python 3.10–3.12 в PATH (та же мажорная версия, что на офисном ПК)
+- Интернет
+- Свободное место: ~600 МБ для wheels + моделей
 
 ---
 
@@ -57,7 +57,7 @@ Workflow «Организация обращения» (и другие RAG-аг
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Клиент (workflow n8n или curl)                              │
-│   POST /extract   multipart: file=<binary>             │
+│   POST /extract   multipart: file=<binary>                   │
 └──────────────────────────────────────────────────────────────┘
                               ↓
 ┌──────────────────────────────────────────────────────────────┐
@@ -140,7 +140,7 @@ Workflow «Организация обращения» (и другие RAG-аг
 ### Шаг 6.2. Распаковать `GigaChat-main.zip` и скопировать содержимое `ocr-server/`
 
 1. Распакуй `GigaChat-main.zip` где удобно (например `C:\temp\`).
-2. Внутри получится `GigaChat-main/ocr-server/`. Скопируй **содержимое** этой папки (5 файлов: `README.md`, `requirements.txt`, `server.py`, `start.bat`, `install-offline.ps1`, `make-offline-bundle.ps1`) в `C:\ocr-server\`.
+2. Внутри получится `GigaChat-main/ocr-server/`. Скопируй **содержимое** этой папки (6 файлов: `README.md`, `requirements.txt`, `server.py`, `start.bat`, `install-offline.ps1`, `make-offline-bundle.ps1`) в `C:\ocr-server\`.
 
 ### Шаг 6.3. Положить `ocr-wheels.zip` и `ocr-easyocr-models.zip` в `C:\ocr-server\`
 
@@ -170,7 +170,19 @@ python --version
 - Поставь Python 3.12 с **офлайн-инсталлятора** Python.org (привезти с ПК с интернетом на флешке)
 - Либо собери свой бандл под нужную версию (см. раздел 11)
 
-### Шаг 6.5. Запустить установщик
+### Шаг 6.5. Разрешить запуск PowerShell-скриптов (один раз на ПК)
+
+На свежем Windows запуск `.ps1` блокируется политикой по умолчанию. Открой PowerShell и выполни:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Подтверди `Y` (Да) → Enter. Это нужно сделать **один раз** на этом ПК.
+
+> Если этот шаг пропустить — `install-offline.ps1` упадёт с ошибкой `running scripts is disabled on this system`.
+
+### Шаг 6.6. Запустить установщик
 
 В `C:\ocr-server\` открой PowerShell и выполни:
 
@@ -193,7 +205,7 @@ python --version
 
 Если всё прошло — увидишь зелёный «УСТАНОВКА УСПЕШНА».
 
-### Шаг 6.6. Запустить сервер
+### Шаг 6.7. Запустить сервер
 
 Двойной клик по **`start.bat`** в `C:\ocr-server\`. Откроется чёрное окно с логами:
 
@@ -216,7 +228,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8055
 
 > EasyOCR грузится **лениво** — модели подтянутся только при первом обращении к OCR (а не при старте). Первый запрос на скан-PDF будет ~10–30 секунд, дальше — быстро.
 
-### Шаг 6.7. Проверка health-check
+### Шаг 6.8. Проверка health-check
 
 В новом окне PowerShell:
 
@@ -232,7 +244,7 @@ curl http://localhost:8055/status
 
 `easyocr_ready: false` — это нормально на старте, модели ещё не загружены (они грузятся при первом запросе).
 
-### Шаг 6.8. Тест на PDF
+### Шаг 6.9. Тест на PDF
 
 Положи рядом со скриптом любой `.pdf` (например, из `Tests/OrgAppeal/01-ivanov-full-success.pdf`):
 
@@ -253,7 +265,7 @@ curl -X POST -F "file=@01-ivanov-full-success.pdf" http://localhost:8055/extract
 
 `source: "pymupdf"` — значит PDF имеет текстовый слой, OCR не понадобился. Если бы это был скан — `source` был бы `"pymupdf+easyocr"`.
 
-### Шаг 6.9. Тест на картинку (опционально, чтобы прогреть EasyOCR)
+### Шаг 6.10. Тест на картинку (опционально, чтобы прогреть EasyOCR)
 
 Возьми любую фотку с текстом (можно даже скриншот документа):
 
@@ -319,9 +331,19 @@ net start OCRServer
 
 ## 9. Если что-то не работает
 
+### `running scripts is disabled on this system` при запуске install-offline.ps1
+
+Пропустил шаг 6.5. Выполни:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Подтверди `Y`, потом снова запусти `.\install-offline.ps1`.
+
 ### `python не найден` при запуске install-offline.ps1
 
-Python не в PATH. См. шаг 5.1.
+Python не в PATH. См. шаг 6.4.
 
 ### `OSHIBKA: papka venv ne najdena` при запуске start.bat
 
