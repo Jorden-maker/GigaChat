@@ -320,7 +320,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO chat_summaries (session_id, summary_text, messages_summarized, updated_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (session_id) DO UPDATE SET summary_text = $2, messages_summarized = $3, updated_at = NOW()",
         "options": {
-          "queryReplacement": "={{ $json.sessionId }},={{ $json.summary }},={{ $json.summarized }}"
+          "queryReplacement": "={{ [$json.sessionId, $json.summary, $json.summarized] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
