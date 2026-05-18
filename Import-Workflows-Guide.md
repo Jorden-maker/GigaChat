@@ -228,7 +228,15 @@ Processing: document-loader.json
 
 ### Активация workflow
 
-После **CREATED** workflow приходит в n8n **выключенным**. Нужно один раз:
+После **CREATED** workflow приходит в n8n **выключенным**. Два способа активировать:
+
+**Способ 1 — через скрипт (массово):**
+```powershell
+.\activate-workflows.ps1
+```
+Активирует все workflow с префиксом `[GigaChat] ` одной командой. Идемпотентный — уже активные пропускает. Для деактивации: `.\activate-workflows.ps1 -Deactivate`.
+
+**Способ 2 — вручную (по одному в UI n8n):**
 1. Открой workflow.
 2. Тумблер **Active** справа сверху → **Save**.
 
