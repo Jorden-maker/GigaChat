@@ -48,7 +48,6 @@ echo Port:        %OCR_PORT%
 echo Langs:       %OCR_LANGS%
 echo EasyOCR dir: %OCR_EASYOCR_DIR%
 echo Endpoint:    http://localhost:%OCR_PORT%/extract
-echo Image-only:  http://localhost:%OCR_PORT%/extract/image
 echo Status:      http://localhost:%OCR_PORT%/status
 echo Stop:        Ctrl+C ili zakroj eto okno
 echo ===========================

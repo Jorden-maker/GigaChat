@@ -36,10 +36,7 @@ API:
     POST /extract
         multipart: file=<binary>
         resp: {"text": "...", "source": "pymupdf|pymupdf+easyocr|docx|easyocr|plain", "filename": "..."}
-
-    POST /extract/image
-        multipart: file=<binary>
-        resp: {"text": "...", "source": "easyocr"}
+        Универсальный эндпоинт: PDF, DOCX, картинки, TXT — определяется по расширению.
 """
 
 import io
@@ -275,22 +272,6 @@ async def extract(file: UploadFile = File(...)):
         'filename': file.filename,
         'chars': len(text),
     }
-
-
-@app.post('/extract/image')
-async def extract_image_endpoint(file: UploadFile = File(...)):
-    """Отдельный эндпоинт для картинок — всегда через EasyOCR."""
-    data = await file.read()
-    if not data:
-        raise HTTPException(400, 'Пустой файл')
-    try:
-        text, source = extract_image(data)
-    except RuntimeError as e:
-        raise HTTPException(503, str(e))
-    except Exception as e:
-        log.exception('Image OCR error')
-        raise HTTPException(500, str(e))
-    return {'text': text, 'source': source, 'filename': file.filename, 'chars': len(text)}
 
 
 if __name__ == '__main__':

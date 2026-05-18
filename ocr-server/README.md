@@ -184,7 +184,6 @@ Port:        8055
 Langs:       ru,en
 EasyOCR dir: C:\models\easyocr
 Endpoint:    http://localhost:8055/extract
-Image-only:  http://localhost:8055/extract/image
 Status:      http://localhost:8055/status
 Stop:        Ctrl+C ili zakroj eto okno
 ===========================
@@ -240,7 +239,7 @@ curl -X POST -F "file=@01-ivanov-full-success.pdf" http://localhost:8055/extract
 Возьми любую фотку с текстом (можно даже скриншот документа):
 
 ```powershell
-curl -X POST -F "file=@screenshot.png" http://localhost:8055/extract/image
+curl -X POST -F "file=@screenshot.png" http://localhost:8055/extract
 ```
 
 Первый запрос будет идти 15-30 секунд (EasyOCR грузит модели в память). Дальше — секунды.
@@ -376,8 +375,7 @@ set OCR_PDF_MAX_PAGES=200
 | Метод+URL | Что делает | Запрос | Ответ |
 |---|---|---|---|
 | `GET /status` | Проверка живости | — | `{"status":"ok",...}` |
-| `POST /extract` | Универсальный извлекатель | `multipart: file=<binary>` | `{"text":"...","source":"...","filename":"...","chars":N}` |
-| `POST /extract/image` | Только картинки → EasyOCR | `multipart: file=<binary>` | то же |
+| `POST /extract` | Универсальный извлекатель: PDF, DOCX, картинки, TXT — определяется по расширению | `multipart: file=<binary>` | `{"text":"...","source":"...","filename":"...","chars":N}` |
 
 ### Как обновить версию EasyOCR (когда выйдет новая)
 
