@@ -215,7 +215,7 @@ var TESTS = [
     {
         name: 'sympify: полный шаблон «Генерация sympify»',
         code: 'from sympy.parsing.sympy_parser import parse_expr, standard_transformations, convert_xor, implicit_multiplication_application\nfrom sympy import log, ln, sin, cos, tan, asin, acos, atan, exp, sqrt, pi, E, I, oo, factorial, Rational\ntransformations = standard_transformations + (convert_xor, implicit_multiplication_application)\nexpr_str = "26 * 27^4 * log(18) / sin(1) * 3 / cos(1)"\ntry:\n    expr = parse_expr(expr_str, transformations=transformations)\n    result = expr.evalf()\n    print(f"Выражение: {expr}")\n    print(f"ОТВЕТ: {round(float(result), 2)}")\nexcept Exception as e:\n    print(f"Не удалось: {e}")\n    print(f"ОТВЕТ: ошибка")',
-        expected: '343987541.6',
+        expected: '263528383.43',
         useMarker: true,
         note: 'тот же код что генерит сервер для pure_expr'
     },
