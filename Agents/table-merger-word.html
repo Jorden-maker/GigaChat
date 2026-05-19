@@ -296,7 +296,11 @@ GigaChat.injectToolCss();
 // Парсинг docx / mergeTables / сборка xlsx — общие хелперы в _shared.js.
 var MAX_FILES_WARN = 10;
 var MAX_FILES_HARD = 25;
-var PREVIEW_ROW_LIMIT = 50;
+// Лимит ТОЛЬКО для отрисовки превью на странице — на скачивание не влияет.
+// В скачанный docx уходят ВСЕ строки. 1000 покрывает все обычные кейсы;
+// для огромных слияний (10K+ строк) DOM может тормозить — там превью
+// остановится на 1000, а файл будет полным.
+var PREVIEW_ROW_LIMIT = 1000;
 
 var dropZone = document.getElementById('dropZone');
 var fileInput = document.getElementById('fileInput');
@@ -624,7 +628,8 @@ function renderPreview(merged) {
     previewTable.innerHTML = html;
 
     if (rows.length > PREVIEW_ROW_LIMIT) {
-        previewFooter.textContent = 'Показано первые ' + PREVIEW_ROW_LIMIT + ' из ' + rows.length + ' строк';
+        previewFooter.textContent = 'В превью показаны первые ' + PREVIEW_ROW_LIMIT +
+            ' строк из ' + rows.length + '. В скачанный файл попадут все ' + rows.length + ' строк.';
         previewFooter.style.display = '';
     } else {
         previewFooter.style.display = 'none';
