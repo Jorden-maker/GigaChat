@@ -30,8 +30,19 @@
 # ---- НАСТРОЙКИ ----
 $folder = "C:\Users\Lenovo\Desktop\GigaChat\Workflow"   # путь к папке с .json
 $n8n    = "http://localhost:5678"                       # URL n8n БЕЗ слеша на конце
-$apiKey = ""                                            # вставь сюда API-ключ из n8n
+$apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMWQzMzQ3Ny05MjdlLTQxMGEtYjNiMC0wMWNmOTY2ODgwYmYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZmY5ZGFiYTctZWZjNi00YjE3LTgxOGUtNDA2ZmYwMjQxOWMwIiwiaWF0IjoxNzc4NzU4ODgxLCJleHAiOjE3ODEzMjMyMDB9.SI7GAu_3y5neIzbam3iYnwDxkF0TMwf3fvixBvOZmls"                                            # вставь сюда API-ключ из n8n
 $prefix = "[GigaChat] "                                 # префикс имени, "" чтобы отключить
+
+# ---- NETWORK: подстановка плейсхолдеров перед импортом ----
+# В .json-workflow'ах стоят плейсхолдеры <OCR_HOST> и <EMBEDDING_HOST>
+# (чтобы реальные IP не светились в публичном репо). Скрипт перед PUT/POST
+# заменит их на значения ниже. Если значения пустые — оставит как есть
+# (workflow придёт в n8n с плейсхолдерами, поправишь руками в UI).
+#
+# Если ВСЁ на одной машине — поставь 'localhost' обеих переменных.
+# Если на разных — реальные IP (внутренние/LAN, не публичные).
+$OCR_HOST       = "localhost"   # ПК с OCR-сервером (порт 8055)
+$EMBEDDING_HOST = "localhost"   # ПК с embedding-сервером (порт 8001)
 
 # ---- CREDENTIAL MAPPING ----
 # В .json-файлах workflow прописаны ID credentials с РАЗРАБОТЧЕСКОЙ машины.
@@ -295,6 +306,11 @@ if ($prefix) {
 Write-Host ""
 
 Write-Host "==> Синхронизация $($jsonFiles.Count) .json файлов с n8n" -ForegroundColor Cyan
+if (-not [string]::IsNullOrWhiteSpace($OCR_HOST) -or -not [string]::IsNullOrWhiteSpace($EMBEDDING_HOST)) {
+    Write-Host "    Подстановка перед импортом:" -ForegroundColor DarkGray
+    if (-not [string]::IsNullOrWhiteSpace($OCR_HOST))       { Write-Host "      <OCR_HOST>       -> $OCR_HOST" -ForegroundColor DarkGray }
+    if (-not [string]::IsNullOrWhiteSpace($EMBEDDING_HOST)) { Write-Host "      <EMBEDDING_HOST> -> $EMBEDDING_HOST" -ForegroundColor DarkGray }
+}
 Write-Host ""
 
 $allowed = @('name', 'nodes', 'connections', 'settings')
@@ -337,6 +353,14 @@ foreach ($file in $jsonFiles) {
         $clean['name'] = $desiredName
 
         $body = $clean | ConvertTo-Json -Depth 100 -Compress
+        # Подставляем сетевые плейсхолдеры (если заданы).
+        # Файлы в репо НЕ трогаем — замена идёт в RAM перед отправкой в n8n.
+        if (-not [string]::IsNullOrWhiteSpace($OCR_HOST)) {
+            $body = $body -replace '<OCR_HOST>', $OCR_HOST
+        }
+        if (-not [string]::IsNullOrWhiteSpace($EMBEDDING_HOST)) {
+            $body = $body -replace '<EMBEDDING_HOST>', $EMBEDDING_HOST
+        }
         # Кириллицу — в UTF-8 байты явно, иначе Invoke-RestMethod может побить
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
 
