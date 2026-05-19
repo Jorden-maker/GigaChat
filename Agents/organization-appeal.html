@@ -232,7 +232,7 @@ main { max-width: 800px; }
         <div class="filesize" id="fileSize"></div>
     </label>
 
-    <input type="file" id="fileInput" accept=".pdf,.docx,.doc" onchange="fileSelected(this)">
+    <input type="file" id="fileInput" accept=".pdf,.docx" onchange="fileSelected(this)">
 
     <button id="sendBtn" class="btn-primary" onclick="sendFile()" disabled>Обработать обращение</button>
 
@@ -313,7 +313,7 @@ main { max-width: 800px; }
     var resetBtnDiv = document.getElementById('resetBtn');
     var timerEl = document.getElementById('timer');
     var timerInterval = null;
-    var ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx'];
+    var ALLOWED_EXTENSIONS = ['pdf', 'docx'];
 
     function checkServerStatus() {
         return GigaChat.checkServerStatus(WEBHOOK_URL, document.getElementById('statusDot'), document.getElementById('statusText'));
@@ -389,9 +389,12 @@ main { max-width: 800px; }
             setField('fldBirth',    extracted.birth_date,      'не указано');
             setField('fldPersonal', extracted.personal_number, 'не указан');
             setField('fldSnils',    extracted.snils,           'не указан');
-            // Табельный номер появляется только после успешной идентификации
-            // в БД (фаза 2). До этого — placeholder «—».
-            setField('fldNumber',   extracted.employee_number, '— (после идентификации)');
+            // Табельный заполняется после успешной Фазы 2. Если Фаза 2 уже
+            // выполнялась но employee_number пустой — «не присвоен»,
+            // иначе (Фаза 2 не дошла) — «после идентификации».
+            var idAttempted = (data.steps || []).some(function (s) { return s.step === 2; });
+            setField('fldNumber',   extracted.employee_number,
+                     idAttempted ? '— (не присвоен)' : '— (после идентификации)');
             extractedSection.classList.add('show');
         }
 
