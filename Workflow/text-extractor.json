@@ -238,7 +238,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://<OCR_HOST>:8055/extract",
+        "url": "http://130.100.94.119:8055/extract",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {

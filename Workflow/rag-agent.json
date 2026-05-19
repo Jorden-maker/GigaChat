@@ -239,7 +239,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://<EMBEDDING_HOST>:8001/embed",
+        "url": "http://130.100.94.119:8001/embed",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

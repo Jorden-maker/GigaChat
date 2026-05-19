@@ -213,7 +213,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://<OCR_HOST>:8055/extract",
+        "url": "http://130.100.94.119:8055/extract",
         "sendHeaders": false,
         "sendQuery": false,
         "sendBody": true,
