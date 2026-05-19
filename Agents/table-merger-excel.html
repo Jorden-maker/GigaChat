@@ -191,9 +191,17 @@ main { max-width: 900px; }
 .btn-secondary {
     padding: 12px 20px; background: transparent; color: var(--text-secondary);
     border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
-    font-size: 14px; transition: all 0.2s;
+    font-size: 14px; font-weight: 500; transition: all 0.2s;
 }
-.btn-secondary:hover:not(:disabled) { color: var(--text-primary); border-color: var(--text-secondary); }
+.btn-secondary:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-light);
+    transform: translateY(-1px);
+}
+.btn-secondary:active:not(:disabled) {
+    transform: translateY(0);
+}
 .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .spinner {
