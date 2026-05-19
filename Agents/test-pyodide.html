@@ -62,8 +62,8 @@ a { color: var(--accent); }
 <script src="lib/pyodide-client.js"></script>
 </head>
 <body>
-    <h1>Тест Pyodide</h1>
-    <div class="sub">Изолированный тест Python-рантайма в браузере. Не требует n8n, не требует LLM — только локальный <code>lib/pyodide/</code> бандл.</div>
+    <h1>Тест Pyodide + math-agent логики</h1>
+    <div class="sub">Изолированный тест без LLM и n8n. Проверяет: stdlib Python, математический комплект (sympy/numpy/scipy/mpmath), полный шаблон «Генерация sympify», JS-сторону (preprocessing запятой, extractFinalLine с regex для опечатки «ОТВИД»). Первые 14 тестов — stdlib, дальше пакеты, в конце — JS-only.</div>
 
     <div class="bar">
         <button id="runBtn" onclick="runAll()">Запустить тесты</button>
@@ -87,11 +87,19 @@ a { color: var(--accent); }
     <div id="summary" class="summary" style="display:none"></div>
 
     <div class="hint">
-        <strong>Что это проверяет:</strong> Caddy корректно раздаёт WASM-файлы Pyodide, Python-рантайм инициализируется в браузере, базовые модули (math, statistics, decimal) работают, маркер <code>ОТВЕТ:</code> правильно извлекается из stdout — та же логика что и в math-agent.
+        <strong>Что это проверяет:</strong>
+        <br>• <strong>stdlib</strong> (math, statistics, decimal, fractions) — базовый Python в браузере
+        <br>• <strong>Бесконечный цикл + восстановление</strong> — worker корректно убивается по таймауту и пересоздаётся
+        <br>• <strong>sympy / numpy / scipy / mpmath</strong> — .whl файлы в <code>Agents/lib/pyodide/</code> загружаются, новые пакеты работают (первая загрузка ~10-30 сек для каждого)
+        <br>• <strong>Полный шаблон «Генерация sympify»</strong> — ровно тот Python, что генерит сервер для pure_expr ветки. Если этот тест зелёный, sympify-путь в math-agent тоже будет работать
+        <br>• <strong>JS-сторона</strong> — preprocessing русской запятой (с lookbehind), extractFinalLine для «ОТВЕТ», «ОТВИД» (опечатка GigaChat) и диагностических строк после маркера
         <br><br>
-        <strong>Если все тесты зелёные</strong> — Pyodide-цепочка готова. В офисе после подключения к рабочему LLM math-agent заработает с первой попытки.
+        <strong>Если все тесты зелёные</strong> — Pyodide-цепочка + математический бандл + JS-логика готовы. В офисе после подключения LLM/Postgres math-agent должен заработать с первой попытки.
         <br><br>
-        <strong>Если красные</strong> — Pyodide не загрузился. Проверь, что папка <code>Agents/lib/pyodide/</code> существует и в ней 9 файлов (особенно <code>pyodide.asm.wasm</code>, <code>python_stdlib.zip</code>).
+        <strong>Если красные:</strong>
+        <br>• stdlib красный → Pyodide не грузится. Проверь <code>Agents/lib/pyodide/</code>: <code>pyodide.asm.wasm</code>, <code>python_stdlib.zip</code>
+        <br>• sympy/numpy/scipy красные → отсутствуют .whl файлы или SHA256 не совпадает с pyodide-lock.json. Проверь, что у тебя 5 файлов: <code>sympy-1.12-...whl</code>, <code>mpmath-...whl</code>, <code>numpy-...whl</code>, <code>scipy-...whl</code>, <code>openblas-...zip</code>
+        <br>• JS-тесты красные → браузер не поддерживает lookbehind regex (нужен Chrome 62+, Firefox 78+)
     </div>
 
 <script>
@@ -174,18 +182,164 @@ var TESTS = [
         code: 'print(2 + 3)',
         expected: '5',
         note: 'если этот тест прошёл — worker корректно пересоздался после kill'
+    },
+
+    // ============ ПАКЕТЫ МАТЕМАТИЧЕСКОГО КОМПЛЕКТА ============
+    // Эти тесты проверяют, что .whl-файлы в Agents/lib/pyodide/ корректно
+    // загружаются. Первый вызов sympy/numpy/scipy тянет .whl (~10-50 МБ),
+    // дальше мгновенно. По 5-15 сек на первый импорт каждого пакета.
+    {
+        name: 'sympy: импорт + базовый sympify',
+        code: 'from sympy import sympify\nprint(sympify("2 + 3"))',
+        expected: '5',
+        timeoutMs: 30000,
+        note: 'первая загрузка sympy.whl (~15 МБ)'
+    },
+    {
+        name: 'sympy: convert_xor (^ → **)',
+        code: 'from sympy.parsing.sympy_parser import parse_expr, standard_transformations, convert_xor\nt = standard_transformations + (convert_xor,)\nexpr = parse_expr("2^10", transformations=t)\nprint(int(expr))',
+        expected: '1024',
+        note: 'критично для pure_expr ветки'
+    },
+    {
+        name: 'sympy: implicit_multiplication (2x → 2*x)',
+        code: 'from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application\nfrom sympy import Symbol\nt = standard_transformations + (implicit_multiplication_application,)\nx = Symbol("x")\nexpr = parse_expr("2x + 3", transformations=t, local_dict={"x": x})\nprint(expr)',
+        expected: '2*x + 3'
+    },
+    {
+        name: 'sympy: log/sin/cos через парсер',
+        code: 'from sympy.parsing.sympy_parser import parse_expr, standard_transformations, convert_xor, implicit_multiplication_application\nfrom sympy import log, sin, cos, pi, E\nt = standard_transformations + (convert_xor, implicit_multiplication_application)\nexpr = parse_expr("log(E) + sin(0) + cos(0)", transformations=t)\nprint(int(expr.evalf()))',
+        expected: '2',
+        note: 'ln(e)=1, sin(0)=0, cos(0)=1, итого 2'
+    },
+    {
+        name: 'sympify: полный шаблон «Генерация sympify»',
+        code: 'from sympy.parsing.sympy_parser import parse_expr, standard_transformations, convert_xor, implicit_multiplication_application\nfrom sympy import log, ln, sin, cos, tan, asin, acos, atan, exp, sqrt, pi, E, I, oo, factorial, Rational\ntransformations = standard_transformations + (convert_xor, implicit_multiplication_application)\nexpr_str = "26 * 27^4 * log(18) / sin(1) * 3 / cos(1)"\ntry:\n    expr = parse_expr(expr_str, transformations=transformations)\n    result = expr.evalf()\n    print(f"Выражение: {expr}")\n    print(f"ОТВЕТ: {round(float(result), 2)}")\nexcept Exception as e:\n    print(f"Не удалось: {e}")\n    print(f"ОТВЕТ: ошибка")',
+        expected: '343987541.6',
+        useMarker: true,
+        note: 'тот же код что генерит сервер для pure_expr'
+    },
+    {
+        name: 'sympify: ошибка парсинга → graceful',
+        code: 'from sympy.parsing.sympy_parser import parse_expr, standard_transformations, convert_xor\ntry:\n    expr = parse_expr("###", transformations=standard_transformations + (convert_xor,))\n    print(f"ОТВЕТ: {expr}")\nexcept Exception as e:\n    print(f"ОТВЕТ: ошибка парсинга")',
+        expected: 'ошибка парсинга',
+        useMarker: true,
+        note: 'except-блок sympify-gen должен корректно отрабатывать'
+    },
+    {
+        name: 'sympy: точная дробь Rational',
+        code: 'from sympy import Rational\nprint(Rational(1,3) + Rational(1,6))',
+        expected: '1/2'
+    },
+    {
+        name: 'sympy: solve квадратного уравнения',
+        code: 'from sympy import symbols, solve, Eq\nx = symbols("x")\nsols = solve(Eq(x**2 - 5*x + 6, 0), x)\nprint(sorted(sols))',
+        expected: '[2, 3]',
+        note: 'для math LLM ветки с уравнениями'
+    },
+    {
+        name: 'sympy: производная diff',
+        code: 'from sympy import symbols, sin, diff\nx = symbols("x")\nprint(diff(sin(x), x))',
+        expected: 'cos(x)'
+    },
+    {
+        name: 'sympy: интеграл integrate',
+        code: 'from sympy import symbols, integrate\nx = symbols("x")\nprint(integrate(x**2, (x, 0, 3)))',
+        expected: '9',
+        note: '∫₀³ x² dx = 9'
+    },
+    {
+        name: 'numpy: импорт + матрица',
+        code: 'import numpy as np\nA = np.array([[1, 2], [3, 4]])\nprint(int(np.linalg.det(A)))',
+        expected: '-2',
+        timeoutMs: 30000,
+        note: 'первая загрузка numpy.whl (~12 МБ)'
+    },
+    {
+        name: 'scipy: импорт + numeric solve (Newton)',
+        code: 'from scipy.optimize import newton\nf = lambda x: x**3 - 2*x - 5\nroot = newton(f, 2.0)\nprint(round(root, 4))',
+        expected: '2.0946',
+        timeoutMs: 60000,
+        note: 'первая загрузка scipy.whl (~47 МБ) + openblas (~6 МБ)'
+    },
+    {
+        name: 'mpmath: высокая точность',
+        code: 'import mpmath\nmpmath.mp.dps = 30\nprint(str(mpmath.pi)[:32])',
+        expected: '3.14159265358979323846264338328',
+        note: 'mpmath — зависимость sympy, проверяем что грузится'
+    },
+
+    // ============ JS-СТОРОНА: PREPROCESSING ============
+    // Проверяем регулярки которые работают в браузере (не Pyodide).
+    // Эти тесты быстрые (<1 мс), не нужно ждать worker.
+    {
+        name: 'JS: запятая → точка (одиночная)',
+        type: 'js',
+        fn: function() { return '10,5'.replace(/(?<!\d,)(\d),(\d)(?!,\d)/g, '$1.$2'); },
+        expected: '10.5'
+    },
+    {
+        name: 'JS: запятая → точка (две дроби)',
+        type: 'js',
+        fn: function() { return '10,5 + 20,3'.replace(/(?<!\d,)(\d),(\d)(?!,\d)/g, '$1.$2'); },
+        expected: '10.5 + 20.3'
+    },
+    {
+        name: 'JS: запятая (кортеж) — НЕ трогаем',
+        type: 'js',
+        fn: function() { return '(1,2,3)'.replace(/(?<!\d,)(\d),(\d)(?!,\d)/g, '$1.$2'); },
+        expected: '(1,2,3)',
+        note: 'цепочка d,d,d пропускается lookahead/lookbehind'
+    },
+    {
+        name: 'JS: запятая в аргументах функции',
+        type: 'js',
+        fn: function() { return 'f(0,5, 1,5)'.replace(/(?<!\d,)(\d),(\d)(?!,\d)/g, '$1.$2'); },
+        expected: 'f(0.5, 1.5)',
+        note: 'русские десятичные внутри args — пробел разделяет от запятой-разделителя'
+    },
+    {
+        name: 'JS: extractFinalLine ловит ОТВЕТ',
+        type: 'js',
+        fn: function() { return extractFinalLine(['ОТВЕТ: 42']); },
+        expected: '42'
+    },
+    {
+        name: 'JS: extractFinalLine ловит ОТВИД (опечатка)',
+        type: 'js',
+        fn: function() { return extractFinalLine(['ОТВИД: 7']); },
+        expected: '7',
+        note: 'тот самый баг с галлюцинацией маркера GigaChat'
+    },
+    {
+        name: 'JS: extractFinalLine с диагностикой после',
+        type: 'js',
+        fn: function() { return extractFinalLine(['ОТВЕТ: 100', 'шаг 5: ok']); },
+        expected: '100',
+        note: 'диагностика после маркера → берём маркер'
+    },
+    {
+        name: 'JS: extractFinalLine — нет маркера',
+        type: 'js',
+        fn: function() { return extractFinalLine(['результат вычислений', '42']); },
+        expected: '42',
+        note: 'fallback на последнюю строку'
     }
 ];
 
-// === extractFinalLine — та же логика что в math-agent.html ===
+// === extractFinalLine — синхронизировано с math-agent.html ===
+// Permissive regex: «ОТ» + 2-8 букв ловит «ОТВЕТ», «ОТВИД» (опечатка GigaChat),
+// «ОТВЕД», «АНСВЕР», «ИТОГ», «РЕЗУЛЬТАТ» и т.п. — без жёсткого whitelist'а.
 function extractFinalLine(lines) {
     var trimmed = (lines || [])
         .map(function (l) { return String(l).trim(); })
         .filter(function (l) { return l.length > 0; });
     if (!trimmed.length) return '';
-    var hasMarker = function (s) { return /^(?:ОТВЕТ|ответ|ANSWER|FINAL)\s*[:：]/.test(s); };
+    var markerRe = /^(?:ОТ[А-Яа-яЁёA-Za-z]{2,8}|АНСВЕР|ИТОГ|РЕЗУЛЬТАТ|ANSWER|FINAL|RESULT)\s*[:：]/i;
+    var stripRe = /^(?:ОТ[А-Яа-яЁёA-Za-z]{2,8}|АНСВЕР|ИТОГ|РЕЗУЛЬТАТ|ANSWER|FINAL|RESULT)\s*[:：]\s*(.+)$/i;
+    var hasMarker = function (s) { return markerRe.test(s); };
     var stripMarker = function (s) {
-        var m = s.match(/^(?:ОТВЕТ|ответ|ANSWER|FINAL)\s*[:：]\s*(.+)$/);
+        var m = s.match(stripRe);
         return m ? m[1].trim() : s;
     };
     var isDiagnostic = function (s) {
@@ -205,11 +359,26 @@ function extractFinalLine(lines) {
     return trimmed[trimmed.length - 1];
 }
 
-// === Запуск одного теста через PyodideClient (Web Worker) ===
-// PyodideClient.executePython ленивая — первый вызов создаёт worker
-// и инициализирует Pyodide (~1-2 сек), дальше мгновенно. По таймауту
-// worker.terminate() — мы это тестируем явно (тест «Бесконечный цикл»).
+// === Запуск одного теста — может быть Python (через PyodideClient) или JS ===
+// JS-тесты проверяют локальные функции (preprocessing запятой, extractFinalLine).
+// Python-тесты идут через Web Worker с Pyodide.
 async function runOne(test) {
+    // JS-only тест: вызываем fn(), сравниваем с expected
+    if (test.type === 'js') {
+        var t0js = performance.now();
+        try {
+            var gotJs = test.fn();
+            return {
+                ok: String(gotJs) === String(test.expected),
+                got: String(gotJs),
+                ms: Math.round(performance.now() - t0js),
+                error: null
+            };
+        } catch (e) {
+            return { ok: false, got: '', ms: Math.round(performance.now() - t0js), error: e.message };
+        }
+    }
+
     var t0 = performance.now();
     var exec = await PyodideClient.executePython(test.code, {
         timeoutMs: test.timeoutMs || 15000
@@ -259,10 +428,15 @@ function renderRow(idx, test, result) {
         errorBlock = '<div class="error-detail">' + escapeHtml(result.error) + '</div>';
     }
     var noteBlock = test.note ? '<div style="font-size:11px;color:var(--text-muted);margin-top:4px">' + escapeHtml(test.note) + '</div>' : '';
+    // Для JS-тестов показываем тело функции, для Python — код
+    var codeDisplay = test.type === 'js'
+        ? test.fn.toString().replace(/^function\s*\(\)\s*\{\s*/, '').replace(/\s*\}$/, '').trim()
+        : test.code;
+    var expectedDisplay = test.expectKill ? '[убит по таймауту]' : (test.expected || '');
     tr.innerHTML =
         '<td class="name">' + escapeHtml(test.name) + noteBlock + '</td>' +
-        '<td class="code">' + escapeHtml(test.code) + '</td>' +
-        '<td class="expected">' + escapeHtml(test.expected) + '</td>' +
+        '<td class="code">' + escapeHtml(codeDisplay) + '</td>' +
+        '<td class="expected">' + escapeHtml(expectedDisplay) + '</td>' +
         '<td class="got">' + escapeHtml(gotDisplay) + errorBlock + '</td>' +
         '<td class="status-cell ' + statusClass + '">' + statusIcon + '</td>' +
         '<td class="ms">' + (result ? result.ms : '') + '</td>';
@@ -304,8 +478,8 @@ async function runAll() {
     summary.style.display = 'block';
     summary.className = 'summary ' + (allOk ? 'ok' : 'fail');
     summary.innerHTML = allOk
-        ? '<strong>✓ Pyodide в Web Worker работает.</strong> Caddy раздаёт WASM с правильным MIME, worker корректно инициализируется, исполняет код, убивается по таймауту и пересоздаётся для следующего запроса. Math-agent готов — никаких перезагрузок страницы при зависаниях.'
-        : '<strong>✗ ' + fail + ' тестов упали.</strong> Раскрой строки с красным крестиком и посмотри детали в колонке «Результат». Если упал «Бесконечный цикл» — Web Worker не убил процесс. Если упал «Восстановление после kill» — worker не пересоздался.';
+        ? '<strong>✓ Все ' + pass + ' тестов прошли.</strong> Pyodide-рантайм работает, математический комплект (sympy/numpy/scipy/mpmath) грузится из локальных .whl, sympify-шаблон отрабатывает корректно, JS-логика (preprocessing запятой, extractFinalLine с regex для опечаток) — без багов. Math-agent готов к подключению LLM в офисе.'
+        : '<strong>✗ ' + fail + ' из ' + TESTS.length + ' тестов упали.</strong> Раскрой строки с красным крестиком и посмотри детали в колонке «Результат». Чек-лист по типу провала — внизу страницы в hint-блоке.';
 
     btn.disabled = false;
 }
