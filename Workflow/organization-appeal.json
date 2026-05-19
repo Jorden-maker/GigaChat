@@ -13,10 +13,7 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [
-        0,
-        300
-      ],
+      "position": [0, 300],
       "id": "oa-webhook-0001",
       "name": "Webhook OrgAppeal",
       "webhookId": "organization-appeal-webhook-001"
@@ -24,20 +21,13 @@
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
             {
               "id": "cond-ping-oa",
               "leftValue": "={{ $json.query?.ping || $json.body?.ping || ($json.body?.message === 'ping' ? '1' : '') }}",
               "rightValue": "1",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
+              "operator": { "type": "string", "operation": "equals" }
             }
           ],
           "combinator": "and"
@@ -47,10 +37,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        240,
-        300
-      ],
+      "position": [240, 300],
       "id": "oa-ping-if-0001",
       "name": "Ping?"
     },
@@ -61,48 +48,29 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              {
-                "name": "Access-Control-Allow-Origin",
-                "value": "*"
-              },
-              {
-                "name": "Access-Control-Allow-Headers",
-                "value": "Content-Type"
-              },
-              {
-                "name": "Access-Control-Allow-Methods",
-                "value": "POST, GET, OPTIONS"
-              }
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [
-        520,
-        100
-      ],
+      "position": [520, 100],
       "id": "oa-ping-resp-0001",
       "name": "Ответ: pong"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
             {
               "id": "cond-source-text",
               "leftValue": "={{ ($json.body?.text || '').trim().length > 0 ? '1' : '' }}",
               "rightValue": "1",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
+              "operator": { "type": "string", "operation": "equals" }
             }
           ],
           "combinator": "and"
@@ -112,23 +80,17 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        520,
-        300
-      ],
+      "position": [520, 300],
       "id": "oa-source-if-0001",
       "name": "Источник: текст?"
     },
     {
       "parameters": {
-        "jsCode": "// Текст уже извлечён в браузере через JSZip (.docx → word/document.xml → text)\n// Используем его напрямую, минуя OCR. Делаем те же проверки, что после OCR.\nconst body = $input.first().json.body || {};\nlet text = (body.text || '').trim();\n\nif (!text) {\n  return [{ json: { has_text: false, error: 'Пустой текст в запросе.' } }];\n}\n\nif (text.length < 20) {\n  return [{ json: { has_text: false, error: 'Слишком короткий текст из браузера (' + text.length + ' символов).' } }];\n}\n\n// Тот же лимит, что для OCR-пути, чтобы LLM-контекст не переполнился\nif (text.length > 15000) text = text.substring(0, 15000);\n\nreturn [{ json: { has_text: true, text: text, text_length: text.length, source: 'browser-jszip' } }];"
+        "jsCode": "// Текст уже извлечён в браузере через JSZip (.docx → word/document.xml → text)\nconst body = $input.first().json.body || {};\nlet text = (body.text || '').trim();\n\nif (!text) {\n  return [{ json: { has_text: false, error: 'Пустой текст в запросе.' } }];\n}\n\nif (text.length < 20) {\n  return [{ json: { has_text: false, error: 'Слишком короткий текст из браузера (' + text.length + ' символов).' } }];\n}\n\nif (text.length > 15000) text = text.substring(0, 15000);\n\nreturn [{ json: { has_text: true, text: text, text_length: text.length, source: 'browser-jszip' } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        800,
-        100
-      ],
+      "position": [800, 100],
       "id": "oa-text-body-0001",
       "name": "Текст из body"
     },
@@ -138,31 +100,16 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        800,
-        500
-      ],
+      "position": [800, 500],
       "id": "oa-validate-0001",
       "name": "Валидация файла"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
-            {
-              "id": "cond-valid-oa",
-              "leftValue": "={{ $json.valid }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true"
-              }
-            }
+            { "id": "cond-valid-oa", "leftValue": "={{ $json.valid }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
           ],
           "combinator": "and"
         },
@@ -171,10 +118,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        1080,
-        500
-      ],
+      "position": [1080, 500],
       "id": "oa-validate-if-0001",
       "name": "Файл валиден?"
     },
@@ -185,28 +129,16 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              {
-                "name": "Access-Control-Allow-Origin",
-                "value": "*"
-              },
-              {
-                "name": "Access-Control-Allow-Headers",
-                "value": "Content-Type"
-              },
-              {
-                "name": "Access-Control-Allow-Methods",
-                "value": "POST, GET, OPTIONS"
-              }
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [
-        1080,
-        700
-      ],
+      "position": [1360, 700],
       "id": "oa-error-file-0001",
       "name": "Ответ: ошибка файла"
     },
@@ -220,63 +152,37 @@
         "contentType": "multipart-form-data",
         "bodyParameters": {
           "parameters": [
-            {
-              "parameterType": "formBinaryData",
-              "name": "file",
-              "inputDataFieldName": "={{ $json.binaryKey }}"
-            }
+            { "parameterType": "formBinaryData", "name": "file", "inputDataFieldName": "={{ $json.binaryKey }}" }
           ]
         },
         "options": {
-          "response": {
-            "response": {
-              "fullResponse": false
-            }
-          },
+          "response": { "response": { "fullResponse": false } },
           "timeout": 120000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        1360,
-        500
-      ],
+      "position": [1360, 500],
       "id": "oa-ocr-0001",
       "name": "OCR (text extraction)",
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Извлекаем текст из ответа OCR-сервиса.\n// Сервис может вернуть разные форматы (data.text / data.result.text / просто text).\nconst raw = $input.first().json;\n\nif (raw.error) {\n  return [{ json: { has_text: false, error: 'OCR-сервис недоступен: ' + JSON.stringify(raw.error) } }];\n}\n\nlet text = '';\nif (typeof raw === 'string') text = raw;\nelse if (raw.text) text = raw.text;\nelse if (raw.result && raw.result.text) text = raw.result.text;\nelse if (raw.data && raw.data.text) text = raw.data.text;\nelse if (raw.content) text = raw.content;\nelse if (raw.output) text = typeof raw.output === 'string' ? raw.output : JSON.stringify(raw.output);\n\ntext = (text || '').trim();\n\nif (text.length < 20) {\n  return [{ json: { has_text: false, error: 'OCR не смог распознать текст в документе (получено ' + text.length + ' символов).' } }];\n}\n\n// Обрезаем до 15000 символов — типично документы помещаются, контекст LLM не переполняется\nif (text.length > 15000) text = text.substring(0, 15000);\n\nreturn [{ json: { has_text: true, text: text, text_length: text.length } }];"
+        "jsCode": "const raw = $input.first().json;\n\nif (raw.error) {\n  return [{ json: { has_text: false, error: 'OCR-сервис недоступен: ' + JSON.stringify(raw.error) } }];\n}\n\nlet text = '';\nif (typeof raw === 'string') text = raw;\nelse if (raw.text) text = raw.text;\nelse if (raw.result && raw.result.text) text = raw.result.text;\nelse if (raw.data && raw.data.text) text = raw.data.text;\nelse if (raw.content) text = raw.content;\nelse if (raw.output) text = typeof raw.output === 'string' ? raw.output : JSON.stringify(raw.output);\n\ntext = (text || '').trim();\n\nif (text.length < 20) {\n  return [{ json: { has_text: false, error: 'OCR не смог распознать текст в документе (получено ' + text.length + ' символов).' } }];\n}\n\nif (text.length > 15000) text = text.substring(0, 15000);\n\nreturn [{ json: { has_text: true, text: text, text_length: text.length } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1640,
-        500
-      ],
+      "position": [1640, 500],
       "id": "oa-extract-text-0001",
       "name": "Извлечь текст"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
-            {
-              "id": "cond-has-text-oa",
-              "leftValue": "={{ $json.has_text }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true"
-              }
-            }
+            { "id": "cond-has-text-oa", "leftValue": "={{ $json.has_text }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
           ],
           "combinator": "and"
         },
@@ -285,10 +191,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        1920,
-        300
-      ],
+      "position": [1920, 300],
       "id": "oa-text-if-0001",
       "name": "Текст найден?"
     },
@@ -299,43 +202,27 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              {
-                "name": "Access-Control-Allow-Origin",
-                "value": "*"
-              },
-              {
-                "name": "Access-Control-Allow-Headers",
-                "value": "Content-Type"
-              },
-              {
-                "name": "Access-Control-Allow-Methods",
-                "value": "POST, GET, OPTIONS"
-              }
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [
-        1920,
-        500
-      ],
+      "position": [1920, 500],
       "id": "oa-error-ocr-0001",
       "name": "Ответ: OCR не распознал"
     },
     {
       "parameters": {
-        "modelId": {
-          "__rl": true,
-          "value": ".",
-          "mode": "id"
-        },
+        "modelId": { "__rl": true, "value": ".", "mode": "id" },
         "responses": {
           "values": [
             {
               "role": "system",
-              "content": "Ты — ассистент для извлечения данных из документов обращения сотрудника.\n\nЗадача: найди в тексте следующие данные и выдай ИХ В ТОЧНО ТАКОМ ФОРМАТЕ:\n\nФИО: <фамилия имя отчество одной строкой>\nДата рождения: <дата в формате ДД.ММ.ГГГГ или 'не указано'>\nТабельный номер: <номер цифрами или 'не указан'>\n\nПравила:\n1. Выдавай РОВНО три строки в указанном формате. Никаких пояснений, заголовков, нумерации.\n2. ФИО — полное имя в порядке Фамилия Имя Отчество. Если только Ф+И — пиши так как нашёл.\n3. Дата рождения — нормализуй в ДД.ММ.ГГГГ. Если в тексте «1 января 1990» — пиши «01.01.1990». Если нет — «не указано».\n4. Табельный номер может называться по-разному: «табельный номер», «номер сотрудника», «личный номер», «персональный номер», «ID сотрудника». Бери первое совпадение.\n5. Если в документе несколько ФИО — бери того, чьё обращение оформляется (обычно первое или в заголовке).\n6. Никогда не выдумывай данные. Если поле не найдено — «не указано» или «не указан».\n\nПример правильного ответа:\nФИО: Иванов Иван Иванович\nДата рождения: 15.03.1985\nТабельный номер: 12345\n\nПример если что-то не найдено:\nФИО: Петров Пётр Петрович\nДата рождения: не указано\nТабельный номер: не указан\n\nТеперь извлеки данные из следующего документа:"
+              "content": "Ты — ассистент для извлечения данных из документов (служебных записок).\n\nЗадача: найди в тексте следующие 4 поля и выдай ИХ В ТОЧНО ТАКОМ ФОРМАТЕ:\n\nФИО: <фамилия имя отчество одной строкой>\nДата рождения: <дата в формате ДД.ММ.ГГГГ или 'не указано'>\nЛичный номер: <в формате ХХХ-ХХХ или 'не указан'>\nСНИЛС: <в формате ХХХ-ХХХ-ХХХ ХХ или 'не указан'>\n\nПравила:\n1. Выдавай РОВНО четыре строки в указанном формате. Никаких пояснений, заголовков, нумерации.\n2. ФИО — полное имя в порядке Фамилия Имя Отчество. Если только Ф+И — пиши так как нашёл.\n3. Дата рождения — нормализуй в ДД.ММ.ГГГГ. Если в тексте «1 января 1990» — пиши «01.01.1990». Если нет — «не указано».\n4. Личный номер имеет формат ХХХ-ХХХ (6 цифр через дефис). Может называться: «личный номер», «персональный номер», «номер сотрудника», «ID сотрудника». Если в тексте формат другой — приведи к ХХХ-ХХХ или ставь «не указан».\n5. СНИЛС имеет формат ХХХ-ХХХ-ХХХ ХХ (11 цифр: 3-3-3 через дефис, пробел, 2). Может называться: «СНИЛС», «страховой номер», «индивидуальный лицевой счёт». Если нет — «не указан».\n6. Если в документе несколько ФИО — бери того, чьё обращение оформляется (обычно первое или в заголовке).\n7. Никогда не выдумывай данные. Если поле не найдено — «не указано» или «не указан».\n\nПример правильного ответа (все поля есть):\nФИО: Иванов Иван Иванович\nДата рождения: 15.03.1985\nЛичный номер: 123-456\nСНИЛС: 123-456-789 01\n\nПример если что-то не найдено:\nФИО: Петров Пётр Петрович\nДата рождения: 22.07.1990\nЛичный номер: не указан\nСНИЛС: не указан\n\nТеперь извлеки данные из следующего документа:"
             },
             {
               "content": "={{ $json.text }}"
@@ -343,57 +230,34 @@
           ]
         },
         "builtInTools": {},
-        "options": {
-          "timeout": 120000
-        }
+        "options": { "timeout": 120000 }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
-      "position": [
-        2200,
-        300
-      ],
+      "position": [2200, 300],
       "id": "oa-llm-extract-0001",
       "name": "LLM извлечь данные",
       "credentials": {
-        "openAiApi": {
-          "id": "Qwyuj8GrADL2wlnl",
-          "name": "GigaChat"
-        }
+        "openAiApi": { "id": "Qwyuj8GrADL2wlnl", "name": "GigaChat" }
       },
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Парсим строки ФИО / Дата рождения / Табельный номер из ответа LLM\ntry {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { parsed_ok: false, error: 'GigaChat-LLM недоступен.' } }];\n  }\n\n  // Безопасный доступ — output может быть undefined при странных ответах LLM\n  const text = (raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text) || '';\n\n  // Регексы достаточно строгие — допускают пробелы и тире как разделители.\n  // Для номера принимаем «Табельный номер» (основной формат), а также «Номер сотрудника» и «Личный номер» — на случай отклонений LLM.\n  const reFio = /ФИО\\s*[:\\-]\\s*(.+?)(?:\\n|$)/i;\n  const reBirth = /Дата\\s+рождения\\s*[:\\-]\\s*(.+?)(?:\\n|$)/i;\n  const reNumber = /(?:Табельный\\s+номер|Номер\\s+сотрудника|Личный\\s+номер)\\s*[:\\-]\\s*(.+?)(?:\\n|$)/i;\n\n  const fioM = text.match(reFio);\n  const birthM = text.match(reBirth);\n  const numberM = text.match(reNumber);\n\n  let fio = fioM ? fioM[1].trim() : '';\n  const birthDate = birthM ? birthM[1].trim() : 'не указано';\n  let employeeNumber = numberM ? numberM[1].trim() : 'не указан';\n\n  // Чистим ФИО: убираем обрамляющие кавычки (всех видов) и точки в конце\n  fio = fio.replace(/^[\\\"«»''\\u201C\\u201D\\u00AB\\u00BB]+|[\\\"«»''\\u201C\\u201D\\u00AB\\u00BB]+$/g, '').trim();\n  fio = fio.replace(/[.,;:]+$/g, '').trim();\n  // Нормализация Unicode (NFC) — на случай омоглифов/декомпозиций\n  fio = fio.normalize('NFC');\n\n  // Нормализуем номер: убираем всё кроме цифр (LLM могла дать \"№ 12345\" или \"12345 (табельный)\")\n  const numberClean = employeeNumber.replace(/[^0-9]/g, '');\n  if (numberClean.length > 0) employeeNumber = numberClean;\n\n  if (!fio || fio.toLowerCase().includes('не указано') || fio.toLowerCase().includes('не найдено')) {\n    return [{ json: {\n      parsed_ok: false,\n      error: 'Не удалось извлечь ФИО из документа. Проверьте качество скана или содержимое файла.',\n      fio: '', birth_date: birthDate, employee_number: employeeNumber\n    }}];\n  }\n\n  // ВАЖНО: ФИО уйдёт в SQL ILIKE — экранируем LIKE-метасимволы (% _ \\),\n  // иначе пользовательский ввод с % сматчит чужие записи (utечка ПДн).\n  const fioForSql = fio.replace(/\\\\/g, '\\\\\\\\').replace(/%/g, '\\\\%').replace(/_/g, '\\\\_');\n\n  return [{ json: {\n    parsed_ok: true,\n    fio: fio,\n    fio_for_sql: fioForSql,\n    birth_date: birthDate,\n    employee_number: employeeNumber\n  }}];\n} catch (e) {\n  return [{ json: { parsed_ok: false, error: 'Ошибка парсинга ответа LLM: ' + e.message } }];\n}"
+        "jsCode": "// Парсим 4 поля из ответа LLM. Затем валидируем форматы.\ntry {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { parsed_ok: false, error: 'GigaChat-LLM недоступен.' } }];\n  }\n\n  const text = (raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text) || '';\n\n  const reFio    = /ФИО\\s*[:\\-]\\s*(.+?)(?:\\n|$)/i;\n  const reBirth  = /Дата\\s+рождения\\s*[:\\-]\\s*(.+?)(?:\\n|$)/i;\n  const rePersonal = /(?:Личный\\s+номер|Персональный\\s+номер|Номер\\s+сотрудника|Табельный\\s+номер)\\s*[:\\-]\\s*(.+?)(?:\\n|$)/i;\n  const reSnils  = /(?:СНИЛС|Страховой\\s+номер)\\s*[:\\-]\\s*(.+?)(?:\\n|$)/i;\n\n  const fioM    = text.match(reFio);\n  const birthM  = text.match(reBirth);\n  const persM   = text.match(rePersonal);\n  const snilsM  = text.match(reSnils);\n\n  let fio = fioM ? fioM[1].trim() : '';\n  let birth_date = birthM ? birthM[1].trim() : '';\n  let personal_number = persM ? persM[1].trim() : '';\n  let snils = snilsM ? snilsM[1].trim() : '';\n\n  // Чистка ФИО: убираем кавычки и финальные знаки препинания\n  fio = fio.replace(/^[\\\"«»''\\u201C\\u201D\\u00AB\\u00BB]+|[\\\"«»''\\u201C\\u201D\\u00AB\\u00BB]+$/g, '').trim();\n  fio = fio.replace(/[.,;:]+$/g, '').trim();\n  fio = fio.normalize('NFC');\n\n  // Унифицируем «не указано/не указан» как пустые значения\n  function isAbsent(v) {\n    if (!v) return true;\n    const lo = v.toLowerCase();\n    return lo.includes('не указан') || lo.includes('не указано') || lo.includes('не найден') || lo === '-' || lo === '—' || lo === 'нет';\n  }\n\n  if (isAbsent(fio))             fio = '';\n  if (isAbsent(birth_date))      birth_date = '';\n  if (isAbsent(personal_number)) personal_number = '';\n  if (isAbsent(snils))           snils = '';\n\n  // Валидация формата Личного номера ХХХ-ХХХ (6 цифр, дефис)\n  // Приводим: убираем пробелы, если есть только 6 цифр — добавим дефис\n  if (personal_number) {\n    const digits = personal_number.replace(/\\D/g, '');\n    if (digits.length === 6) {\n      personal_number = digits.slice(0, 3) + '-' + digits.slice(3);\n    } else if (!/^\\d{3}-\\d{3}$/.test(personal_number)) {\n      // Неверный формат — считаем что номер не указан\n      personal_number = '';\n    }\n  }\n\n  // Валидация формата СНИЛС ХХХ-ХХХ-ХХХ ХХ (11 цифр)\n  if (snils) {\n    const digits = snils.replace(/\\D/g, '');\n    if (digits.length === 11) {\n      snils = digits.slice(0, 3) + '-' + digits.slice(3, 6) + '-' + digits.slice(6, 9) + ' ' + digits.slice(9, 11);\n    } else if (!/^\\d{3}-\\d{3}-\\d{3}\\s\\d{2}$/.test(snils)) {\n      snils = '';\n    }\n  }\n\n  // SQL-safe ФИО — экранируем LIKE-метасимволы\n  const fioForSql = fio.replace(/\\\\/g, '\\\\\\\\').replace(/%/g, '\\\\%').replace(/_/g, '\\\\_');\n\n  return [{ json: {\n    parsed_ok: true,\n    fio: fio,\n    fio_for_sql: fioForSql,\n    birth_date: birth_date,\n    personal_number: personal_number,\n    snils: snils\n  }}];\n} catch (e) {\n  return [{ json: { parsed_ok: false, error: 'Ошибка парсинга ответа LLM: ' + e.message } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        2480,
-        300
-      ],
+      "position": [2480, 300],
       "id": "oa-parse-data-0001",
       "name": "Парсинг данных"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
-            {
-              "id": "cond-parsed-oa",
-              "leftValue": "={{ $json.parsed_ok }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true"
-              }
-            }
+            { "id": "cond-parsed-oa", "leftValue": "={{ $json.parsed_ok }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
           ],
           "combinator": "and"
         },
@@ -402,10 +266,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        2760,
-        300
-      ],
+      "position": [2760, 300],
       "id": "oa-parsed-if-0001",
       "name": "Данные извлечены?"
     },
@@ -416,87 +277,102 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              {
-                "name": "Access-Control-Allow-Origin",
-                "value": "*"
-              },
-              {
-                "name": "Access-Control-Allow-Headers",
-                "value": "Content-Type"
-              },
-              {
-                "name": "Access-Control-Allow-Methods",
-                "value": "POST, GET, OPTIONS"
-              }
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [
-        2760,
-        500
-      ],
+      "position": [2760, 500],
       "id": "oa-error-parse-0001",
       "name": "Ответ: данные не извлечены"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ФАЗА 1: Идентификация служебной записки.\n// Проверяем обязательные поля по порядку.\nconst d = $json;\n\nlet step1 = { step: 1, name: 'Идентификация служебной записки' };\n\nif (!d.fio) {\n  step1.status = 'not_found';\n  step1.message = 'ФИО заявителя отсутствует, нужно предоставить данные';\n  return [{ json: { phase1_ok: false, step1: step1, ...d } }];\n}\n\nif (!d.birth_date) {\n  step1.status = 'not_found';\n  step1.message = 'Дата рождения заявителя отсутствует, нужно предоставить данные';\n  return [{ json: { phase1_ok: false, step1: step1, ...d } }];\n}\n\n// Достаточно одного из двух: Личный номер ИЛИ СНИЛС\nif (!d.personal_number && !d.snils) {\n  step1.status = 'not_found';\n  step1.message = 'Личный номер или СНИЛС заявителя отсутствует, нужно предоставить данные';\n  return [{ json: { phase1_ok: false, step1: step1, ...d } }];\n}\n\nstep1.status = 'ok';\nstep1.message = 'Служебная записка идентифицирована';\nreturn [{ json: { phase1_ok: true, step1: step1, ...d } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3040, 300],
+      "id": "oa-phase1-0001",
+      "name": "Фаза 1: проверка полей"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            { "id": "cond-phase1-ok", "leftValue": "={{ $json.phase1_ok }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3320, 300],
+      "id": "oa-phase1-if-0001",
+      "name": "Фаза 1 OK?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response: $json.step1.message, extracted: {fio: $json.fio, birth_date: $json.birth_date, personal_number: $json.personal_number, snils: $json.snils}, steps: [$json.step1]}) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [3600, 500],
+      "id": "oa-respond-phase1-0001",
+      "name": "Ответ: Фаза 1 не пройдена"
     },
     {
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT full_name, employee_number FROM appeal_employees WHERE full_name ILIKE $1 ESCAPE '\\'",
         "options": {
-          "queryReplacement": "={{ [$('Парсинг данных').first().json.fio_for_sql] }}"
+          "queryReplacement": "={{ [$json.fio_for_sql] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [
-        3040,
-        300
-      ],
+      "position": [3600, 200],
       "id": "oa-db1-0001",
       "name": "БД №1: appeal_employees",
       "credentials": {
-        "postgres": {
-          "id": "OYsyciMf7Eq9W4FS",
-          "name": "Postgres"
-        }
+        "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Алгоритм №1: классификация результата поиска в appeal_employees.\n// Возможны 3 исхода:\n//   1) ФИО не найдено в БД   → status='not_found', message='Невозможно идентифицировать...'\n//   2) ФИО найдено, но другой номер → status='partial', message='Идентификация прошла частично...'\n//   3) ФИО найдено + номер совпадает → status='ok', message='Идентификация прошла успешно'\nconst rows = $input.all().map(item => item.json).filter(r => r && r.full_name);\nconst parsed = $('Парсинг данных').first().json;\nconst targetFio = parsed.fio;\nconst targetNumber = (parsed.employee_number || '').replace(/[^0-9]/g, '');\n\nlet status, message;\n\nif (rows.length === 0) {\n  status = 'not_found';\n  message = 'Невозможно идентифицировать, необходимо представить дополнительные данные';\n} else {\n  // ФИО найдено хотя бы в одной строке. Проверяем совпадение номера.\n  const numberMatches = rows.some(r => {\n    const dbNum = (r.employee_number || '').replace(/[^0-9]/g, '');\n    return dbNum && dbNum === targetNumber;\n  });\n  if (numberMatches) {\n    status = 'ok';\n    message = 'Идентификация прошла успешно';\n  } else {\n    status = 'partial';\n    message = 'Идентификация прошла частично, необходимо представить дополнительные данные';\n  }\n}\n\nreturn [{ json: {\n  step: 1,\n  name: 'Идентификация (БД сотрудников)',\n  status: status,\n  message: message,\n  matched_rows: rows.length\n}}];"
+        "jsCode": "// ФАЗА 2: Идентификация заявителя в реестре.\n// Возможные исходы:\n//   not_found       — ФИО нет в employees\n//   no_tab_number   — ФИО есть, employee_number = NULL\n//   ok              — ФИО + ТН есть → переходим к фазе 3\nconst rows = $input.all().map(item => item.json).filter(r => r && r.full_name);\nconst d = $('Фаза 1: проверка полей').first().json;\n\nlet step2 = { step: 2, name: 'Идентификация заявителя' };\nlet phase2_ok = false;\nlet employee_number = null;\n\nif (rows.length === 0) {\n  step2.status = 'not_found';\n  step2.message = 'Заявитель не идентифицирован, нужно предоставить дополнительные данные';\n} else {\n  // Берём первую найденную строку (UNIQUE на full_name)\n  const row = rows[0];\n  if (!row.employee_number || row.employee_number === null) {\n    step2.status = 'not_done';\n    step2.message = 'Сведений о заявителе недостаточно для идентификации, нужно сделать запрос';\n  } else {\n    step2.status = 'ok';\n    step2.message = 'Заявитель идентифицирован';\n    employee_number = row.employee_number;\n    phase2_ok = true;\n  }\n}\n\nreturn [{ json: {\n  phase2_ok: phase2_ok,\n  step2: step2,\n  employee_number: employee_number,\n  fio: d.fio,\n  fio_for_sql: d.fio_for_sql,\n  birth_date: d.birth_date,\n  personal_number: d.personal_number,\n  snils: d.snils,\n  step1: d.step1\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        3320,
-        300
-      ],
-      "id": "oa-classify-step1-0001",
-      "name": "Классификация шага 1"
+      "position": [3880, 200],
+      "id": "oa-phase2-0001",
+      "name": "Фаза 2: классификация"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
-            {
-              "id": "cond-step1-ok",
-              "leftValue": "={{ $json.status }}",
-              "rightValue": "ok",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
+            { "id": "cond-phase2-ok", "leftValue": "={{ $json.phase2_ok }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
           ],
           "combinator": "and"
         },
@@ -505,101 +381,65 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        3600,
-        300
-      ],
-      "id": "oa-step1-if-0001",
-      "name": "Шаг 1 успешен?"
+      "position": [4160, 200],
+      "id": "oa-phase2-if-0001",
+      "name": "Фаза 2 OK?"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({response: $('Классификация шага 1').first().json.message, extracted: {fio: $('Парсинг данных').first().json.fio, birth_date: $('Парсинг данных').first().json.birth_date, employee_number: $('Парсинг данных').first().json.employee_number}, steps: [$('Классификация шага 1').first().json]}) }}",
+        "responseBody": "={{ JSON.stringify({response: $json.step2.message, extracted: {fio: $json.fio, birth_date: $json.birth_date, personal_number: $json.personal_number, snils: $json.snils, employee_number: $json.employee_number}, steps: [$json.step1, $json.step2]}) }}",
         "options": {
           "responseHeaders": {
             "entries": [
-              {
-                "name": "Access-Control-Allow-Origin",
-                "value": "*"
-              },
-              {
-                "name": "Access-Control-Allow-Headers",
-                "value": "Content-Type"
-              },
-              {
-                "name": "Access-Control-Allow-Methods",
-                "value": "POST, GET, OPTIONS"
-              }
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [
-        3600,
-        500
-      ],
-      "id": "oa-respond-step1-0001",
-      "name": "Ответ: шаг 1 не успех"
+      "position": [4160, 400],
+      "id": "oa-respond-phase2-0001",
+      "name": "Ответ: Фаза 2 не пройдена"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT full_name, employee_number, is_done, done_at FROM appeal_event1 WHERE full_name ILIKE $1 ESCAPE '\\' AND employee_number = $2",
+        "query": "SELECT full_name, is_done FROM appeal_event1 WHERE full_name ILIKE $1 ESCAPE '\\'",
         "options": {
-          "queryReplacement": "={{ [$('Парсинг данных').first().json.fio_for_sql, $('Парсинг данных').first().json.employee_number] }}"
+          "queryReplacement": "={{ [$json.fio_for_sql] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [
-        3880,
-        300
-      ],
+      "position": [4440, 200],
       "id": "oa-db2-0001",
       "name": "БД №2: appeal_event1",
       "credentials": {
-        "postgres": {
-          "id": "OYsyciMf7Eq9W4FS",
-          "name": "Postgres"
-        }
+        "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Алгоритм №2: классификация результата поиска в appeal_event1.\n//   1) ФИО не найдено в event1   → status='not_found', message='Сведения о данном ФИО отсутствуют'\n//   2) ФИО есть, мероприятие НЕ выполнено → status='not_done', message='Мероприятие №1 для ФИО не выполнено'\n//   3) ФИО есть, мероприятие выполнено → status='done', message='Мероприятие №1 для ФИО выполнено'\nconst rows = $input.all().map(item => item.json).filter(r => r && r.full_name);\n\nlet status, message;\n\nif (rows.length === 0) {\n  status = 'not_found';\n  message = 'Сведения о данном ФИО отсутствуют';\n} else {\n  const anyDone = rows.some(r => r.is_done === true);\n  if (anyDone) {\n    status = 'done';\n    message = 'Мероприятие №1 для ФИО выполнено';\n  } else {\n    status = 'not_done';\n    message = 'Мероприятие №1 для ФИО не выполнено';\n  }\n}\n\nreturn [{ json: {\n  step: 2,\n  name: 'Мероприятие №1',\n  status: status,\n  message: message\n}}];"
+        "jsCode": "// ФАЗА 3: Проверка Мероприятия №1.\nconst rows = $input.all().map(item => item.json).filter(r => r && r.full_name);\nconst d = $('Фаза 2: классификация').first().json;\n\nlet step3 = { step: 3, name: 'Мероприятие №1' };\nlet phase3_ok = false;\n\nif (rows.length === 0) {\n  step3.status = 'not_found';\n  step3.message = 'Сведения по данному заявителю отсутствуют';\n} else {\n  const anyDone = rows.some(r => r.is_done === true);\n  if (anyDone) {\n    step3.status = 'ok';\n    step3.message = 'Мероприятие №1 для заявителя выполнено';\n    phase3_ok = true;\n  } else {\n    step3.status = 'not_done';\n    step3.message = 'Для данного заявителя мероприятие №1 не выполнено';\n  }\n}\n\nreturn [{ json: {\n  phase3_ok: phase3_ok,\n  step3: step3,\n  employee_number: d.employee_number,\n  fio: d.fio,\n  fio_for_sql: d.fio_for_sql,\n  birth_date: d.birth_date,\n  personal_number: d.personal_number,\n  snils: d.snils,\n  step1: d.step1,\n  step2: d.step2\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        4160,
-        300
-      ],
-      "id": "oa-classify-step2-0001",
-      "name": "Классификация шага 2"
+      "position": [4720, 200],
+      "id": "oa-phase3-0001",
+      "name": "Фаза 3: классификация"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
-            {
-              "id": "cond-step2-done",
-              "leftValue": "={{ $json.status }}",
-              "rightValue": "done",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
+            { "id": "cond-phase3-ok", "leftValue": "={{ $json.phase3_ok }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
           ],
           "combinator": "and"
         },
@@ -608,393 +448,132 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        4440,
-        300
-      ],
-      "id": "oa-step2-if-0001",
-      "name": "Шаг 2 выполнен?"
+      "position": [5000, 200],
+      "id": "oa-phase3-if-0001",
+      "name": "Фаза 3 OK?"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({response: $('Классификация шага 2').first().json.message, extracted: {fio: $('Парсинг данных').first().json.fio, birth_date: $('Парсинг данных').first().json.birth_date, employee_number: $('Парсинг данных').first().json.employee_number}, steps: [$('Классификация шага 1').first().json, $('Классификация шага 2').first().json]}) }}",
+        "responseBody": "={{ JSON.stringify({response: $json.step3.message, extracted: {fio: $json.fio, birth_date: $json.birth_date, personal_number: $json.personal_number, snils: $json.snils, employee_number: $json.employee_number}, steps: [$json.step1, $json.step2, $json.step3]}) }}",
         "options": {
           "responseHeaders": {
             "entries": [
-              {
-                "name": "Access-Control-Allow-Origin",
-                "value": "*"
-              },
-              {
-                "name": "Access-Control-Allow-Headers",
-                "value": "Content-Type"
-              },
-              {
-                "name": "Access-Control-Allow-Methods",
-                "value": "POST, GET, OPTIONS"
-              }
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [
-        4440,
-        500
-      ],
-      "id": "oa-respond-step2-0001",
-      "name": "Ответ: шаг 2 не done"
+      "position": [5000, 400],
+      "id": "oa-respond-phase3-0001",
+      "name": "Ответ: Фаза 3 не пройдена"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT full_name, employee_number, is_done, done_at FROM appeal_event2 WHERE full_name ILIKE $1 ESCAPE '\\' AND employee_number = $2",
+        "query": "SELECT full_name, is_done FROM appeal_event2 WHERE full_name ILIKE $1 ESCAPE '\\'",
         "options": {
-          "queryReplacement": "={{ [$('Парсинг данных').first().json.fio_for_sql, $('Парсинг данных').first().json.employee_number] }}"
+          "queryReplacement": "={{ [$json.fio_for_sql] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [
-        4720,
-        300
-      ],
+      "position": [5280, 200],
       "id": "oa-db3-0001",
       "name": "БД №3: appeal_event2",
       "credentials": {
-        "postgres": {
-          "id": "OYsyciMf7Eq9W4FS",
-          "name": "Postgres"
-        }
+        "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Алгоритм №3: финальная классификация по appeal_event2.\n//   1) ФИО не найдено      → 'Сведения о данном ФИО отсутствуют'\n//   2) ФИО есть, не выполнено → 'Данному ФИО необходимо обратиться за помощью'\n//   3) ФИО есть, выполнено    → 'Для данного ФИО проводится проверка'\nconst rows = $input.all().map(item => item.json).filter(r => r && r.full_name);\n\nlet status, message;\n\nif (rows.length === 0) {\n  status = 'not_found';\n  message = 'Сведения о данном ФИО отсутствуют';\n} else {\n  const anyDone = rows.some(r => r.is_done === true);\n  if (anyDone) {\n    status = 'done';\n    message = 'Для данного ФИО проводится проверка';\n  } else {\n    status = 'not_done';\n    message = 'Данному ФИО необходимо обратиться за помощью';\n  }\n}\n\nreturn [{ json: {\n  step: 3,\n  name: 'Мероприятие №2',\n  status: status,\n  message: message\n}}];"
+        "jsCode": "// ФАЗА 4: Проверка Мероприятия №2 (финальная).\nconst rows = $input.all().map(item => item.json).filter(r => r && r.full_name);\nconst d = $('Фаза 3: классификация').first().json;\n\nlet step4 = { step: 4, name: 'Мероприятие №2' };\n\nif (rows.length === 0) {\n  step4.status = 'not_found';\n  step4.message = 'Сведения по данному заявителю отсутствуют';\n} else {\n  const anyDone = rows.some(r => r.is_done === true);\n  if (anyDone) {\n    step4.status = 'ok';\n    step4.message = 'Для данного заявителя все мероприятия пройдены успешно';\n  } else {\n    step4.status = 'not_done';\n    step4.message = 'Данному заявителю необходимо обратиться за помощью';\n  }\n}\n\nreturn [{ json: {\n  step4: step4,\n  employee_number: d.employee_number,\n  fio: d.fio,\n  birth_date: d.birth_date,\n  personal_number: d.personal_number,\n  snils: d.snils,\n  step1: d.step1,\n  step2: d.step2,\n  step3: d.step3\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        5000,
-        300
-      ],
-      "id": "oa-classify-step3-0001",
-      "name": "Классификация шага 3"
+      "position": [5560, 200],
+      "id": "oa-phase4-0001",
+      "name": "Фаза 4: классификация"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({response: $('Классификация шага 3').first().json.message, extracted: {fio: $('Парсинг данных').first().json.fio, birth_date: $('Парсинг данных').first().json.birth_date, employee_number: $('Парсинг данных').first().json.employee_number}, steps: [$('Классификация шага 1').first().json, $('Классификация шага 2').first().json, $('Классификация шага 3').first().json]}) }}",
+        "responseBody": "={{ JSON.stringify({response: $json.step4.message, extracted: {fio: $json.fio, birth_date: $json.birth_date, personal_number: $json.personal_number, snils: $json.snils, employee_number: $json.employee_number}, steps: [$json.step1, $json.step2, $json.step3, $json.step4]}) }}",
         "options": {
           "responseHeaders": {
             "entries": [
-              {
-                "name": "Access-Control-Allow-Origin",
-                "value": "*"
-              },
-              {
-                "name": "Access-Control-Allow-Headers",
-                "value": "Content-Type"
-              },
-              {
-                "name": "Access-Control-Allow-Methods",
-                "value": "POST, GET, OPTIONS"
-              }
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [
-        5280,
-        300
-      ],
+      "position": [5840, 200],
       "id": "oa-final-respond-0001",
       "name": "Финальный ответ"
     }
   ],
   "pinData": {},
   "connections": {
-    "Webhook OrgAppeal": {
-      "main": [
-        [
-          {
-            "node": "Ping?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Ping?": {
-      "main": [
-        [
-          {
-            "node": "Ответ: pong",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Источник: текст?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Источник: текст?": {
-      "main": [
-        [
-          {
-            "node": "Текст из body",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Валидация файла",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Текст из body": {
-      "main": [
-        [
-          {
-            "node": "Текст найден?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Валидация файла": {
-      "main": [
-        [
-          {
-            "node": "Файл валиден?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Файл валиден?": {
-      "main": [
-        [
-          {
-            "node": "OCR (text extraction)",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Ответ: ошибка файла",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "OCR (text extraction)": {
-      "main": [
-        [
-          {
-            "node": "Извлечь текст",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Извлечь текст": {
-      "main": [
-        [
-          {
-            "node": "Текст найден?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Текст найден?": {
-      "main": [
-        [
-          {
-            "node": "LLM извлечь данные",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Ответ: OCR не распознал",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "LLM извлечь данные": {
-      "main": [
-        [
-          {
-            "node": "Парсинг данных",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Парсинг данных": {
-      "main": [
-        [
-          {
-            "node": "Данные извлечены?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Данные извлечены?": {
-      "main": [
-        [
-          {
-            "node": "БД №1: appeal_employees",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Ответ: данные не извлечены",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "БД №1: appeal_employees": {
-      "main": [
-        [
-          {
-            "node": "Классификация шага 1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Классификация шага 1": {
-      "main": [
-        [
-          {
-            "node": "Шаг 1 успешен?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Шаг 1 успешен?": {
-      "main": [
-        [
-          {
-            "node": "БД №2: appeal_event1",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Ответ: шаг 1 не успех",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "БД №2: appeal_event1": {
-      "main": [
-        [
-          {
-            "node": "Классификация шага 2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Классификация шага 2": {
-      "main": [
-        [
-          {
-            "node": "Шаг 2 выполнен?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Шаг 2 выполнен?": {
-      "main": [
-        [
-          {
-            "node": "БД №3: appeal_event2",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Ответ: шаг 2 не done",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "БД №3: appeal_event2": {
-      "main": [
-        [
-          {
-            "node": "Классификация шага 3",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Классификация шага 3": {
-      "main": [
-        [
-          {
-            "node": "Финальный ответ",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Webhook OrgAppeal":      { "main": [[{ "node": "Ping?", "type": "main", "index": 0 }]] },
+    "Ping?":                  { "main": [
+      [{ "node": "Ответ: pong", "type": "main", "index": 0 }],
+      [{ "node": "Источник: текст?", "type": "main", "index": 0 }]
+    ] },
+    "Источник: текст?":       { "main": [
+      [{ "node": "Текст из body", "type": "main", "index": 0 }],
+      [{ "node": "Валидация файла", "type": "main", "index": 0 }]
+    ] },
+    "Текст из body":          { "main": [[{ "node": "Текст найден?", "type": "main", "index": 0 }]] },
+    "Валидация файла":        { "main": [[{ "node": "Файл валиден?", "type": "main", "index": 0 }]] },
+    "Файл валиден?":          { "main": [
+      [{ "node": "OCR (text extraction)", "type": "main", "index": 0 }],
+      [{ "node": "Ответ: ошибка файла", "type": "main", "index": 0 }]
+    ] },
+    "OCR (text extraction)":  { "main": [[{ "node": "Извлечь текст", "type": "main", "index": 0 }]] },
+    "Извлечь текст":          { "main": [[{ "node": "Текст найден?", "type": "main", "index": 0 }]] },
+    "Текст найден?":          { "main": [
+      [{ "node": "LLM извлечь данные", "type": "main", "index": 0 }],
+      [{ "node": "Ответ: OCR не распознал", "type": "main", "index": 0 }]
+    ] },
+    "LLM извлечь данные":     { "main": [[{ "node": "Парсинг данных", "type": "main", "index": 0 }]] },
+    "Парсинг данных":         { "main": [[{ "node": "Данные извлечены?", "type": "main", "index": 0 }]] },
+    "Данные извлечены?":      { "main": [
+      [{ "node": "Фаза 1: проверка полей", "type": "main", "index": 0 }],
+      [{ "node": "Ответ: данные не извлечены", "type": "main", "index": 0 }]
+    ] },
+    "Фаза 1: проверка полей": { "main": [[{ "node": "Фаза 1 OK?", "type": "main", "index": 0 }]] },
+    "Фаза 1 OK?":             { "main": [
+      [{ "node": "БД №1: appeal_employees", "type": "main", "index": 0 }],
+      [{ "node": "Ответ: Фаза 1 не пройдена", "type": "main", "index": 0 }]
+    ] },
+    "БД №1: appeal_employees":{ "main": [[{ "node": "Фаза 2: классификация", "type": "main", "index": 0 }]] },
+    "Фаза 2: классификация":  { "main": [[{ "node": "Фаза 2 OK?", "type": "main", "index": 0 }]] },
+    "Фаза 2 OK?":             { "main": [
+      [{ "node": "БД №2: appeal_event1", "type": "main", "index": 0 }],
+      [{ "node": "Ответ: Фаза 2 не пройдена", "type": "main", "index": 0 }]
+    ] },
+    "БД №2: appeal_event1":   { "main": [[{ "node": "Фаза 3: классификация", "type": "main", "index": 0 }]] },
+    "Фаза 3: классификация":  { "main": [[{ "node": "Фаза 3 OK?", "type": "main", "index": 0 }]] },
+    "Фаза 3 OK?":             { "main": [
+      [{ "node": "БД №3: appeal_event2", "type": "main", "index": 0 }],
+      [{ "node": "Ответ: Фаза 3 не пройдена", "type": "main", "index": 0 }]
+    ] },
+    "БД №3: appeal_event2":   { "main": [[{ "node": "Фаза 4: классификация", "type": "main", "index": 0 }]] },
+    "Фаза 4: классификация":  { "main": [[{ "node": "Финальный ответ", "type": "main", "index": 0 }]] }
   },
   "active": false,
-  "settings": {
-    "executionOrder": "v1"
-  },
-  "versionId": "org-appeal-v1",
+  "settings": { "executionOrder": "v1" },
+  "versionId": "org-appeal-v2",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "ad16de428774283a74f2bef15a9b31f771c3828cae096d3c33aab7bd18058813"

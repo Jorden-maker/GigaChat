@@ -209,11 +209,11 @@ main { max-width: 800px; }
     <div class="intro">
         <h2>Что делает алгоритм</h2>
         <p>Загрузите документ обращения (Word или PDF)</p>
-        <p>Алгоритм:<br>
-        1. Извлечёт <b>ФИО</b>, <b>дату рождения</b>, <b>табельный номер</b> из документа.<br>
-        2. Проверит идентификацию в <b>базе данных</b>.<br>
-        3. Если ОК — проверит выполнение <b>Мероприятия №1</b>.<br>
-        4. Если ОК — проверит выполнение <b>Мероприятия №2</b> и выдаст итог.</p>
+        <p>Алгоритм извлечёт из документа 4 поля: <b>ФИО</b>, <b>дату рождения</b>, <b>личный номер</b> (ХХХ-ХХХ) и <b>СНИЛС</b> (ХХХ-ХХХ-ХХХ ХХ), затем пройдёт 4 фазы проверки:<br>
+        1. <b>Проверка полей</b> — что все 4 идентификатора присутствуют в документе.<br>
+        2. <b>Идентификация в БД</b> — поиск заявителя в реестре сотрудников и получение табельного номера.<br>
+        3. <b>Мероприятие №1</b> — проверка выполнения.<br>
+        4. <b>Мероприятие №2</b> — проверка выполнения и выдача итога.</p>
     </div>
 
     <label class="drop-zone" id="uploadArea" for="fileInput">
@@ -256,6 +256,14 @@ main { max-width: 800px; }
             <div class="field">
                 <span class="field-label">Дата рождения</span>
                 <span class="field-value" id="fldBirth"></span>
+            </div>
+            <div class="field">
+                <span class="field-label">Личный номер</span>
+                <span class="field-value" id="fldPersonal"></span>
+            </div>
+            <div class="field">
+                <span class="field-label">СНИЛС</span>
+                <span class="field-value" id="fldSnils"></span>
             </div>
             <div class="field">
                 <span class="field-label">Табельный номер</span>
@@ -364,15 +372,26 @@ main { max-width: 800px; }
     function renderResult(data) {
         clearResults();
 
-        // 1. Извлечённые данные — показываем если есть FIO/birth/number
+        // 1. Извлечённые данные — показываем если есть хоть одно поле.
+        // 5 полей: ФИО, ДР, Личный номер, СНИЛС, Табельный номер.
+        // Табельный заполняется только после ФАЗЫ 2 (идентификации в БД).
         var extracted = data.extracted || {};
-        if (extracted.fio || extracted.birth_date || extracted.employee_number) {
-            document.getElementById('fldFio').textContent = extracted.fio || 'не указано';
-            document.getElementById('fldFio').className = 'field-value' + (extracted.fio ? '' : ' empty');
-            document.getElementById('fldBirth').textContent = extracted.birth_date || 'не указано';
-            document.getElementById('fldBirth').className = 'field-value' + (extracted.birth_date && extracted.birth_date !== 'не указано' ? '' : ' empty');
-            document.getElementById('fldNumber').textContent = extracted.employee_number || 'не указан';
-            document.getElementById('fldNumber').className = 'field-value' + (extracted.employee_number && extracted.employee_number !== 'не указан' ? '' : ' empty');
+        var hasAny = extracted.fio || extracted.birth_date ||
+                     extracted.personal_number || extracted.snils ||
+                     extracted.employee_number;
+        if (hasAny) {
+            function setField(id, value, placeholder) {
+                var el = document.getElementById(id);
+                el.textContent = value || placeholder;
+                el.className = 'field-value' + (value ? '' : ' empty');
+            }
+            setField('fldFio',      extracted.fio,             'не указано');
+            setField('fldBirth',    extracted.birth_date,      'не указано');
+            setField('fldPersonal', extracted.personal_number, 'не указан');
+            setField('fldSnils',    extracted.snils,           'не указан');
+            // Табельный номер появляется только после успешной идентификации
+            // в БД (фаза 2). До этого — placeholder «—».
+            setField('fldNumber',   extracted.employee_number, '— (после идентификации)');
             extractedSection.classList.add('show');
         }
 
@@ -501,8 +520,10 @@ main { max-width: 800px; }
         var lines = [];
         if (extractedSection.classList.contains('show')) {
             lines.push('ИЗВЛЕЧЁННЫЕ ДАННЫЕ:');
-            lines.push('  ФИО: ' + document.getElementById('fldFio').textContent);
-            lines.push('  Дата рождения: ' + document.getElementById('fldBirth').textContent);
+            lines.push('  ФИО: '             + document.getElementById('fldFio').textContent);
+            lines.push('  Дата рождения: '   + document.getElementById('fldBirth').textContent);
+            lines.push('  Личный номер: '    + document.getElementById('fldPersonal').textContent);
+            lines.push('  СНИЛС: '           + document.getElementById('fldSnils').textContent);
             lines.push('  Табельный номер: ' + document.getElementById('fldNumber').textContent);
             lines.push('');
         }
