@@ -118,11 +118,27 @@ main { max-width: 900px; }
 }
 #optionsPanel label.row { gap: 10px; flex-wrap: wrap; }
 #optionsPanel input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
-#optionsPanel select {
-    background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text-primary); padding: 6px 10px; font-size: 13px; font-family: inherit;
-    cursor: pointer;
+/* Кастомный select — appearance:none + ::after-стрелка через wrapper */
+.select-wrap { position: relative; display: inline-block; }
+.select-wrap::after {
+    content: ''; position: absolute; right: 12px; top: 50%;
+    width: 7px; height: 7px;
+    border-right: 1.5px solid var(--text-secondary);
+    border-bottom: 1.5px solid var(--text-secondary);
+    transform: translateY(-70%) rotate(45deg);
+    pointer-events: none;
+    transition: border-color 0.15s;
 }
+.select-wrap:hover::after { border-right-color: var(--accent); border-bottom-color: var(--accent); }
+#optionsPanel select {
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text-primary); padding: 8px 32px 8px 12px; font-size: 13px; font-family: inherit;
+    cursor: pointer; transition: all 0.15s;
+    min-width: 200px;
+}
+#optionsPanel select:hover { border-color: var(--accent); background: var(--bg-card); }
+#optionsPanel select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
 #optionsPanel .ignore-list {
     display: flex; flex-wrap: wrap; gap: 6px;
 }
@@ -165,6 +181,8 @@ main { max-width: 900px; }
     background: var(--bg-input); position: sticky; top: 0;
     color: var(--text-primary); font-weight: 600; font-size: 12px;
 }
+#previewSection th.sorted-col { background: var(--accent-light); color: var(--accent); }
+#previewSection .sort-arrow { color: var(--accent); font-weight: 700; margin-left: 4px; }
 #previewSection td { color: var(--text-secondary); }
 #previewSection tr:last-child td { border-bottom: none; }
 #previewSection .preview-footer {
@@ -259,11 +277,11 @@ main { max-width: 900px; }
         <div class="options-body">
             <label><input type="checkbox" id="optDedup" onchange="recomputePreview()"> Удалить дубликаты строк</label>
             <label class="row">Сортировка по столбцу:
-                <select id="optSortCol" onchange="recomputePreview()"><option value="-1">Без сортировки</option></select>
-                <select id="optSortDir" onchange="recomputePreview()">
-                    <option value="asc">по возрастанию</option>
-                    <option value="desc">по убыванию</option>
-                </select>
+                <span class="select-wrap"><select id="optSortCol" onchange="recomputePreview()"><option value="-1">Без сортировки</option></select></span>
+                <span class="select-wrap"><select id="optSortDir" onchange="recomputePreview()" title="«Возрастание»: числа 1→9, текст А→Я, даты от старой к новой. «Убывание» — наоборот.">
+                    <option value="asc">↑ по возрастанию (А→Я, 1→9)</option>
+                    <option value="desc">↓ по убыванию (Я→А, 9→1)</option>
+                </select></span>
             </label>
             <div>
                 <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">Игнорировать столбцы (клик включает/выключает):</div>
@@ -611,9 +629,16 @@ function renderPreview(merged) {
     previewRowCount.textContent = String(rows.length);
     previewColCount.textContent = String(headers.length);
 
+    // Стрелка ↑/↓ на сортируемой колонке. sortCol — индекс в unionColumns
+    // (до игнора), а headers — после игнора, потому ищем по имени.
+    var sortColVal = parseInt(optSortCol.value, 10);
+    var sortedHeaderName = (sortColVal >= 0 && unionColumns[sortColVal]) ? unionColumns[sortColVal] : null;
+    var sortArrow = optSortDir.value === 'desc' ? ' <span class="sort-arrow">↓</span>' : ' <span class="sort-arrow">↑</span>';
+
     var html = '<thead><tr>';
     for (var i = 0; i < headers.length; i++) {
-        html += '<th>' + escapeHtml(headers[i]) + '</th>';
+        var isSorted = sortedHeaderName && headers[i] === sortedHeaderName;
+        html += '<th' + (isSorted ? ' class="sorted-col"' : '') + '>' + escapeHtml(headers[i]) + (isSorted ? sortArrow : '') + '</th>';
     }
     html += '</tr></thead><tbody>';
     var limit = Math.min(rows.length, PREVIEW_ROW_LIMIT);
