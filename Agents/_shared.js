@@ -8,6 +8,29 @@
   var RETRY_DELAY_MS = 3000;
   var PING_TIMEOUT_MS = 5000;
 
+  // Единый whitelist форматов для скрепки. Раньше каждый HTML определял
+  // свой accept-список, а canExtractInBrowser/OCR — отдельный набор. Расходились
+  // в крайних случаях (xlsm/csv/md/log парсер принимал, accept не пускал).
+  // ACCEPT_BROWSER — извлекаем в браузере (JSZip или прямое чтение)
+  // ACCEPT_OCR     — отправляем в OCR (PDF, картинки, старые форматы)
+  var SUPPORTED_FILE_EXTS = {
+    browser: ['docx', 'xlsx', 'xlsm', 'txt', 'md', 'log', 'csv'],
+    ocr:     ['pdf', 'doc', 'rtf', 'odt', 'xls', 'ppt', 'pptx',
+              'jpg', 'jpeg', 'png', 'webp', 'bmp', 'tif', 'tiff', 'gif', 'heic', 'heif']
+  };
+  function acceptAttr(scope) {
+    // scope: 'all' | 'browser' | 'ocr' | array of group names
+    var groups = scope === 'all' || !scope
+      ? ['browser', 'ocr']
+      : (Array.isArray(scope) ? scope : [scope]);
+    var exts = [];
+    for (var i = 0; i < groups.length; i++) {
+      var g = SUPPORTED_FILE_EXTS[groups[i]] || [];
+      for (var j = 0; j < g.length; j++) exts.push('.' + g[j]);
+    }
+    return exts.join(',');
+  }
+
   function webhookUrl(path) {
     return cfg.N8N_BASE.replace(/\/$/, '') + '/webhook/' + path.replace(/^\//, '');
   }
@@ -149,6 +172,43 @@
         if (textEl) textEl.textContent = labels.offline;
         return false;
       });
+  }
+
+  // Запускает периодический health-check со встроенным lifecycle-управлением.
+  // Раньше каждый агент звал setInterval(checkServerStatus, 30000) без cleanup,
+  // и при BFCache (history.back в Firefox/Safari) интервалы дублировались.
+  // Эта функция:
+  //   - Делает первый ping сразу + затем по интервалу
+  //   - На pagehide останавливает таймер (страница ушла в BFCache)
+  //   - На pageshow возобновляет, если страница вернулась
+  //   - Возвращает stop() — для ручной остановки если нужно
+  function startHealthCheck(url, dotEl, textEl, opts) {
+    opts = opts || {};
+    var interval = opts.intervalMs || 30000;
+    var timerId = null;
+    var stopped = false;
+
+    function tick() { checkServerStatus(url, dotEl, textEl, opts); }
+    function start() {
+      if (timerId || stopped) return;
+      tick();
+      timerId = setInterval(tick, interval);
+    }
+    function pause() {
+      if (timerId) { clearInterval(timerId); timerId = null; }
+    }
+    function stop() {
+      stopped = true;
+      pause();
+      global.removeEventListener('pagehide', pause);
+      global.removeEventListener('pageshow', start);
+    }
+
+    global.addEventListener('pagehide', pause);
+    global.addEventListener('pageshow', start);
+    start();
+
+    return { stop: stop };
   }
 
   // Markdown-таблица → HTML <table>. Должна работать ДО конвертации \n в <br>.
@@ -1173,7 +1233,7 @@
         }
         selectedFiles.push(f);
       }
-      if (rejected.length) alert('Не удалось добавить:\n' + rejected.join('\n'));
+      if (rejected.length) showToast('Не удалось добавить:\n' + rejected.join('\n'), 'warn');
       renderChips();
       onChange();
       if (inputElement) inputElement.focus();
@@ -2054,10 +2114,15 @@
         }
       }
     }
+    // Идемпотентность: если createChatAgent вызвали дважды (или встроили
+    // двух агентов на одну страницу), хранить только последний handler.
+    // Без этого старый listener живёт + новый = двойной switchTo на storage event.
+    var handlerKey = '__gcStorageHandler_' + (opts.prefix || 'default');
+    if (global[handlerKey]) {
+      window.removeEventListener('storage', global[handlerKey]);
+    }
+    global[handlerKey] = handleStorageEvent;
     window.addEventListener('storage', handleStorageEvent);
-    // dispose() убран как dead code — проект multi-page, при переходе на
-    // другую страницу window перезагружается и листенеры умирают сами.
-    // Если когда-нибудь появится SPA-роутинг — добавить cleanup сюда.
 
     return {
       state: store,                              // прямой доступ к sessions/activeSessionId/displayMessages
@@ -3083,6 +3148,7 @@
     copyToClipboard: copyTextToClipboard,
     fetchWithRetry: fetchWithRetry,
     checkServerStatus: checkServerStatus,
+    startHealthCheck: startHealthCheck,
     formatMarkdown: formatMarkdown,
     formatMarkdownTable: formatMarkdownTable,
     toggleTheme: toggleTheme,
@@ -3091,6 +3157,8 @@
     initThemeToggle: initThemeToggle,
     setupAttachment: setupAttachment,
     buildMessageWithAttachment: buildMessageWithAttachment,
+    SUPPORTED_FILE_EXTS: SUPPORTED_FILE_EXTS,
+    acceptAttr: acceptAttr,
     // Браузерные парсеры — для прямого использования из text-extractor и других мест
     canExtractInBrowser: canExtractInBrowser,
     extractBrowserText: extractBrowserText,

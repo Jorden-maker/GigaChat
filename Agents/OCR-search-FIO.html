@@ -119,13 +119,9 @@ main { max-width: 800px; }
     var resetBtnDiv = document.getElementById('resetBtn');
     var timerEl = document.getElementById('timer');
     var timerInterval = null;
-    var ALLOWED_EXTENSIONS = [
-        'pdf','doc','docx','rtf','odt','txt',
-        'png','jpg','jpeg','tiff','tif','bmp','gif','webp','heic','heif'
-    ];
-    function checkServerStatus() {
-        return GigaChat.checkServerStatus(WEBHOOK_URL, document.getElementById('statusDot'), document.getElementById('statusText'));
-    }
+    // OCR-агент: принимаем то, что extract-text сервер реально умеет.
+    // Единый список — в GigaChat.SUPPORTED_FILE_EXTS (browser + ocr).
+    var ALLOWED_EXTENSIONS = GigaChat.SUPPORTED_FILE_EXTS.browser.concat(GigaChat.SUPPORTED_FILE_EXTS.ocr);
     function getExtension(fn) { return (fn||'').split('.').pop().toLowerCase(); }
     function isAllowedFile(fn) { return ALLOWED_EXTENSIONS.indexOf(getExtension(fn)) !== -1; }
     function formatFileSize(b) {
@@ -222,26 +218,18 @@ main { max-width: 800px; }
     function copyResult() {
         var text = result.innerText || result.textContent;
         if (!text) return;
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(text).then(function() { alert('Скопировано'); });
-        } else {
-            var ta = document.createElement('textarea'); ta.value = text;
-            document.body.appendChild(ta); ta.select();
-            document.execCommand('copy'); document.body.removeChild(ta);
-            alert('Скопировано');
-        }
+        GigaChat.copyToClipboard(text).then(function (ok) {
+            GigaChat.showToast(ok ? 'Скопировано' : 'Не удалось скопировать');
+        });
     }
     function formatResponse(text) {
-        if (!text) return '';
-        var html = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-        html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
-        html = html.replace(/^- (.+)$/gm, '  • $1');
-        html = html.replace(/^---$/gm, '<hr style="border-color:var(--border);margin:10px 0">');
-        return html;
+        return GigaChat.formatMarkdown(text || '');
     }
-    checkServerStatus();
-    setInterval(checkServerStatus, 30000);
+    GigaChat.startHealthCheck(
+        WEBHOOK_URL,
+        document.getElementById('statusDot'),
+        document.getElementById('statusText')
+    );
 </script>
 </body>
 </html>

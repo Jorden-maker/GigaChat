@@ -139,11 +139,8 @@
         function copyPrompt(btn) {
             var pre = btn.closest('.prompt-block').querySelector('pre');
             if (!pre) return;
-            navigator.clipboard.writeText(pre.textContent).then(function () {
-                btn.textContent = 'Скопировано!';
-                setTimeout(function () { btn.textContent = 'Копировать'; }, 2000);
-            }).catch(function () {
-                btn.textContent = 'Не удалось';
+            GigaChat.copyToClipboard(pre.textContent).then(function (ok) {
+                btn.textContent = ok ? 'Скопировано!' : 'Не удалось';
                 setTimeout(function () { btn.textContent = 'Копировать'; }, 2000);
             });
         }
@@ -176,8 +173,8 @@
         // Переопределяем после createChatAgent (он назначил свой default).
         window.exportChat = function () {
             var s = agent.sessionStore.state;
-            if (!s.activeSessionId) { alert('Нет активной сессии'); return; }
-            if (s.displayMessages.length === 0) { alert('Нет сообщений для экспорта'); return; }
+            if (!s.activeSessionId) { GigaChat.showToast('Нет активной сессии', 'warn'); return; }
+            if (s.displayMessages.length === 0) { GigaChat.showToast('Нет сообщений для экспорта', 'warn'); return; }
             var text = 'GigaChat Prompt\nЭкспорт: ' + new Date().toLocaleString('ru-RU') + '\n' + '='.repeat(50) + '\n\n';
             for (var i = 0; i < s.displayMessages.length; i++) {
                 var m = s.displayMessages[i];
@@ -194,11 +191,14 @@
                 text += '-'.repeat(40) + '\n\n';
             }
             var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
+            a.href = url;
             a.download = 'prompt-engineer-export.txt';
             a.click();
-            URL.revokeObjectURL(a.href);
+            // revokeObjectURL сразу после click() может прервать download на Firefox/slow.
+            // Даём 1 секунду до GC URL'а — так же как в дефолтном exportChat в _shared.js.
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
         };
     </script>
 </body>

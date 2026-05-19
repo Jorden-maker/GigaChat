@@ -660,8 +660,21 @@
         for (var i = 0; i < AGENTS.length; i++) checkCard(AGENTS[i]);
     }
 
-    checkAll();
-    setInterval(checkAll, 30000);
+    // Health-таймер с lifecycle для BFCache: на pagehide останавливаемся,
+    // на pageshow возобновляемся. Иначе при history.back в Firefox/Safari
+    // накапливались дубль-интервалы.
+    var dashboardHealthTimer = null;
+    function startDashboardHealth() {
+        if (dashboardHealthTimer) return;
+        checkAll();
+        dashboardHealthTimer = setInterval(checkAll, 30000);
+    }
+    function stopDashboardHealth() {
+        if (dashboardHealthTimer) { clearInterval(dashboardHealthTimer); dashboardHealthTimer = null; }
+    }
+    window.addEventListener('pagehide', stopDashboardHealth);
+    window.addEventListener('pageshow', startDashboardHealth);
+    startDashboardHealth();
 
     // Модалка остаётся в html (нужна fixed на весь viewport). Кнопка-триггер
     // живёт в обычном потоке внутри .container — прокручивается вместе с шапкой.
@@ -838,14 +851,9 @@
     }
 
     function copyText(text) {
-        try {
-            navigator.clipboard.writeText(text);
-        } catch (e) {
-            var ta = document.createElement('textarea');
-            ta.value = text; document.body.appendChild(ta); ta.select();
-            try { document.execCommand('copy'); } catch (_) {}
-            ta.remove();
-        }
+        // navigator.clipboard падает по HTTP (LAN-only сценарий), есть готовый
+        // хелпер в _shared.js с execCommand-fallback — используем его.
+        GigaChat.copyToClipboard(text);
     }
 
     // Визуальное подтверждение копирования: кнопка зеленеет на 1.2 сек.

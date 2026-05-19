@@ -158,11 +158,7 @@ main { max-width: 800px; }
 
     var statusDot = document.getElementById('statusDot');
     var statusText = document.getElementById('statusText');
-    function checkServer() {
-        return GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
-    }
-    checkServer();
-    setInterval(checkServer, 30000);
+    GigaChat.startHealthCheck(WEBHOOK_URL, statusDot, statusText);
 
     // hasFiles: dragover на текст/ссылке/URL не должен подсвечивать зону
     function hasFiles(e) {

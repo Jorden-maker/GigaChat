@@ -503,11 +503,7 @@ async function doMerge() {
 
 // Health check (через webhook — если n8n live, считаем что и сервис live;
 // настоящий статус узнаем только при запросе на /merge).
-function checkStatus() {
-    GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
-}
-checkStatus();
-setInterval(checkStatus, 30000);
+GigaChat.startHealthCheck(WEBHOOK_URL, statusDot, statusText);
 
 renderList();
 </script>

@@ -303,6 +303,10 @@ main { max-width: 800px; }
     var MAX_FILE_SIZE_MB = 50;
     var selectedFile = null;
     var isProcessing = false;
+    // Для отмены: храним active AbortController, чтобы resetForm() мог
+    // прервать inflight fetch (иначе результат старого запроса прилетит
+    // поверх UI после сброса).
+    var currentAbortController = null;
     var uploadArea = document.getElementById('uploadArea');
     var sendBtn = document.getElementById('sendBtn');
     var loading = document.getElementById('loading');
@@ -433,11 +437,11 @@ main { max-width: 800px; }
         finalSection.classList.add('show');
     }
 
-    function escapeHtml(s) {
-        var d = document.createElement('div');
-        d.textContent = String(s == null ? '' : s);
-        return d.innerHTML;
-    }
+    // Локальный proxy на GigaChat.escapeHtml — чтобы внутренние renderResult/
+    // copyResult не зависели от типизации одного хелпера.
+    function escapeHtml(s) { return GigaChat.escapeHtml(s == null ? '' : s); }
+    // escapeAttr нужен специфический: строгий whitelist для className.
+    // Не дубликат escapeHtml — оставляем как есть.
     function escapeAttr(s) {
         return String(s == null ? '' : s).replace(/[^a-z0-9_-]/gi, '');
     }
@@ -449,6 +453,7 @@ main { max-width: 800px; }
         loading.classList.add('show');
         clearResults();
         resetBtnDiv.classList.remove('show');
+        currentAbortController = new AbortController();
         var startTime = Date.now();
         timerEl.textContent = '';
         timerInterval = setInterval(function () {
@@ -474,7 +479,8 @@ main { max-width: 800px; }
             var res = await GigaChat.fetchWithRetry(WEBHOOK_URL, fetchOpts, {
                 timeout: FETCH_TIMEOUT_MS,
                 retries: MAX_RETRIES,
-                retryDelay: RETRY_DELAY_MS
+                retryDelay: RETRY_DELAY_MS,
+                signal: currentAbortController.signal
             });
             clearInterval(timerInterval);
             loading.classList.remove('show');
@@ -495,16 +501,26 @@ main { max-width: 800px; }
         } catch (e) {
             clearInterval(timerInterval);
             loading.classList.remove('show');
-            errorBox.textContent = 'Ошибка: ' + e.message;
-            errorBox.classList.add('show');
-            document.getElementById('statusDot').className = 'dot offline';
-            document.getElementById('statusText').textContent = 'Офлайн';
+            // Юзер нажал «сбросить» во время inflight — не показываем ошибку.
+            if (e.name !== 'AbortError') {
+                errorBox.textContent = 'Ошибка: ' + e.message;
+                errorBox.classList.add('show');
+                document.getElementById('statusDot').className = 'dot offline';
+                document.getElementById('statusText').textContent = 'Офлайн';
+            }
         }
+        currentAbortController = null;
         isProcessing = false;
         resetBtnDiv.classList.add('show');
     }
 
     function resetForm() {
+        // Если есть активный fetch — обрываем его. Без этого результат
+        // старого запроса прилетит асинхронно поверх сброшенного UI.
+        if (currentAbortController) {
+            try { currentAbortController.abort(); } catch (_) {}
+            currentAbortController = null;
+        }
         selectedFile = null;
         document.getElementById('fileInput').value = '';
         document.getElementById('fileName').textContent = '';
@@ -547,21 +563,16 @@ main { max-width: 800px; }
             lines.push('ОШИБКА: ' + errorBox.textContent);
         }
         var text = lines.join('\n');
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(text).then(function () { alert('Скопировано'); });
-        } else {
-            var ta = document.createElement('textarea');
-            ta.value = text;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-            alert('Скопировано');
-        }
+        GigaChat.copyToClipboard(text).then(function (ok) {
+            GigaChat.showToast(ok ? 'Скопировано' : 'Не удалось скопировать');
+        });
     }
 
-    checkServerStatus();
-    setInterval(checkServerStatus, 30000);
+    GigaChat.startHealthCheck(
+        WEBHOOK_URL,
+        document.getElementById('statusDot'),
+        document.getElementById('statusText')
+    );
 </script>
 </body>
 </html>

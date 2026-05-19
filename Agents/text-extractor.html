@@ -149,11 +149,7 @@
 
     var statusDot = document.getElementById('statusDot');
     var statusText = document.getElementById('statusText');
-    function checkServer() {
-        return GigaChat.checkServerStatus(WEBHOOK_URL, statusDot, statusText);
-    }
-    checkServer();
-    setInterval(checkServer, 30000);
+    GigaChat.startHealthCheck(WEBHOOK_URL, statusDot, statusText);
 
     function hasFiles(e) {
         var t = e.dataTransfer && e.dataTransfer.types;
@@ -361,10 +357,10 @@
 
     function copyResult() {
         if (!lastResultText) return;
-        navigator.clipboard.writeText(lastResultText).then(function() {
+        GigaChat.copyToClipboard(lastResultText).then(function (ok) {
             var btn = document.getElementById('btnCopy');
             var old = btn.textContent;
-            btn.textContent = 'Скопировано';
+            btn.textContent = ok ? 'Скопировано' : 'Не удалось';
             setTimeout(function() { btn.textContent = old; }, 1500);
         });
     }
