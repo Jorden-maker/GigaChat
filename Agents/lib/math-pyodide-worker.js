@@ -66,11 +66,18 @@ self.onmessage = async function (e) {
         pyodide.setStderr({ batched: function (s) { stderr.push(s); } });
 
         try {
-            // loadPackagesFromImports попытается подтянуть упомянутые в коде
-            // не-stdlib пакеты (sympy/numpy/scipy). На Варианте A их в бандле
-            // нет — упадёт. Безопасно игнорируем: если пакета нет, runPythonAsync
-            // сам выдаст ModuleNotFoundError ниже, которую и поймаем.
-            try { await pyodide.loadPackagesFromImports(code); } catch (_) {}
+            // loadPackagesFromImports подтягивает sympy/numpy/scipy/mpmath из
+            // Agents/lib/pyodide/. Зависимости (mpmath ← sympy; openblas ← scipy)
+            // обычно резолвятся автоматически, но scipy с openblas — особый shared
+            // lib, и в редких сборках Pyodide бывают сбои авто-резолва.
+            // Если в коде явно есть `scipy` — догружаем openblas принудительно,
+            // чтобы не словить «libopenblas.so not found» при первом import scipy.
+            try {
+                await pyodide.loadPackagesFromImports(code);
+                if (/\bscipy\b/.test(code)) {
+                    try { await pyodide.loadPackage(['openblas']); } catch (_) {}
+                }
+            } catch (_) {}
             await pyodide.runPythonAsync(code);
             self.postMessage({
                 type: 'result',
