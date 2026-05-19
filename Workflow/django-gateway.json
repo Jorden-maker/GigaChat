@@ -1,0 +1,187 @@
+{
+  "name": "Django Gateway. Поток",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "from_django_to_n8n",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 300],
+      "id": "dg-webhook-0001",
+      "name": "Webhook Django",
+      "webhookId": "django-gateway-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Валидация запроса от Django.\n// Ожидаем JSON-body: { message: '...', agent: 'chat|math|rag|sql|router|prompt-engineer', session_id?: '...' }\n// agent опциональный — default 'chat'\n// session_id опциональный — генерируем если нет\n\nconst body = $input.first().json.body || {};\nconst message = (body.message || '').toString().trim();\nconst agent = (body.agent || 'chat').toString().trim().toLowerCase();\n\nif (!message) {\n  return [{ json: { valid: 0, error: 'Поле message обязательно' } }];\n}\n\nif (message.length > 100000) {\n  return [{ json: { valid: 0, error: 'Слишком длинный message (>100000 символов)' } }];\n}\n\n// Whitelist agent-имён (соответствуют webhook-path'ам существующих агентов)\nconst ALLOWED_AGENTS = ['chat', 'math', 'rag', 'sql', 'router', 'prompt-engineer'];\nif (!ALLOWED_AGENTS.includes(agent)) {\n  return [{ json: { valid: 0, error: 'Неизвестный agent: \"' + agent + '\". Доступны: ' + ALLOWED_AGENTS.join(', ') } }];\n}\n\n// session_id: либо из body, либо генерируем.\n// Каждый запрос без session_id = новый диалог (без истории).\n// Если Django хочет вести непрерывный диалог — пусть передаёт session_id явно.\nlet session_id = (body.session_id || '').toString().trim();\nif (!session_id) {\n  const ts = Date.now();\n  const rand = Math.random().toString(36).slice(2, 8);\n  session_id = `django_${ts}_${rand}`;\n}\n\n// Защита от инъекций (то же правило что в других агентах)\nif (!/^[a-zA-Z0-9_-]{3,64}$/.test(session_id)) {\n  return [{ json: { valid: 0, error: 'session_id содержит недопустимые символы или длина <3' } }];\n}\n\nreturn [{ json: { valid: 1, message, agent, session_id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "id": "dg-validate-0001",
+      "name": "Валидация"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-valid-dg",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 1,
+              "operator": { "type": "number", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [520, 300],
+      "id": "dg-if-valid-0001",
+      "name": "Запрос валиден?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: $json.error }) }}",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [800, 500],
+      "id": "dg-resp-error-0001",
+      "name": "Ответ: ошибка валидации"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, accepted: true, session_id: $json.session_id, agent: $json.agent }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [800, 100],
+      "id": "dg-resp-accepted-0001",
+      "name": "Ответ: 200 принято"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:5678/webhook/{{ $json.agent }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json.message, session_id: $json.session_id }) }}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 100],
+      "id": "dg-call-agent-0001",
+      "name": "Вызов агента",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Собираем callback-body для Django.\n// Источник «оригинальных» полей — нода «Валидация» (там нормализованные значения).\n// Результат вызова агента — текущий $json (приходит от ноды «Вызов агента»).\n\nconst src = $('Валидация').first().json;\nconst raw = $input.first().json || {};\n\n// Парсим ответ агента. Все наши агенты отвечают полем `response`.\n// Если ошибка — поля `error` или request не дошёл.\nlet response = '';\nlet ok = true;\nlet error = null;\n\nif (raw.error) {\n  ok = false;\n  error = typeof raw.error === 'string' ? raw.error : JSON.stringify(raw.error);\n} else if (typeof raw.response === 'string') {\n  response = raw.response;\n} else if (raw.response != null) {\n  response = String(raw.response);\n} else {\n  ok = false;\n  error = 'Агент не вернул поле response';\n}\n\nreturn [{ json: {\n  ok: ok,\n  agent: src.agent,\n  message: src.message,\n  session_id: src.session_id,\n  response: response,\n  error: error,\n  timestamp: new Date().toISOString()\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1360, 100],
+      "id": "dg-build-callback-0001",
+      "name": "Сборка ответа"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://<DJANGO_HOST>/from_n8n_to_django",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json; charset=utf-8" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1640, 100],
+      "id": "dg-callback-0001",
+      "name": "Callback в Django",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Django": {
+      "main": [[{ "node": "Валидация", "type": "main", "index": 0 }]]
+    },
+    "Валидация": {
+      "main": [[{ "node": "Запрос валиден?", "type": "main", "index": 0 }]]
+    },
+    "Запрос валиден?": {
+      "main": [
+        [{ "node": "Ответ: 200 принято", "type": "main", "index": 0 }],
+        [{ "node": "Ответ: ошибка валидации", "type": "main", "index": 0 }]
+      ]
+    },
+    "Ответ: 200 принято": {
+      "main": [[{ "node": "Вызов агента", "type": "main", "index": 0 }]]
+    },
+    "Вызов агента": {
+      "main": [[{ "node": "Сборка ответа", "type": "main", "index": 0 }]]
+    },
+    "Сборка ответа": {
+      "main": [[{ "node": "Callback в Django", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "django-gateway-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ad16de428774283a74f2bef15a9b31f771c3828cae096d3c33aab7bd18058813"
+  },
+  "id": "django-gateway-001",
+  "tags": []
+}
