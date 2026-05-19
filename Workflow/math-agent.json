@@ -99,7 +99,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const agg = $('Агрегация').first().json;\nconst message = agg.message;\nconst historyContext = agg.historyContext || '';\nconst historyContextMath = agg.historyContextMath || '';\nconst session_id = agg.session_id || 'math-default';\nconst lower = message.toLowerCase();\n\n// 1) Вложение в math-агенте форсит math ТОЛЬКО при наличии мат-индикаторов\n// в содержимом. Раньше любое вложение шло в math: пользователь иногда по\n// ошибке прикреплял рецепт/художку, LLM пытался писать Python и валился\n// без понятной обратной связи. Теперь:\n//   - есть арифметическое выражение / переменная / мат-термин → math\n//   - чистая проза (рецепт, статья) → проваливаемся в обычный классификатор\n//     (там скорее всего попадёт в general, и пользователь получит честный\n//     ответ «не могу помочь с этим типом задач»).\nif (/\\[ВЛОЖЕНИЕ:/.test(message)) {\n  const hasOperators = /\\d+\\s*[+\\-*/^%=]\\s*\\d/.test(message);\n  const hasEquations = /(x|y|z|икс|игрек)\\s*[\\^+\\-*/=]/i.test(message);\n  const hasMathTerm = /(уравнен|формул|вычисл|реши|сколько|корен|интеграл|производн|сумм|процент|матриц|треугольник|периметр|площад|объ[её]м|радиус|диаметр|графи[кч]|функци|медиан|среднее|задач|пример)/i.test(message);\n  if (hasOperators || hasEquations || hasMathTerm) {\n    return [{ json: { message, mode: 'math', historyContext, historyContextMath, session_id } }];\n  }\n  // нет мат-индикаторов в вложении — пускаем в обычный классификатор ниже\n}\n\nconst mathKeywords = [\n  'посчитай', 'вычисли', 'вычислить', 'рассчитай', 'рассчитать',\n  'реши', 'решить', 'решение', 'уравнен', 'неравенств',\n  'формул', 'процент', 'корень', 'степен', 'логарифм',\n  'сумм', 'разност', 'произведен', 'делен', 'остаток от',\n  'плюс', 'минус', 'умножь', 'умножить', 'умножен',\n  'раздели', 'разделить',\n  'возведи', 'возвести', 'в степени', 'в квадрате', 'в кубе',\n  'площад', 'объём', 'объем', 'периметр', 'окружност',\n  'треугольник', 'квадрат', 'куб', 'прямоугольник', 'цилиндр', 'сфер',\n  'интеграл', 'производн', 'предел', 'синус', 'косинус', 'тангенс',\n  'матриц', 'вектор', 'определител', 'детерминант',\n  'график', 'функци', 'парабол',\n  'статистик', 'среднее', 'медиан', 'дисперс', 'отклонен',\n  'вероятност', 'комбинатор', 'факториал', 'перестанов', 'сочетан',\n  'npv', 'irr', 'roi', 'аннуитет', 'ипотек', 'кредит', 'депозит',\n  'инвестиц', 'маржа', 'наценк', 'скидк', 'ндс', 'налог',\n  'зарплат', 'рентабельн', 'прибыл', 'выручк', 'себестоимост',\n  'сколько будет', 'чему равн', 'найди', 'найти',\n  'sqrt', 'calculate', 'solve', 'equation', 'math',\n  'конвертируй', 'переведи в'\n];\n\nconst hasMathExpression = /\\d+\\s*[+\\-*/^%=]\\s*\\d+/.test(message);\nconst hasFactorial = /\\d+\\s*!/.test(message);\nconst hasNumbers = /\\d{2,}/.test(message) || /\\d+[.,]\\d+/.test(message);\n\nlet isMath = hasMathExpression || hasFactorial;\n\nif (!isMath) {\n  for (const kw of mathKeywords) {\n    if (lower.includes(kw)) { isMath = true; break; }\n  }\n}\n\nif (!isMath && hasNumbers && message.length > 20) {\n  const taskIndicators = ['сколько', 'какой', 'какая', 'какое', 'найди', 'найти',\n    'определи', 'определить', 'если', 'при', 'дано', 'равно', 'равна'];\n  for (const kw of taskIndicators) {\n    if (lower.includes(kw)) { isMath = true; break; }\n  }\n}\n\nif (!isMath && /^[\\d\\s+\\-*/^().,]+$/.test(message.trim())) {\n  isMath = true;\n}\n\nif (!isMath) {\n  return [{ json: { message, mode: 'general', historyContext, historyContextMath, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'math', historyContext, historyContextMath, session_id } }];"
+        "jsCode": "const agg = $('Агрегация').first().json;\nconst message = agg.message;\nconst historyContext = agg.historyContext || '';\nconst historyContextMath = agg.historyContextMath || '';\nconst session_id = agg.session_id || 'math-default';\nconst lastCode = agg.lastCode || '';\nconst lastRawResult = agg.lastRawResult || '';\nconst lastTask = agg.lastTask || '';\nconst lastFinalLine = agg.lastFinalLine || '';\nconst lower = message.toLowerCase().trim();\nconst trimmed = message.trim();\n\n// ============ MODE 1: RE-EXPLAIN ============\n// Пользователь просит ПОЯСНИТЬ или ПЕРЕПРОВЕРИТЬ предыдущее решение.\n// Если есть сохранённый код от прошлого assistant — реюзим его (вместо\n// перегенерации через LLM с риском получить другой ответ).\nconst REEXPLAIN_KW = [\n  'поясни', 'объясни', 'разъясни', 'расшифруй',\n  'перепроверь', 'проверь', 'пересчитай', 'ещё раз', 'еще раз',\n  'повтори', 'повторно', 'переделай',\n  'почему', 'отчего', 'как ты', 'каким образом',\n  'что ты сделал', 'как получилось',\n  'правильно ли', 'верно ли', 'это точно', 'точно ли',\n  'не понимаю', 'непонятно', 'подробнее', 'детальнее',\n  'распиши', 'по шагам', 'пошагово',\n  'расскажи'\n];\nconst hasReexplainKW = REEXPLAIN_KW.some(kw => lower.includes(kw));\n// Re-explain только если: ключ есть И сообщение не содержит САМО выражение\n// (тогда это новая задача), И есть сохранённый код от прошлого assistant.\nconst messageHasOperators = /[+\\-*/^%]/.test(message);\nconst messageHasMultipleNumbers = (message.match(/\\d+/g) || []).length >= 2;\nconst looksLikeNewMath = messageHasOperators && messageHasMultipleNumbers;\n\nif (hasReexplainKW && !looksLikeNewMath && lastCode) {\n  return [{ json: {\n    message, mode: 'reexplain',\n    historyContext, historyContextMath, session_id,\n    lastCode, lastRawResult, lastTask, lastFinalLine\n  } }];\n}\n\n// ============ MODE 2: PURE EXPRESSION ============\n// Сообщение целиком — мат-выражение (только цифры/операторы/функции/скобки).\n// Минуем LLM, идём через sympify напрямую (детерминированный путь).\nconst PURE_RE = /^[\\d\\s+\\-*/^%().,!=<>а-яА-ЯёЁa-zA-Z_]+$/;\nif (PURE_RE.test(trimmed) && /\\d/.test(trimmed) && messageHasOperators && trimmed.length >= 3) {\n  // Дополнительно: разрешаем символы типа \"=\" для уравнений\n  return [{ json: {\n    message, mode: 'pure_expr',\n    expression: trimmed,\n    historyContext, historyContextMath, session_id\n  } }];\n}\n\n// ============ MODE 3: TEXT + EXPRESSION (extraction) ============\n// Слова + содержит существенное математическое выражение.\n// Вычленяем самый длинный непрерывный мат-фрагмент.\nconst exprMatches = [...message.matchAll(/[\\d(][\\d\\s+\\-*/^%().,a-zA-Z_]{4,}/g)]\n  .map(m => m[0].trim().replace(/[.,;]+$/, ''));\nconst candidates = exprMatches.filter(s =>\n  (s.match(/[+\\-*/^%]/g) || []).length >= 2 && s.length >= 8\n);\nif (candidates.length > 0) {\n  const longest = candidates.reduce((a, b) => a.length > b.length ? a : b);\n  return [{ json: {\n    message, mode: 'pure_expr',\n    expression: longest,\n    historyContext, historyContextMath, session_id\n  } }];\n}\n\n// ============ Вложение с мат-контентом → math ============\nif (/\\[ВЛОЖЕНИЕ:/.test(message)) {\n  const hasOps = /\\d+\\s*[+\\-*/^%=]\\s*\\d/.test(message);\n  const hasEq = /(x|y|z|икс|игрек)\\s*[\\^+\\-*/=]/i.test(message);\n  const hasTerm = /(уравнен|формул|вычисл|реши|сколько|корен|интеграл|производн|сумм|процент|матриц|треугольник|периметр|площад|объ[её]м|радиус|диаметр|графи[кч]|функци|медиан|среднее|задач|пример)/i.test(message);\n  if (hasOps || hasEq || hasTerm) {\n    return [{ json: { message, mode: 'math', historyContext, historyContextMath, session_id } }];\n  }\n}\n\n// ============ Старая логика: math keywords vs general ============\nconst mathKeywords = [\n  'посчитай', 'вычисли', 'вычислить', 'рассчитай', 'рассчитать',\n  'реши', 'решить', 'решение', 'уравнен', 'неравенств',\n  'формул', 'процент', 'корень', 'степен', 'логарифм',\n  'сумм', 'разност', 'произведен', 'делен', 'остаток от',\n  'плюс', 'минус', 'умножь', 'умножить', 'умножен',\n  'раздели', 'разделить',\n  'возведи', 'возвести', 'в степени', 'в квадрате', 'в кубе',\n  'площад', 'объём', 'объем', 'периметр', 'окружност',\n  'треугольник', 'квадрат', 'куб', 'прямоугольник', 'цилиндр', 'сфер',\n  'интеграл', 'производн', 'предел', 'синус', 'косинус', 'тангенс',\n  'матриц', 'вектор', 'определител', 'детерминант',\n  'график', 'функци', 'парабол',\n  'статистик', 'среднее', 'медиан', 'дисперс', 'отклонен',\n  'вероятност', 'комбинатор', 'факториал', 'перестанов', 'сочетан',\n  'npv', 'irr', 'roi', 'аннуитет', 'ипотек', 'кредит', 'депозит',\n  'инвестиц', 'маржа', 'наценк', 'скидк', 'ндс', 'налог',\n  'зарплат', 'рентабельн', 'прибыл', 'выручк', 'себестоимост',\n  'сколько будет', 'чему равн', 'найди', 'найти',\n  'sqrt', 'calculate', 'solve', 'equation', 'math',\n  'конвертируй', 'переведи в'\n];\nconst hasMathExpr = /\\d+\\s*[+\\-*/^%=]\\s*\\d+/.test(message);\nconst hasFactorial = /\\d+\\s*!/.test(message);\nconst hasMultiDigit = /\\d{2,}/.test(message) || /\\d+[.,]\\d+/.test(message);\nlet isMath = hasMathExpr || hasFactorial;\nif (!isMath) for (const kw of mathKeywords) if (lower.includes(kw)) { isMath = true; break; }\nif (!isMath && hasMultiDigit && message.length > 20) {\n  for (const kw of ['сколько','какой','какая','какое','найди','найти','определи','определить','если','при','дано','равно','равна']) {\n    if (lower.includes(kw)) { isMath = true; break; }\n  }\n}\n\nif (!isMath) {\n  return [{ json: { message, mode: 'general', historyContext, historyContextMath, session_id } }];\n}\nreturn [{ json: { message, mode: 'math', historyContext, historyContextMath, session_id } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -116,22 +116,30 @@
           "values": [
             {
               "conditions": {
-                "options": {
-                  "caseSensitive": false,
-                  "leftValue": "",
-                  "typeValidation": "loose",
-                  "version": 3
-                },
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3 },
                 "conditions": [
-                  {
-                    "leftValue": "={{ $json.mode }}",
-                    "rightValue": "general",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    },
-                    "id": "rule-general"
-                  }
+                  { "leftValue": "={{ $json.mode }}", "rightValue": "general",
+                    "operator": { "type": "string", "operation": "equals" }, "id": "rule-general" }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3 },
+                "conditions": [
+                  { "leftValue": "={{ $json.mode }}", "rightValue": "pure_expr",
+                    "operator": { "type": "string", "operation": "equals" }, "id": "rule-pure-expr" }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3 },
+                "conditions": [
+                  { "leftValue": "={{ $json.mode }}", "rightValue": "reexplain",
+                    "operator": { "type": "string", "operation": "equals" }, "id": "rule-reexplain" }
                 ],
                 "combinator": "and"
               }
@@ -391,7 +399,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT role, SUBSTRING(content, 1, 2000) AS content FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 30",
+        "query": "SELECT role, SUBSTRING(content, 1, 2000) AS content, extras FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 30",
         "options": {
           "queryReplacement": "={{ [$('Валидация').first().json.session_id] }}"
         }
@@ -415,7 +423,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const historyRows = $input.all().reverse();\nlet historyContext = '';\nlet historyContextMath = '';\nif (historyRows.length > 0) {\n  const allLines = historyRows.map(item => {\n    const role = item.json.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (item.json.content || '');\n  });\n  // Полный контекст — для GENERAL-ветки (chit-chat, нужна связность диалога).\n  historyContext = 'История диалога:\\n' + allLines.join('\\n') + '\\n\\n';\n  // Урезанный контекст — для MATH-ветки. Математика обычно stateless,\n  // длинная история сбивает тупой LLM при кодогенерации (он может\n  // решать старую задачу из истории). Берём только 3 последние пары.\n  const lastSix = allLines.slice(-6);\n  if (lastSix.length > 0) {\n    historyContextMath = 'История диалога:\\n' + lastSix.join('\\n') + '\\n\\n';\n  }\n}\nconst v = $('Валидация').first().json;\nreturn [{json: {message: v.message, session_id: v.session_id, historyContext, historyContextMath}}];"
+        "jsCode": "const historyRows = $input.all().reverse();\nlet historyContext = '';\nlet historyContextMath = '';\n// Поля для re-explain: код/результат/задача из последнего assistant-сообщения\nlet lastCode = '';\nlet lastRawResult = '';\nlet lastTask = '';\nlet lastFinalLine = '';\nlet lastResponse = '';\n\nif (historyRows.length > 0) {\n  const allLines = historyRows.map(item => {\n    const role = item.json.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (item.json.content || '');\n  });\n  historyContext = 'История диалога:\\n' + allLines.join('\\n') + '\\n\\n';\n  const lastSix = allLines.slice(-6);\n  if (lastSix.length > 0) {\n    historyContextMath = 'История диалога:\\n' + lastSix.join('\\n') + '\\n\\n';\n  }\n\n  // Ищем последний assistant с extras.code — это будет кандидат для re-explain.\n  // Идём с конца, потому что нужен самый свежий мат-расчёт.\n  for (let i = historyRows.length - 1; i >= 0; i--) {\n    const row = historyRows[i].json;\n    if (row.role !== 'assistant') continue;\n    if (!row.extras) continue;\n    let ext;\n    try {\n      ext = typeof row.extras === 'string' ? JSON.parse(row.extras) : row.extras;\n    } catch (e) { continue; }\n    if (!ext || !ext.code) continue;\n\n    lastCode = ext.code || '';\n    lastRawResult = ext.raw_result || '';\n    lastResponse = row.content || '';\n\n    // Парсим final_line из raw_result (та же логика что на фронте)\n    const lines = (lastRawResult || '').split('\\n').map(l => l.trim()).filter(Boolean);\n    const markerRe = /^(?:ОТ[А-Яа-яЁёA-Za-z]{2,8}|АНСВЕР|ИТОГ|РЕЗУЛЬТАТ|ANSWER|FINAL|RESULT)\\s*[:：]\\s*(.+)$/i;\n    for (let j = lines.length - 1; j >= 0; j--) {\n      const m = lines[j].match(markerRe);\n      if (m) { lastFinalLine = m[1].trim(); break; }\n    }\n    if (!lastFinalLine && lines.length > 0) lastFinalLine = lines[lines.length - 1];\n\n    // Задача — предыдущее user-сообщение перед этим assistant\n    if (i > 0 && historyRows[i - 1].json.role === 'user') {\n      lastTask = historyRows[i - 1].json.content || '';\n    }\n    break;\n  }\n}\n\nconst v = $('Валидация').first().json;\nreturn [{json: {\n  message: v.message,\n  session_id: v.session_id,\n  historyContext,\n  historyContextMath,\n  lastCode,\n  lastRawResult,\n  lastTask,\n  lastFinalLine,\n  lastResponse\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -640,6 +648,88 @@
       ],
       "id": "math-explain-respond-0001",
       "name": "Ответ: результат MATH"
+    },
+    {
+      "parameters": {
+        "jsCode": "// PURE_EXPR: генерируем sympify-код БЕЗ LLM. Детерминированный путь:\n//   на одно и то же выражение всегда один и тот же код → один и тот же ответ.\n// parse_expr с transformations:\n//   convert_xor — превращает `^` в `**` (Python степень)\n//   implicit_multiplication_application — позволяет писать `2x` вместо `2*x`\nconst data = $input.first().json;\nconst raw = (data.expression || data.message || '').trim();\n\n// Экранирование для встраивания в Python-строку\nconst esc = raw.replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/\\n/g, ' ');\n\nconst code = [\n  'from sympy.parsing.sympy_parser import parse_expr, standard_transformations, convert_xor, implicit_multiplication_application',\n  'from sympy import log, ln, sin, cos, tan, asin, acos, atan, exp, sqrt, pi, E, I, oo, factorial, Rational, simplify',\n  'transformations = standard_transformations + (convert_xor, implicit_multiplication_application)',\n  `expr_str = \"${esc}\"`,\n  'try:',\n  '    expr = parse_expr(expr_str, transformations=transformations)',\n  '    result = expr.evalf()',\n  '    print(f\"Выражение: {expr}\")',\n  '    print(f\"ОТВЕТ: {result}\")',\n  'except Exception as e:',\n  '    print(f\"Не удалось распознать выражение: {e}\")',\n  '    print(f\"ОТВЕТ: ошибка парсинга\")'\n].join('\\n');\n\nreturn [{ json: { success: 1, code: code, error: '' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2240, 600],
+      "id": "math-sympify-gen-0001",
+      "name": "Генерация sympify"
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "value": ".", "mode": "id" },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Ты — математический помощник. Пользователь ранее задал задачу, ты её решил с помощью Python (Pyodide через sympy/numpy/scipy). Сейчас он переспрашивает — просит ПОЯСНИТЬ, ПЕРЕПРОВЕРИТЬ или РАССКАЗАТЬ подробнее.\n\nКонтекст:\n- Финальный ответ уже выдан и НЕ МЕНЯЕТСЯ (он подставлен системой)\n- Твоя роль — объяснить КАК решалось, в 3-5 предложениях\n- Если попросили «перепроверь» — кратко перечисли шаги и подтверди: «расчёт корректен»\n- Если попросили «поясни» — объясни метод/формулу\n- Если попросили «подробнее/по шагам» — распиши промежуточные операции\n\nКРИТИЧНЫЕ ПРАВИЛА:\n1. НЕ начинай со слова «Ответ» или с числа — оно уже подставлено системой\n2. НЕ ВЫЧИСЛЯЙ заново. Финальное число дано тебе в шапке — используй только его\n3. НЕ пиши код\n4. НЕ повторяй условие задачи дословно\n5. Пиши на русском, без приветствий\n6. Максимум 5 предложений\n7. НЕ используй LaTeX/MathJax-разметку: никаких $...$, \\\\(...\\\\), \\\\frac, \\\\times, \\\\cdot. Числа и операции пиши обычным текстом. Символы можно: ×, ·, ², ³, π, √, ≈\n\nПример:\nЗадача (предыдущая): 26 * 27^4 * log(18) / sin(262) * 3 / cos(272)\nФинальный ответ (уже выдан): -91234.567\nКод: sympify-выражение, evalf()\nПросьба пользователя: «перепроверь»\nХороший ответ: Расчёт выполнен через sympy: возвели 27 в четвёртую степень (531 441), умножили на 26 и натуральный логарифм 18, разделили на синус 262 рад, умножили на 3, разделили на косинус 272 рад. Используется символьное вычисление с финальной точной оценкой — расчёт корректен.\n\nТеперь объясни:"
+            },
+            {
+              "content": "=Задача (ранее): {{ $('Агрегация').first().json.lastTask }}\n\nКод, который выполнялся:\n{{ $('Агрегация').first().json.lastCode }}\n\nФинальный ответ (уже выдан пользователю): {{ $('Агрегация').first().json.lastFinalLine }}\n\nПросьба пользователя сейчас: «{{ $('Агрегация').first().json.message }}»"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": { "timeout": 60000, "temperature": 0 }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [2240, 800],
+      "id": "math-reexplain-llm-0001",
+      "name": "Reexplain LLM",
+      "credentials": { "openAiApi": { "id": "Qwyuj8GrADL2wlnl", "name": "GigaChat" } },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Сборка ответа для re-explain: число из истории + новое пояснение от LLM.\nconst raw = $input.first().json;\nconst prev = $('Агрегация').first().json;\nconst finalLine = (prev.lastFinalLine || '').trim();\n\nlet explanation = '';\ntry {\n  explanation = (raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text || '').trim();\n} catch(e) {}\n\n// Срезаем шапку «Ответ: ...» если LLM нарушила правило\nexplanation = explanation\n  .replace(/^Ответ\\s*[:\\-]\\s*[^\\n.]+[.\\n]\\s*/i, '')\n  .replace(/^Итак[,]?\\s*получаем[^\\n.]+[.\\n]\\s*/i, '')\n  .trim();\n\nif (!finalLine) {\n  return [{ json: { response: explanation || 'Не удалось извлечь предыдущий результат.', code: prev.lastCode || '', raw_result: prev.lastRawResult || '' } }];\n}\n\nlet response = 'Ответ: ' + finalLine;\nif (explanation) response += '\\n\\n' + explanation;\n\nreturn [{ json: { response: response, code: prev.lastCode || '', raw_result: prev.lastRawResult || '' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2520, 800],
+      "id": "math-reexplain-merge-0001",
+      "name": "Сборка Reexplain"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content, extras) SELECT $1, 'assistant', $2, $3::jsonb WHERE LENGTH(TRIM($2)) > 0 RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
+        "options": {
+          "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || '', JSON.stringify({code: $json.code || '', raw_result: $json.raw_result || '', reexplained: true})] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2800, 800],
+      "id": "math-reexplain-save-0001",
+      "name": "Сохранить Reexplain",
+      "credentials": { "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" } },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $('Сборка Reexplain').first().json.response, code: $('Сборка Reexplain').first().json.code, raw_result: $('Сборка Reexplain').first().json.raw_result }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [3080, 800],
+      "id": "math-reexplain-respond-0001",
+      "name": "Ответ: Reexplain"
     }
   ],
   "pinData": {},
@@ -697,21 +787,23 @@
     },
     "Switch": {
       "main": [
-        [
-          {
-            "node": "Ответ GENERAL",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Генерация кода",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Ответ GENERAL",       "type": "main", "index": 0 }],
+        [{ "node": "Генерация sympify",   "type": "main", "index": 0 }],
+        [{ "node": "Reexplain LLM",       "type": "main", "index": 0 }],
+        [{ "node": "Генерация кода",      "type": "main", "index": 0 }]
       ]
+    },
+    "Генерация sympify": {
+      "main": [[{ "node": "Проверка кода", "type": "main", "index": 0 }]]
+    },
+    "Reexplain LLM": {
+      "main": [[{ "node": "Сборка Reexplain", "type": "main", "index": 0 }]]
+    },
+    "Сборка Reexplain": {
+      "main": [[{ "node": "Сохранить Reexplain", "type": "main", "index": 0 }]]
+    },
+    "Сохранить Reexplain": {
+      "main": [[{ "node": "Ответ: Reexplain", "type": "main", "index": 0 }]]
     },
     "Ответ GENERAL": {
       "main": [
