@@ -144,12 +144,13 @@
                 .map(function (l) { return String(l).trim(); })
                 .filter(function (l) { return l.length > 0; });
             if (!trimmed.length) return '';
-            // GigaChat пишет маркер ОТВЕТ криво — часто опечатывается. Регулярка
-            // ловит и каноничный ОТВЕТ, и распространённые галлюцинации
-            // (whitelist — не корень «ОТВЕР*», чтобы не зацепить ложно слова
-            // типа «ОТВЕРСТИЕ» или «ОТВЕРНУТЬ» в выводе геометрии).
-            var markerRe = /^(?:ОТВЕТ|ОТВЕРД|ОТВЕРЖДЕНИЕ|ОТВЕРЖДАЕТСЯ|ОТВЕРЖДЁН|ANSWER|FINAL|RESULT)\s*[:：]/i;
-            var stripRe = /^(?:ОТВЕТ|ОТВЕРД|ОТВЕРЖДЕНИЕ|ОТВЕРЖДАЕТСЯ|ОТВЕРЖДЁН|ANSWER|FINAL|RESULT)\s*[:：]\s*(.+)$/i;
+            // GigaChat пишет маркер ОТВЕТ криво — часто опечатывается:
+            // ОТВИД, ОТВЕД, ОТВЕТТ, ОТВЕРД*, ОТВЕЖД* и проч. Permissive:
+            // любое слово вида «ОТ» + 2-8 букв перед двоеточием трактуем как
+            // маркер. False-positive для слов типа «ОТКАЗ:» маловероятен в
+            // print-выхлопе математики (никакой нормальный код их не печатает).
+            var markerRe = /^(?:ОТ[А-Яа-яЁёA-Za-z]{2,8}|АНСВЕР|ИТОГ|РЕЗУЛЬТАТ|ANSWER|FINAL|RESULT)\s*[:：]/i;
+            var stripRe = /^(?:ОТ[А-Яа-яЁёA-Za-z]{2,8}|АНСВЕР|ИТОГ|РЕЗУЛЬТАТ|ANSWER|FINAL|RESULT)\s*[:：]\s*(.+)$/i;
             var hasMarker = function (s) { return markerRe.test(s); };
             var stripMarker = function (s) {
                 var m = s.match(stripRe);
@@ -178,6 +179,24 @@
         function formatText(text) {
             if (!text) return '';
             var html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // GigaChat иногда оборачивает числа/формулы в LaTeX-разметку
+            // ($...$, \(...\), \[...\]). В нашем плейн-рендере остаётся
+            // буквальный «$» перед числами — мусор. Снимаем обёртки,
+            // содержимое оставляем как есть.
+            html = html.replace(/\$([^$\n]+)\$/g, '$1');
+            html = html.replace(/\\\(([^)]+?)\\\)/g, '$1');
+            html = html.replace(/\\\[([^\]]+?)\\\]/g, '$1');
+            // Простейшие LaTeX-команды без обёрток (одиночные \times, \cdot,
+            // \approx, \ne и т.п.) — заменяем на читаемые символы.
+            html = html.replace(/\\times\b/g, '×')
+                       .replace(/\\cdot\b/g, '·')
+                       .replace(/\\div\b/g, '÷')
+                       .replace(/\\approx\b/g, '≈')
+                       .replace(/\\ne\b|\\neq\b/g, '≠')
+                       .replace(/\\le\b|\\leq\b/g, '≤')
+                       .replace(/\\ge\b|\\geq\b/g, '≥')
+                       .replace(/\\pi\b/g, 'π')
+                       .replace(/\\sqrt\b/g, '√');
             html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
             html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
             html = html.replace(/\n/g, '<br>');
