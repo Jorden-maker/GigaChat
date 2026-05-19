@@ -323,7 +323,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT role, SUBSTRING(content, 1, 2000) AS content FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 30",
+        "query": "SELECT role, SUBSTRING(content, 1, 2000) AS content FROM (SELECT role, content, id, created_at FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC, id DESC LIMIT 30) sub ORDER BY created_at ASC, id ASC",
         "options": {
           "queryReplacement": "={{ [$('Валидация').first().json.session_id] }}"
         }

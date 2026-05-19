@@ -839,8 +839,9 @@
       var junk = clone.querySelectorAll('.gc-msg-copy, .gc-msg-time, .inflight-agent-badge, .gc-attach-chip, .btn-copy, .copy-btn');
       for (var ji = 0; ji < junk.length; ji++) junk[ji].remove();
       var text = (clone.textContent || '').trim();
-      if (!text || !navigator.clipboard) return;
-      navigator.clipboard.writeText(text).then(function () {
+      if (!text) return;
+      copyTextToClipboard(text).then(function (ok) {
+        if (!ok) return;
         btn.innerHTML = COPIED_ICON_SVG;
         btn.classList.add('copied');
         setTimeout(function () {
@@ -849,6 +850,39 @@
         }, 1200);
       });
     });
+  }
+
+  // Универсальная копировалка: navigator.clipboard (secure context) или
+  // document.execCommand('copy') через временный textarea (HTTP, file://).
+  // navigator.clipboard НЕ работает по http:// в LAN — это и был баг.
+  function copyTextToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }).catch(function () {
+        return execCommandCopy(text);
+      });
+    }
+    // HTTP в LAN, file:// — clipboard API недоступен. Fallback.
+    return Promise.resolve(execCommandCopy(text));
+  }
+
+  function execCommandCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      // Прячем за viewport, чтобы не моргало
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      ta.setAttribute('readonly', '');
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) {
+      return false;
+    }
   }
 
   // Кнопка «прокрутить вниз» — появляется когда юзер отскроллил вверх.
@@ -2119,9 +2153,36 @@
     var cps = options.cps || 200;
     var containerSelector = options.containerSelector || '.msg.bot';
     var sendBtn = options.sendBtn || null;
+    var inputEl = options.input || null;
     var tickFps = 30;
     var tickIntervalMs = 1000 / tickFps;
     var charsPerTick = Math.max(1, Math.round(cps / tickFps));
+
+    // Плавный auto-scroll через requestAnimationFrame — заменяет резкий
+    // scrollTop = scrollHeight, который дёргал чат при появлении таблиц
+    // и переносов строк во время typewriter.
+    var scrollRafId = null;
+    function smoothScrollToBottom(chatEl) {
+      if (!chatEl) return;
+      if (scrollRafId) cancelAnimationFrame(scrollRafId);
+      function step() {
+        var target = chatEl.scrollHeight - chatEl.clientHeight;
+        var current = chatEl.scrollTop;
+        var distance = target - current;
+        if (distance < 1) { scrollRafId = null; return; }
+        // 30% дистанции за кадр → ~10 кадров до цели = 166ms при 60fps
+        var delta = Math.max(1, distance * 0.3);
+        chatEl.scrollTop = current + delta;
+        scrollRafId = requestAnimationFrame(step);
+      }
+      scrollRafId = requestAnimationFrame(step);
+    }
+    function focusInputIfPossible() {
+      // Возвращаем фокус в поле ввода после завершения/остановки печати —
+      // чтобы юзер мог сразу набирать следующее без клика по input.
+      if (!inputEl) return;
+      try { inputEl.focus(); } catch (e) {}
+    }
 
     // 1) Положить в snapshot и отрисовать. После этого последний .msg.bot
     //    содержит финальный HTML (markdown отрендерен, extras на месте).
@@ -2145,7 +2206,11 @@
     var chatEl = lastBot.closest('#chat') || document.getElementById('chat');
     function isAtBottom() {
       if (!chatEl) return false;
-      return chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 30;
+      // 100px порог — устойчивее к разговорам с таблицами/кодом: пока юзер не
+      // сильно отскроллил вверх, считаем что он «у дна» и продолжаем
+      // auto-scroll. Иначе при появлении таблицы 200px чат «терялся» — порог
+      // в 30px нарушался → следующий scroll не подтягивал → потом скачок.
+      return chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 100;
     }
 
     // Stop-кнопка: подменяем send-icon на stop-icon, меняем aria-label.
@@ -2167,6 +2232,9 @@
       sendBtn.classList.remove('streaming');
       if (origSendLabel) sendBtn.setAttribute('aria-label', origSendLabel);
       sendBtn.innerHTML = SEND_ICON_SVG;
+      // Возвращаем фокус в input — после восстановления кнопки юзер сразу
+      // может набирать следующее сообщение без лишнего клика.
+      focusInputIfPossible();
     }
 
     var i = 0;
@@ -2196,7 +2264,7 @@
         lastBot.innerHTML = finalHtml;
         applyHighlight(lastBot);
         attachCopyButtons(lastBot);
-        if (chatEl && isAtBottom()) chatEl.scrollTop = chatEl.scrollHeight;
+        if (chatEl && isAtBottom()) smoothScrollToBottom(chatEl);
         restoreSendButton();
         return;
       }
@@ -2212,7 +2280,9 @@
       // (10K+ символов) это лишние allocations querySelector + DOM-mutations.
       // Код-блоки во время typing всё равно incomplete (trimUnsafeMarkdown их
       // скрывает), кнопки появятся в финальной фазе ниже.
-      if (chatEl && wasAtBottom) chatEl.scrollTop = chatEl.scrollHeight;
+      // Плавный scroll через RAF — без него чат дёргался скачками при появлении
+      // таблиц (200px высоты сразу) и переносов строк.
+      if (chatEl && wasAtBottom) smoothScrollToBottom(chatEl);
     }, tickIntervalMs);
 
     var controller = {
@@ -2679,10 +2749,27 @@
           '<span class="dots"><span></span><span></span><span></span></span>' +
           '<span class="timer">' + elapsed + ' сек</span></div>';
       }
-      var wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 30;
+      var wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 100;
       chat.innerHTML = html;
       attachCopyButtons(chat);
-      if (wasAtBottom) chat.scrollTop = chat.scrollHeight;
+      // Плавный scroll вместо инстант (раньше при добавлении сообщения с
+      // вложениями/таблицей чат скачком прыгал вниз).
+      if (wasAtBottom) smoothScrollChat(chat);
+    }
+
+    var chatScrollRafId = null;
+    function smoothScrollChat(chatEl) {
+      if (!chatEl) return;
+      if (chatScrollRafId) cancelAnimationFrame(chatScrollRafId);
+      function step() {
+        var target = chatEl.scrollHeight - chatEl.clientHeight;
+        var current = chatEl.scrollTop;
+        var distance = target - current;
+        if (distance < 1) { chatScrollRafId = null; return; }
+        chatEl.scrollTop = current + Math.max(1, distance * 0.3);
+        chatScrollRafId = requestAnimationFrame(step);
+      }
+      chatScrollRafId = requestAnimationFrame(step);
     }
 
     async function sendMsg(opts) {
@@ -2836,7 +2923,8 @@
         if (useTypewriter) {
           typewriteAssistant(sessionStore, sendSessionId, botMsg, {
             cps: 200,
-            sendBtn: sendBtn
+            sendBtn: sendBtn,
+            input: input
           });
         } else {
           sessionStore.pushToSession(sendSessionId, botMsg);
@@ -2867,7 +2955,7 @@
           attachment.clear();
         }
         input.focus();
-        chat.scrollTop = chat.scrollHeight;
+        smoothScrollChat(chat);
       }
     }
 
@@ -2992,6 +3080,7 @@
     config: cfg,
     webhookUrl: webhookUrl,
     escapeHtml: escapeHtml,
+    copyToClipboard: copyTextToClipboard,
     fetchWithRetry: fetchWithRetry,
     checkServerStatus: checkServerStatus,
     formatMarkdown: formatMarkdown,
