@@ -1415,6 +1415,334 @@
   // Утилита: TSV-блоки (несколько подряд идущих строк с одинаковым числом
   // табов) превращаем в markdown-таблицы. LLM лучше понимает табличные
   // данные в формате `| a | b |`, чем «текст со табуляциями».
+  // =============================================================
+  // === Table-merger helpers: parse/merge/build table data ======
+  // =============================================================
+  // Используются Excel- и Word-мерджерами (один источник истины
+  // для нормализации заголовков, union колонок и опций dedup/sort/ignore).
+
+  // Нормализация заголовка: схлопывает регистр, пробелы и пунктуацию.
+  // «ФИО», «Ф.И.О.», «ф и о» → один и тот же ключ.
+  function normalizeMergeHeader(h) {
+    return String(h == null ? '' : h).trim().toLowerCase()
+      .replace(/[\s._\-(){}\[\]\\\/:;,!?'\"]+/g, '');
+  }
+
+  // Объединение таблиц.
+  //   tables: [{name, headers: [...], rows: [[...], ...]}, ...]
+  //   opts:   { dedup, sortColumn (idx после union), sortDir ('asc'|'desc'),
+  //             ignoreColumns (Set индексов после union) }
+  // Возвращает { headers, rows, sourceMap[ rowIdx → fileName ] }
+  function mergeTables(tables, opts) {
+    opts = opts || {};
+    var columnOrder = [];
+    var canonical = {};
+    for (var i = 0; i < tables.length; i++) {
+      var hs = tables[i].headers || [];
+      for (var j = 0; j < hs.length; j++) {
+        var norm = normalizeMergeHeader(hs[j]);
+        if (!norm) continue;
+        if (!(norm in canonical)) {
+          canonical[norm] = hs[j];
+          columnOrder.push(norm);
+        }
+      }
+    }
+    var mergedHeaders = columnOrder.map(function (k) { return canonical[k]; });
+
+    var mergedRows = [];
+    var sourceMap = [];
+    for (var i = 0; i < tables.length; i++) {
+      var t = tables[i];
+      var localMap = {};
+      var hs = t.headers || [];
+      for (var j = 0; j < hs.length; j++) {
+        var norm = normalizeMergeHeader(hs[j]);
+        if (norm && !(norm in localMap)) localMap[norm] = j;
+      }
+      var rs = t.rows || [];
+      for (var k = 0; k < rs.length; k++) {
+        var row = rs[k];
+        var newRow = [];
+        for (var c = 0; c < columnOrder.length; c++) {
+          var idx = localMap[columnOrder[c]];
+          newRow.push((idx != null && row[idx] != null) ? row[idx] : '');
+        }
+        mergedRows.push(newRow);
+        sourceMap.push(t.name || ('file-' + i));
+      }
+    }
+
+    // Dedup (по контенту строки)
+    if (opts.dedup) {
+      var seen = Object.create(null);
+      var keptRows = [];
+      var keptSrc = [];
+      for (var i = 0; i < mergedRows.length; i++) {
+        var key = mergedRows[i].join('');
+        if (seen[key]) continue;
+        seen[key] = true;
+        keptRows.push(mergedRows[i]);
+        keptSrc.push(sourceMap[i]);
+      }
+      mergedRows = keptRows;
+      sourceMap = keptSrc;
+    }
+
+    // Sort
+    if (typeof opts.sortColumn === 'number' && opts.sortColumn >= 0 && opts.sortColumn < mergedHeaders.length) {
+      var col = opts.sortColumn;
+      var dir = opts.sortDir === 'desc' ? -1 : 1;
+      // Sort параллельно rows и sourceMap
+      var indexed = mergedRows.map(function (r, i) { return { r: r, src: sourceMap[i] }; });
+      indexed.sort(function (a, b) {
+        var av = a.r[col], bv = b.r[col];
+        var as = String(av == null ? '' : av), bs = String(bv == null ? '' : bv);
+        var an = parseFloat(as.replace(',', '.')), bn = parseFloat(bs.replace(',', '.'));
+        // Числовая сортировка только если ОБЕ стороны выглядят как число
+        if (!isNaN(an) && !isNaN(bn) && /^-?[\d.,\s]+$/.test(as) && /^-?[\d.,\s]+$/.test(bs)) {
+          return dir * (an - bn);
+        }
+        return dir * as.localeCompare(bs, 'ru');
+      });
+      mergedRows = indexed.map(function (x) { return x.r; });
+      sourceMap = indexed.map(function (x) { return x.src; });
+    }
+
+    // Ignore columns
+    if (opts.ignoreColumns && opts.ignoreColumns.size > 0) {
+      var keep = [];
+      for (var i = 0; i < mergedHeaders.length; i++) {
+        if (!opts.ignoreColumns.has(i)) keep.push(i);
+      }
+      mergedHeaders = keep.map(function (i) { return mergedHeaders[i]; });
+      mergedRows = mergedRows.map(function (r) { return keep.map(function (i) { return r[i]; }); });
+    }
+
+    return { headers: mergedHeaders, rows: mergedRows, sourceMap: sourceMap };
+  }
+
+  // === Парсинг XLSX (через JSZip + DOMParser) ===
+  // Возвращает [{ name, headers, rows }, ...] — по одному на каждый лист.
+  // Поддерживает shared strings (t="s"), inline strings (t="inlineStr"), числа.
+  async function parseXlsxFile(file) {
+    if (typeof JSZip === 'undefined') throw new Error('JSZip не загружен');
+    var buf = await file.arrayBuffer();
+    var zip = await JSZip.loadAsync(buf);
+
+    // Shared strings
+    var sst = [];
+    var sstFile = zip.file('xl/sharedStrings.xml');
+    if (sstFile) {
+      var sstXml = await sstFile.async('string');
+      var sstDoc = new DOMParser().parseFromString(sstXml, 'application/xml');
+      var sis = sstDoc.getElementsByTagName('si');
+      for (var i = 0; i < sis.length; i++) {
+        var ts = sis[i].getElementsByTagName('t');
+        var s = '';
+        for (var j = 0; j < ts.length; j++) s += ts[j].textContent || '';
+        sst.push(s);
+      }
+    }
+
+    // Workbook → sheet names
+    var wbFile = zip.file('xl/workbook.xml');
+    if (!wbFile) throw new Error('В «' + file.name + '» нет xl/workbook.xml');
+    var wbXml = await wbFile.async('string');
+    var wbDoc = new DOMParser().parseFromString(wbXml, 'application/xml');
+    var sheetEls = wbDoc.getElementsByTagName('sheet');
+
+    // workbook.xml.rels → r:id → target
+    var relsFile = zip.file('xl/_rels/workbook.xml.rels');
+    var relMap = {};
+    if (relsFile) {
+      var relsXml = await relsFile.async('string');
+      var relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml');
+      var relEls = relsDoc.getElementsByTagName('Relationship');
+      for (var i = 0; i < relEls.length; i++) {
+        relMap[relEls[i].getAttribute('Id')] = relEls[i].getAttribute('Target');
+      }
+    }
+
+    var sheets = [];
+    for (var s = 0; s < sheetEls.length; s++) {
+      var sheetName = sheetEls[s].getAttribute('name') || ('Лист ' + (s + 1));
+      // Найти target через r:id или fallback на sheetN.xml
+      var rid = sheetEls[s].getAttribute('r:id') || sheetEls[s].getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+      var target = rid && relMap[rid] ? relMap[rid] : 'worksheets/sheet' + (s + 1) + '.xml';
+      var sheetPath = target.indexOf('/') === 0 ? target.slice(1) : 'xl/' + target;
+      var sheetFile = zip.file(sheetPath);
+      if (!sheetFile) continue;
+
+      var sxml = await sheetFile.async('string');
+      var sdoc = new DOMParser().parseFromString(sxml, 'application/xml');
+      var rowEls = sdoc.getElementsByTagName('row');
+
+      var grid = [];
+      for (var i = 0; i < rowEls.length; i++) {
+        var cells = rowEls[i].getElementsByTagName('c');
+        var rowArr = [];
+        for (var j = 0; j < cells.length; j++) {
+          var cell = cells[j];
+          var ref = cell.getAttribute('r') || '';
+          var letters = ref.replace(/\d+/g, '');
+          var colIdx = 0;
+          for (var k = 0; k < letters.length; k++) colIdx = colIdx * 26 + (letters.charCodeAt(k) - 64);
+          colIdx--;
+          var t = cell.getAttribute('t');
+          var value = '';
+          if (t === 's') {
+            var vEl = cell.getElementsByTagName('v')[0];
+            if (vEl) value = sst[parseInt(vEl.textContent, 10)] || '';
+          } else if (t === 'inlineStr') {
+            var isEl = cell.getElementsByTagName('is')[0];
+            if (isEl) {
+              var its = isEl.getElementsByTagName('t');
+              for (var k = 0; k < its.length; k++) value += its[k].textContent || '';
+            }
+          } else {
+            var vEl2 = cell.getElementsByTagName('v')[0];
+            if (vEl2) value = vEl2.textContent || '';
+          }
+          while (rowArr.length < colIdx) rowArr.push('');
+          rowArr.push(value);
+        }
+        grid.push(rowArr);
+      }
+
+      var headers = grid[0] || [];
+      var dataRows = grid.slice(1).filter(function (r) {
+        return r.some(function (c) { return String(c == null ? '' : c).trim() !== ''; });
+      });
+
+      sheets.push({ name: sheetName, headers: headers, rows: dataRows });
+    }
+
+    return sheets;
+  }
+
+  // === Сборка XLSX из headers + rows ===
+  // Минимальный валидный xlsx через inline strings (без shared strings table).
+  // Возвращает Promise<Blob>.
+  async function buildXlsxBlob(headers, rows, sheetName) {
+    if (typeof JSZip === 'undefined') throw new Error('JSZip не загружен');
+    sheetName = (sheetName || 'Объединение').slice(0, 31).replace(/[\\\/?*\[\]:]/g, '_');
+
+    function colLetter(idx) {
+      var s = '';
+      idx += 1;
+      while (idx > 0) {
+        var rem = (idx - 1) % 26;
+        s = String.fromCharCode(65 + rem) + s;
+        idx = Math.floor((idx - 1) / 26);
+      }
+      return s;
+    }
+    function escXml(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/[ --]/g, '');
+    }
+
+    var zip = new JSZip();
+    zip.file('[Content_Types].xml',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+      '</Types>');
+    zip.file('_rels/.rels',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+      '</Relationships>');
+    zip.file('xl/_rels/workbook.xml.rels',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+      '</Relationships>');
+    zip.file('xl/workbook.xml',
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      '<sheets><sheet name="' + escXml(sheetName) + '" sheetId="1" r:id="rId1"/></sheets>' +
+      '</workbook>');
+
+    var sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<sheetData>';
+    sheetXml += '<row r="1">';
+    for (var i = 0; i < headers.length; i++) {
+      sheetXml += '<c r="' + colLetter(i) + '1" t="inlineStr"><is><t xml:space="preserve">' +
+        escXml(headers[i]) + '</t></is></c>';
+    }
+    sheetXml += '</row>';
+    for (var r = 0; r < rows.length; r++) {
+      sheetXml += '<row r="' + (r + 2) + '">';
+      for (var c = 0; c < headers.length; c++) {
+        var v = rows[r][c];
+        sheetXml += '<c r="' + colLetter(c) + (r + 2) + '" t="inlineStr"><is><t xml:space="preserve">' +
+          escXml(v) + '</t></is></c>';
+      }
+      sheetXml += '</row>';
+    }
+    sheetXml += '</sheetData></worksheet>';
+    zip.file('xl/worksheets/sheet1.xml', sheetXml);
+
+    return zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      compression: 'DEFLATE'
+    });
+  }
+
+  // === Парсинг ВСЕХ таблиц из docx ===
+  // Возвращает { zip, doc, tablesEls, tables: [{headers, rows, tableIndex}, ...] }
+  // Каждая таблица — отдельный кандидат на слияние.
+  async function parseDocxAllTables(file) {
+    if (typeof JSZip === 'undefined') throw new Error('JSZip не загружен');
+    var buf = await file.arrayBuffer();
+    var zip = await JSZip.loadAsync(buf);
+    var xmlFile = zip.file('word/document.xml');
+    if (!xmlFile) throw new Error('В «' + file.name + '» нет word/document.xml');
+    var xml = await xmlFile.async('string');
+    var doc = new DOMParser().parseFromString(xml, 'application/xml');
+    var pe = doc.getElementsByTagName('parsererror')[0];
+    if (pe) throw new Error('Файл «' + file.name + '»: XML не разобрать');
+
+    var tablesEls = doc.getElementsByTagName('w:tbl');
+    var results = [];
+    for (var t = 0; t < tablesEls.length; t++) {
+      var tbl = tablesEls[t];
+      var rows = tbl.getElementsByTagName('w:tr');
+      if (rows.length < 1) continue;
+      var headers = extractDocxRowText(rows[0]);
+      var dataRows = [];
+      for (var i = 1; i < rows.length; i++) {
+        var rowText = extractDocxRowText(rows[i]);
+        if (rowText.some(function (c) { return String(c || '').trim() !== ''; })) {
+          dataRows.push(rowText);
+        }
+      }
+      results.push({ tableIndex: t, headers: headers, rows: dataRows });
+    }
+    return { zip: zip, doc: doc, tablesEls: tablesEls, tables: results };
+  }
+
+  function extractDocxRowText(tr) {
+    var tcs = tr.getElementsByTagName('w:tc');
+    var out = [];
+    for (var i = 0; i < tcs.length; i++) {
+      var ts = tcs[i].getElementsByTagName('w:t');
+      var parts = [];
+      for (var j = 0; j < ts.length; j++) parts.push(ts[j].textContent || '');
+      out.push(parts.join(''));
+    }
+    return out;
+  }
+
   // Не-TSV строки (заголовки секций, plain text) остаются как есть.
   function tsvBlocksToMarkdownTables(text) {
     if (!text || text.indexOf('\t') === -1) return text;
@@ -3159,6 +3487,12 @@
     buildMessageWithAttachment: buildMessageWithAttachment,
     SUPPORTED_FILE_EXTS: SUPPORTED_FILE_EXTS,
     acceptAttr: acceptAttr,
+    // Table-merger хелперы (shared logic для Excel- и Word-мерджеров)
+    normalizeMergeHeader: normalizeMergeHeader,
+    mergeTables: mergeTables,
+    parseXlsxFile: parseXlsxFile,
+    buildXlsxBlob: buildXlsxBlob,
+    parseDocxAllTables: parseDocxAllTables,
     // Браузерные парсеры — для прямого использования из text-extractor и других мест
     canExtractInBrowser: canExtractInBrowser,
     extractBrowserText: extractBrowserText,
