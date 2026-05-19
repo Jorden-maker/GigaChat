@@ -35,194 +35,184 @@
     --accent-hover: #a0764d;
     --accent-light: rgba(184, 137, 93, 0.15);
 }
-/* Общие стили tool-страницы — в _shared.js через GigaChat.injectToolCss().
-   Здесь — только per-page правила (file-list, color-message variants, btn-primary
-   override, spinner) + html scrollbar. */
-html {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-}
+html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 html::-webkit-scrollbar { width: 5px; }
 html::-webkit-scrollbar-track { background: transparent; }
 html::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 html::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* table-merger overrides shared main width: 800px вместо 900px. */
-main { max-width: 800px; }
-/* Поведение dragover (а не dragging как в shared) — оставляем имя класса
-   из существующего JS, добавляем нужное правило. */
-.drop-zone.dragover { border-color: var(--accent); background: var(--accent-light, rgba(212,165,116,.12)); }
-/* per-page: скрытый input file внутри drop-zone */
+main { max-width: 900px; }
+.drop-zone.dragover { border-color: var(--accent); background: var(--accent-light); }
 .drop-zone input[type="file"] { display: none; }
 
+/* === Список файлов с drag-reorder === */
 #fileList {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 16px;
-    display: none;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; margin-bottom: 16px; display: none;
 }
 #fileList.show { display: block; }
 #fileList .file-list-header {
-    padding: 12px 18px;
-    background: var(--bg-input);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 12px;
-    color: var(--text-secondary);
-    letter-spacing: 0.5px;
+    padding: 12px 18px; background: var(--bg-input);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--text-secondary); letter-spacing: 0.5px;
 }
-#fileList .file-list-header .count {
-    color: var(--accent);
-    font-weight: 600;
-}
+#fileList .file-list-header .count { color: var(--accent); font-weight: 600; }
 #fileList .file-list-header .clear-all {
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 12px;
-    background: none;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.15s;
-    font-family: inherit;
+    color: var(--text-muted); cursor: pointer; font-size: 12px;
+    background: none; border: none; padding: 4px 8px; border-radius: 4px;
+    transition: all 0.15s; font-family: inherit;
 }
 #fileList .file-list-header .clear-all:hover { color: var(--error); background: rgba(239,68,68,0.08); }
 .file-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 18px;
-    border-bottom: 1px solid var(--border);
-    font-size: 13.5px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px; border-bottom: 1px solid var(--border);
+    font-size: 13.5px; transition: background 0.15s;
 }
 .file-row:last-child { border-bottom: none; }
-.file-row .name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-primary);
+.file-row.dragging { opacity: 0.4; }
+.file-row.drag-over { background: var(--accent-light); }
+.file-row .drag-handle {
+    cursor: grab; color: var(--text-muted); user-select: none;
+    flex-shrink: 0; font-size: 14px; padding: 0 4px;
 }
-.file-row .size {
-    color: var(--text-muted);
-    font-size: 12px;
-    font-family: Consolas, monospace;
+.file-row .drag-handle:active { cursor: grabbing; }
+.file-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+.file-row .tables-badge {
+    background: var(--accent-light); color: var(--accent);
+    font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 500;
     flex-shrink: 0;
 }
+.file-row .size { color: var(--text-muted); font-size: 12px; font-family: Consolas, monospace; flex-shrink: 0; }
 .file-row .remove {
-    width: 22px; height: 22px;
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    border-radius: 4px;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s;
-    flex-shrink: 0;
+    width: 22px; height: 22px; border: none; background: transparent;
+    color: var(--text-muted); cursor: pointer; border-radius: 4px;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0;
 }
 .file-row .remove:hover { color: var(--error); background: rgba(239,68,68,0.08); }
+.file-row .file-error { color: var(--error); font-size: 11px; margin-left: 8px; }
 
-.warning {
-    background: rgba(245, 158, 11, 0.10);
-    border: 1px solid rgba(245, 158, 11, 0.4);
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-    color: var(--warning);
-    font-size: 13px;
-    display: none;
+/* === Опции === */
+#optionsPanel {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+    margin-bottom: 16px; display: none;
 }
-.warning.show { display: block; }
-
-.error-msg {
-    background: rgba(239, 68, 68, 0.10);
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-    color: var(--error);
-    font-size: 13px;
-    display: none;
+#optionsPanel.show { display: block; }
+#optionsPanel summary {
+    padding: 12px 18px; cursor: pointer; font-size: 13px;
+    color: var(--text-secondary); letter-spacing: 0.3px;
+    list-style: none; display: flex; align-items: center; gap: 8px;
 }
-.error-msg.show { display: block; }
-
-.success-msg {
-    background: rgba(16, 185, 129, 0.10);
-    border: 1px solid rgba(16, 185, 129, 0.4);
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-    color: var(--success);
-    font-size: 13px;
-    display: none;
+#optionsPanel summary::-webkit-details-marker { display: none; }
+#optionsPanel summary::before {
+    content: '▸'; transition: transform 0.2s; color: var(--text-muted); font-size: 11px;
 }
-.success-msg.show { display: block; }
-
-.actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
+#optionsPanel[open] summary::before { transform: rotate(90deg); }
+#optionsPanel .options-body {
+    padding: 4px 18px 16px; display: flex; flex-direction: column; gap: 12px;
+    border-top: 1px solid var(--border);
 }
-/* Override shared .btn-primary: НЕ растягиваем на 100%, чтобы в .actions
-   с flex-end кнопка прижималась вправо. Также сбрасываем margin-bottom
-   (она тут в footer-зоне рядом с .btn-secondary, не сама по себе). */
-.btn-primary {
-    width: auto;
-    margin-bottom: 0;
-    padding: 12px 28px;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
+#optionsPanel label {
+    display: flex; align-items: center; gap: 8px; font-size: 13.5px;
+    color: var(--text-primary); cursor: pointer;
+}
+#optionsPanel label.row { gap: 10px; flex-wrap: wrap; }
+#optionsPanel input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+#optionsPanel select {
+    background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text-primary); padding: 6px 10px; font-size: 13px; font-family: inherit;
     cursor: pointer;
-    font-size: 14.5px;
-    font-weight: 600;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+}
+#optionsPanel .ignore-list { display: flex; flex-wrap: wrap; gap: 6px; }
+#optionsPanel .ignore-list .pill {
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
+    font-size: 12px; color: var(--text-secondary); cursor: pointer;
+    transition: all 0.15s; user-select: none;
+}
+#optionsPanel .ignore-list .pill:hover { border-color: var(--text-secondary); }
+#optionsPanel .ignore-list .pill.ignored {
+    background: rgba(239,68,68,0.1); border-color: var(--error); color: var(--error);
+    text-decoration: line-through;
+}
+
+/* === Preview === */
+#previewSection {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+    margin-bottom: 16px; padding: 16px 18px; display: none;
+}
+#previewSection.show { display: block; }
+#previewSection .preview-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+}
+#previewSection h3 { font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1.5px; margin: 0; font-weight: 600; }
+#previewSection .preview-meta { font-size: 13px; color: var(--text-muted); }
+#previewSection .preview-meta b { color: var(--accent); font-variant-numeric: tabular-nums; }
+#previewSection .preview-scroll {
+    overflow: auto; max-height: 360px; border: 1px solid var(--border);
+    border-radius: 8px; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#previewSection table {
+    width: 100%; border-collapse: collapse; font-size: 12.5px; font-family: Consolas, monospace;
+}
+#previewSection th, #previewSection td {
+    padding: 6px 10px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+    text-align: left; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#previewSection th {
+    background: var(--bg-input); position: sticky; top: 0;
+    color: var(--text-primary); font-weight: 600; font-size: 12px;
+}
+#previewSection td { color: var(--text-secondary); }
+#previewSection tr:last-child td { border-bottom: none; }
+#previewSection .preview-footer {
+    margin-top: 8px; font-size: 11px; color: var(--text-muted); text-align: center;
+}
+
+/* === Сообщения === */
+.warning, .error-msg, .success-msg {
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; display: none;
+}
+.warning { background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.4); color: var(--warning); }
+.error-msg { background: rgba(239,68,68,.10); border: 1px solid rgba(239,68,68,.4); color: var(--error); }
+.success-msg { background: rgba(16,185,129,.10); border: 1px solid rgba(16,185,129,.4); color: var(--success); }
+.warning.show, .error-msg.show, .success-msg.show { display: block; }
+
+/* === Кнопки === */
+.actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.btn-primary {
+    width: auto; margin-bottom: 0; padding: 12px 28px;
+    background: var(--accent); color: #fff; border: none; border-radius: 10px;
+    cursor: pointer; font-size: 14.5px; font-weight: 600; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
 }
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .btn-secondary {
-    padding: 12px 20px;
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s;
+    padding: 12px 20px; background: transparent; color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
+    font-size: 14px; transition: all 0.2s;
 }
 .btn-secondary:hover:not(:disabled) { color: var(--text-primary); border-color: var(--text-secondary); }
 .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+    width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* .status-bar и pulse keyframe в _shared.js (injectToolCss → injectStatusDotCss). */
-
 </style>
 <script src="_config.js"></script>
 <script src="_shared.js"></script>
+<script src="lib/jszip.min.js"></script>
 </head>
 <body>
 
 <header>
-    <div class="header-left"><a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a><h1>Объединение Excel</h1></div>
+    <div class="header-left">
+        <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
+        <h1>Объединение Excel</h1>
+    </div>
     <div class="header-right">
         <div class="status-bar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
     </div>
@@ -231,14 +221,14 @@ main { max-width: 800px; }
 <main>
     <div class="intro">
         <h2>Что делает инструмент</h2>
-        <p>Загружаете несколько <b>Excel-файлов</b> (<code>.xlsx</code> или <code>.xlsm</code>) с одинаковыми таблицами. Инструмент склеивает все таблицы в одну и отдаёт итоговый <code>.xlsx</code>.</p>
-        <p>Читается <b>первый лист</b> в каждом файле. Первая строка считается заголовком.</p>
+        <p>Загрузите несколько <b>Excel-файлов</b> (<code>.xlsx</code>, <code>.xlsm</code>) с таблицами. Инструмент объединит <b>все листы из всех файлов</b> в одну таблицу — заголовки склеит по смыслу, строки сложит подряд.</p>
+        <p>Перетягивайте файлы в списке для изменения порядка. Доступны: удаление дубликатов, сортировка, скрытие столбцов и превью результата перед скачиванием. Работает <b>полностью в браузере</b> — без n8n и сервера.</p>
     </div>
 
     <label class="drop-zone" id="dropZone" for="fileInput">
-        <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></div>
+        <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></div>
         <div class="title">Перетащите Excel-файлы сюда или нажмите для выбора</div>
-        <div class="hint">Принимаются <b>.xlsx</b> и <b>.xlsm</b>.</div>
+        <div class="hint">Принимаются <b>.xlsx</b> и <b>.xlsm</b>. Берутся все листы из каждого файла.</div>
         <input type="file" id="fileInput" multiple accept=".xlsx,.xlsm">
     </label>
 
@@ -248,25 +238,56 @@ main { max-width: 800px; }
 
     <div id="fileList">
         <div class="file-list-header">
-            <span>Выбрано: <span class="count" id="fileCount">0</span></span>
+            <span>Файлов: <span class="count" id="fileCount">0</span></span>
             <button class="clear-all" type="button" onclick="clearFiles()">Очистить</button>
         </div>
         <div id="fileRows"></div>
     </div>
 
+    <details id="optionsPanel">
+        <summary>Опции объединения</summary>
+        <div class="options-body">
+            <label><input type="checkbox" id="optDedup" onchange="recomputePreview()"> Удалить дубликаты строк</label>
+            <label class="row">Сортировка по столбцу:
+                <select id="optSortCol" onchange="recomputePreview()"><option value="-1">Без сортировки</option></select>
+                <select id="optSortDir" onchange="recomputePreview()">
+                    <option value="asc">по возрастанию</option>
+                    <option value="desc">по убыванию</option>
+                </select>
+            </label>
+            <div>
+                <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">Игнорировать столбцы (клик включает/выключает):</div>
+                <div class="ignore-list" id="optIgnoreList"></div>
+            </div>
+        </div>
+    </details>
+
+    <div id="previewSection">
+        <div class="preview-header">
+            <h3>Превью результата</h3>
+            <span class="preview-meta">Строк: <b id="previewRowCount">0</b> · Столбцов: <b id="previewColCount">0</b></span>
+        </div>
+        <div class="preview-scroll"><table id="previewTable"></table></div>
+        <div class="preview-footer" id="previewFooter"></div>
+    </div>
+
     <div class="actions">
-        <button class="btn-primary" id="mergeBtn" onclick="doMerge()" disabled>
-            <span id="mergeBtnText">Объединить и скачать</span>
+        <button class="btn-secondary" id="mergeBtn" type="button" onclick="doMerge()" disabled>Построить превью</button>
+        <button class="btn-primary" id="downloadBtn" type="button" onclick="doDownload()" disabled>
+            <span id="downloadBtnText">Скачать .xlsx</span>
         </button>
     </div>
 </main>
 
 <script>
 GigaChat.injectToolCss();
-var WEBHOOK_URL = GigaChat.webhookUrl('table-merger-excel');
+// Excel-объединение работает ПОЛНОСТЬЮ В БРАУЗЕРЕ через JSZip (как Word-мерджер).
+// Раньше отправляли на n8n /webhook/table-merger-excel; теперь парсинг, слияние и
+// генерация — всё клиентское через shared helpers. Workflow остаётся для внешних
+// интеграций через django-gateway, но фронту не нужен.
 var MAX_FILES_WARN = 10;
 var MAX_FILES_HARD = 25;
-var FETCH_TIMEOUT_MS = 240000;
+var PREVIEW_ROW_LIMIT = 50;
 
 var dropZone = document.getElementById('dropZone');
 var fileInput = document.getElementById('fileInput');
@@ -276,14 +297,29 @@ var fileCount = document.getElementById('fileCount');
 var warningBox = document.getElementById('warningBox');
 var errorBox = document.getElementById('errorBox');
 var successBox = document.getElementById('successBox');
+var optionsPanel = document.getElementById('optionsPanel');
+var optDedup = document.getElementById('optDedup');
+var optSortCol = document.getElementById('optSortCol');
+var optSortDir = document.getElementById('optSortDir');
+var optIgnoreList = document.getElementById('optIgnoreList');
+var previewSection = document.getElementById('previewSection');
+var previewTable = document.getElementById('previewTable');
+var previewRowCount = document.getElementById('previewRowCount');
+var previewColCount = document.getElementById('previewColCount');
+var previewFooter = document.getElementById('previewFooter');
 var mergeBtn = document.getElementById('mergeBtn');
-var mergeBtnText = document.getElementById('mergeBtnText');
+var downloadBtn = document.getElementById('downloadBtn');
+var downloadBtnText = document.getElementById('downloadBtnText');
 var statusDot = document.getElementById('statusDot');
 var statusText = document.getElementById('statusText');
 
+// selectedFiles: [{ file, sheets: null|[...], error: '' }]
 var selectedFiles = [];
+var currentMerged = null;
+var unionColumns = [];
+var ignoredCols = new Set();
 
-function escapeHtml(s) { return GigaChat.escapeHtml(s); }
+function escapeHtml(s) { return GigaChat.escapeHtml(s == null ? '' : s); }
 
 function formatSize(bytes) {
     if (bytes < 1024) return bytes + ' Б';
@@ -291,34 +327,21 @@ function formatSize(bytes) {
     return (bytes / 1024 / 1024).toFixed(1) + ' МБ';
 }
 
-function detectKind(name) {
-    var lower = (name || '').toLowerCase();
-    if (lower.endsWith('.xlsx') || lower.endsWith('.xlsm')) return 'xlsx';
-    return null;
-}
+function showError(msg) { errorBox.textContent = msg; errorBox.classList.add('show'); successBox.classList.remove('show'); }
+function clearError() { errorBox.classList.remove('show'); }
+function showSuccess(msg) { successBox.textContent = msg; successBox.classList.add('show'); errorBox.classList.remove('show'); }
+function clearSuccess() { successBox.classList.remove('show'); }
 
-function showError(msg) {
-    errorBox.textContent = msg;
-    errorBox.classList.add('show');
-    successBox.classList.remove('show');
-}
-function clearError() {
-    errorBox.classList.remove('show');
-}
-function showSuccess(msg) {
-    successBox.textContent = msg;
-    successBox.classList.add('show');
-    errorBox.classList.remove('show');
-}
-function clearSuccess() {
-    successBox.classList.remove('show');
-}
+// === Список файлов ===
 
 function renderList() {
     if (selectedFiles.length === 0) {
         fileList.classList.remove('show');
         warningBox.classList.remove('show');
+        optionsPanel.classList.remove('show');
+        previewSection.classList.remove('show');
         mergeBtn.disabled = true;
+        downloadBtn.disabled = true;
         return;
     }
     fileList.classList.add('show');
@@ -327,77 +350,261 @@ function renderList() {
     var html = '';
     for (var i = 0; i < selectedFiles.length; i++) {
         var f = selectedFiles[i];
-        html += '<div class="file-row">';
-        html += '<span class="name">' + escapeHtml(f.name) + '</span>';
-        html += '<span class="size">' + formatSize(f.size) + '</span>';
+        var sheetsBadge = '';
+        if (f.sheets) {
+            sheetsBadge = '<span class="tables-badge">' + f.sheets.length + ' лист.</span>';
+        } else if (f.error) {
+            sheetsBadge = '<span class="tables-badge" style="background:rgba(239,68,68,.1);color:var(--error)">ошибка</span>';
+        }
+        var errorHtml = f.error ? '<span class="file-error">' + escapeHtml(f.error) + '</span>' : '';
+        html += '<div class="file-row" draggable="true" data-idx="' + i + '">';
+        html += '<span class="drag-handle" aria-hidden="true">⠿</span>';
+        html += '<span class="name">' + escapeHtml(f.file.name) + '</span>';
+        html += sheetsBadge;
+        html += errorHtml;
+        html += '<span class="size">' + formatSize(f.file.size) + '</span>';
         html += '<button class="remove" onclick="removeFile(' + i + ')" aria-label="Удалить">×</button>';
         html += '</div>';
     }
     fileRows.innerHTML = html;
+    attachDragHandlers();
 
-    // Предупреждения
     var warns = [];
-    if (selectedFiles.length > MAX_FILES_HARD) {
-        warns.push('Превышен предел в ' + MAX_FILES_HARD + ' файлов. Удалите лишние.');
-    } else if (selectedFiles.length > MAX_FILES_WARN) {
-        warns.push('Файлов больше ' + MAX_FILES_WARN + ' — обработка может занять минуту или дольше.');
-    }
-    // Проверка одинаковости формата
-    var kinds = {};
-    for (var j = 0; j < selectedFiles.length; j++) {
-        var k = detectKind(selectedFiles[j].name);
-        if (k) kinds[k] = true;
-        else warns.push('Файл «' + selectedFiles[j].name + '» имеет неподдерживаемый формат.');
-    }
-    if (Object.keys(kinds).length > 1) {
-        warns.push('Файлы разных форматов. Оставьте только .xlsx/.xlsm.');
-    }
+    if (selectedFiles.length > MAX_FILES_HARD) warns.push('Превышен предел в ' + MAX_FILES_HARD + ' файлов.');
+    else if (selectedFiles.length > MAX_FILES_WARN) warns.push('Файлов больше ' + MAX_FILES_WARN + ' — это может замедлить обработку.');
+    if (warns.length) { warningBox.textContent = warns.join(' '); warningBox.classList.add('show'); }
+    else { warningBox.classList.remove('show'); }
 
-    if (warns.length > 0) {
-        warningBox.innerHTML = warns.map(function(w) { return '⚠ ' + escapeHtml(w); }).join('<br>');
-        warningBox.classList.add('show');
-    } else {
-        warningBox.classList.remove('show');
-    }
-
-    var canMerge = selectedFiles.length >= 1 &&
-                   selectedFiles.length <= MAX_FILES_HARD &&
-                   Object.keys(kinds).length === 1;
-    mergeBtn.disabled = !canMerge;
+    var validCount = selectedFiles.filter(function (f) { return f.sheets && f.sheets.length > 0; }).length;
+    mergeBtn.disabled = (validCount < 1 || selectedFiles.length > MAX_FILES_HARD);
 }
 
-function addFiles(fileLikeList) {
-    clearError();
-    clearSuccess();
-    for (var i = 0; i < fileLikeList.length; i++) {
-        var f = fileLikeList[i];
-        // Защита от дубликатов по имени+размеру
-        var dup = false;
-        for (var j = 0; j < selectedFiles.length; j++) {
-            if (selectedFiles[j].name === f.name && selectedFiles[j].size === f.size) {
-                dup = true; break;
-            }
+// === Drag-reorder ===
+
+function attachDragHandlers() {
+    var rows = fileRows.querySelectorAll('.file-row');
+    var draggingIdx = -1;
+    rows.forEach(function (row) {
+        row.addEventListener('dragstart', function (e) {
+            draggingIdx = parseInt(row.dataset.idx, 10);
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(draggingIdx));
+        });
+        row.addEventListener('dragend', function () {
+            row.classList.remove('dragging');
+            rows.forEach(function (r) { r.classList.remove('drag-over'); });
+        });
+        row.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            row.classList.add('drag-over');
+        });
+        row.addEventListener('dragleave', function () { row.classList.remove('drag-over'); });
+        row.addEventListener('drop', function (e) {
+            e.preventDefault();
+            row.classList.remove('drag-over');
+            var targetIdx = parseInt(row.dataset.idx, 10);
+            if (draggingIdx < 0 || draggingIdx === targetIdx) return;
+            var moved = selectedFiles.splice(draggingIdx, 1)[0];
+            selectedFiles.splice(targetIdx, 0, moved);
+            renderList();
+        });
+    });
+}
+
+// === add / remove / clear ===
+
+function isDuplicate(f) {
+    return selectedFiles.some(function (s) {
+        return s.file.name === f.name && s.file.size === f.size;
+    });
+}
+
+async function addFiles(fileListIn) {
+    clearError(); clearSuccess();
+    var rejected = [];
+    var newFiles = [];
+    for (var i = 0; i < fileListIn.length; i++) {
+        var f = fileListIn[i];
+        var lower = f.name.toLowerCase();
+        if (!(lower.endsWith('.xlsx') || lower.endsWith('.xlsm'))) {
+            rejected.push(f.name + ' (не .xlsx/.xlsm)');
+            continue;
         }
-        if (!dup) selectedFiles.push(f);
+        if (isDuplicate(f)) { rejected.push(f.name + ' (уже добавлен)'); continue; }
+        newFiles.push({ file: f, sheets: null, error: '' });
     }
+    if (rejected.length) GigaChat.showToast('Пропущено: ' + rejected.join(', '), 'warn');
+    if (newFiles.length === 0) { renderList(); return; }
+
+    selectedFiles = selectedFiles.concat(newFiles);
     renderList();
+    await parseSelectedFiles();
+    renderList();
+}
+
+async function parseSelectedFiles() {
+    for (var i = 0; i < selectedFiles.length; i++) {
+        var entry = selectedFiles[i];
+        if (entry.sheets || entry.error) continue;
+        try {
+            var sheets = await GigaChat.parseXlsxFile(entry.file);
+            if (sheets.length === 0) entry.error = 'нет листов';
+            else entry.sheets = sheets;
+        } catch (e) {
+            entry.error = (e && e.message) ? e.message : String(e);
+        }
+    }
 }
 
 function removeFile(idx) {
     selectedFiles.splice(idx, 1);
+    currentMerged = null;
+    optionsPanel.classList.remove('show');
+    previewSection.classList.remove('show');
+    downloadBtn.disabled = true;
     renderList();
-}
-function clearFiles() {
-    selectedFiles = [];
-    fileInput.value = '';
-    renderList();
-    clearError();
-    clearSuccess();
 }
 
-fileInput.addEventListener('change', function() {
+function clearFiles() {
+    selectedFiles = []; currentMerged = null; unionColumns = []; ignoredCols = new Set();
+    fileInput.value = ''; clearError(); clearSuccess(); renderList();
+}
+
+// === Merge + Preview ===
+
+function collectParsedSheets() {
+    var allTables = [];
+    for (var i = 0; i < selectedFiles.length; i++) {
+        var entry = selectedFiles[i];
+        if (!entry.sheets) continue;
+        for (var s = 0; s < entry.sheets.length; s++) {
+            var sheet = entry.sheets[s];
+            if (!sheet.headers || sheet.headers.length === 0) continue;
+            allTables.push({
+                name: entry.file.name + (entry.sheets.length > 1 ? ' [' + sheet.name + ']' : ''),
+                headers: sheet.headers,
+                rows: sheet.rows
+            });
+        }
+    }
+    return allTables;
+}
+
+function doMerge() {
+    clearError(); clearSuccess();
+    var tables = collectParsedSheets();
+    if (tables.length === 0) { showError('Нет листов для объединения.'); return; }
+
+    var base = GigaChat.mergeTables(tables, {});
+    unionColumns = base.headers.slice();
+    if (unionColumns.length === 0) { showError('Во всех листах заголовки пустые.'); return; }
+    if (base.rows.length === 0) { showError('Во всех листах нет данных кроме заголовков.'); return; }
+
+    ignoredCols = new Set();
+    optDedup.checked = false;
+    optSortCol.innerHTML = '<option value="-1">Без сортировки</option>';
+    for (var i = 0; i < unionColumns.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = unionColumns[i] || ('Колонка ' + (i + 1));
+        optSortCol.appendChild(opt);
+    }
+    optSortCol.value = '-1';
+    optSortDir.value = 'asc';
+    renderIgnoreList();
+    optionsPanel.classList.add('show');
+    optionsPanel.open = false;
+    recomputePreview();
+}
+
+function renderIgnoreList() {
+    var html = '';
+    for (var i = 0; i < unionColumns.length; i++) {
+        var cls = ignoredCols.has(i) ? 'pill ignored' : 'pill';
+        var name = unionColumns[i] || ('Колонка ' + (i + 1));
+        html += '<span class="' + cls + '" onclick="toggleIgnore(' + i + ')">' + escapeHtml(name) + '</span>';
+    }
+    optIgnoreList.innerHTML = html;
+}
+
+function toggleIgnore(idx) {
+    if (ignoredCols.has(idx)) ignoredCols.delete(idx);
+    else ignoredCols.add(idx);
+    renderIgnoreList();
+    recomputePreview();
+}
+
+function recomputePreview() {
+    var tables = collectParsedSheets();
+    if (tables.length === 0) return;
+    var sortCol = parseInt(optSortCol.value, 10);
+    var opts = {
+        dedup: optDedup.checked,
+        sortColumn: isNaN(sortCol) ? -1 : sortCol,
+        sortDir: optSortDir.value,
+        ignoreColumns: ignoredCols
+    };
+    currentMerged = GigaChat.mergeTables(tables, opts);
+    renderPreview(currentMerged);
+    downloadBtn.disabled = (currentMerged.rows.length === 0);
+}
+
+function renderPreview(merged) {
+    var headers = merged.headers, rows = merged.rows;
+    previewRowCount.textContent = String(rows.length);
+    previewColCount.textContent = String(headers.length);
+
+    var html = '<thead><tr>';
+    for (var i = 0; i < headers.length; i++) html += '<th>' + escapeHtml(headers[i]) + '</th>';
+    html += '</tr></thead><tbody>';
+    var limit = Math.min(rows.length, PREVIEW_ROW_LIMIT);
+    for (var r = 0; r < limit; r++) {
+        html += '<tr>';
+        for (var c = 0; c < headers.length; c++) html += '<td>' + escapeHtml(rows[r][c]) + '</td>';
+        html += '</tr>';
+    }
+    html += '</tbody>';
+    previewTable.innerHTML = html;
+
+    if (rows.length > PREVIEW_ROW_LIMIT) {
+        previewFooter.textContent = 'Показано первые ' + PREVIEW_ROW_LIMIT + ' из ' + rows.length + ' строк';
+        previewFooter.style.display = '';
+    } else {
+        previewFooter.style.display = 'none';
+    }
+    previewSection.classList.add('show');
+}
+
+// === Download — генерируем xlsx через shared buildXlsxBlob ===
+
+async function doDownload() {
+    if (!currentMerged) { showError('Сначала нажмите «Построить превью».'); return; }
+    downloadBtn.disabled = true;
+    var origText = downloadBtnText.textContent;
+    downloadBtnText.innerHTML = '<span class="spinner"></span> Сборка...';
+    try {
+        var blob = await GigaChat.buildXlsxBlob(currentMerged.headers, currentMerged.rows, 'Объединение');
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'merged-tables-' + new Date().toISOString().slice(0, 10) + '.xlsx';
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        showSuccess('Файл сохранён: ' + a.download);
+    } catch (e) {
+        showError('Ошибка сборки: ' + (e && e.message ? e.message : String(e)));
+    } finally {
+        downloadBtnText.textContent = origText;
+        downloadBtn.disabled = false;
+    }
+}
+
+// === File input + drop ===
+
+fileInput.addEventListener('change', function () {
     addFiles(fileInput.files);
-    // Сбрасываем value чтобы можно было загрузить тот же файл повторно
     fileInput.value = '';
 });
 
@@ -407,103 +614,32 @@ function hasFiles(e) {
     for (var i = 0; i < t.length; i++) if (t[i] === 'Files') return true;
     return false;
 }
-dropZone.addEventListener('dragover', function(e) {
+dropZone.addEventListener('dragover', function (e) {
     if (!hasFiles(e)) return;
     e.preventDefault();
     dropZone.classList.add('dragover');
 });
-dropZone.addEventListener('dragleave', function(e) {
+dropZone.addEventListener('dragleave', function (e) {
     if (e.relatedTarget && dropZone.contains(e.relatedTarget)) return;
     dropZone.classList.remove('dragover');
 });
-dropZone.addEventListener('drop', function(e) {
+dropZone.addEventListener('drop', function (e) {
     e.preventDefault();
     dropZone.classList.remove('dragover');
-    if (e.dataTransfer && e.dataTransfer.files) {
-        addFiles(e.dataTransfer.files);
-    }
+    if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
 });
-async function doMerge() {
-    if (selectedFiles.length === 0) return;
-    clearError();
-    clearSuccess();
-    mergeBtn.disabled = true;
-    mergeBtnText.innerHTML = '<span class="spinner"></span> Обрабатываю...';
 
-    var formData = new FormData();
-    for (var i = 0; i < selectedFiles.length; i++) {
-        formData.append('files', selectedFiles[i], selectedFiles[i].name);
+// === Status ===
+
+(function checkStatus() {
+    if (typeof JSZip === 'undefined') {
+        statusDot.className = 'dot offline';
+        statusText.textContent = 'Офлайн';
+    } else {
+        statusDot.className = 'dot online';
+        statusText.textContent = 'Онлайн';
     }
-
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
-
-    try {
-        var res = await fetch(WEBHOOK_URL, {
-            method: 'POST',
-            body: formData,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-            // Сервер вернул JSON с ошибкой
-            var errText;
-            try {
-                var errJson = await res.json();
-                errText = errJson.error || errJson.message || ('HTTP ' + res.status);
-            } catch (e) {
-                errText = 'HTTP ' + res.status;
-            }
-            throw new Error(errText);
-        }
-
-        var blob = await res.blob();
-        if (blob.size === 0) throw new Error('Сервер вернул пустой файл.');
-
-        // Имя файла из Content-Disposition если есть, иначе по умолчанию
-        var cd = res.headers.get('content-disposition') || '';
-        var filename = 'merged.bin';
-        var m = cd.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
-        if (m) {
-            try { filename = decodeURIComponent(m[1].replace(/^["']|["']$/g, '')); }
-            catch (_) { filename = m[1].replace(/^["']|["']$/g, ''); }
-        } else {
-            filename = 'merged.xlsx';
-        }
-
-        // Триггерим скачивание
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
-
-        var filesCount = selectedFiles.length;
-        showSuccess('Готово. Файл «' + filename + '» (' + formatSize(blob.size) + ') скачан. Объединено файлов: ' + filesCount + '.');
-        // Очищаем список выбранных файлов — следующая партия начинается с чистого листа.
-        selectedFiles = [];
-        fileInput.value = '';
-    } catch (err) {
-        clearTimeout(timeoutId);
-        if (err.name === 'AbortError') {
-            showError('Превышено время ожидания (4 минуты). Файлов слишком много или они слишком большие.');
-        } else {
-            showError(err.message || 'Не удалось обработать файлы.');
-        }
-    } finally {
-        mergeBtn.disabled = false;
-        mergeBtnText.textContent = 'Объединить и скачать';
-        renderList(); // вернёт правильное disabled если что
-    }
-}
-
-// Health check (через webhook — если n8n live, считаем что и сервис live;
-// настоящий статус узнаем только при запросе на /merge).
-GigaChat.startHealthCheck(WEBHOOK_URL, statusDot, statusText);
+})();
 
 renderList();
 </script>

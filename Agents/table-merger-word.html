@@ -35,180 +35,174 @@
     --accent-hover: #a0764d;
     --accent-light: rgba(184, 137, 93, 0.15);
 }
-/* Общие стили tool-страницы — в _shared.js через GigaChat.injectToolCss().
-   Здесь — только per-page правила. */
-html {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-}
+html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 html::-webkit-scrollbar { width: 5px; }
 html::-webkit-scrollbar-track { background: transparent; }
 html::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 html::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-main { max-width: 800px; }
-.drop-zone.dragover { border-color: var(--accent); background: var(--accent-light, rgba(212,165,116,.12)); }
+main { max-width: 900px; }
+.drop-zone.dragover { border-color: var(--accent); background: var(--accent-light); }
 .drop-zone input[type="file"] { display: none; }
 
+/* === Список файлов с drag-reorder === */
 #fileList {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 16px;
-    display: none;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; margin-bottom: 16px; display: none;
 }
 #fileList.show { display: block; }
 #fileList .file-list-header {
-    padding: 12px 18px;
-    background: var(--bg-input);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 12px;
-    color: var(--text-secondary);
-    letter-spacing: 0.5px;
+    padding: 12px 18px; background: var(--bg-input);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--text-secondary); letter-spacing: 0.5px;
 }
-#fileList .file-list-header .count {
-    color: var(--accent);
-    font-weight: 600;
-}
+#fileList .file-list-header .count { color: var(--accent); font-weight: 600; }
 #fileList .file-list-header .clear-all {
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 12px;
-    background: none;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.15s;
-    font-family: inherit;
+    color: var(--text-muted); cursor: pointer; font-size: 12px;
+    background: none; border: none; padding: 4px 8px; border-radius: 4px;
+    transition: all 0.15s; font-family: inherit;
 }
 #fileList .file-list-header .clear-all:hover { color: var(--error); background: rgba(239,68,68,0.08); }
 .file-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 18px;
-    border-bottom: 1px solid var(--border);
-    font-size: 13.5px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px; border-bottom: 1px solid var(--border);
+    font-size: 13.5px; transition: background 0.15s;
 }
 .file-row:last-child { border-bottom: none; }
-.file-row .name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-primary);
+.file-row.dragging { opacity: 0.4; }
+.file-row.drag-over { background: var(--accent-light); }
+.file-row .drag-handle {
+    cursor: grab; color: var(--text-muted); user-select: none;
+    flex-shrink: 0; font-size: 14px; padding: 0 4px;
 }
-.file-row .size {
-    color: var(--text-muted);
-    font-size: 12px;
-    font-family: Consolas, monospace;
+.file-row .drag-handle:active { cursor: grabbing; }
+.file-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+.file-row .tables-badge {
+    background: var(--accent-light); color: var(--accent);
+    font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 500;
     flex-shrink: 0;
 }
+.file-row .size { color: var(--text-muted); font-size: 12px; font-family: Consolas, monospace; flex-shrink: 0; }
 .file-row .remove {
-    width: 22px; height: 22px;
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    border-radius: 4px;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s;
-    flex-shrink: 0;
+    width: 22px; height: 22px; border: none; background: transparent;
+    color: var(--text-muted); cursor: pointer; border-radius: 4px;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0;
 }
 .file-row .remove:hover { color: var(--error); background: rgba(239,68,68,0.08); }
+.file-row .file-error { color: var(--error); font-size: 11px; margin-left: 8px; }
 
-.warning {
-    background: rgba(245, 158, 11, 0.10);
-    border: 1px solid rgba(245, 158, 11, 0.4);
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-    color: var(--warning);
-    font-size: 13px;
-    display: none;
+/* === Опции === */
+#optionsPanel {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+    margin-bottom: 16px; display: none;
 }
-.warning.show { display: block; }
-
-.error-msg {
-    background: rgba(239, 68, 68, 0.10);
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-    color: var(--error);
-    font-size: 13px;
-    display: none;
+#optionsPanel.show { display: block; }
+#optionsPanel summary {
+    padding: 12px 18px; cursor: pointer; font-size: 13px;
+    color: var(--text-secondary); letter-spacing: 0.3px;
+    list-style: none; display: flex; align-items: center; gap: 8px;
 }
-.error-msg.show { display: block; }
-
-.success-msg {
-    background: rgba(16, 185, 129, 0.10);
-    border: 1px solid rgba(16, 185, 129, 0.4);
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-    color: var(--success);
-    font-size: 13px;
-    display: none;
+#optionsPanel summary::-webkit-details-marker { display: none; }
+#optionsPanel summary::before {
+    content: '▸'; transition: transform 0.2s; color: var(--text-muted); font-size: 11px;
 }
-.success-msg.show { display: block; }
-
-.actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
+#optionsPanel[open] summary::before { transform: rotate(90deg); }
+#optionsPanel .options-body {
+    padding: 4px 18px 16px; display: flex; flex-direction: column; gap: 12px;
+    border-top: 1px solid var(--border);
 }
-/* Override shared .btn-primary: НЕ растягиваем на 100%, чтобы в .actions
-   с flex-end кнопка прижималась вправо. Также сбрасываем margin-bottom. */
-.btn-primary {
-    width: auto;
-    margin-bottom: 0;
-    padding: 12px 28px;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
+#optionsPanel label {
+    display: flex; align-items: center; gap: 8px; font-size: 13.5px;
+    color: var(--text-primary); cursor: pointer;
+}
+#optionsPanel label.row { gap: 10px; flex-wrap: wrap; }
+#optionsPanel input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+#optionsPanel select {
+    background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text-primary); padding: 6px 10px; font-size: 13px; font-family: inherit;
     cursor: pointer;
-    font-size: 14.5px;
-    font-weight: 600;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+}
+#optionsPanel .ignore-list {
+    display: flex; flex-wrap: wrap; gap: 6px;
+}
+#optionsPanel .ignore-list .pill {
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
+    font-size: 12px; color: var(--text-secondary); cursor: pointer;
+    transition: all 0.15s; user-select: none;
+}
+#optionsPanel .ignore-list .pill:hover { border-color: var(--text-secondary); }
+#optionsPanel .ignore-list .pill.ignored {
+    background: rgba(239,68,68,0.1); border-color: var(--error); color: var(--error);
+    text-decoration: line-through;
+}
+
+/* === Preview === */
+#previewSection {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+    margin-bottom: 16px; padding: 16px 18px; display: none;
+}
+#previewSection.show { display: block; }
+#previewSection .preview-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+}
+#previewSection h3 { font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1.5px; margin: 0; font-weight: 600; }
+#previewSection .preview-meta { font-size: 13px; color: var(--text-muted); }
+#previewSection .preview-meta b { color: var(--accent); font-variant-numeric: tabular-nums; }
+#previewSection .preview-scroll {
+    overflow: auto; max-height: 360px; border: 1px solid var(--border);
+    border-radius: 8px; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#previewSection table {
+    width: 100%; border-collapse: collapse; font-size: 12.5px; font-family: Consolas, monospace;
+}
+#previewSection th, #previewSection td {
+    padding: 6px 10px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+    text-align: left; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#previewSection th {
+    background: var(--bg-input); position: sticky; top: 0;
+    color: var(--text-primary); font-weight: 600; font-size: 12px;
+}
+#previewSection td { color: var(--text-secondary); }
+#previewSection tr:last-child td { border-bottom: none; }
+#previewSection .preview-footer {
+    margin-top: 8px; font-size: 11px; color: var(--text-muted); text-align: center;
+}
+
+/* === Сообщения === */
+.warning, .error-msg, .success-msg {
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; display: none;
+}
+.warning { background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.4); color: var(--warning); }
+.error-msg { background: rgba(239,68,68,.10); border: 1px solid rgba(239,68,68,.4); color: var(--error); }
+.success-msg { background: rgba(16,185,129,.10); border: 1px solid rgba(16,185,129,.4); color: var(--success); }
+.warning.show, .error-msg.show, .success-msg.show { display: block; }
+
+/* === Кнопки === */
+.actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.btn-primary {
+    width: auto; margin-bottom: 0; padding: 12px 28px;
+    background: var(--accent); color: #fff; border: none; border-radius: 10px;
+    cursor: pointer; font-size: 14.5px; font-weight: 600; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
 }
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .btn-secondary {
-    padding: 12px 20px;
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s;
+    padding: 12px 20px; background: transparent; color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
+    font-size: 14px; transition: all 0.2s;
 }
 .btn-secondary:hover:not(:disabled) { color: var(--text-primary); border-color: var(--text-secondary); }
 .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+    width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* .status-bar и pulse keyframe в _shared.js. */
-
 </style>
 <script src="_config.js"></script>
 <script src="_shared.js"></script>
@@ -217,7 +211,10 @@ main { max-width: 800px; }
 <body>
 
 <header>
-    <div class="header-left"><a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a><h1>Объединение Word</h1></div>
+    <div class="header-left">
+        <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
+        <h1>Объединение Word</h1>
+    </div>
     <div class="header-right">
         <div class="status-bar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
     </div>
@@ -226,14 +223,14 @@ main { max-width: 800px; }
 <main>
     <div class="intro">
         <h2>Что делает инструмент</h2>
-        <p>Загружаете несколько <b>Word-файлов</b> (<code>.docx</code>) с одинаковыми таблицами. Инструмент склеивает все таблицы в одну и отдаёт итоговый <code>.docx</code>.</p>
-        <p>Читается <b>первая таблица</b> в каждом документе. Первая строка таблицы — заголовок.</p>
+        <p>Загрузите несколько <b>Word-файлов</b> (<code>.docx</code>) с таблицами. Инструмент объединит <b>все таблицы из всех файлов</b> в одну общую — заголовки склеит по смыслу, строки сложит подряд.</p>
+        <p>Перетягивайте файлы в списке для изменения порядка. Доступны: удаление дубликатов, сортировка, скрытие столбцов и превью результата перед скачиванием.</p>
     </div>
 
     <label class="drop-zone" id="dropZone" for="fileInput">
         <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></div>
         <div class="title">Перетащите Word-файлы сюда или нажмите для выбора</div>
-        <div class="hint">Принимаются только <b>.docx</b>.</div>
+        <div class="hint">Принимаются только <b>.docx</b>. Берутся все таблицы из каждого файла.</div>
         <input type="file" id="fileInput" multiple accept=".docx">
     </label>
 
@@ -243,15 +240,43 @@ main { max-width: 800px; }
 
     <div id="fileList">
         <div class="file-list-header">
-            <span>Выбрано: <span class="count" id="fileCount">0</span></span>
+            <span>Файлов: <span class="count" id="fileCount">0</span></span>
             <button class="clear-all" type="button" onclick="clearFiles()">Очистить</button>
         </div>
         <div id="fileRows"></div>
     </div>
 
+    <details id="optionsPanel">
+        <summary>Опции объединения</summary>
+        <div class="options-body">
+            <label><input type="checkbox" id="optDedup" onchange="recomputePreview()"> Удалить дубликаты строк</label>
+            <label class="row">Сортировка по столбцу:
+                <select id="optSortCol" onchange="recomputePreview()"><option value="-1">Без сортировки</option></select>
+                <select id="optSortDir" onchange="recomputePreview()">
+                    <option value="asc">по возрастанию</option>
+                    <option value="desc">по убыванию</option>
+                </select>
+            </label>
+            <div>
+                <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">Игнорировать столбцы (клик включает/выключает):</div>
+                <div class="ignore-list" id="optIgnoreList"></div>
+            </div>
+        </div>
+    </details>
+
+    <div id="previewSection">
+        <div class="preview-header">
+            <h3>Превью результата</h3>
+            <span class="preview-meta">Строк: <b id="previewRowCount">0</b> · Столбцов: <b id="previewColCount">0</b></span>
+        </div>
+        <div class="preview-scroll"><table id="previewTable"></table></div>
+        <div class="preview-footer" id="previewFooter"></div>
+    </div>
+
     <div class="actions">
-        <button class="btn-primary" id="mergeBtn" onclick="doMerge()" disabled>
-            <span id="mergeBtnText">Объединить и скачать</span>
+        <button class="btn-secondary" id="mergeBtn" type="button" onclick="doMerge()" disabled>Построить превью</button>
+        <button class="btn-primary" id="downloadBtn" type="button" onclick="doDownload()" disabled>
+            <span id="downloadBtnText">Скачать .docx</span>
         </button>
     </div>
 </main>
@@ -260,10 +285,10 @@ main { max-width: 800px; }
 GigaChat.injectToolCss();
 // Word-объединение работает ПОЛНОСТЬЮ В БРАУЗЕРЕ через JSZip.
 // Никаких HTTP-запросов, никакого Python-сервиса, никакого n8n.
-// Файл .docx — это zip-архив; внутри word/document.xml — XML с таблицей.
-// Распаковываем → парсим → склеиваем таблицы → запаковываем → скачиваем.
+// Парсинг docx / mergeTables / сборка xlsx — общие хелперы в _shared.js.
 var MAX_FILES_WARN = 10;
 var MAX_FILES_HARD = 25;
+var PREVIEW_ROW_LIMIT = 50;
 
 var dropZone = document.getElementById('dropZone');
 var fileInput = document.getElementById('fileInput');
@@ -273,14 +298,31 @@ var fileCount = document.getElementById('fileCount');
 var warningBox = document.getElementById('warningBox');
 var errorBox = document.getElementById('errorBox');
 var successBox = document.getElementById('successBox');
+var optionsPanel = document.getElementById('optionsPanel');
+var optDedup = document.getElementById('optDedup');
+var optSortCol = document.getElementById('optSortCol');
+var optSortDir = document.getElementById('optSortDir');
+var optIgnoreList = document.getElementById('optIgnoreList');
+var previewSection = document.getElementById('previewSection');
+var previewTable = document.getElementById('previewTable');
+var previewRowCount = document.getElementById('previewRowCount');
+var previewColCount = document.getElementById('previewColCount');
+var previewFooter = document.getElementById('previewFooter');
 var mergeBtn = document.getElementById('mergeBtn');
-var mergeBtnText = document.getElementById('mergeBtnText');
+var downloadBtn = document.getElementById('downloadBtn');
+var downloadBtnText = document.getElementById('downloadBtnText');
 var statusDot = document.getElementById('statusDot');
 var statusText = document.getElementById('statusText');
 
+// selectedFiles: [{ file, parsed: null|{tables:[...]}, error: '' }]
 var selectedFiles = [];
+// Текущий merge-результат (после применения опций)
+var currentMerged = null;
+// Список столбцов после union — для UI сортировки/игнора
+var unionColumns = [];
+var ignoredCols = new Set();
 
-function escapeHtml(s) { return GigaChat.escapeHtml(s); }
+function escapeHtml(s) { return GigaChat.escapeHtml(s == null ? '' : s); }
 
 function formatSize(bytes) {
     if (bytes < 1024) return bytes + ' Б';
@@ -288,34 +330,27 @@ function formatSize(bytes) {
     return (bytes / 1024 / 1024).toFixed(1) + ' МБ';
 }
 
-function detectKind(name) {
-    var lower = (name || '').toLowerCase();
-    if (lower.endsWith('.docx')) return 'docx';
-    return null;
-}
-
 function showError(msg) {
-    errorBox.textContent = msg;
-    errorBox.classList.add('show');
+    errorBox.textContent = msg; errorBox.classList.add('show');
     successBox.classList.remove('show');
 }
-function clearError() {
-    errorBox.classList.remove('show');
-}
+function clearError() { errorBox.classList.remove('show'); }
 function showSuccess(msg) {
-    successBox.textContent = msg;
-    successBox.classList.add('show');
+    successBox.textContent = msg; successBox.classList.add('show');
     errorBox.classList.remove('show');
 }
-function clearSuccess() {
-    successBox.classList.remove('show');
-}
+function clearSuccess() { successBox.classList.remove('show'); }
+
+// === Список файлов ===
 
 function renderList() {
     if (selectedFiles.length === 0) {
         fileList.classList.remove('show');
         warningBox.classList.remove('show');
+        optionsPanel.classList.remove('show');
+        previewSection.classList.remove('show');
         mergeBtn.disabled = true;
+        downloadBtn.disabled = true;
         return;
     }
     fileList.classList.add('show');
@@ -324,172 +359,310 @@ function renderList() {
     var html = '';
     for (var i = 0; i < selectedFiles.length; i++) {
         var f = selectedFiles[i];
-        html += '<div class="file-row">';
-        html += '<span class="name">' + escapeHtml(f.name) + '</span>';
-        html += '<span class="size">' + formatSize(f.size) + '</span>';
+        var tablesBadge = '';
+        if (f.parsed && f.parsed.tables) {
+            tablesBadge = '<span class="tables-badge">' + f.parsed.tables.length + ' табл.</span>';
+        } else if (f.error) {
+            tablesBadge = '<span class="tables-badge" style="background:rgba(239,68,68,.1);color:var(--error)">ошибка</span>';
+        }
+        var errorHtml = f.error ? '<span class="file-error">' + escapeHtml(f.error) + '</span>' : '';
+        html += '<div class="file-row" draggable="true" data-idx="' + i + '">';
+        html += '<span class="drag-handle" aria-hidden="true">⠿</span>';
+        html += '<span class="name">' + escapeHtml(f.file.name) + '</span>';
+        html += tablesBadge;
+        html += errorHtml;
+        html += '<span class="size">' + formatSize(f.file.size) + '</span>';
         html += '<button class="remove" onclick="removeFile(' + i + ')" aria-label="Удалить">×</button>';
         html += '</div>';
     }
     fileRows.innerHTML = html;
+    attachDragHandlers();
 
-    // Предупреждения
     var warns = [];
-    if (selectedFiles.length > MAX_FILES_HARD) {
-        warns.push('Превышен предел в ' + MAX_FILES_HARD + ' файлов. Удалите лишние.');
-    } else if (selectedFiles.length > MAX_FILES_WARN) {
-        warns.push('Файлов больше ' + MAX_FILES_WARN + ' — обработка может занять минуту или дольше.');
-    }
-    // Проверка одинаковости формата
-    var kinds = {};
-    for (var j = 0; j < selectedFiles.length; j++) {
-        var k = detectKind(selectedFiles[j].name);
-        if (k) kinds[k] = true;
-        else warns.push('Файл «' + selectedFiles[j].name + '» имеет неподдерживаемый формат.');
-    }
-    if (Object.keys(kinds).length > 1) {
-        warns.push('Файлы разных форматов. Оставьте только .docx.');
-    }
-
-    if (warns.length > 0) {
-        warningBox.innerHTML = warns.map(function(w) { return '⚠ ' + escapeHtml(w); }).join('<br>');
+    if (selectedFiles.length > MAX_FILES_HARD) warns.push('Превышен предел в ' + MAX_FILES_HARD + ' файлов.');
+    else if (selectedFiles.length > MAX_FILES_WARN) warns.push('Файлов больше ' + MAX_FILES_WARN + ' — это может замедлить обработку.');
+    if (warns.length) {
+        warningBox.textContent = warns.join(' ');
         warningBox.classList.add('show');
     } else {
         warningBox.classList.remove('show');
     }
 
-    var canMerge = selectedFiles.length >= 1 &&
-                   selectedFiles.length <= MAX_FILES_HARD &&
-                   Object.keys(kinds).length === 1;
-    mergeBtn.disabled = !canMerge;
+    var validCount = selectedFiles.filter(function (f) { return f.parsed && f.parsed.tables.length > 0; }).length;
+    mergeBtn.disabled = (validCount < 1 || selectedFiles.length > MAX_FILES_HARD);
 }
 
-function addFiles(fileLikeList) {
-    clearError();
-    clearSuccess();
-    for (var i = 0; i < fileLikeList.length; i++) {
-        var f = fileLikeList[i];
-        // Защита от дубликатов по имени+размеру
-        var dup = false;
-        for (var j = 0; j < selectedFiles.length; j++) {
-            if (selectedFiles[j].name === f.name && selectedFiles[j].size === f.size) {
-                dup = true; break;
-            }
+// === Drag-reorder ===
+
+function attachDragHandlers() {
+    var rows = fileRows.querySelectorAll('.file-row');
+    var draggingIdx = -1;
+    rows.forEach(function (row) {
+        row.addEventListener('dragstart', function (e) {
+            draggingIdx = parseInt(row.dataset.idx, 10);
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            // Без этого Firefox не запускает drag
+            e.dataTransfer.setData('text/plain', String(draggingIdx));
+        });
+        row.addEventListener('dragend', function () {
+            row.classList.remove('dragging');
+            rows.forEach(function (r) { r.classList.remove('drag-over'); });
+        });
+        row.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            row.classList.add('drag-over');
+        });
+        row.addEventListener('dragleave', function () {
+            row.classList.remove('drag-over');
+        });
+        row.addEventListener('drop', function (e) {
+            e.preventDefault();
+            row.classList.remove('drag-over');
+            var targetIdx = parseInt(row.dataset.idx, 10);
+            if (draggingIdx < 0 || draggingIdx === targetIdx) return;
+            var moved = selectedFiles.splice(draggingIdx, 1)[0];
+            selectedFiles.splice(targetIdx, 0, moved);
+            renderList();
+        });
+    });
+}
+
+// === Файлы: add / remove / clear ===
+
+function isDuplicate(f) {
+    return selectedFiles.some(function (s) {
+        return s.file.name === f.name && s.file.size === f.size;
+    });
+}
+
+async function addFiles(fileListIn) {
+    clearError(); clearSuccess();
+    var rejected = [];
+    var newFiles = [];
+    for (var i = 0; i < fileListIn.length; i++) {
+        var f = fileListIn[i];
+        var lower = f.name.toLowerCase();
+        if (!lower.endsWith('.docx')) {
+            rejected.push(f.name + ' (не .docx)');
+            continue;
         }
-        if (!dup) selectedFiles.push(f);
+        if (isDuplicate(f)) {
+            rejected.push(f.name + ' (уже добавлен)');
+            continue;
+        }
+        newFiles.push({ file: f, parsed: null, error: '' });
     }
+    if (rejected.length) GigaChat.showToast('Пропущено: ' + rejected.join(', '), 'warn');
+    if (newFiles.length === 0) { renderList(); return; }
+
+    selectedFiles = selectedFiles.concat(newFiles);
     renderList();
+    // Парсим новые в фоне, обновляем badge'ы
+    await parseSelectedFiles();
+    renderList();
+}
+
+async function parseSelectedFiles() {
+    for (var i = 0; i < selectedFiles.length; i++) {
+        var entry = selectedFiles[i];
+        if (entry.parsed || entry.error) continue;
+        try {
+            var res = await GigaChat.parseDocxAllTables(entry.file);
+            if (res.tables.length === 0) {
+                entry.error = 'нет таблиц';
+            } else {
+                entry.parsed = res;
+            }
+        } catch (e) {
+            entry.error = (e && e.message) ? e.message : String(e);
+        }
+    }
 }
 
 function removeFile(idx) {
     selectedFiles.splice(idx, 1);
+    currentMerged = null;
+    optionsPanel.classList.remove('show');
+    previewSection.classList.remove('show');
+    downloadBtn.disabled = true;
     renderList();
 }
+
 function clearFiles() {
     selectedFiles = [];
+    currentMerged = null;
+    unionColumns = [];
+    ignoredCols = new Set();
     fileInput.value = '';
+    clearError(); clearSuccess();
     renderList();
-    clearError();
-    clearSuccess();
 }
 
-fileInput.addEventListener('change', function() {
-    addFiles(fileInput.files);
-    // Сбрасываем value чтобы можно было загрузить тот же файл повторно
-    fileInput.value = '';
-});
+// === Merge + Preview ===
 
-function hasFiles(e) {
-    var t = e.dataTransfer && e.dataTransfer.types;
-    if (!t) return false;
-    for (var i = 0; i < t.length; i++) if (t[i] === 'Files') return true;
-    return false;
-}
-dropZone.addEventListener('dragover', function(e) {
-    if (!hasFiles(e)) return;
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-});
-dropZone.addEventListener('dragleave', function(e) {
-    if (e.relatedTarget && dropZone.contains(e.relatedTarget)) return;
-    dropZone.classList.remove('dragover');
-});
-dropZone.addEventListener('drop', function(e) {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    if (e.dataTransfer && e.dataTransfer.files) {
-        addFiles(e.dataTransfer.files);
+function collectParsedTables() {
+    var allTables = [];
+    for (var i = 0; i < selectedFiles.length; i++) {
+        var entry = selectedFiles[i];
+        if (!entry.parsed || !entry.parsed.tables) continue;
+        for (var t = 0; t < entry.parsed.tables.length; t++) {
+            var tbl = entry.parsed.tables[t];
+            if (!tbl.headers || tbl.headers.length === 0) continue;
+            allTables.push({
+                name: entry.file.name + (entry.parsed.tables.length > 1 ? ' [таблица ' + (t + 1) + ']' : ''),
+                headers: tbl.headers,
+                rows: tbl.rows
+            });
+        }
     }
-});
-// =================== Browser-only merge через JSZip + DOMParser ===================
+    return allTables;
+}
+
+function doMerge() {
+    clearError(); clearSuccess();
+    var tables = collectParsedTables();
+    if (tables.length === 0) {
+        showError('Нет таблиц для объединения. Проверьте, что файлы содержат таблицы.');
+        return;
+    }
+
+    // Базовый union без опций — чтобы сформировать unionColumns
+    var base = GigaChat.mergeTables(tables, {});
+    unionColumns = base.headers.slice();
+    if (unionColumns.length === 0) {
+        showError('Во всех таблицах заголовки пустые — нечего объединять.');
+        return;
+    }
+    if (base.rows.length === 0) {
+        showError('Во всех таблицах нет данных кроме заголовков.');
+        return;
+    }
+
+    // Сбрасываем опции
+    ignoredCols = new Set();
+    optDedup.checked = false;
+    optSortCol.innerHTML = '<option value="-1">Без сортировки</option>';
+    for (var i = 0; i < unionColumns.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = unionColumns[i] || ('Колонка ' + (i + 1));
+        optSortCol.appendChild(opt);
+    }
+    optSortCol.value = '-1';
+    optSortDir.value = 'asc';
+    renderIgnoreList();
+
+    optionsPanel.classList.add('show');
+    optionsPanel.open = false;
+
+    recomputePreview();
+}
+
+function renderIgnoreList() {
+    var html = '';
+    for (var i = 0; i < unionColumns.length; i++) {
+        var cls = ignoredCols.has(i) ? 'pill ignored' : 'pill';
+        var name = unionColumns[i] || ('Колонка ' + (i + 1));
+        html += '<span class="' + cls + '" onclick="toggleIgnore(' + i + ')">' + escapeHtml(name) + '</span>';
+    }
+    optIgnoreList.innerHTML = html;
+}
+
+function toggleIgnore(idx) {
+    if (ignoredCols.has(idx)) ignoredCols.delete(idx);
+    else ignoredCols.add(idx);
+    renderIgnoreList();
+    recomputePreview();
+}
+
+function recomputePreview() {
+    var tables = collectParsedTables();
+    if (tables.length === 0) return;
+
+    var sortCol = parseInt(optSortCol.value, 10);
+    var opts = {
+        dedup: optDedup.checked,
+        sortColumn: isNaN(sortCol) ? -1 : sortCol,
+        sortDir: optSortDir.value,
+        ignoreColumns: ignoredCols
+    };
+    currentMerged = GigaChat.mergeTables(tables, opts);
+    renderPreview(currentMerged);
+    downloadBtn.disabled = (currentMerged.rows.length === 0);
+}
+
+function renderPreview(merged) {
+    var headers = merged.headers;
+    var rows = merged.rows;
+    previewRowCount.textContent = String(rows.length);
+    previewColCount.textContent = String(headers.length);
+
+    var html = '<thead><tr>';
+    for (var i = 0; i < headers.length; i++) {
+        html += '<th>' + escapeHtml(headers[i]) + '</th>';
+    }
+    html += '</tr></thead><tbody>';
+    var limit = Math.min(rows.length, PREVIEW_ROW_LIMIT);
+    for (var r = 0; r < limit; r++) {
+        html += '<tr>';
+        for (var c = 0; c < headers.length; c++) {
+            html += '<td>' + escapeHtml(rows[r][c]) + '</td>';
+        }
+        html += '</tr>';
+    }
+    html += '</tbody>';
+    previewTable.innerHTML = html;
+
+    if (rows.length > PREVIEW_ROW_LIMIT) {
+        previewFooter.textContent = 'Показано первые ' + PREVIEW_ROW_LIMIT + ' из ' + rows.length + ' строк';
+        previewFooter.style.display = '';
+    } else {
+        previewFooter.style.display = 'none';
+    }
+    previewSection.classList.add('show');
+}
+
+// === Download — собираем .docx используя первый файл как template ===
+
+async function doDownload() {
+    if (!currentMerged) { showError('Сначала нажмите «Построить превью».'); return; }
+    var firstValid = selectedFiles.find(function (f) { return f.parsed; });
+    if (!firstValid) { showError('Нет валидных файлов для шаблона.'); return; }
+
+    downloadBtn.disabled = true;
+    var origText = downloadBtnText.textContent;
+    downloadBtnText.innerHTML = '<span class="spinner"></span> Сборка...';
+    try {
+        var blob = await buildDocxFromTemplate(firstValid.parsed, currentMerged.headers, currentMerged.rows);
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'merged-tables-' + new Date().toISOString().slice(0, 10) + '.docx';
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        showSuccess('Файл сохранён: ' + a.download);
+    } catch (e) {
+        showError('Ошибка сборки: ' + (e && e.message ? e.message : String(e)));
+    } finally {
+        downloadBtnText.textContent = origText;
+        downloadBtn.disabled = false;
+    }
+}
 
 var WNS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
-function normalizeHeader(h) {
-    return String(h == null ? '' : h).trim().toLowerCase()
-        .replace(/[\s._\-(){}\[\]\\\/:;,!?'"]+/g, '');
-}
-
-// Извлекает текст из всех ячеек <w:tc> одной строки <w:tr>.
-function extractRowText(tr) {
-    var tcs = tr.getElementsByTagName('w:tc');
-    var result = [];
-    for (var i = 0; i < tcs.length; i++) {
-        var ts = tcs[i].getElementsByTagName('w:t');
-        var parts = [];
-        for (var j = 0; j < ts.length; j++) {
-            parts.push(ts[j].textContent || '');
-        }
-        result.push(parts.join(''));
-    }
-    return result;
-}
-
-// Парсит один docx-файл: распаковывает, находит первую таблицу, извлекает строки.
-async function parseDocx(file) {
-    var buf = await file.arrayBuffer();
-    var zip = await JSZip.loadAsync(buf);
-    var xmlFile = zip.file('word/document.xml');
-    if (!xmlFile) throw new Error('В файле «' + file.name + '» нет word/document.xml — это не Word-документ.');
-    var xml = await xmlFile.async('string');
-    var doc = new DOMParser().parseFromString(xml, 'application/xml');
-    var pe = doc.getElementsByTagName('parsererror')[0];
-    if (pe) throw new Error('Файл «' + file.name + '»: не удалось разобрать XML.');
-
-    var tables = doc.getElementsByTagName('w:tbl');
-    if (tables.length === 0) throw new Error('В файле «' + file.name + '» нет таблиц.');
-    var tbl = tables[0];
-
-    var rows = tbl.getElementsByTagName('w:tr');
-    if (rows.length === 0) throw new Error('Таблица в файле «' + file.name + '» пустая.');
-
-    var headers = extractRowText(rows[0]);
-    var dataRows = [];
-    for (var i = 1; i < rows.length; i++) {
-        var rowText = extractRowText(rows[i]);
-        // Пропускаем полностью пустые строки
-        var hasContent = false;
-        for (var j = 0; j < rowText.length; j++) {
-            if (String(rowText[j] || '').trim() !== '') { hasContent = true; break; }
-        }
-        if (hasContent) dataRows.push(rowText);
-    }
-
-    return { file: file, zip: zip, doc: doc, tbl: tbl, headers: headers, dataRows: dataRows };
-}
-
-// Создаёт XML-узел <w:tr> с ячейками.
-function buildRow(xmlDoc, cells, isHeader) {
+function buildDocxRow(xmlDoc, cells, isHeader) {
     var tr = xmlDoc.createElementNS(WNS, 'w:tr');
     for (var i = 0; i < cells.length; i++) {
         var tc = xmlDoc.createElementNS(WNS, 'w:tc');
-
         var tcPr = xmlDoc.createElementNS(WNS, 'w:tcPr');
         var tcW = xmlDoc.createElementNS(WNS, 'w:tcW');
         tcW.setAttributeNS(WNS, 'w:w', '2200');
         tcW.setAttributeNS(WNS, 'w:type', 'dxa');
         tcPr.appendChild(tcW);
         tc.appendChild(tcPr);
-
         var p = xmlDoc.createElementNS(WNS, 'w:p');
         var r = xmlDoc.createElementNS(WNS, 'w:r');
         if (isHeader) {
@@ -509,137 +682,78 @@ function buildRow(xmlDoc, cells, isHeader) {
     return tr;
 }
 
-async function mergeDocxFiles(files) {
-    // 1. Парсим все файлы
-    var parsed = [];
-    for (var i = 0; i < files.length; i++) {
-        parsed.push(await parseDocx(files[i]));
-    }
-
-    // 2. Объединяем заголовки (union со стабильным порядком первого появления)
-    var columnOrder = [];
-    var canonical = {};
-    for (var i = 0; i < parsed.length; i++) {
-        var hs = parsed[i].headers;
-        for (var j = 0; j < hs.length; j++) {
-            var norm = normalizeHeader(hs[j]);
-            if (!norm) continue;
-            if (!(norm in canonical)) {
-                canonical[norm] = hs[j];
-                columnOrder.push(norm);
-            }
-        }
-    }
-    if (columnOrder.length === 0) throw new Error('Во всех файлах заголовки пустые — нечего объединять.');
-
-    var mergedHeaders = columnOrder.map(function(k) { return canonical[k]; });
-
-    // 3. Объединяем строки
-    var mergedDataRows = [];
-    for (var i = 0; i < parsed.length; i++) {
-        var p = parsed[i];
-        var localMap = {};
-        for (var j = 0; j < p.headers.length; j++) {
-            var norm = normalizeHeader(p.headers[j]);
-            if (norm && !(norm in localMap)) localMap[norm] = j;
-        }
-        for (var k = 0; k < p.dataRows.length; k++) {
-            var row = p.dataRows[k];
-            var newRow = [];
-            for (var c = 0; c < columnOrder.length; c++) {
-                var idx = localMap[columnOrder[c]];
-                newRow.push((idx != null && row[idx] != null) ? row[idx] : '');
-            }
-            mergedDataRows.push(newRow);
-        }
-    }
-    if (mergedDataRows.length === 0) throw new Error('Во всех файлах нет данных кроме заголовков.');
-
-    // 4. Берём первый файл как template — там сохранятся все служебные части docx
-    //    (стили, шрифты, нумерация, заголовки страниц) и стиль таблицы.
-    var template = parsed[0];
+async function buildDocxFromTemplate(template, headers, rows) {
+    // Используем первый файл как шаблон: его zip/doc сохраняют все стили, шрифты,
+    // ширины колонок и т.п. Заменяем ПЕРВУЮ таблицу новой объединённой.
     var xmlDoc = template.doc;
-    var origTbl = template.tbl;
-
-    // Копируем w:tblPr из оригинальной таблицы (стиль, обводки, цвет и т.п.)
+    var origTbl = template.tablesEls[0];
     var tblPr = origTbl.getElementsByTagName('w:tblPr')[0];
 
-    // Строим новую таблицу
     var newTbl = xmlDoc.createElementNS(WNS, 'w:tbl');
     if (tblPr) newTbl.appendChild(tblPr.cloneNode(true));
-
-    // w:tblGrid — определение ширин колонок
     var tblGrid = xmlDoc.createElementNS(WNS, 'w:tblGrid');
-    for (var i = 0; i < mergedHeaders.length; i++) {
+    for (var i = 0; i < headers.length; i++) {
         var gc = xmlDoc.createElementNS(WNS, 'w:gridCol');
         gc.setAttributeNS(WNS, 'w:w', '2200');
         tblGrid.appendChild(gc);
     }
     newTbl.appendChild(tblGrid);
 
-    // Заголовок (жирным) и данные
-    newTbl.appendChild(buildRow(xmlDoc, mergedHeaders, true));
-    for (var i = 0; i < mergedDataRows.length; i++) {
-        newTbl.appendChild(buildRow(xmlDoc, mergedDataRows[i], false));
+    newTbl.appendChild(buildDocxRow(xmlDoc, headers, true));
+    for (var i = 0; i < rows.length; i++) {
+        newTbl.appendChild(buildDocxRow(xmlDoc, rows[i], false));
     }
-
-    // Заменяем старую таблицу новой
     origTbl.parentNode.replaceChild(newTbl, origTbl);
 
-    // 5. Сериализуем XML и пишем обратно в zip
+    // Удаляем остальные таблицы шаблона (если их было больше одной), чтобы не дублировать данные
+    for (var t = template.tablesEls.length - 1; t >= 1; t--) {
+        var el = template.tablesEls[t];
+        if (el.parentNode) el.parentNode.removeChild(el);
+    }
+
     var newXml = new XMLSerializer().serializeToString(xmlDoc);
     if (newXml.indexOf('<?xml') !== 0) {
         newXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + newXml;
     }
     template.zip.file('word/document.xml', newXml);
-
-    // 6. Генерируем итоговый docx как Blob
-    var blob = await template.zip.generateAsync({
+    return template.zip.generateAsync({
         type: 'blob',
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        compression: 'DEFLATE'
     });
-
-    return { blob: blob, rowsCount: mergedDataRows.length, colsCount: mergedHeaders.length };
 }
 
-async function doMerge() {
-    if (selectedFiles.length === 0) return;
-    clearError();
-    clearSuccess();
-    mergeBtn.disabled = true;
-    mergeBtnText.innerHTML = '<span class="spinner"></span> Обрабатываю...';
+// === File input + drop ===
 
-    try {
-        var result = await mergeDocxFiles(selectedFiles);
-        var filename = 'merged.docx';
+fileInput.addEventListener('change', function () {
+    addFiles(fileInput.files);
+    fileInput.value = '';
+});
 
-        // Триггерим скачивание
-        var url = URL.createObjectURL(result.blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
-
-        var filesCount = selectedFiles.length;
-        showSuccess('Готово. Файл «' + filename + '» (' + formatSize(result.blob.size) +
-                    ') скачан. Объединено файлов: ' + filesCount +
-                    ', строк: ' + result.rowsCount + ', столбцов: ' + result.colsCount + '.');
-        selectedFiles = [];
-        fileInput.value = '';
-    } catch (err) {
-        showError(err && err.message ? err.message : 'Не удалось обработать файлы.');
-    } finally {
-        mergeBtn.disabled = false;
-        mergeBtnText.textContent = 'Объединить и скачать';
-        renderList();
-    }
+function hasFiles(e) {
+    var t = e.dataTransfer && e.dataTransfer.types;
+    if (!t) return false;
+    for (var i = 0; i < t.length; i++) if (t[i] === 'Files') return true;
+    return false;
 }
+dropZone.addEventListener('dragover', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', function (e) {
+    if (e.relatedTarget && dropZone.contains(e.relatedTarget)) return;
+    dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+});
 
-// Status check: проверяем что JSZip загрузился — это всё что нужно для работы.
-function checkStatus() {
+// === Status — JSZip locally loaded, всегда «онлайн» при готовности ===
+
+(function checkStatus() {
     if (typeof JSZip === 'undefined') {
         statusDot.className = 'dot offline';
         statusText.textContent = 'Офлайн';
@@ -647,8 +761,7 @@ function checkStatus() {
         statusDot.className = 'dot online';
         statusText.textContent = 'Онлайн';
     }
-}
-checkStatus();
+})();
 
 renderList();
 </script>
