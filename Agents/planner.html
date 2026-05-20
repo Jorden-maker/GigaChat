@@ -78,11 +78,18 @@
         }
         .tasks-filter-tabs button.active:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
         .tasks-add-btn {
+            display: inline-flex; align-items: center; gap: 6px;
             background: var(--accent); color: #fff; border: none;
-            cursor: pointer; padding: 6px 14px; border-radius: 8px;
+            cursor: pointer; padding: 6px 14px 6px 11px; border-radius: 8px;
             font-size: 13px; font-weight: 500; font-family: inherit;
             margin-left: auto;
             transition: background 0.18s ease, transform 0.1s ease;
+        }
+        .tasks-add-btn svg {
+            width: 14px; height: 14px;
+            stroke: currentColor; fill: none;
+            stroke-width: 2.2; stroke-linecap: round;
+            flex-shrink: 0;
         }
         .tasks-add-btn:hover { background: var(--accent-hover); }
         .tasks-add-btn:active { transform: scale(0.97); }
@@ -342,7 +349,10 @@
                     <button data-filter="completed" onclick="setTaskFilter('completed', this)">Выполненные</button>
                     <button data-filter="all" onclick="setTaskFilter('all', this)">Все</button>
                 </div>
-                <button class="tasks-add-btn" onclick="openTaskModal()">+ Задача</button>
+                <button class="tasks-add-btn" onclick="openTaskModal()" aria-label="Добавить задачу">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Задача
+                </button>
             </div>
             <div id="tasks-list">
                 <div class="tasks-empty"></div>
