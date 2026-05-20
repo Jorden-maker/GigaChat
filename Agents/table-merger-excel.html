@@ -422,8 +422,8 @@ main { max-width: 900px; }
 GigaChat.injectToolCss();
 // Excel-объединение работает ПОЛНОСТЬЮ В БРАУЗЕРЕ через JSZip (как Word-мерджер).
 // Раньше отправляли на n8n /webhook/table-merger-excel; теперь парсинг, слияние и
-// генерация — всё клиентское через shared helpers. Workflow остаётся для внешних
-// интеграций через django-gateway, но фронту не нужен.
+// генерация — всё клиентское через shared helpers. Workflow остался на стороне
+// n8n как пинг-обработчик для health-checker'а, но фронту не нужен.
 var MAX_FILES_WARN = 10;
 var MAX_FILES_HARD = 25;
 // Лимит ТОЛЬКО для отрисовки превью на странице — на скачивание не влияет.
