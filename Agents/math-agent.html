@@ -153,9 +153,16 @@
             var markerRe = /^(?:ОТВ[А-Яа-яЁё]{0,3}|АНСВЕР|ИТОГ|РЕЗУЛЬТАТ|ANSWER|FINAL|RESULT)\s*[:：]/i;
             var stripRe = /^(?:ОТВ[А-Яа-яЁё]{0,3}|АНСВЕР|ИТОГ|РЕЗУЛЬТАТ|ANSWER|FINAL|RESULT)\s*[:：]\s*(.+)$/i;
             var hasMarker = function (s) { return markerRe.test(s); };
+            // Loop strip: LLM иногда печатает «ОТВЕТ: ОТВЕТ: 42» (двойной маркер).
+            // Раньше один проход возвращал «ОТВЕТ: 42» — мусор в выводе.
             var stripMarker = function (s) {
-                var m = s.match(stripRe);
-                return m ? m[1].trim() : s;
+                var prev = null;
+                while (s !== prev) {
+                    prev = s;
+                    var m = s.match(stripRe);
+                    if (m) s = m[1].trim();
+                }
+                return s;
             };
             var isDiagnostic = function (s) {
                 return /^(шаг|step|контроль|проверк|итераци|debug|test|i\s*=|j\s*=|k\s*=)/i.test(s);
@@ -165,11 +172,21 @@
                 if (hasMarker(trimmed[i])) { markerIdx = i; break; }
             }
             if (markerIdx >= 0) {
-                if (markerIdx === trimmed.length - 1) return stripMarker(trimmed[markerIdx]);
+                var markerLine = trimmed[markerIdx];
+                // Если маркер с содержимым — ВСЕГДА предпочитаем его. Раньше при
+                // наличии не-диагностической строки после маркера логика
+                // возвращала последнюю строку без strip («ОТВЕТ: 42» + «Доп: x=3»
+                // давало «Доп: x=3» вместо «42»).
+                if (stripRe.test(markerLine)) {
+                    return stripMarker(markerLine);
+                }
+                // Маркер пустой («ОТВЕТ:» без значения) — ищем следующую
+                // не-диагностическую строку, либо берём последнюю как fallback.
                 var after = trimmed.slice(markerIdx + 1);
-                var allDiag = after.every(isDiagnostic);
-                if (allDiag) return stripMarker(trimmed[markerIdx]);
-                return stripMarker(trimmed[trimmed.length - 1]);
+                var nonDiag = after.filter(function (s) { return !isDiagnostic(s); });
+                if (nonDiag.length > 0) return stripMarker(nonDiag[nonDiag.length - 1]);
+                if (after.length > 0) return stripMarker(after[after.length - 1]);
+                return '';
             }
             return trimmed[trimmed.length - 1];
         }
@@ -204,11 +221,16 @@
             // 192.168.1.0», «версия 1.20.0» нельзя ломать. Маркер «Ответ:»
             // ставит сама ветка /math-explain первой строкой, поэтому
             // регулярка надёжно нацеливается только на неё.
-            html = html.replace(/^(\s*Ответ:\s*)([^\n]+)/im, function (match, prefix, value) {
+            // Маркер «Ответ\s*:» допускает пробел до двоеточия — LLM иногда
+            // ставит его опечаточно. Без \s* строки «Ответ : 3.0» не чистились.
+            html = html.replace(/^(\s*Ответ\s*:\s*)([^\n]+)/im, function (match, prefix, value) {
                 var cleaned = value.replace(/\$+(?=\d)/g, '').replace(/(?<=\d)\$+/g, '');
                 // Хвостовые нули в десятичных: «3.0» → «3», «30.800000» → «30.8»,
                 // «1.4142135623730951» — не трогаем (значащих цифр > 1).
-                cleaned = cleaned.replace(/(\d+)\.(\d+)/g, function (m, intPart, decPart) {
+                // Lookaround (?<![.\d]) + (?![.\d]) изолирует число — версии и IP
+                // (1.20.0, 192.168.1.0) больше не ломаются. Раньше regex без
+                // изоляции схватывал последний сегмент «1.0» в IP и срезал нуль.
+                cleaned = cleaned.replace(/(?<![.\d])(\d+)\.(\d+)(?![.\d])/g, function (m, intPart, decPart) {
                     var trimmed = decPart.replace(/0+$/, '');
                     return trimmed ? intPart + '.' + trimmed : intPart;
                 });
