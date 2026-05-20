@@ -224,12 +224,64 @@
             background: var(--bg-input); border: 1px solid var(--border);
             border-radius: 6px; padding: 8px 12px; color: var(--text-primary);
             font-family: inherit; font-size: 14px; outline: none;
-            transition: border-color 0.15s;
+            transition: border-color 0.18s ease, background 0.18s ease;
         }
+        .task-modal-body input:hover,
+        .task-modal-body select:hover,
+        .task-modal-body textarea:hover { border-color: var(--text-secondary); }
         .task-modal-body input:focus,
         .task-modal-body select:focus,
-        .task-modal-body textarea:focus { border-color: var(--accent); }
+        .task-modal-body textarea:focus { border-color: var(--accent); background: var(--bg-secondary); }
         .task-modal-body textarea { resize: vertical; min-height: 60px; max-height: 200px; }
+
+        /* Кастомный select: убираем нативную стрелку, рисуем свою через SVG.
+           SVG inline в data-URL чтобы не таскать отдельный файл. Цвет стрелки —
+           text-secondary в обеих темах (одна SVG для обеих, currentColor в
+           background-image к сожалению не поддерживается, поэтому два варианта). */
+        .task-modal-body select {
+            appearance: none; -webkit-appearance: none; -moz-appearance: none;
+            padding-right: 36px;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5l5 5 5-5' fill='none' stroke='%238a8a8a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            cursor: pointer;
+        }
+        :root[data-theme="light"] .task-modal-body select {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5l5 5 5-5' fill='none' stroke='%236b6b68' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+        }
+        /* Подсветка стрелки при фокусе/hover делается через смену картинки на accent-цвет. */
+        .task-modal-body select:focus {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5l5 5 5-5' fill='none' stroke='%23d4a574' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+        }
+        :root[data-theme="light"] .task-modal-body select:focus {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5l5 5 5-5' fill='none' stroke='%23b8895d' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+        }
+        /* Стилизация выпадающего списка опций (поддерживается в основных
+           браузерах, специфика рендера может отличаться, но базовый цвет ок). */
+        .task-modal-body select option {
+            background: var(--bg-card); color: var(--text-primary);
+        }
+
+        /* Кастомный date input: прячем нативную иконку календаря и рисуем
+           через background-image — единообразно с select. Click на любое
+           место поля по-прежнему открывает picker. */
+        .task-modal-body input[type="date"] {
+            padding-right: 36px;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'><rect x='3' y='5' width='18' height='16' rx='2' fill='none' stroke='%238a8a8a' stroke-width='1.7'/><line x1='3' y1='9' x2='21' y2='9' stroke='%238a8a8a' stroke-width='1.7'/><line x1='8' y1='3' x2='8' y2='6' stroke='%238a8a8a' stroke-width='1.7' stroke-linecap='round'/><line x1='16' y1='3' x2='16' y2='6' stroke='%238a8a8a' stroke-width='1.7' stroke-linecap='round'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 11px center;
+            cursor: pointer;
+        }
+        :root[data-theme="light"] .task-modal-body input[type="date"] {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'><rect x='3' y='5' width='18' height='16' rx='2' fill='none' stroke='%236b6b68' stroke-width='1.7'/><line x1='3' y1='9' x2='21' y2='9' stroke='%236b6b68' stroke-width='1.7'/><line x1='8' y1='3' x2='8' y2='6' stroke='%236b6b68' stroke-width='1.7' stroke-linecap='round'/><line x1='16' y1='3' x2='16' y2='6' stroke='%236b6b68' stroke-width='1.7' stroke-linecap='round'/></svg>");
+        }
+        /* Прячем нативный picker-indicator (стандартная иконка календаря в правом краю).
+           Webkit-only селектор, для Firefox прячем через opacity. */
+        .task-modal-body input[type="date"]::-webkit-calendar-picker-indicator {
+            opacity: 0; cursor: pointer; width: 36px; height: 100%;
+            position: absolute; right: 0; padding: 0; margin: 0;
+        }
+        .task-modal-body input[type="date"] { position: relative; }
         .task-modal-footer {
             display: flex; justify-content: flex-end; gap: 8px;
             padding: 14px 22px; border-top: 1px solid var(--border);
@@ -331,7 +383,7 @@
                 <label>Название
                     <input type="text" id="taskTitle" maxlength="500" placeholder="Что нужно сделать?">
                 </label>
-                <label>Описание <span style="color:var(--text-muted);font-weight:400;">(необязательно)</span>
+                <label>Описание
                     <textarea id="taskDescription" maxlength="5000" placeholder="Детали, ссылки, контекст..."></textarea>
                 </label>
                 <label>Приоритет
@@ -341,7 +393,7 @@
                         <option value="high">Высокий</option>
                     </select>
                 </label>
-                <label>Дедлайн <span style="color:var(--text-muted);font-weight:400;">(необязательно)</span>
+                <label>Срок выполнения
                     <input type="date" id="taskDeadline">
                 </label>
             </div>
