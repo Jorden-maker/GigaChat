@@ -271,7 +271,7 @@
                 <button class="tasks-add-btn" onclick="openTaskModal()">+ Задача</button>
             </div>
             <div id="tasks-list">
-                <div class="tasks-empty">Выберите или создайте список задач слева.</div>
+                <div class="tasks-empty"></div>
             </div>
         </div>
 
@@ -353,8 +353,7 @@
         // ========== Загрузка задач для текущей сессии ==========
         async function loadTasks() {
             if (!currentSessionId) {
-                document.getElementById('tasks-list').innerHTML =
-                    '<div class="tasks-empty">Выберите или создайте список задач слева.</div>';
+                document.getElementById('tasks-list').innerHTML = '<div class="tasks-empty"></div>';
                 return;
             }
             var data = await plannerApi({
