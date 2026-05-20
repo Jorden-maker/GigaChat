@@ -1435,18 +1435,36 @@
   // Возвращает { headers, rows, sourceMap[ rowIdx → fileName ] }
   function mergeTables(tables, opts) {
     opts = opts || {};
+    // 1) Считаем частоту каждого варианта написания (для majority vote).
+    //    Раньше брали ПЕРВЫЙ встреченный вариант — «ФИО» против 9×«Ф.И.О.»
+    //    давал «ФИО». Теперь побеждает наиболее частый написания.
     var columnOrder = [];
-    var canonical = {};
+    var variantCounts = {};  // norm → { variantText: count }
     for (var i = 0; i < tables.length; i++) {
       var hs = tables[i].headers || [];
       for (var j = 0; j < hs.length; j++) {
         var norm = normalizeMergeHeader(hs[j]);
         if (!norm) continue;
-        if (!(norm in canonical)) {
-          canonical[norm] = hs[j];
-          columnOrder.push(norm);
+        if (!variantCounts[norm]) {
+          variantCounts[norm] = {};
+          columnOrder.push(norm);  // порядок по первому появлению
         }
+        var variant = hs[j];
+        variantCounts[norm][variant] = (variantCounts[norm][variant] || 0) + 1;
       }
+    }
+    // 2) Для каждого norm выбираем вариант с max count (при равенстве —
+    //    первый по алфавиту, для стабильности).
+    var canonical = {};
+    for (var c = 0; c < columnOrder.length; c++) {
+      var n = columnOrder[c];
+      var variants = variantCounts[n];
+      var best = null, bestCount = -1;
+      var keys = Object.keys(variants).sort();
+      for (var k = 0; k < keys.length; k++) {
+        if (variants[keys[k]] > bestCount) { bestCount = variants[keys[k]]; best = keys[k]; }
+      }
+      canonical[n] = best;
     }
     var mergedHeaders = columnOrder.map(function (k) { return canonical[k]; });
 
@@ -1495,7 +1513,7 @@
       var dir = opts.sortDir === 'desc' ? -1 : 1;
       // Числоподобное: строго число (опц. знак, цифры, опц. дробь). Не пускает
       // 25.01.2019 — для дат отдельная ветка ниже.
-      var numericRe = /^-?\d+(?:[.,]\d+)?$/;
+      var numericRe = /^-?\d+(?:[.,]\d+)?(?:[eE][+\-]?\d+)?$/;
       // DD.MM.YYYY / DD/MM/YYYY / DD-MM-YYYY
       var dateRe = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/;
       function tryDate(s) {
@@ -1614,9 +1632,17 @@
           var cell = cells[j];
           var ref = cell.getAttribute('r') || '';
           var letters = ref.replace(/\d+/g, '');
-          var colIdx = 0;
-          for (var k = 0; k < letters.length; k++) colIdx = colIdx * 26 + (letters.charCodeAt(k) - 64);
-          colIdx--;
+          var colIdx;
+          if (letters) {
+            colIdx = 0;
+            for (var k = 0; k < letters.length; k++) colIdx = colIdx * 26 + (letters.charCodeAt(k) - 64);
+            colIdx--;
+          } else {
+            // Fallback: атрибут r= отсутствует (валидно по OOXML §18.3.1.4 —
+            // openpyxl/LibreOffice могут опустить для компактности). Считаем
+            // по позиции среди <c>-элементов в строке.
+            colIdx = j;
+          }
           var t = cell.getAttribute('t');
           var value = '';
           if (t === 's') {
@@ -1638,8 +1664,17 @@
         grid.push(rowArr);
       }
 
-      var headers = grid[0] || [];
-      var dataRows = grid.slice(1).filter(function (r) {
+      // Headers — первая НЕпустая строка (xlsx часто имеет титульную пустую
+      // или merge-cell сверху). Раньше брали grid[0]: пустые headers → лист
+      // тихо отбрасывался в collectParsedSheets.
+      var headerRowIdx = -1;
+      for (var hi = 0; hi < grid.length; hi++) {
+        if (grid[hi].some(function (c) { return String(c == null ? '' : c).trim() !== ''; })) {
+          headerRowIdx = hi; break;
+        }
+      }
+      var headers = headerRowIdx >= 0 ? grid[headerRowIdx] : [];
+      var dataRows = (headerRowIdx >= 0 ? grid.slice(headerRowIdx + 1) : []).filter(function (r) {
         return r.some(function (c) { return String(c == null ? '' : c).trim() !== ''; });
       });
 
@@ -1707,12 +1742,25 @@
         escXml(headers[i]) + '</t></is></c>';
     }
     sheetXml += '</row>';
+    // Числоподобное: чисто целое или десятичное (опц. знак, опц. экспонента).
+    // Запятая в качестве дес. разделителя поддерживается (русская локаль).
+    // Если значение — число, пишем как numeric (<v>123</v>) чтобы Excel при
+    // открытии распознал тип. Раньше всё писалось inlineStr и числовые
+    // колонки сортировались/суммировались как текст.
+    var xlsxNumRe = /^-?\d+(?:[.,]\d+)?(?:[eE][+\-]?\d+)?$/;
     for (var r = 0; r < rows.length; r++) {
       sheetXml += '<row r="' + (r + 2) + '">';
       for (var c = 0; c < headers.length; c++) {
         var v = rows[r][c];
-        sheetXml += '<c r="' + colLetter(c) + (r + 2) + '" t="inlineStr"><is><t xml:space="preserve">' +
-          escXml(v) + '</t></is></c>';
+        var vs = String(v == null ? '' : v).trim();
+        if (vs && xlsxNumRe.test(vs.replace(/\s/g, ''))) {
+          // Numeric ячейка: <v>123.45</v>, точка как дес. разделитель
+          var num = vs.replace(/\s/g, '').replace(',', '.');
+          sheetXml += '<c r="' + colLetter(c) + (r + 2) + '"><v>' + num + '</v></c>';
+        } else {
+          sheetXml += '<c r="' + colLetter(c) + (r + 2) + '" t="inlineStr"><is><t xml:space="preserve">' +
+            escXml(v) + '</t></is></c>';
+        }
       }
       sheetXml += '</row>';
     }
@@ -1763,10 +1811,30 @@
     var tcs = tr.getElementsByTagName('w:tc');
     var out = [];
     for (var i = 0; i < tcs.length; i++) {
-      var ts = tcs[i].getElementsByTagName('w:t');
-      var parts = [];
-      for (var j = 0; j < ts.length; j++) parts.push(ts[j].textContent || '');
-      out.push(parts.join(''));
+      var tc = tcs[i];
+      // Многострочные ячейки: каждый <w:p> = параграф, разделяем \n.
+      // <w:br/> внутри = тоже \n. Раньше все <w:t> склеивались join(''),
+      // переводы строк терялись.
+      var paragraphs = tc.getElementsByTagName('w:p');
+      var lines = [];
+      for (var p = 0; p < paragraphs.length; p++) {
+        var par = paragraphs[p];
+        var parts = [];
+        // Обходим только прямых потомков <w:r>/<w:t>/<w:br> в этом параграфе
+        var walker = par.firstChild;
+        while (walker) {
+          var name = walker.nodeName;
+          if (name === 'w:r' || (walker.getElementsByTagName && walker.getElementsByTagName('w:t').length)) {
+            var ts = walker.getElementsByTagName('w:t');
+            for (var j = 0; j < ts.length; j++) parts.push(ts[j].textContent || '');
+            var brs = walker.getElementsByTagName('w:br');
+            for (var b = 0; b < brs.length; b++) parts.push('\n');
+          }
+          walker = walker.nextSibling;
+        }
+        lines.push(parts.join(''));
+      }
+      out.push(lines.join('\n'));
     }
     return out;
   }

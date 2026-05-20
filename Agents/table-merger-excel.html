@@ -618,7 +618,11 @@ function attachDragHandlers() {
             var targetIdx = parseInt(row.dataset.idx, 10);
             if (draggingIdx < 0 || draggingIdx === targetIdx) return;
             var moved = selectedFiles.splice(draggingIdx, 1)[0];
-            selectedFiles.splice(targetIdx, 0, moved);
+            // Off-by-one: после splice массив сдвинулся. Если тащим сверху вниз,
+            // целевой индекс уменьшился на 1. Без корректировки элемент встаёт
+            // на одну позицию НИЖЕ предполагаемой.
+            var insertAt = (draggingIdx < targetIdx) ? targetIdx - 1 : targetIdx;
+            selectedFiles.splice(insertAt, 0, moved);
             renderList();
         });
     });
@@ -627,8 +631,12 @@ function attachDragHandlers() {
 // === add / remove / clear ===
 
 function isDuplicate(f) {
+    // Триплет name+size+lastModified. Раньше был только name+size —
+    // у автогенерируемых отчётов с одинаковыми именами и совпадающим
+    // размером (повтор экспортов) дубликат был ложным.
     return selectedFiles.some(function (s) {
-        return s.file.name === f.name && s.file.size === f.size;
+        return s.file.name === f.name && s.file.size === f.size &&
+               s.file.lastModified === f.lastModified;
     });
 }
 
@@ -742,7 +750,14 @@ function renderIgnoreList() {
 
 function toggleIgnore(idx) {
     if (ignoredCols.has(idx)) ignoredCols.delete(idx);
-    else ignoredCols.add(idx);
+    else {
+        ignoredCols.add(idx);
+        // Если игнорят сортируемую колонку — сбрасываем сортировку, иначе
+        // данные перестраиваются по невидимому полю, и юзер не понимает почему.
+        if (parseInt(sortColDropdown.getValue(), 10) === idx) {
+            sortColDropdown.setValue('-1');
+        }
+    }
     renderIgnoreList();
     recomputePreview();
 }
@@ -842,7 +857,10 @@ async function doDownload() {
         a.href = url;
         a.download = 'merged-tables-' + new Date().toISOString().slice(0, 10) + '.xlsx';
         a.click();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        // 60 сек — гарантия что Firefox/Edge с диалогом «куда сохранить?»
+        // успеют открыть download до отзыва blob. 1 сек на медленных машинах
+        // не гарантия. Лишний blob в памяти — приемлемая цена за стабильность.
+        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
         showSuccess('Файл сохранён: ' + a.download);
     } catch (e) {
         showError('Ошибка сборки: ' + (e && e.message ? e.message : String(e)));
