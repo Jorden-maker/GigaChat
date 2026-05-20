@@ -1,0 +1,806 @@
+{
+  "name": "Планировщик. Поток",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "planner",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        400
+      ],
+      "id": "planner-webhook-0001",
+      "name": "Webhook Planner",
+      "webhookId": "planner-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst body = $input.first().json.body || {};\nconst rawAction = String(body.action || '').trim();\nconst session_id = String(body.session_id || '').trim();\nconst message = String(body.message || '').trim();\n\n// Ping для health-check со страницы платформы (любой action или message=ping)\nif (message === 'ping' || rawAction === 'ping') {\n  return [{ json: { valid: 0, error: 'pong', action: 'ping' } }];\n}\n\nif (!session_id) {\n  return [{ json: { valid: 0, error: 'session_id обязательно' } }];\n}\nif (!/^[a-zA-Z0-9_-]+$/.test(session_id)) {\n  return [{ json: { valid: 0, error: 'session_id содержит недопустимые символы' } }];\n}\n\n// Если action не указан, но есть message — это chat-agent шлёт через GigaChat.createChatAgent,\n// дефолтим в 'query' чтобы AI обработал. Если ни action, ни message — это пинг или ошибка.\nconst action = rawAction || (message ? 'query' : '');\n\nconst ALLOWED = ['list', 'create', 'update', 'delete', 'query'];\nif (!ALLOWED.includes(action)) {\n  return [{ json: { valid: 0, error: 'Неизвестный action: ' + rawAction } }];\n}\n\nfunction safePriority(p) {\n  const v = String(p || 'medium').toLowerCase();\n  return ['low','medium','high'].includes(v) ? v : 'medium';\n}\nfunction safeDeadline(d) {\n  if (!d) return null;\n  const s = String(d).trim();\n  if (!s) return null;\n  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return null;\n  return s;\n}\nfunction safeStatus(s) {\n  const v = String(s || '').toLowerCase();\n  return ['active','completed'].includes(v) ? v : null;\n}\n\nconst out = { valid: 1, action, session_id };\n\nif (action === 'create') {\n  const title = String(body.title || '').trim();\n  if (!title) return [{ json: { valid: 0, error: 'title обязательно для create' } }];\n  if (title.length > 500) return [{ json: { valid: 0, error: 'title слишком длинный (>500 символов)' } }];\n  out.title = title;\n  out.description = String(body.description || '').slice(0, 5000);\n  out.priority = safePriority(body.priority);\n  out.deadline = safeDeadline(body.deadline);\n}\n\nif (action === 'update') {\n  const taskId = parseInt(body.id, 10);\n  if (!Number.isInteger(taskId) || taskId < 1) {\n    return [{ json: { valid: 0, error: 'id обязательно для update' } }];\n  }\n  out.task_id = taskId;\n  // Если поле передано — обновляем; иначе оставляем NULL и SQL через COALESCE сохранит старое.\n  out.title = body.title === undefined ? null : String(body.title).slice(0, 500);\n  out.description = body.description === undefined ? null : String(body.description).slice(0, 5000);\n  out.priority = body.priority === undefined ? null : safePriority(body.priority);\n  out.deadline = body.deadline === undefined ? '__keep__' : safeDeadline(body.deadline);\n  out.status = body.status === undefined ? null : safeStatus(body.status);\n}\n\nif (action === 'delete') {\n  const taskId = parseInt(body.id, 10);\n  if (!Number.isInteger(taskId) || taskId < 1) {\n    return [{ json: { valid: 0, error: 'id обязательно для delete' } }];\n  }\n  out.task_id = taskId;\n}\n\nif (action === 'query') {\n  if (!message) return [{ json: { valid: 0, error: 'Введите запрос для AI' } }];\n  if (message.length > 5000) return [{ json: { valid: 0, error: 'Запрос слишком длинный' } }];\n  out.message = message;\n}\n\nif (action === 'list') {\n  const f = String(body.filter || 'active').toLowerCase();\n  out.filter = ['active','completed','all'].includes(f) ? f : 'active';\n}\n\nreturn [{ json: out }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        400
+      ],
+      "id": "planner-validate-0002",
+      "name": "Валидация"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        400
+      ],
+      "id": "planner-if-valid-0003",
+      "name": "Валидно?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.error || 'Ошибка валидации', action: $json.action || null }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        840,
+        640
+      ],
+      "id": "planner-resp-error-0004",
+      "name": "Ответ: ошибка"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "list",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-list"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-create"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-update"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-delete"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "query",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-query"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        },
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        840,
+        400
+      ],
+      "id": "planner-switch-0005",
+      "name": "Switch action"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, title, description, priority, deadline::text AS deadline, status, completed_at::text AS completed_at, created_at::text AS created_at FROM planner_tasks WHERE session_id = $1 AND ($2 = 'all' OR status = $2) ORDER BY status ASC, (CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END), COALESCE(deadline, '9999-12-31'::date) ASC, created_at DESC",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, $json.filter] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        100
+      ],
+      "id": "planner-list-sql-0006",
+      "name": "SQL: list tasks",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Аккумулируем все строки SELECT в один массив tasks для ответа.\nconst items = $input.all();\nconst tasks = items.map(i => i.json);\nreturn [{ json: { response: 'ok', tasks: tasks } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        100
+      ],
+      "id": "planner-list-fmt-0007",
+      "name": "Собрать tasks"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO planner_tasks (session_id, title, description, priority, deadline) VALUES ($1, $2, NULLIF($3, ''), $4, NULLIF($5, '')::date) RETURNING id, title, description, priority, deadline::text AS deadline, status, created_at::text AS created_at",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, $json.title, $json.description || '', $json.priority, $json.deadline || ''] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        280
+      ],
+      "id": "planner-create-sql-0008",
+      "name": "SQL: create task",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nreturn [{ json: { response: 'ok', task: row } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        280
+      ],
+      "id": "planner-create-fmt-0009",
+      "name": "Собрать created"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Готовим параметры под UPDATE: deadline отдельно обрабатываем чтобы\n// разрешить и null (юзер хочет убрать дедлайн), и оставить старый (если поле не передано).\nconst v = $input.first().json;\nconst keep_deadline = v.deadline === '__keep__';\nconst new_deadline = keep_deadline ? null : (v.deadline || null);\nreturn [{ json: {\n  ...v,\n  _keep_deadline: keep_deadline,\n  _new_deadline: new_deadline,\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        460
+      ],
+      "id": "planner-update-prep-0010",
+      "name": "Подготовить update"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE planner_tasks SET title = COALESCE($3, title), description = COALESCE($4, description), priority = COALESCE($5, priority), deadline = CASE WHEN $6::boolean THEN deadline ELSE NULLIF($7, '')::date END, status = COALESCE($8, status), completed_at = CASE WHEN COALESCE($8, status) = 'completed' AND completed_at IS NULL THEN NOW() WHEN COALESCE($8, status) = 'active' THEN NULL ELSE completed_at END WHERE id = $1 AND session_id = $2 RETURNING id, title, description, priority, deadline::text AS deadline, status, completed_at::text AS completed_at",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id, $json.session_id, $json.title, $json.description, $json.priority, $json._keep_deadline, $json._new_deadline || '', $json.status] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1400,
+        460
+      ],
+      "id": "planner-update-sql-0011",
+      "name": "SQL: update task",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nif (!row || !row.id) {\n  return [{ json: { response: 'not_found', error: 'Задача не найдена или не принадлежит этой сессии' } }];\n}\nreturn [{ json: { response: 'ok', task: row } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        460
+      ],
+      "id": "planner-update-fmt-0012",
+      "name": "Собрать updated"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM planner_tasks WHERE id = $1 AND session_id = $2 RETURNING id",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id, $json.session_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        640
+      ],
+      "id": "planner-delete-sql-0013",
+      "name": "SQL: delete task",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nreturn [{ json: { response: r && r.id ? 'ok' : 'not_found', id: r ? r.id : null } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        640
+      ],
+      "id": "planner-delete-fmt-0014",
+      "name": "Собрать deleted"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, title, description, priority, deadline::text AS deadline FROM planner_tasks WHERE session_id = $1 AND status = 'active' ORDER BY (CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END), COALESCE(deadline, '9999-12-31'::date) ASC, created_at DESC LIMIT 100",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        820
+      ],
+      "id": "planner-query-fetch-0015",
+      "name": "SQL: активные задачи",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Собираем активные задачи в текстовый список для подачи в LLM.\n// Также пробрасываем session_id и message из исходного запроса.\nconst tasks = $input.all().map(i => i.json).filter(r => r && r.title);\nconst src = $('Валидация').first().json;\nconst today = new Date().toISOString().slice(0, 10);\n\nfunction fmtTask(t, idx) {\n  const prio = t.priority === 'high' ? 'высокий' : t.priority === 'low' ? 'низкий' : 'средний';\n  const dl = t.deadline ? ` (до ${t.deadline})` : '';\n  const desc = t.description ? `\\n   Описание: ${t.description}` : '';\n  return `${idx+1}. [Приоритет: ${prio}${dl}] ${t.title}${desc}`;\n}\n\nconst taskList = tasks.length === 0\n  ? '(активных задач пока нет)'\n  : tasks.map(fmtTask).join('\\n');\n\nconst systemPrompt = `Ты — планировщик задач GigaChat. Помогаешь пользователю организовать дела.\n\nСегодня: ${today}\n\nТекущие активные задачи пользователя:\n${taskList}\n\nПравила:\n- Отвечай конкретно. План — это «понедельник: задача А; вторник: задача B; ...».\n- Уважай приоритеты: высокий > средний > низкий.\n- Уважай дедлайны: задача с дедлайном раньше — раньше в плане.\n- Если задача просрочена (дедлайн < сегодня) — выдели её ⚠.\n- НЕ выдумывай задачи которых нет в списке. Работай только с тем что выше.\n- Если запрос не про планирование (например «спасибо», «привет») — отвечай по-человечески коротко.\n- Не используй markdown-заголовки (###), пиши обычным текстом или с дефисами.\n- На русском, кратко.`;\n\nreturn [{ json: {\n  session_id: src.session_id,\n  message: src.message,\n  systemPrompt: systemPrompt,\n  task_count: tasks.length,\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        820
+      ],
+      "id": "planner-query-prompt-0016",
+      "name": "Собрать промпт"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "={{ $json.systemPrompt }}"
+            },
+            {
+              "content": "={{ $json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "timeout": 60000,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1680,
+        820
+      ],
+      "id": "planner-query-llm-0017",
+      "name": "LLM: ответ",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nif (raw.error) {\n  return [{ json: { response: 'LLM недоступен. Попробуйте позже.', _save: false } }];\n}\nconst text = raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text;\nif (!text) {\n  return [{ json: { response: 'Пустой ответ от LLM.', _save: false } }];\n}\nconst src = $('Валидация').first().json;\nreturn [{ json: {\n  response: text.trim(),\n  _save: true,\n  session_id: src.session_id,\n  user_message: src.message,\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        820
+      ],
+      "id": "planner-query-extract-0018",
+      "name": "Извлечь ответ"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _u AS (INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2) RETURNING id), _a AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $3 WHERE LENGTH(TRIM($3)) > 0 RETURNING id) SELECT _u.id AS uid, COALESCE((SELECT id FROM _a), 0) AS aid FROM _u CROSS JOIN _lock",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, $json.user_message, $json.response] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2240,
+        820
+      ],
+      "id": "planner-query-save-0019",
+      "name": "SQL: сохранить диалог",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Сохранение могло не пройти (БД недоступна) — это не страшно, текст у нас есть.\n// Главное — вернуть ответ юзеру.\nconst src = $('Извлечь ответ').first().json;\nreturn [{ json: { response: src.response } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2520,
+        820
+      ],
+      "id": "planner-query-fmt-0020",
+      "name": "Собрать query-ответ"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2800,
+        400
+      ],
+      "id": "planner-resp-ok-0021",
+      "name": "Ответ: OK"
+    }
+  ],
+  "connections": {
+    "Webhook Planner": {
+      "main": [
+        [
+          {
+            "node": "Валидация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация": {
+      "main": [
+        [
+          {
+            "node": "Валидно?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидно?": {
+      "main": [
+        [
+          {
+            "node": "Switch action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch action": {
+      "main": [
+        [
+          {
+            "node": "SQL: list tasks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SQL: create task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Подготовить update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SQL: delete task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SQL: активные задачи",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: list tasks": {
+      "main": [
+        [
+          {
+            "node": "Собрать tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: create task": {
+      "main": [
+        [
+          {
+            "node": "Собрать created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Подготовить update": {
+      "main": [
+        [
+          {
+            "node": "SQL: update task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: update task": {
+      "main": [
+        [
+          {
+            "node": "Собрать updated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: delete task": {
+      "main": [
+        [
+          {
+            "node": "Собрать deleted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: активные задачи": {
+      "main": [
+        [
+          {
+            "node": "Собрать промпт",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Собрать промпт": {
+      "main": [
+        [
+          {
+            "node": "LLM: ответ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: ответ": {
+      "main": [
+        [
+          {
+            "node": "Извлечь ответ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Извлечь ответ": {
+      "main": [
+        [
+          {
+            "node": "SQL: сохранить диалог",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: сохранить диалог": {
+      "main": [
+        [
+          {
+            "node": "Собрать query-ответ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Собрать tasks": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Собрать created": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Собрать updated": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Собрать deleted": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Собрать query-ответ": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "planner-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "planner-workflow",
+  "tags": []
+}

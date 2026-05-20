@@ -158,13 +158,13 @@
             margin: 0 auto;
         }
 
-        /* Двухколоночная сетка для второй строки «Инструментов». Ширина каждой
-           карточки = ширина карточки из 3-колоночной сетки сверху, чтобы строки
-           визуально соответствовали друг другу. justify-content: flex-start —
-           прижимает 2 карточки к левой стороне (под верхним рядом). */
+        /* Сетка для второй строки «Инструментов». Ширина каждой карточки =
+           ширина карточки из 3-колоночной сетки сверху, чтобы строки визуально
+           соответствовали друг другу. Третья карточка (Планировщик) полностью
+           заполняет ряд — добавлена после merger-word. */
         .cards-grid-tools-2 {
             display: grid;
-            grid-template-columns: repeat(2, calc((100% - 40px) / 3));
+            grid-template-columns: repeat(3, calc((100% - 40px) / 3));
             gap: 20px;
             justify-content: flex-start;
             margin-top: 20px;
@@ -404,6 +404,14 @@
             <span class="card-tag">Word</span>
         </a>
 
+        <a class="card card-planner" href="Agents/planner.html" id="card-planner">
+            <div class="card-status checking" id="status-planner"></div>
+            <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5h-2a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"/><rect x="9" y="3" width="6" height="4" rx="1"/><polyline points="9 14 11 16 15 12"/></svg></div>
+            <div class="card-title">Планировщик</div>
+            <div class="card-desc">Список задач + AI-помощник: «План на неделю», «Что просрочено», «Топ-3 на сегодня».</div>
+            <span class="card-tag">Задачи</span>
+        </a>
+
     </div>
 
     <div class="cards-section-title">Алгоритмы</div>
@@ -438,6 +446,7 @@
         { id: 'docs',   webhook: GigaChat.webhookUrl('upload-doc') },
         { id: 'extract', webhook: GigaChat.webhookUrl('extract-text') },
         { id: 'merger-excel', webhook: GigaChat.webhookUrl('table-merger-excel') },
+        { id: 'planner',    webhook: GigaChat.webhookUrl('planner') },
         { id: 'org-appeal', webhook: GigaChat.webhookUrl('organization-appeal') }
         // merger-word работает целиком в браузере (JSZip + DOMParser) —
         // без webhook'а, всегда «онлайн», статус-чек не нужен.

@@ -171,11 +171,30 @@ CREATE TABLE IF NOT EXISTS chat_summaries (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- 8. Задачи планировщика (инструмент «Планировщик»)
+CREATE TABLE IF NOT EXISTS planner_tasks (
+    id SERIAL PRIMARY KEY,
+    session_id VARCHAR(255) NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    priority VARCHAR(10) DEFAULT 'medium'
+        CHECK (priority IN ('low','medium','high')),
+    deadline DATE,
+    status VARCHAR(20) DEFAULT 'active'
+        CHECK (status IN ('active','completed')),
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_planner_tasks_session_status
+ON planner_tasks (session_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_planner_tasks_deadline
+ON planner_tasks (session_id, deadline) WHERE deadline IS NOT NULL;
+
 \dt
 SELECT 'Готово!' AS result;
 ```
 
-После выполнения `\dt` должен показать 5 таблиц.
+После выполнения `\dt` должен показать 6 таблиц.
 
 ### Если БД уже существует — миграция для `extras`
 
@@ -185,6 +204,17 @@ SELECT 'Готово!' AS result;
 \c ai_agent
 ALTER TABLE chat_memory ADD COLUMN IF NOT EXISTS extras JSONB;
 ```
+
+### Если БД уже существует — добавить таблицу `planner_tasks`
+
+Если планировщик добавлен после первичной установки — отдельной миграцией:
+
+```sql
+\c ai_agent
+\i /path/to/GigaChat/Workflow/planner-schema.sql
+```
+
+Или просто скопировать содержимое `Workflow/planner-schema.sql` в `psql`.
 
 ### Размерность вектора
 

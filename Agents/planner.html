@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>GigaChat Планировщик</title>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <style>
+        :root {
+            --bg-primary: #1f1f1e;
+            --bg-secondary: #1f1e1c;
+            --bg-sidebar: #262626;
+            --bg-input: #2c2c2a;
+            --bg-user: rgba(212, 165, 116, 0.10);
+            --bg-bot: #1f1e1c;
+            --border: #363432;
+            --text-primary: #d4d4d4;
+            --text-secondary: #8a8a8a;
+            --text-muted: #5a5a5a;
+            --accent: #d4a574;
+            --accent-hover: #c08a5a;
+            --code-bg: #1f1e1c;
+            --code-text: #d4d4d4;
+            --sidebar-width: 270px;
+            --priority-high: #d97757;
+            --priority-medium: #b8895d;
+            --priority-low: #7a7a78;
+        }
+        :root[data-theme="light"] {
+            --bg-primary: #fdfdfc;
+            --bg-secondary: #f3f1ec;
+            --bg-sidebar: #fdfdfc;
+            --bg-input: #fffffe;
+            --bg-user: rgba(184, 137, 93, 0.12);
+            --bg-bot: #f3f1ec;
+            --border: #e3dfd5;
+            --text-primary: #1f1f1e;
+            --text-secondary: #6b6b68;
+            --text-muted: #a8a59f;
+            --accent: #b8895d;
+            --accent-hover: #a0764d;
+            --code-bg: #f3f1ec;
+            --code-text: #1f1f1e;
+            --priority-high: #c05a3a;
+            --priority-medium: #a0764d;
+            --priority-low: #8a8a87;
+        }
+
+        /* === Панель задач ============================================ */
+        #tasks-panel {
+            flex-shrink: 0; padding: 16px 40px 8px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-primary);
+            max-height: 50vh; overflow-y: auto;
+            scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+        }
+        #tasks-panel::-webkit-scrollbar { width: 5px; }
+        #tasks-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        .tasks-toolbar {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 12px; flex-wrap: wrap;
+        }
+        .tasks-toolbar h2 {
+            margin: 0; font-size: 15px; font-weight: 600;
+            color: var(--text-primary); letter-spacing: 0.5px;
+        }
+        .tasks-filter-tabs { display: flex; gap: 4px; }
+        .tasks-filter-tabs button {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--text-secondary); cursor: pointer;
+            padding: 4px 12px; border-radius: 14px; font-size: 12px;
+            font-family: inherit; transition: all 0.15s;
+        }
+        .tasks-filter-tabs button:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+        .tasks-filter-tabs button.active {
+            background: var(--accent); color: #fff; border-color: var(--accent);
+        }
+        .tasks-add-btn {
+            background: var(--accent); color: #fff; border: none;
+            cursor: pointer; padding: 6px 14px; border-radius: 8px;
+            font-size: 13px; font-weight: 500; font-family: inherit;
+            margin-left: auto; transition: opacity 0.15s;
+        }
+        .tasks-add-btn:hover { opacity: 0.85; }
+
+        #tasks-list { display: flex; flex-direction: column; gap: 6px; }
+        .tasks-empty {
+            padding: 20px; text-align: center; color: var(--text-muted);
+            font-size: 13px; font-style: italic;
+        }
+        .task-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 10px 12px; background: var(--bg-secondary);
+            border: 1px solid var(--border); border-radius: 8px;
+            transition: border-color 0.15s;
+        }
+        .task-item:hover { border-color: var(--text-secondary); }
+        .task-item.completed { opacity: 0.55; }
+        .task-item.completed .task-title { text-decoration: line-through; }
+        .task-item.overdue { border-left: 3px solid var(--priority-high); }
+
+        .task-check {
+            margin-top: 2px; flex-shrink: 0;
+            width: 18px; height: 18px;
+            border: 1.5px solid var(--text-secondary); border-radius: 4px;
+            cursor: pointer; background: transparent;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+        .task-check:hover { border-color: var(--accent); }
+        .task-check.checked { background: var(--accent); border-color: var(--accent); }
+        .task-check.checked::after {
+            content: ''; width: 5px; height: 9px;
+            border: solid #fff; border-width: 0 2px 2px 0;
+            transform: rotate(45deg) translate(-1px, -1px);
+        }
+
+        .task-body { flex: 1; min-width: 0; cursor: pointer; }
+        .task-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .task-title {
+            font-size: 14px; color: var(--text-primary); font-weight: 500;
+            word-break: break-word;
+        }
+        .task-priority {
+            font-size: 11px; padding: 1px 8px; border-radius: 8px;
+            text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;
+            color: #fff; flex-shrink: 0;
+        }
+        .task-priority.high { background: var(--priority-high); }
+        .task-priority.medium { background: var(--priority-medium); }
+        .task-priority.low { background: var(--priority-low); }
+        .task-deadline {
+            font-size: 11px; color: var(--text-secondary); flex-shrink: 0;
+        }
+        .task-deadline.overdue { color: var(--priority-high); font-weight: 600; }
+        .task-description {
+            font-size: 12px; color: var(--text-secondary); margin-top: 4px;
+            word-break: break-word;
+        }
+        .task-actions { display: flex; gap: 4px; flex-shrink: 0; }
+        .task-actions button {
+            background: none; border: none; padding: 4px 6px;
+            color: var(--text-muted); cursor: pointer; border-radius: 4px;
+            font-size: 14px; line-height: 1; transition: all 0.15s;
+        }
+        .task-actions button:hover { color: var(--text-primary); background: var(--bg-input); }
+        .task-actions .delete:hover { color: var(--priority-high); }
+
+        /* === Чат для AI === */
+        #chat { flex: 1; overflow-y: auto; padding: 20px 40px 45px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; min-height: 200px; }
+        #chat::-webkit-scrollbar { width: 5px; }
+        #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        .session-item.active { color: var(--accent); border: 1px solid var(--border); }
+        .bottom-area { padding: 0 20px 20px; flex-shrink: 0; }
+        #input-area { display: flex; gap: 8px; align-items: flex-end; }
+        #msg {
+            flex: 1; padding: 10px 16px; word-break: break-word; overflow-wrap: anywhere;
+            border-radius: 10px; border: 1px solid var(--border);
+            background: var(--bg-input); color: var(--text-primary);
+            font-family: Segoe UI, Tahoma, sans-serif;
+            font-size: 15px; outline: none;
+            transition: border-color 0.2s;
+            resize: none; min-height: 36px; max-height: 130px; line-height: 1.5;
+            overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+        }
+        #msg::-webkit-scrollbar { width: 4px; }
+        #msg::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        #msg:focus { border-color: var(--accent); }
+        #msg:disabled { opacity: 0.4; }
+        #msg::placeholder { color: var(--text-muted); }
+
+        /* === Modal для добавления/редактирования задачи === */
+        .task-modal-overlay {
+            position: fixed; inset: 0; z-index: 100;
+            background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(3px);
+            display: none; align-items: center; justify-content: center;
+        }
+        .task-modal-overlay.show { display: flex; }
+        .task-modal {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: 12px; width: min(520px, 92vw); max-height: 90vh;
+            overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .task-modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 22px; border-bottom: 1px solid var(--border);
+        }
+        .task-modal-header h3 { margin: 0; font-size: 16px; color: var(--text-primary); }
+        .task-modal-close {
+            background: none; border: none; color: var(--text-secondary);
+            font-size: 24px; line-height: 1; cursor: pointer; padding: 0 4px;
+        }
+        .task-modal-close:hover { color: var(--text-primary); }
+        .task-modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+        .task-modal-body label {
+            display: flex; flex-direction: column; gap: 5px;
+            font-size: 12px; color: var(--text-secondary); font-weight: 500;
+        }
+        .task-modal-body input[type="text"],
+        .task-modal-body input[type="date"],
+        .task-modal-body select,
+        .task-modal-body textarea {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 6px; padding: 8px 12px; color: var(--text-primary);
+            font-family: inherit; font-size: 14px; outline: none;
+            transition: border-color 0.15s;
+        }
+        .task-modal-body input:focus,
+        .task-modal-body select:focus,
+        .task-modal-body textarea:focus { border-color: var(--accent); }
+        .task-modal-body textarea { resize: vertical; min-height: 60px; max-height: 200px; }
+        .task-modal-footer {
+            display: flex; justify-content: flex-end; gap: 8px;
+            padding: 14px 22px; border-top: 1px solid var(--border);
+        }
+        .task-modal-footer button {
+            padding: 8px 18px; border-radius: 6px; font-size: 13px;
+            font-family: inherit; cursor: pointer; border: 1px solid var(--border);
+            background: transparent; color: var(--text-secondary);
+            transition: all 0.15s;
+        }
+        .task-modal-footer button:hover { color: var(--text-primary); }
+        .task-modal-footer .primary {
+            background: var(--accent); color: #fff; border-color: var(--accent);
+            font-weight: 600;
+        }
+        .task-modal-footer .primary:hover { opacity: 0.85; color: #fff; }
+        .task-modal-error {
+            padding: 8px 22px 0; color: var(--priority-high); font-size: 12px; min-height: 14px;
+        }
+    </style>
+    <script src="_config.js"></script>
+    <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark">
+    <link rel="stylesheet" href="lib/hljs-light.min.css" id="hljs-theme-light" disabled>
+    <script src="lib/highlight.min.js"></script>
+    <script src="_shared.js"></script>
+    <script src="lib/jszip.min.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
+        <div class="sidebar-header"><h3>Списки задач</h3></div>
+        <div class="sidebar-add">
+            <button onclick="createNewSession()">Новый список</button>
+        </div>
+        <div class="session-list" id="sessionList"></div>
+    </div>
+    <div class="main">
+        <header>
+            <div class="header-left">
+                <h1>GigaChat Планировщик</h1>
+            </div>
+            <div class="header-right">
+                <div class="status" id="statusBar">
+                    <span class="dot checking" id="statusDot"></span>
+                    <span id="statusText">проверка...</span>
+                </div>
+                <button class="btn-export" onclick="exportChat()">Экспорт</button>
+            </div>
+        </header>
+
+        <!-- Панель задач: чек-лист с фильтром и кнопкой добавить -->
+        <div id="tasks-panel">
+            <div class="tasks-toolbar">
+                <h2>Задачи</h2>
+                <div class="tasks-filter-tabs">
+                    <button class="active" data-filter="active" onclick="setTaskFilter('active', this)">Активные</button>
+                    <button data-filter="completed" onclick="setTaskFilter('completed', this)">Выполненные</button>
+                    <button data-filter="all" onclick="setTaskFilter('all', this)">Все</button>
+                </div>
+                <button class="tasks-add-btn" onclick="openTaskModal()">+ Задача</button>
+            </div>
+            <div id="tasks-list">
+                <div class="tasks-empty">Выберите или создайте список задач слева.</div>
+            </div>
+        </div>
+
+        <!-- AI-чат для запросов -->
+        <div id="chat">
+            <div class="empty-chat">Создайте список задач, добавьте дела, потом спросите AI: «План на неделю», «Что просрочено», «Топ-3 на сегодня»</div>
+        </div>
+        <div class="bottom-area">
+            <div id="input-area" class="gc-input-row">
+                <div class="gc-input-wrap">
+                    <textarea id="msg" rows="1" placeholder="Спроси AI про задачи..." disabled></textarea>
+                    <button id="send" class="gc-send-icon" onclick="sendMsg()" disabled aria-label="Отправить">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка добавления/редактирования задачи -->
+    <div class="task-modal-overlay" id="taskModal" onclick="if(event.target===this)closeTaskModal()">
+        <div class="task-modal">
+            <div class="task-modal-header">
+                <h3 id="taskModalTitle">Новая задача</h3>
+                <button class="task-modal-close" onclick="closeTaskModal()" aria-label="Закрыть">&times;</button>
+            </div>
+            <div class="task-modal-body">
+                <label>Название
+                    <input type="text" id="taskTitle" maxlength="500" placeholder="Что нужно сделать?">
+                </label>
+                <label>Описание <span style="color:var(--text-muted);font-weight:400;">(необязательно)</span>
+                    <textarea id="taskDescription" maxlength="5000" placeholder="Детали, ссылки, контекст..."></textarea>
+                </label>
+                <label>Приоритет
+                    <select id="taskPriority">
+                        <option value="low">Низкий</option>
+                        <option value="medium" selected>Средний</option>
+                        <option value="high">Высокий</option>
+                    </select>
+                </label>
+                <label>Дедлайн <span style="color:var(--text-muted);font-weight:400;">(необязательно)</span>
+                    <input type="date" id="taskDeadline">
+                </label>
+            </div>
+            <div class="task-modal-error" id="taskModalError"></div>
+            <div class="task-modal-footer">
+                <button onclick="closeTaskModal()">Отмена</button>
+                <button class="primary" onclick="saveTask()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var escapeHtml = GigaChat.escapeHtml;
+        var PLANNER_URL = GigaChat.webhookUrl('planner');
+
+        // ========== Локальное состояние панели задач ==========
+        var currentFilter = 'active';
+        var currentTasks = [];           // последний загруженный массив с сервера
+        var currentSessionId = null;     // обновляется через onSwitchExtra
+        var editingTaskId = null;        // null = создание новой, число = редактирование
+
+        // ========== HTTP-обёртка для всех CRUD-операций ==========
+        async function plannerApi(payload) {
+            try {
+                var res = await GigaChat.fetchWithRetry(PLANNER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                    body: JSON.stringify(payload)
+                }, { timeout: 30000, retries: 1 });
+                if (!res.ok) throw new Error('Сервер вернул ' + res.status);
+                return await res.json();
+            } catch (e) {
+                console.error('Planner API error:', e);
+                return { response: 'error', error: e.message };
+            }
+        }
+
+        // ========== Загрузка задач для текущей сессии ==========
+        async function loadTasks() {
+            if (!currentSessionId) {
+                document.getElementById('tasks-list').innerHTML =
+                    '<div class="tasks-empty">Выберите или создайте список задач слева.</div>';
+                return;
+            }
+            var data = await plannerApi({
+                action: 'list', session_id: currentSessionId, filter: currentFilter
+            });
+            currentTasks = (data && Array.isArray(data.tasks)) ? data.tasks : [];
+            renderTasks();
+        }
+
+        function renderTasks() {
+            var list = document.getElementById('tasks-list');
+            if (currentTasks.length === 0) {
+                var msg = currentFilter === 'active' ? 'Активных задач нет. Добавьте первую.'
+                        : currentFilter === 'completed' ? 'Ничего пока не выполнено.'
+                        : 'Список пуст.';
+                list.innerHTML = '<div class="tasks-empty">' + msg + '</div>';
+                return;
+            }
+            var today = new Date().toISOString().slice(0, 10);
+            var html = currentTasks.map(function (t) {
+                var isCompleted = t.status === 'completed';
+                var isOverdue = !isCompleted && t.deadline && t.deadline < today;
+                var dlClass = isOverdue ? 'overdue' : '';
+                var dlText = t.deadline ? ('до ' + t.deadline) : '';
+                var prioRu = t.priority === 'high' ? 'Высокий'
+                           : t.priority === 'low' ? 'Низкий' : 'Средний';
+                var descHtml = t.description ? '<div class="task-description">' + escapeHtml(t.description) + '</div>' : '';
+                return '<div class="task-item ' + (isCompleted ? 'completed ' : '') + (isOverdue ? 'overdue' : '') + '" data-id="' + t.id + '">'
+                    + '<div class="task-check ' + (isCompleted ? 'checked' : '') + '" onclick="toggleTask(' + t.id + ')" role="checkbox" aria-checked="' + isCompleted + '"></div>'
+                    + '<div class="task-body" onclick="openTaskModal(' + t.id + ')">'
+                    + '<div class="task-title-row">'
+                    + '<span class="task-priority ' + t.priority + '">' + prioRu + '</span>'
+                    + '<span class="task-title">' + escapeHtml(t.title) + '</span>'
+                    + (dlText ? '<span class="task-deadline ' + dlClass + '">' + dlText + '</span>' : '')
+                    + '</div>'
+                    + descHtml
+                    + '</div>'
+                    + '<div class="task-actions">'
+                    + '<button class="delete" onclick="event.stopPropagation();deleteTask(' + t.id + ')" aria-label="Удалить">×</button>'
+                    + '</div>'
+                    + '</div>';
+            }).join('');
+            list.innerHTML = html;
+        }
+
+        // ========== Фильтр (Активные / Выполненные / Все) ==========
+        function setTaskFilter(filter, btn) {
+            currentFilter = filter;
+            var tabs = document.querySelectorAll('.tasks-filter-tabs button');
+            for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+            btn.classList.add('active');
+            loadTasks();
+        }
+
+        // ========== Модалка добавления / редактирования ==========
+        function openTaskModal(taskId) {
+            if (!currentSessionId) {
+                alert('Сначала создайте или выберите список задач');
+                return;
+            }
+            editingTaskId = (typeof taskId === 'number') ? taskId : null;
+            var title = document.getElementById('taskModalTitle');
+            var inTitle = document.getElementById('taskTitle');
+            var inDesc = document.getElementById('taskDescription');
+            var inPrio = document.getElementById('taskPriority');
+            var inDl = document.getElementById('taskDeadline');
+            var err = document.getElementById('taskModalError');
+
+            if (editingTaskId !== null) {
+                title.textContent = 'Изменить задачу';
+                var t = currentTasks.find(function (x) { return x.id === editingTaskId; });
+                if (!t) { closeTaskModal(); return; }
+                inTitle.value = t.title || '';
+                inDesc.value = t.description || '';
+                inPrio.value = t.priority || 'medium';
+                inDl.value = t.deadline || '';
+            } else {
+                title.textContent = 'Новая задача';
+                inTitle.value = '';
+                inDesc.value = '';
+                inPrio.value = 'medium';
+                inDl.value = '';
+            }
+            err.textContent = '';
+            document.getElementById('taskModal').classList.add('show');
+            setTimeout(function () { inTitle.focus(); }, 50);
+        }
+
+        function closeTaskModal() {
+            document.getElementById('taskModal').classList.remove('show');
+            editingTaskId = null;
+        }
+
+        async function saveTask() {
+            var err = document.getElementById('taskModalError');
+            var title = document.getElementById('taskTitle').value.trim();
+            if (!title) { err.textContent = 'Название не может быть пустым'; return; }
+            if (title.length > 500) { err.textContent = 'Название слишком длинное (>500)'; return; }
+
+            var payload = {
+                session_id: currentSessionId,
+                title: title,
+                description: document.getElementById('taskDescription').value.trim(),
+                priority: document.getElementById('taskPriority').value,
+                deadline: document.getElementById('taskDeadline').value || null
+            };
+
+            if (editingTaskId !== null) {
+                payload.action = 'update';
+                payload.id = editingTaskId;
+            } else {
+                payload.action = 'create';
+            }
+
+            var data = await plannerApi(payload);
+            if (data.response === 'ok') {
+                closeTaskModal();
+                await loadTasks();
+            } else {
+                err.textContent = data.error || 'Не удалось сохранить';
+            }
+        }
+
+        // ========== Отметить выполненной / вернуть в активные ==========
+        async function toggleTask(taskId) {
+            var t = currentTasks.find(function (x) { return x.id === taskId; });
+            if (!t) return;
+            var newStatus = t.status === 'completed' ? 'active' : 'completed';
+            // Оптимистично обновляем UI до ответа сервера
+            t.status = newStatus;
+            renderTasks();
+            var data = await plannerApi({
+                action: 'update', session_id: currentSessionId,
+                id: taskId, status: newStatus
+            });
+            if (data.response !== 'ok') {
+                t.status = newStatus === 'completed' ? 'active' : 'completed';
+                renderTasks();
+                alert('Не удалось обновить статус: ' + (data.error || 'неизвестная ошибка'));
+            } else {
+                // Перезагружаем чтобы синхронизироваться с серверным фильтром
+                await loadTasks();
+            }
+        }
+
+        // ========== Удаление ==========
+        async function deleteTask(taskId) {
+            if (!confirm('Удалить задачу безвозвратно?')) return;
+            var data = await plannerApi({
+                action: 'delete', session_id: currentSessionId, id: taskId
+            });
+            if (data.response === 'ok') {
+                await loadTasks();
+            } else {
+                alert('Не удалось удалить: ' + (data.error || 'неизвестная ошибка'));
+            }
+        }
+
+        // ========== Закрытие модалки по Escape ==========
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeTaskModal();
+        });
+
+        // ========== Рендер bot-сообщений: простой текст + переносы ==========
+        function formatBotMessage(msg) {
+            if (!msg.content) return '';
+            var html = String(msg.content)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+            html = html.replace(/\n/g, '<br>');
+            return html;
+        }
+
+        // ========== Инициализация чат-агента ==========
+        GigaChat.createChatAgent({
+            webhookPath: 'planner',
+            historyPath: 'history',
+            prefix: 'planner',
+            idPrefix: 'planner_',
+            namePrefix: 'List-',
+            inflightLabel: 'Думаю',
+            exportAgentName: 'GigaChat Планировщик',
+            emptyChatHtml: '<div class="empty-chat">Создайте список задач, добавьте дела, потом спросите AI: «План на неделю», «Что просрочено», «Топ-3 на сегодня»</div>',
+            historyErrorHtml: '<div class="empty-chat">Не удалось загрузить историю AI-запросов.</div>',
+            historyLoadingHtml: '<div class="empty-chat">Загружаю...</div>',
+            formatBotHtml: formatBotMessage,
+            parseBotMessage: function (data) {
+                return {
+                    role: 'assistant',
+                    content: data.response || 'Пустой ответ',
+                    extras: {}
+                };
+            },
+            onSwitchExtra: function (sid) {
+                currentSessionId = sid;
+                loadTasks();
+            }
+        });
+    </script>
+</body>
+</html>
