@@ -88,9 +88,25 @@
         if (e.name === 'AbortError') {
           throw new Error('Сервер не ответил за ' + (timeout / 1000) + ' сек.');
         }
-        // Сетевая ошибка — пробуем ещё.
+        // Сетевая ошибка — пробуем ещё. Sleep между ретраями ДОЛЖЕН быть
+        // прерываемым: иначе юзер нажал «отмена» в момент backoff —
+        // AbortError не пробрасывается до конца retryDelay (3 сек), и UI
+        // «зависает» до конца паузы. Решение: race timer + abort-listener.
         if (attempt < retries) {
-          await new Promise(function (r) { setTimeout(r, retryDelay); });
+          await new Promise(function (resolve, reject) {
+            var tid2 = setTimeout(resolve, retryDelay);
+            if (externalSignal) {
+              var onAbort2 = function () {
+                clearTimeout(tid2);
+                externalSignal.removeEventListener('abort', onAbort2);
+                var err = new Error('Запрос отменён');
+                err.name = 'AbortError';
+                reject(err);
+              };
+              if (externalSignal.aborted) { onAbort2(); return; }
+              externalSignal.addEventListener('abort', onAbort2);
+            }
+          });
           continue;
         }
         throw e;
@@ -2718,6 +2734,14 @@
     // Без этого auto-scroll «возвращал» юзера в низ каждый тик, и читать
     // сообщение во время стриминга было невозможно. Возврат к низу
     // (естественный или явный scroll) снимает блок и возобновляет sticky.
+    //
+    // ВАЖНО: слушаем ТОЛЬКО `wheel` + `touchmove` — это примитивы реального
+    // user input. Событие `scroll` НЕЛЬЗЯ использовать: оно срабатывает и на
+    // программный `chatEl.scrollTop = X` (наш же `smoothScrollToBottom`),
+    // `event.isTrusted` его не отличает. Если повесить на `scroll`, то наш
+    // же RAF режет сам себя: каждый кадр меняет scrollTop → летит scroll →
+    // distance > 30px → `userScrolledUp = true` → отмена RAF → анимация
+    // обрывается посередине. Регрессия из BUG 4 fix.
     var userScrolledUp = false;
     function onUserScroll() {
       if (!chatEl) return;
@@ -2734,13 +2758,11 @@
     if (chatEl) {
       chatEl.addEventListener('wheel', onUserScroll, { passive: true });
       chatEl.addEventListener('touchmove', onUserScroll, { passive: true });
-      chatEl.addEventListener('scroll', onUserScroll, { passive: true });
     }
     function cleanupScrollListeners() {
       if (!chatEl) return;
       chatEl.removeEventListener('wheel', onUserScroll);
       chatEl.removeEventListener('touchmove', onUserScroll);
-      chatEl.removeEventListener('scroll', onUserScroll);
     }
 
     // Stop-кнопка: подменяем send-icon на stop-icon, меняем aria-label.
@@ -3221,7 +3243,12 @@
         onSwitchExtra(sid, draft);
       },
       loadHistory: async function (sid) {
-        if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
+        // Loading HTML — пишем только если `sid` сейчас активен (на момент
+        // вызова это всегда так, см. switchTo). Это страховка для будущих
+        // вызовов из другого контекста.
+        if (sessionStore.state.activeSessionId === sid &&
+            !sessionStore.state.displayMessages.length &&
+            !sessionStore.getInflight(sid)) {
           chat.innerHTML = historyLoadingHtml;
         }
         try {
@@ -3234,7 +3261,11 @@
           var data = await res.json();
           return (data.messages || []).map(parseHistoryMessage);
         } catch (e) {
-          if (!sessionStore.state.displayMessages.length && !sessionStore.getInflight(sid)) {
+          // КРИТИЧНО: после await sid мог стать неактивным (юзер переключил
+          // сессию). Без этой проверки error-HTML перетрёт чат ДРУГОЙ сессии.
+          if (sessionStore.state.activeSessionId === sid &&
+              !sessionStore.state.displayMessages.length &&
+              !sessionStore.getInflight(sid)) {
             chat.innerHTML = historyErrorHtml;
           }
           return null;
@@ -3340,18 +3371,9 @@
       if (existing) {
         if (!viaButton) return; // Enter не отменяет активный запрос
         existing.abort();
-        // ВАЖНО: восстанавливаем UI ИММЕДИАТЕЛЬНО. Раньше полагались на
-        // catch(AbortError) в основной sendMsg-промисе, но fetchWithRetry
-        // может спать в backoff-задержке retry — AbortError не пробрасывается
-        // до конца sleep'а (до 2-5 минут). За это время кнопка остаётся
-        // STOP-квадратом, input заблокирован. Идемпотентно — catch ниже
-        // повторит, но это безопасно.
-        unregisterSendController(activeSessionId);
-        sessionStore.clearInflight(activeSessionId);
-        sendBtn.innerHTML = SEND_ICON_SVG;
-        sendBtn.disabled = false;
-        input.disabled = false;
-        if (attachment) attachment.setDisabled(false);
+        // UI восстановит .catch блок основного sendMsg при пробросе
+        // AbortError из fetchWithRetry. fetchWithRetry теперь имеет
+        // abortable sleep — abort пропагируется через ms.
         return;
       }
       if (sessionStore.getInflight(activeSessionId)) {
