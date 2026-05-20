@@ -295,26 +295,115 @@
             background: var(--bg-secondary);
         }
 
-        /* Кастомный date input: прячем нативную иконку календаря и рисуем
-           через background-image — единообразно с select. Click на любое
-           место поля по-прежнему открывает picker. */
-        .task-modal-body input[type="date"] {
-            padding-right: 36px;
-            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'><rect x='3' y='5' width='18' height='16' rx='2' fill='none' stroke='%238a8a8a' stroke-width='1.7'/><line x1='3' y1='9' x2='21' y2='9' stroke='%238a8a8a' stroke-width='1.7'/><line x1='8' y1='3' x2='8' y2='6' stroke='%238a8a8a' stroke-width='1.7' stroke-linecap='round'/><line x1='16' y1='3' x2='16' y2='6' stroke='%238a8a8a' stroke-width='1.7' stroke-linecap='round'/></svg>");
-            background-repeat: no-repeat;
-            background-position: right 11px center;
-            cursor: pointer;
+        /* Кастомный date picker — полностью свой widget вместо input type=date.
+           Нативный picker (popup ОС с месяцами) рендерится не CSS и не
+           перекрашивается. Свой widget на div'ах = полный контроль над
+           UI calendar'а, hover'ами, скруглениями, темой. */
+        .gc-datepicker {
+            position: relative; cursor: pointer; user-select: none; outline: none;
         }
-        :root[data-theme="light"] .task-modal-body input[type="date"] {
-            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'><rect x='3' y='5' width='18' height='16' rx='2' fill='none' stroke='%236b6b68' stroke-width='1.7'/><line x1='3' y1='9' x2='21' y2='9' stroke='%236b6b68' stroke-width='1.7'/><line x1='8' y1='3' x2='8' y2='6' stroke='%236b6b68' stroke-width='1.7' stroke-linecap='round'/><line x1='16' y1='3' x2='16' y2='6' stroke='%236b6b68' stroke-width='1.7' stroke-linecap='round'/></svg>");
+        .gc-datepicker-trigger {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 6px; padding: 8px 12px;
+            font-size: 14px;
+            transition: border-color 0.18s ease, background 0.18s ease;
         }
-        /* Прячем нативный picker-indicator (стандартная иконка календаря в правом краю).
-           Webkit-only селектор, для Firefox прячем через opacity. */
-        .task-modal-body input[type="date"]::-webkit-calendar-picker-indicator {
-            opacity: 0; cursor: pointer; width: 36px; height: 100%;
-            position: absolute; right: 0; padding: 0; margin: 0;
+        .gc-datepicker:hover .gc-datepicker-trigger,
+        .gc-datepicker:focus .gc-datepicker-trigger { border-color: var(--text-secondary); }
+        .gc-datepicker.open .gc-datepicker-trigger {
+            border-color: var(--accent); background: var(--bg-secondary);
         }
-        .task-modal-body input[type="date"] { position: relative; }
+        .gc-datepicker-label { color: var(--text-primary); }
+        .gc-datepicker-label.placeholder { color: var(--text-muted); }
+        .gc-datepicker-icon {
+            color: var(--text-secondary); flex-shrink: 0; line-height: 0;
+            transition: color 0.18s ease;
+        }
+        .gc-datepicker-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; }
+        .gc-datepicker.open .gc-datepicker-icon { color: var(--accent); }
+
+        .gc-datepicker-popup {
+            position: absolute; top: calc(100% + 6px); left: 0;
+            width: 280px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 10px; padding: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            z-index: 250;
+            opacity: 0; visibility: hidden; transform: translateY(-6px);
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+        }
+        .gc-datepicker.open .gc-datepicker-popup {
+            opacity: 1; visibility: visible; transform: translateY(0);
+        }
+
+        .gc-datepicker-header {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 4px; margin-bottom: 8px;
+        }
+        .gc-datepicker-title {
+            flex: 1; text-align: center;
+            font-size: 13px; font-weight: 600; color: var(--text-primary);
+            text-transform: capitalize;
+        }
+        .gc-datepicker-nav {
+            background: none; border: none; cursor: pointer;
+            width: 26px; height: 26px; border-radius: 6px;
+            color: var(--text-secondary);
+            display: flex; align-items: center; justify-content: center;
+            transition: color 0.18s ease, background 0.18s ease;
+            font-family: inherit;
+        }
+        .gc-datepicker-nav:hover { color: var(--accent); background: var(--bg-secondary); }
+        .gc-datepicker-nav svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+        .gc-datepicker-weekdays {
+            display: grid; grid-template-columns: repeat(7, 1fr);
+            gap: 2px; margin-bottom: 4px;
+        }
+        .gc-datepicker-weekdays span {
+            font-size: 10px; color: var(--text-muted);
+            text-align: center; text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 4px 0;
+        }
+
+        .gc-datepicker-grid {
+            display: grid; grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+        .gc-datepicker-day {
+            background: none; border: none; cursor: pointer;
+            height: 32px; border-radius: 6px;
+            font-size: 12px; font-family: inherit;
+            color: var(--text-primary);
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .gc-datepicker-day:hover { background: var(--bg-secondary); color: var(--accent); }
+        .gc-datepicker-day.other-month { color: var(--text-muted); }
+        .gc-datepicker-day.today {
+            color: var(--accent); font-weight: 600;
+            box-shadow: inset 0 0 0 1px var(--accent);
+        }
+        .gc-datepicker-day.selected {
+            background: var(--accent); color: #fff; font-weight: 600;
+            box-shadow: none;
+        }
+        .gc-datepicker-day.selected:hover { background: var(--accent-hover); color: #fff; }
+
+        .gc-datepicker-actions {
+            display: flex; justify-content: space-between; gap: 8px;
+            margin-top: 10px; padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+        .gc-datepicker-actions button {
+            background: none; border: none; cursor: pointer;
+            font-size: 12px; padding: 4px 8px; border-radius: 5px;
+            color: var(--text-secondary); font-family: inherit;
+            transition: color 0.18s ease, background 0.18s ease;
+        }
+        .gc-datepicker-actions button:hover { color: var(--accent); background: var(--bg-secondary); }
+        .gc-datepicker-actions .gc-datepicker-clear:hover { color: var(--priority-high); background: rgba(217,119,87,0.1); }
         .task-modal-footer {
             display: flex; justify-content: flex-end; gap: 8px;
             padding: 14px 22px; border-top: 1px solid var(--border);
@@ -420,7 +509,7 @@
                     <input type="text" id="taskTitle" maxlength="500" placeholder="Что нужно сделать?">
                 </label>
                 <label>Описание
-                    <textarea id="taskDescription" maxlength="5000" placeholder="Детали, ссылки, контекст..."></textarea>
+                    <textarea id="taskDescription" maxlength="5000" placeholder="Детали..."></textarea>
                 </label>
                 <label>Приоритет
                     <div class="gc-select" id="taskPriority" data-value="medium" tabindex="0" role="combobox" aria-haspopup="listbox" aria-expanded="false">
@@ -436,7 +525,27 @@
                     </div>
                 </label>
                 <label>Срок выполнения
-                    <input type="date" id="taskDeadline">
+                    <div class="gc-datepicker" id="taskDeadline" data-value="" tabindex="0" role="button" aria-haspopup="dialog" aria-expanded="false">
+                        <div class="gc-datepicker-trigger">
+                            <span class="gc-datepicker-label placeholder">дд.мм.гггг</span>
+                            <span class="gc-datepicker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="3" x2="8" y2="6"/><line x1="16" y1="3" x2="16" y2="6"/></svg></span>
+                        </div>
+                        <div class="gc-datepicker-popup" role="dialog">
+                            <div class="gc-datepicker-header">
+                                <button type="button" class="gc-datepicker-nav gc-datepicker-prev" aria-label="Предыдущий месяц"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+                                <div class="gc-datepicker-title"></div>
+                                <button type="button" class="gc-datepicker-nav gc-datepicker-next" aria-label="Следующий месяц"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+                            </div>
+                            <div class="gc-datepicker-weekdays">
+                                <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+                            </div>
+                            <div class="gc-datepicker-grid"></div>
+                            <div class="gc-datepicker-actions">
+                                <button type="button" class="gc-datepicker-clear">Очистить</button>
+                                <button type="button" class="gc-datepicker-today">Сегодня</button>
+                            </div>
+                        </div>
+                    </div>
                 </label>
             </div>
             <div class="task-modal-error" id="taskModalError"></div>
@@ -594,17 +703,184 @@
             label.textContent = target.textContent;
         }
 
+        // ========== Кастомный datepicker ==========
+        // Нативный <input type="date"> открывает OS-уровневый popup с месяцами
+        // (синие квадраты, OS-zависимый рендер). Свой widget на div'ах даёт
+        // полный контроль: hover/focus в accent, скруглённые ячейки, тёмная/
+        // светлая тема, кнопки «Очистить» и «Сегодня». Внутреннее значение
+        // хранится как YYYY-MM-DD в data-value (тот же формат что был у input).
+        var MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь',
+                         'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+
+        function todayYMD() {
+            var d = new Date();
+            return d.getFullYear() + '-' +
+                   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                   String(d.getDate()).padStart(2, '0');
+        }
+        function formatYMDDisplay(ymd) {
+            if (!ymd) return null;
+            var p = ymd.split('-');
+            return p[2] + '.' + p[1] + '.' + p[0];
+        }
+        function parseYMD(ymd) {
+            var p = ymd.split('-');
+            return { y: parseInt(p[0], 10), m: parseInt(p[1], 10) - 1, d: parseInt(p[2], 10) };
+        }
+
+        function initDatepicker() {
+            var dp = document.getElementById('taskDeadline');
+            if (!dp || dp._initialized) return;
+            dp._initialized = true;
+
+            var trigger = dp.querySelector('.gc-datepicker-trigger');
+            var popup = dp.querySelector('.gc-datepicker-popup');
+            var title = popup.querySelector('.gc-datepicker-title');
+            var grid = popup.querySelector('.gc-datepicker-grid');
+            var label = dp.querySelector('.gc-datepicker-label');
+
+            var viewYear, viewMonth; // текущий просматриваемый месяц
+
+            function setOpen(open) {
+                dp.classList.toggle('open', open);
+                dp.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (open) {
+                    // Точка отсчёта: если есть выбранная дата — её месяц; иначе сегодня.
+                    var selected = dp.getAttribute('data-value');
+                    var ref = selected ? parseYMD(selected) : (function () {
+                        var d = new Date();
+                        return { y: d.getFullYear(), m: d.getMonth(), d: d.getDate() };
+                    })();
+                    viewYear = ref.y;
+                    viewMonth = ref.m;
+                    render();
+                }
+            }
+
+            function setValue(ymd) {
+                dp.setAttribute('data-value', ymd || '');
+                if (ymd) {
+                    label.textContent = formatYMDDisplay(ymd);
+                    label.classList.remove('placeholder');
+                } else {
+                    label.textContent = 'дд.мм.гггг';
+                    label.classList.add('placeholder');
+                }
+            }
+            dp._setValue = setValue;
+
+            function render() {
+                var todayStr = todayYMD();
+                var selectedStr = dp.getAttribute('data-value') || '';
+
+                title.textContent = MONTHS_RU[viewMonth] + ' ' + viewYear;
+
+                // Первый день месяца, сдвинутый чтобы Пн=0
+                var firstJs = new Date(viewYear, viewMonth, 1).getDay(); // 0=вс
+                var firstMon = (firstJs + 6) % 7; // 0=пн
+                var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+                var prevMonthDays = new Date(viewYear, viewMonth, 0).getDate();
+
+                var cells = [];
+                // Хвост предыдущего месяца
+                for (var i = firstMon - 1; i >= 0; i--) {
+                    var pm = viewMonth === 0 ? { y: viewYear - 1, m: 11 } : { y: viewYear, m: viewMonth - 1 };
+                    cells.push({ day: prevMonthDays - i, other: true, y: pm.y, m: pm.m });
+                }
+                // Текущий месяц
+                for (var d = 1; d <= daysInMonth; d++) {
+                    cells.push({ day: d, other: false, y: viewYear, m: viewMonth });
+                }
+                // Голова следующего месяца — добиваем до 6 строк (42 ячейки)
+                var nextDay = 1;
+                while (cells.length < 42) {
+                    var nm = viewMonth === 11 ? { y: viewYear + 1, m: 0 } : { y: viewYear, m: viewMonth + 1 };
+                    cells.push({ day: nextDay++, other: true, y: nm.y, m: nm.m });
+                }
+
+                grid.innerHTML = cells.map(function (c) {
+                    var ymd = c.y + '-' + String(c.m + 1).padStart(2, '0') + '-' + String(c.day).padStart(2, '0');
+                    var cls = 'gc-datepicker-day';
+                    if (c.other) cls += ' other-month';
+                    if (ymd === todayStr && ymd !== selectedStr) cls += ' today';
+                    if (ymd === selectedStr) cls += ' selected';
+                    return '<button type="button" class="' + cls + '" data-date="' + ymd + '">' + c.day + '</button>';
+                }).join('');
+
+                Array.prototype.forEach.call(grid.querySelectorAll('.gc-datepicker-day'), function (btn) {
+                    btn.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        setValue(btn.getAttribute('data-date'));
+                        setOpen(false);
+                    });
+                });
+            }
+
+            // Click handlers
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setOpen(!dp.classList.contains('open'));
+            });
+            popup.addEventListener('click', function (e) {
+                // Внутренние клики не должны закрывать popup (только закрытие по выбору даты или actions)
+                e.stopPropagation();
+            });
+            popup.querySelector('.gc-datepicker-prev').addEventListener('click', function () {
+                viewMonth--;
+                if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+                render();
+            });
+            popup.querySelector('.gc-datepicker-next').addEventListener('click', function () {
+                viewMonth++;
+                if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+                render();
+            });
+            popup.querySelector('.gc-datepicker-today').addEventListener('click', function () {
+                var t = todayYMD();
+                setValue(t);
+                setOpen(false);
+            });
+            popup.querySelector('.gc-datepicker-clear').addEventListener('click', function () {
+                setValue(null);
+                setOpen(false);
+            });
+            // Outside click → close
+            document.addEventListener('click', function (e) {
+                if (!dp.contains(e.target)) setOpen(false);
+            });
+            // Keyboard: Escape закрывает, Enter/Space на triggerе открывает
+            dp.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && dp.classList.contains('open')) {
+                    setOpen(false); e.stopPropagation();
+                } else if ((e.key === 'Enter' || e.key === ' ') && e.target === dp) {
+                    e.preventDefault();
+                    setOpen(!dp.classList.contains('open'));
+                }
+            });
+        }
+
+        function getDeadlineValue() {
+            var dp = document.getElementById('taskDeadline');
+            return dp ? (dp.getAttribute('data-value') || '') : '';
+        }
+        function setDeadlineValue(v) {
+            var dp = document.getElementById('taskDeadline');
+            if (!dp) return;
+            if (dp._setValue) dp._setValue(v || null);
+            else dp.setAttribute('data-value', v || '');
+        }
+
         function openTaskModal(taskId) {
             if (!currentSessionId) {
                 alert('Сначала создайте или выберите список задач');
                 return;
             }
             initPrioritySelect();
+            initDatepicker();
             editingTaskId = (typeof taskId === 'number') ? taskId : null;
             var title = document.getElementById('taskModalTitle');
             var inTitle = document.getElementById('taskTitle');
             var inDesc = document.getElementById('taskDescription');
-            var inDl = document.getElementById('taskDeadline');
             var err = document.getElementById('taskModalError');
 
             if (editingTaskId !== null) {
@@ -614,13 +890,13 @@
                 inTitle.value = t.title || '';
                 inDesc.value = t.description || '';
                 setPriorityValue(t.priority || 'medium');
-                inDl.value = t.deadline || '';
+                setDeadlineValue(t.deadline || null);
             } else {
                 title.textContent = 'Новая задача';
                 inTitle.value = '';
                 inDesc.value = '';
                 setPriorityValue('medium');
-                inDl.value = '';
+                setDeadlineValue(null);
             }
             err.textContent = '';
             document.getElementById('taskModal').classList.add('show');
@@ -643,7 +919,7 @@
                 title: title,
                 description: document.getElementById('taskDescription').value.trim(),
                 priority: getPriorityValue(),
-                deadline: document.getElementById('taskDeadline').value || null
+                deadline: getDeadlineValue() || null
             };
 
             if (editingTaskId !== null) {
