@@ -100,6 +100,13 @@ git clone https://github.com/Jorden-maker/GigaChat.git
 
 ### Шаг 3 — перекинуть с Windows-ПК на Linux-сервер по SSH
 
+**SSH нужен ТОЛЬКО в одну сторону** — Windows → Linux. Сервер ничего не
+инициирует, только принимает подключения. Это значит:
+- На Linux-сервере должен быть OpenSSH-сервер: `sudo systemctl status ssh`
+  (на Ubuntu 22.04 обычно из коробки).
+- На Windows-ПК должен быть OpenSSH-клиент: `ssh -V` в PowerShell должен
+  вернуть версию (в Windows 10/11 встроен по умолчанию).
+
 В Windows 10/11 уже есть OpenSSH-клиент (`ssh`, `scp`), включён по умолчанию.
 Проверка: `ssh -V` в PowerShell или cmd должен вернуть версию.
 
@@ -265,6 +272,21 @@ ssh user@SERVER_IP "sudo rm -rf /opt/gigachat && sudo mv /opt/gigachat-prev /opt
 
 (Можно автоматизировать в скрипт `Linux/deploy.sh` на Windows-стороне —
 сделаем когда понадобится.)
+
+### Будущая миграция на git-based обновления
+
+Текущий метод — `scp + rsync` — самый простой и работает прямо сейчас.
+Когда захочешь перейти на `git pull` на сервере, есть три рабочих варианта,
+все совместимы с офлайн-сервером:
+
+| Способ | Как работает | SSH-направление |
+|---|---|---|
+| **Bare-репо на Windows-ПК** | Сервер делает `git pull ssh://win-pc/...` | Linux → Windows (НУЖНА доп. настройка SSH-сервера на Windows) |
+| **Git bundle через флэшку** | На Windows: `git bundle create giga.bundle origin/main`. Через флэшку → сервер. На сервере: `git fetch ./giga.bundle main:main` | Никакой SSH не нужен |
+| **Git push с Windows на сервер** | На сервере bare-репо в `/opt/gigachat.git`. Windows делает `git push office main`. Затем `cd /opt/gigachat && git pull` на сервере | Windows → Linux (как сейчас) |
+
+Третий вариант — продолжение текущего одностороннего SSH-флоу, минимум
+доп. настроек. Когда настанет время — допишу отдельный раздел в этом README.
 
 ---
 
