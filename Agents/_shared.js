@@ -1977,6 +1977,14 @@
     var onAttachmentClear = opts.onAttachmentClear || function () {};
     var onEmpty = opts.onEmpty || function () {};
     var onSwitch = opts.onSwitch || function () {};
+    // onBeforeSwitch(newId, oldId) — вызывается ДО смены activeSessionId.
+    // Используется createChatAgent для отмены активного typewriter'а в
+    // ТЕКУЩЕЙ сессии (sendBtn._typewriterController) — нельзя делать это
+    // напрямую из switchTo, потому что sendBtn живёт в scope createChatAgent,
+    // а createSessionStore определён выше и эту переменную не видит.
+    // Раньше ссылка на sendBtn здесь давала ReferenceError при переключении
+    // в другую сессию — выглядело как «не могу открыть сессию» в toast'е.
+    var onBeforeSwitch = opts.onBeforeSwitch || function () {};
 
     var KEY_SESSIONS = prefix + '_sessions';
     var KEY_ACTIVE = prefix + '_active';
@@ -2355,12 +2363,10 @@
       // (renderMessages destroy'ит old DOM), typewriter тихо умирает на
       // следующем тике, но snapshot уже содержит полный текст → при
       // возврате в сессию юзер видит «всё разом», без анимации.
-      // cancel() записывает finalHtml в lastBot пока он ещё в DOM —
-      // clean state.
-      if (!sameSession && sendBtn && sendBtn._typewriterController &&
-          typeof sendBtn._typewriterController.isRunning === 'function' &&
-          sendBtn._typewriterController.isRunning()) {
-        try { sendBtn._typewriterController.cancel(); } catch (_) {}
+      // Доступ к sendBtn — через callback (см. onBeforeSwitch выше),
+      // чтобы не таскать сюда переменную из чужого scope.
+      if (!sameSession) {
+        try { onBeforeSwitch(id, store.activeSessionId); } catch (_) {}
       }
       store.activeSessionId = id;
       // Скрепку трогаем ТОЛЬКО если это переход в ДРУГУЮ сессию И
@@ -3223,6 +3229,15 @@
       renderMessages: function () { renderChat(); },
       onAttachmentClear: function () {
         if (attachment) { attachment.cancel(); attachment.clear(); attachment.setDisabled(false); }
+      },
+      // Отмена живого typewriter'а ДО смены activeSessionId — sendBtn здесь
+      // в scope, в отличие от switchTo (которая в createSessionStore).
+      onBeforeSwitch: function (newId, oldId) {
+        if (sendBtn && sendBtn._typewriterController &&
+            typeof sendBtn._typewriterController.isRunning === 'function' &&
+            sendBtn._typewriterController.isRunning()) {
+          try { sendBtn._typewriterController.cancel(); } catch (_) {}
+        }
       },
       onEmpty: function () {
         chat.innerHTML = emptyChatHtml;
