@@ -36,7 +36,7 @@ param(
 
 # ---- НАСТРОЙКИ ----
 $n8n    = "http://localhost:5678"                       # URL n8n БЕЗ слеша на конце
-$apiKey = ""                                            # вставь API-ключ или возьмёт из credentials-cache.local.json
+$apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMWQzMzQ3Ny05MjdlLTQxMGEtYjNiMC0wMWNmOTY2ODgwYmYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZmY5ZGFiYTctZWZjNi00YjE3LTgxOGUtNDA2ZmYwMjQxOWMwIiwiaWF0IjoxNzc4NzU4ODgxLCJleHAiOjE3ODEzMjMyMDB9.SI7GAu_3y5neIzbam3iYnwDxkF0TMwf3fvixBvOZmls"                                            # вставь API-ключ или возьмёт из credentials-cache.local.json
 $prefix = "[GigaChat] "                                 # только workflow с этим префиксом
 # -------------------
 
