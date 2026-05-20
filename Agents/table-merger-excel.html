@@ -181,10 +181,17 @@ main { max-width: 900px; }
     padding: 6px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
     list-style: none; margin: 0;
-    z-index: 50; display: none;
+    z-index: 50;
     scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    /* Плавный fade. opacity+visibility вместо display:none — иначе анимация
+       при закрытии не отрабатывает. visibility:hidden убирает click-target. */
+    opacity: 0; visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
 }
-.gc-dropdown.open .gc-dropdown-menu { display: block; animation: gc-dd-fade-in 0.12s ease; }
+.gc-dropdown.open .gc-dropdown-menu {
+    opacity: 1; visibility: visible; transform: translateY(0);
+}
 @keyframes gc-dd-fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 .gc-dropdown-menu li {
     padding: 8px 12px; cursor: pointer; border-radius: 6px;
@@ -286,7 +293,15 @@ main { max-width: 900px; }
 .warning.show, .error-msg.show, .success-msg.show { display: block; }
 
 /* === Кнопки === */
-.actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.actions {
+    display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+    /* JS синхронизирует width c #previewSection после render — чтобы кнопки
+       сидели на правом краю превью, даже если превью шире main (900px). */
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: width 0.2s ease;
+}
 .btn-primary {
     width: auto; margin-bottom: 0; padding: 12px 28px;
     background: var(--accent); color: #fff; border: none; border-radius: 10px;
@@ -459,7 +474,10 @@ function createDropdown(rootId, items, value, onChange) {
             lis[k].addEventListener('click', function (e) {
                 e.stopPropagation();
                 setValue(e.currentTarget.dataset.value, true);
-                root.classList.remove('open');
+                // Закрываем ВСЕ открытые dropdowns — гарантия что соседнее
+                // окно тоже не останется/не «откроется» само из-за гонки.
+                var allOpen = document.querySelectorAll('.gc-dropdown.open');
+                for (var x = 0; x < allOpen.length; x++) allOpen[x].classList.remove('open');
             });
         }
         var found = state.items.find(function (it) { return String(it.value) === String(state.value); });
@@ -658,11 +676,13 @@ function removeFile(idx) {
     previewSection.classList.remove('show');
     downloadBtn.disabled = true;
     renderList();
+    syncActionsWidth();
 }
 
 function clearFiles() {
     selectedFiles = []; currentMerged = null; unionColumns = []; ignoredCols = new Set();
     fileInput.value = ''; clearError(); clearSuccess(); renderList();
+    syncActionsWidth();
 }
 
 // === Merge + Preview ===
@@ -757,7 +777,20 @@ function recomputePreview() {
 
     renderPreview(currentMerged);
     downloadBtn.disabled = (currentMerged.rows.length === 0);
+    syncActionsWidth();
 }
+
+// Sync ширины .actions с #previewSection — чтобы кнопки сидели на правом
+// краю превью даже когда превью шире 900px (main).
+function syncActionsWidth() {
+    var actionsEl = document.querySelector('.actions');
+    if (previewSection.classList.contains('show')) {
+        actionsEl.style.width = previewSection.offsetWidth + 'px';
+    } else {
+        actionsEl.style.width = '';
+    }
+}
+window.addEventListener('resize', syncActionsWidth);
 
 function renderPreview(merged) {
     var headers = merged.headers, rows = merged.rows;
