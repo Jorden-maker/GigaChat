@@ -1,0 +1,45 @@
+# systemd unit для GigaChat HTTP-сервера на Ubuntu/Debian.
+#
+# Установка (один раз от root):
+#   1) Подправь ExecStart и WorkingDirectory под реальный путь к проекту
+#      (по умолчанию /opt/gigachat — поменяй если у тебя другой).
+#   2) Подправь User= и Group= под пользователя сервера (не root).
+#   3) sudo cp Linux/gigachat.service /etc/systemd/system/
+#   4) sudo systemctl daemon-reload
+#   5) sudo systemctl enable --now gigachat.service
+#
+# Управление:
+#   sudo systemctl status gigachat       # текущее состояние
+#   sudo systemctl restart gigachat      # после обновления через git pull
+#   sudo systemctl stop gigachat         # остановить
+#   sudo journalctl -u gigachat -f       # хвост логов Caddy
+#
+# Порт 8765 (как в Caddyfile) — он > 1024, root не нужен. Если поменяешь
+# на :80 — потребуются capabilities (AmbientCapabilities=CAP_NET_BIND_SERVICE)
+# или запуск под root, что нежелательно.
+
+[Unit]
+Description=GigaChat HTTP server (Caddy serving static frontend)
+Documentation=https://github.com/Jorden-maker/GigaChat
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gigachat
+Group=gigachat
+WorkingDirectory=/opt/gigachat
+ExecStart=/opt/gigachat/Linux/caddy run --config /opt/gigachat/Caddyfile
+Restart=on-failure
+RestartSec=5s
+# Логи Caddy и так идут в stderr — systemd подхватит в journal.
+
+# Защита от typical-mistakes: проект только читается, write только в /tmp.
+# Если потом добавим что-то пишущее в WorkingDirectory — придётся ослабить.
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

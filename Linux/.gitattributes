@@ -1,0 +1,6 @@
+# Shell-скрипты в этой папке должны оставаться с LF-окончаниями строк
+# даже когда git клонируется на Windows и autocrlf=true. Без этого при
+# переносе через флешку shebang #!/usr/bin/env bash становится
+# #!/usr/bin/env bash\r и ядро Linux выдаёт:
+#   bash: ./GigaChat-Start.sh: /usr/bin/env\r: bad interpreter
+*.sh text eol=lf
