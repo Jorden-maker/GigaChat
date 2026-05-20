@@ -2334,6 +2334,18 @@
     async function switchTo(id, switchOpts) {
       switchOpts = switchOpts || {};
       var sameSession = (id === store.activeSessionId);
+      // Если в текущей сессии активен typewriter — финализируем его ДО
+      // смены сессии. Иначе после switchTo lastBot становится detached
+      // (renderMessages destroy'ит old DOM), typewriter тихо умирает на
+      // следующем тике, но snapshot уже содержит полный текст → при
+      // возврате в сессию юзер видит «всё разом», без анимации.
+      // cancel() записывает finalHtml в lastBot пока он ещё в DOM —
+      // clean state.
+      if (!sameSession && sendBtn && sendBtn._typewriterController &&
+          typeof sendBtn._typewriterController.isRunning === 'function' &&
+          sendBtn._typewriterController.isRunning()) {
+        try { sendBtn._typewriterController.cancel(); } catch (_) {}
+      }
       store.activeSessionId = id;
       // Скрепку трогаем ТОЛЬКО если это переход в ДРУГУЮ сессию И
       // в фоне нет обработки. Иначе клик по уже-активной сессии в
@@ -2702,6 +2714,35 @@
       return chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 100;
     }
 
+    // Ручной скролл вверх юзером — БЛОКИРУЕТ auto-scroll до возврата к низу.
+    // Без этого auto-scroll «возвращал» юзера в низ каждый тик, и читать
+    // сообщение во время стриминга было невозможно. Возврат к низу
+    // (естественный или явный scroll) снимает блок и возобновляет sticky.
+    var userScrolledUp = false;
+    function onUserScroll() {
+      if (!chatEl) return;
+      var atBottom = chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 30;
+      if (atBottom) {
+        userScrolledUp = false;
+      } else {
+        userScrolledUp = true;
+        // Отменяем текущую RAF-анимацию автоскролла — иначе юзер скроллит
+        // вверх, а scrollTop возвращается обратно «рывками» по 30% за кадр.
+        if (scrollRafId) { cancelAnimationFrame(scrollRafId); scrollRafId = null; }
+      }
+    }
+    if (chatEl) {
+      chatEl.addEventListener('wheel', onUserScroll, { passive: true });
+      chatEl.addEventListener('touchmove', onUserScroll, { passive: true });
+      chatEl.addEventListener('scroll', onUserScroll, { passive: true });
+    }
+    function cleanupScrollListeners() {
+      if (!chatEl) return;
+      chatEl.removeEventListener('wheel', onUserScroll);
+      chatEl.removeEventListener('touchmove', onUserScroll);
+      chatEl.removeEventListener('scroll', onUserScroll);
+    }
+
     // Stop-кнопка: подменяем send-icon на stop-icon, меняем aria-label.
     // При клике sendMsg в фабрике увидит class='streaming' и вызовет stop.
     // ВАЖНО: origSendIcon фиксируем как SEND_ICON_SVG, а не sendBtn.innerHTML
@@ -2731,17 +2772,20 @@
     var intervalId = setInterval(function () {
       if (sid !== sessionStore.state.activeSessionId) {
         clearInterval(intervalId);
+        cleanupScrollListeners();
         restoreSendButton();
         return;
       }
       if (!lastBot.isConnected) {
         clearInterval(intervalId);
+        cleanupScrollListeners();
         restoreSendButton();
         return;
       }
       if (stopped) {
         // Юзер нажал Стоп — оставляем то что уже видно, дальше не рисуем.
         clearInterval(intervalId);
+        cleanupScrollListeners();
         attachCopyButtons(lastBot);
         applyHighlight(lastBot);
         restoreSendButton();
@@ -2749,11 +2793,12 @@
       }
       if (i >= plainText.length) {
         clearInterval(intervalId);
+        cleanupScrollListeners();
         // Финальный swap: переключаемся на finalHtml с extras + highlight.
         lastBot.innerHTML = finalHtml;
         applyHighlight(lastBot);
         attachCopyButtons(lastBot);
-        if (chatEl && isAtBottom()) smoothScrollToBottom(chatEl);
+        if (chatEl && isAtBottom() && !userScrolledUp) smoothScrollToBottom(chatEl);
         restoreSendButton();
         return;
       }
@@ -2771,13 +2816,16 @@
       // скрывает), кнопки появятся в финальной фазе ниже.
       // Плавный scroll через RAF — без него чат дёргался скачками при появлении
       // таблиц (200px высоты сразу) и переносов строк.
-      if (chatEl && wasAtBottom) smoothScrollToBottom(chatEl);
+      // userScrolledUp блокирует scroll если юзер сейчас читает выше — без
+      // этой проверки чат возвращал в низ каждый тик, читать было невозможно.
+      if (chatEl && wasAtBottom && !userScrolledUp) smoothScrollToBottom(chatEl);
     }, tickIntervalMs);
 
     var controller = {
       // cancel — внешняя отмена (свитч сессии и т.п.) — показывает полный текст
       cancel: function () {
         clearInterval(intervalId);
+        cleanupScrollListeners();
         if (lastBot && lastBot.isConnected) {
           lastBot.innerHTML = finalHtml;
           applyHighlight(lastBot);
@@ -2787,6 +2835,7 @@
       // stop — юзер нажал стоп-кнопку — оставляет обрезанный текст
       stop: function () {
         stopped = true;
+        cleanupScrollListeners();
       },
       isRunning: function () { return !stopped && i < plainText.length; }
     };
@@ -3239,11 +3288,19 @@
           '<span class="timer">' + elapsed + ' сек</span></div>';
       }
       var wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 100;
+      // Сохраняем scrollTop ДО innerHTML — иначе при replace innerHTML браузер
+      // сбрасывает scrollTop в 0, и юзер видит «прыжок в самый верх + рывок
+      // обратно вниз». Если юзер читает старые сообщения — сохраняем позицию.
+      var savedScrollTop = chat.scrollTop;
       chat.innerHTML = html;
       attachCopyButtons(chat);
-      // Плавный scroll вместо инстант (раньше при добавлении сообщения с
-      // вложениями/таблицей чат скачком прыгал вниз).
-      if (wasAtBottom) smoothScrollChat(chat);
+      if (wasAtBottom) {
+        // Плавный scroll к низу — раньше при таблице/вложениях скачок.
+        smoothScrollChat(chat);
+      } else {
+        // Юзер читал что-то — синхронно возвращаем туда же, без анимации.
+        chat.scrollTop = savedScrollTop;
+      }
     }
 
     var chatScrollRafId = null;
@@ -3283,6 +3340,18 @@
       if (existing) {
         if (!viaButton) return; // Enter не отменяет активный запрос
         existing.abort();
+        // ВАЖНО: восстанавливаем UI ИММЕДИАТЕЛЬНО. Раньше полагались на
+        // catch(AbortError) в основной sendMsg-промисе, но fetchWithRetry
+        // может спать в backoff-задержке retry — AbortError не пробрасывается
+        // до конца sleep'а (до 2-5 минут). За это время кнопка остаётся
+        // STOP-квадратом, input заблокирован. Идемпотентно — catch ниже
+        // повторит, но это безопасно.
+        unregisterSendController(activeSessionId);
+        sessionStore.clearInflight(activeSessionId);
+        sendBtn.innerHTML = SEND_ICON_SVG;
+        sendBtn.disabled = false;
+        input.disabled = false;
+        if (attachment) attachment.setDisabled(false);
         return;
       }
       if (sessionStore.getInflight(activeSessionId)) {
