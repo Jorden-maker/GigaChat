@@ -109,15 +109,46 @@ main { max-width: 900px; }
 }
 #optionsPanel[open] summary::before { transform: rotate(90deg); }
 #optionsPanel .options-body {
-    padding: 4px 18px 16px; display: flex; flex-direction: column; gap: 12px;
+    padding: 18px 20px 18px; display: flex; flex-direction: column; gap: 14px;
     border-top: 1px solid var(--border);
 }
 #optionsPanel label {
-    display: flex; align-items: center; gap: 8px; font-size: 13.5px;
+    display: flex; align-items: center; gap: 10px; font-size: 13.5px;
     color: var(--text-primary); cursor: pointer;
 }
 #optionsPanel label.row { gap: 10px; flex-wrap: wrap; }
-#optionsPanel input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+
+/* Custom checkbox в стиле темы — без нативного белого квадрата. */
+#optionsPanel input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border: 2px solid var(--border); border-radius: 4px;
+    background: var(--bg-input);
+    cursor: pointer; position: relative; flex-shrink: 0;
+    transition: all 0.15s;
+}
+#optionsPanel input[type="checkbox"]:hover { border-color: var(--accent); }
+#optionsPanel input[type="checkbox"]:checked {
+    background: var(--accent); border-color: var(--accent);
+}
+#optionsPanel input[type="checkbox"]:checked::after {
+    content: ''; position: absolute;
+    left: 4px; top: 0px;
+    width: 5px; height: 10px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+#optionsPanel input[type="checkbox"]:focus-visible {
+    outline: none; box-shadow: 0 0 0 3px var(--accent-light);
+}
+/* «Счётчик дублей» рядом с checkbox — показывается когда dedup активен и убрал строки. */
+.dedup-count {
+    display: none; font-size: 12px; color: var(--accent); font-weight: 500;
+    background: var(--accent-light); padding: 2px 8px; border-radius: 6px;
+    margin-left: 4px;
+}
+.dedup-count.show { display: inline-block; animation: gc-dd-fade-in 0.2s; }
 /* Custom dropdown (полностью в теме, никакого нативного синего) */
 .gc-dropdown { position: relative; display: inline-block; }
 .gc-dropdown-trigger {
@@ -165,6 +196,23 @@ main { max-width: 900px; }
 .gc-dropdown-menu li.selected { background: var(--accent-light); color: var(--accent); font-weight: 500; }
 .gc-dropdown-menu li.selected::before {
     content: '✓ '; color: var(--accent); margin-right: 4px;
+}
+
+/* Кастомные стрелки направления сортировки (CSS-figura через borders).
+   Используется в опциях asc/desc — render через prefixHtml в createDropdown. */
+.sort-dir-arrow {
+    display: inline-block; width: 0; height: 0;
+    margin-right: 8px; vertical-align: middle;
+}
+.sort-dir-arrow.up {
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 8px solid currentColor;
+}
+.sort-dir-arrow.down {
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 8px solid currentColor;
 }
 #optionsPanel .ignore-list { display: flex; flex-wrap: wrap; gap: 6px; }
 #optionsPanel .ignore-list .pill {
@@ -214,7 +262,13 @@ main { max-width: 900px; }
     background: var(--bg-input); position: sticky; top: 0;
     color: var(--text-primary); font-weight: 600; font-size: 12px;
 }
-#previewSection th.sorted-col { background: var(--accent-light); color: var(--accent); }
+/* Solid bg-input снизу + accent-tint сверху через background-image, чтобы
+   строки не просвечивали через sticky-header (rgba даёт прозрачность). */
+#previewSection th.sorted-col {
+    background-color: var(--bg-input);
+    background-image: linear-gradient(var(--accent-light), var(--accent-light));
+    color: var(--accent);
+}
 #previewSection .sort-arrow { color: var(--accent); font-weight: 700; margin-left: 4px; }
 #previewSection td { color: var(--text-secondary); }
 #previewSection tr:last-child td { border-bottom: none; }
@@ -308,7 +362,7 @@ main { max-width: 900px; }
     <details id="optionsPanel">
         <summary>Опции объединения</summary>
         <div class="options-body">
-            <label><input type="checkbox" id="optDedup" onchange="recomputePreview()"> Удалить дубликаты строк</label>
+            <label><input type="checkbox" id="optDedup" onchange="recomputePreview()"> Удалить дубликаты строк <span class="dedup-count" id="dedupCount"></span></label>
             <label class="row">Сортировка по столбцу:
                 <div class="gc-dropdown" id="sortColDropdown" data-value="-1">
                     <button type="button" class="gc-dropdown-trigger" aria-haspopup="listbox">
@@ -319,13 +373,10 @@ main { max-width: 900px; }
                 </div>
                 <div class="gc-dropdown" id="sortDirDropdown" data-value="asc" title="Возрастание: числа 1→9, текст А→Я, даты старая→новая. Убывание — наоборот.">
                     <button type="button" class="gc-dropdown-trigger" aria-haspopup="listbox">
-                        <span class="gc-dropdown-label">↑ по возрастанию</span>
+                        <span class="gc-dropdown-label"></span>
                         <span class="gc-dropdown-arrow" aria-hidden="true"></span>
                     </button>
-                    <ul class="gc-dropdown-menu" role="listbox">
-                        <li data-value="asc" class="selected">↑ по возрастанию (А→Я, 1→9)</li>
-                        <li data-value="desc">↓ по убыванию (Я→А, 9→1)</li>
-                    </ul>
+                    <ul class="gc-dropdown-menu" role="listbox"></ul>
                 </div>
             </label>
             <div>
@@ -379,8 +430,8 @@ var optDedup = document.getElementById('optDedup');
 // Custom dropdowns (без нативного select — для полного контроля темы)
 var sortColDropdown = createDropdown('sortColDropdown', [{ value: '-1', label: 'Без сортировки' }], '-1', recomputePreview);
 var sortDirDropdown = createDropdown('sortDirDropdown', [
-    { value: 'asc',  label: '↑ по возрастанию (А→Я, 1→9)' },
-    { value: 'desc', label: '↓ по убыванию (Я→А, 9→1)' }
+    { value: 'asc',  label: 'По возрастанию', prefixHtml: '<span class="sort-dir-arrow up"></span>' },
+    { value: 'desc', label: 'По убыванию',    prefixHtml: '<span class="sort-dir-arrow down"></span>' }
 ], 'asc', recomputePreview);
 var optIgnoreList = document.getElementById('optIgnoreList');
 
@@ -399,7 +450,8 @@ function createDropdown(rootId, items, value, onChange) {
         for (var i = 0; i < state.items.length; i++) {
             var it = state.items[i];
             var cls = String(it.value) === String(state.value) ? ' class="selected"' : '';
-            html += '<li data-value="' + GigaChat.escapeHtml(String(it.value)) + '"' + cls + '>' + GigaChat.escapeHtml(it.label) + '</li>';
+            var prefix = it.prefixHtml || '';  // raw HTML, для иконок типа sort-dir-arrow — мы автору доверяем
+            html += '<li data-value="' + GigaChat.escapeHtml(String(it.value)) + '"' + cls + '>' + prefix + GigaChat.escapeHtml(it.label) + '</li>';
         }
         menu.innerHTML = html;
         var lis = menu.querySelectorAll('li');
@@ -411,7 +463,8 @@ function createDropdown(rootId, items, value, onChange) {
             });
         }
         var found = state.items.find(function (it) { return String(it.value) === String(state.value); });
-        labelEl.textContent = found ? found.label : '';
+        // trigger label — тоже с prefixHtml если есть (так стрелка видна и в закрытом состоянии)
+        labelEl.innerHTML = found ? ((found.prefixHtml || '') + GigaChat.escapeHtml(found.label)) : '';
         root.dataset.value = String(state.value);
     }
 
@@ -685,6 +738,23 @@ function recomputePreview() {
         ignoreColumns: ignoredCols
     };
     currentMerged = GigaChat.mergeTables(tables, opts);
+
+    // «− N дублей»: считаем сколько строк убрал dedup. Без dedup всегда без объяснений.
+    var dedupCountEl = document.getElementById('dedupCount');
+    if (opts.dedup) {
+        var beforeDedup = GigaChat.mergeTables(tables, { ignoreColumns: opts.ignoreColumns });
+        var removed = beforeDedup.rows.length - currentMerged.rows.length;
+        if (removed > 0) {
+            dedupCountEl.textContent = '− ' + removed + ' ' + (removed === 1 ? 'дубль' : (removed < 5 ? 'дубля' : 'дублей'));
+            dedupCountEl.classList.add('show');
+        } else {
+            dedupCountEl.textContent = 'дублей не найдено';
+            dedupCountEl.classList.add('show');
+        }
+    } else {
+        dedupCountEl.classList.remove('show');
+    }
+
     renderPreview(currentMerged);
     downloadBtn.disabled = (currentMerged.rows.length === 0);
 }
