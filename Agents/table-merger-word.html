@@ -118,27 +118,54 @@ main { max-width: 900px; }
 }
 #optionsPanel label.row { gap: 10px; flex-wrap: wrap; }
 #optionsPanel input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
-/* Кастомный select — appearance:none + ::after-стрелка через wrapper */
-.select-wrap { position: relative; display: inline-block; }
-.select-wrap::after {
-    content: ''; position: absolute; right: 12px; top: 50%;
+/* Custom dropdown (полностью в теме, никакого нативного синего) */
+.gc-dropdown { position: relative; display: inline-block; }
+.gc-dropdown-trigger {
+    display: inline-flex; align-items: center; justify-content: space-between; gap: 8px;
+    min-width: 220px; padding: 8px 12px 8px 14px;
+    background: var(--bg-input); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-family: inherit; font-size: 13px; cursor: pointer;
+    transition: all 0.15s;
+}
+.gc-dropdown-trigger:hover { border-color: var(--accent); background: var(--bg-card); }
+.gc-dropdown.open .gc-dropdown-trigger { border-color: var(--accent); background: var(--bg-card); box-shadow: 0 0 0 3px var(--accent-light); }
+.gc-dropdown-label { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gc-dropdown-arrow {
     width: 7px; height: 7px;
     border-right: 1.5px solid var(--text-secondary);
     border-bottom: 1.5px solid var(--text-secondary);
-    transform: translateY(-70%) rotate(45deg);
-    pointer-events: none;
-    transition: border-color 0.15s;
+    transform: translateY(-3px) rotate(45deg);
+    transition: transform 0.2s, border-color 0.15s;
+    flex-shrink: 0;
 }
-.select-wrap:hover::after { border-right-color: var(--accent); border-bottom-color: var(--accent); }
-#optionsPanel select {
-    appearance: none; -webkit-appearance: none; -moz-appearance: none;
-    background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text-primary); padding: 8px 32px 8px 12px; font-size: 13px; font-family: inherit;
-    cursor: pointer; transition: all 0.15s;
-    min-width: 200px;
+.gc-dropdown.open .gc-dropdown-arrow {
+    transform: translateY(2px) rotate(-135deg);
+    border-color: var(--accent);
 }
-#optionsPanel select:hover { border-color: var(--accent); background: var(--bg-card); }
-#optionsPanel select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.gc-dropdown-menu {
+    position: absolute; top: calc(100% + 4px); left: 0;
+    min-width: 100%; max-height: 320px; overflow-y: auto;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    list-style: none; margin: 0;
+    z-index: 50; display: none;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.gc-dropdown.open .gc-dropdown-menu { display: block; animation: gc-dd-fade-in 0.12s ease; }
+@keyframes gc-dd-fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.gc-dropdown-menu li {
+    padding: 8px 12px; cursor: pointer; border-radius: 6px;
+    font-size: 13px; color: var(--text-primary);
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gc-dropdown-menu li:hover { background: var(--accent-light); color: var(--accent); }
+.gc-dropdown-menu li.selected { background: var(--accent-light); color: var(--accent); font-weight: 500; }
+.gc-dropdown-menu li.selected::before {
+    content: '✓ '; color: var(--accent); margin-right: 4px;
+}
 #optionsPanel .ignore-list {
     display: flex; flex-wrap: wrap; gap: 6px;
 }
@@ -157,6 +184,14 @@ main { max-width: 900px; }
 #previewSection {
     background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
     margin-bottom: 16px; padding: 16px 18px; display: none;
+    /* Раздвигается до 50px от краёв экрана по ширине таблицы, всегда центрировано.
+       max-content + max-width дают «по ширине содержимого, но не шире viewport-100» */
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100vw - 100px);
+    min-width: 100%;
 }
 #previewSection.show { display: block; }
 #previewSection .preview-header {
@@ -277,11 +312,23 @@ main { max-width: 900px; }
         <div class="options-body">
             <label><input type="checkbox" id="optDedup" onchange="recomputePreview()"> Удалить дубликаты строк</label>
             <label class="row">Сортировка по столбцу:
-                <span class="select-wrap"><select id="optSortCol" onchange="recomputePreview()"><option value="-1">Без сортировки</option></select></span>
-                <span class="select-wrap"><select id="optSortDir" onchange="recomputePreview()" title="«Возрастание»: числа 1→9, текст А→Я, даты от старой к новой. «Убывание» — наоборот.">
-                    <option value="asc">↑ по возрастанию (А→Я, 1→9)</option>
-                    <option value="desc">↓ по убыванию (Я→А, 9→1)</option>
-                </select></span>
+                <div class="gc-dropdown" id="sortColDropdown" data-value="-1">
+                    <button type="button" class="gc-dropdown-trigger" aria-haspopup="listbox">
+                        <span class="gc-dropdown-label">Без сортировки</span>
+                        <span class="gc-dropdown-arrow" aria-hidden="true"></span>
+                    </button>
+                    <ul class="gc-dropdown-menu" role="listbox"></ul>
+                </div>
+                <div class="gc-dropdown" id="sortDirDropdown" data-value="asc" title="Возрастание: числа 1→9, текст А→Я, даты старая→новая. Убывание — наоборот.">
+                    <button type="button" class="gc-dropdown-trigger" aria-haspopup="listbox">
+                        <span class="gc-dropdown-label">↑ по возрастанию</span>
+                        <span class="gc-dropdown-arrow" aria-hidden="true"></span>
+                    </button>
+                    <ul class="gc-dropdown-menu" role="listbox">
+                        <li data-value="asc" class="selected">↑ по возрастанию (А→Я, 1→9)</li>
+                        <li data-value="desc">↓ по убыванию (Я→А, 9→1)</li>
+                    </ul>
+                </div>
             </label>
             <div>
                 <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px">Игнорировать столбцы (клик включает/выключает):</div>
@@ -330,9 +377,70 @@ var errorBox = document.getElementById('errorBox');
 var successBox = document.getElementById('successBox');
 var optionsPanel = document.getElementById('optionsPanel');
 var optDedup = document.getElementById('optDedup');
-var optSortCol = document.getElementById('optSortCol');
-var optSortDir = document.getElementById('optSortDir');
+// Custom dropdowns (без нативного select — для полного контроля темы)
+var sortColDropdown = createDropdown('sortColDropdown', [{ value: '-1', label: 'Без сортировки' }], '-1', recomputePreview);
+var sortDirDropdown = createDropdown('sortDirDropdown', [
+    { value: 'asc',  label: '↑ по возрастанию (А→Я, 1→9)' },
+    { value: 'desc', label: '↓ по убыванию (Я→А, 9→1)' }
+], 'asc', recomputePreview);
 var optIgnoreList = document.getElementById('optIgnoreList');
+
+// === createDropdown — кастомный <select>-подобный компонент с полной темой ===
+// Подменяет нативный <select> вместе с его браузерным синим highlight.
+function createDropdown(rootId, items, value, onChange) {
+    var root = document.getElementById(rootId);
+    var trigger = root.querySelector('.gc-dropdown-trigger');
+    var labelEl = root.querySelector('.gc-dropdown-label');
+    var menu = root.querySelector('.gc-dropdown-menu');
+    var state = { items: items.slice(), value: value };
+
+    function rebuild() {
+        var html = '';
+        for (var i = 0; i < state.items.length; i++) {
+            var it = state.items[i];
+            var cls = String(it.value) === String(state.value) ? ' class="selected"' : '';
+            html += '<li data-value="' + GigaChat.escapeHtml(String(it.value)) + '"' + cls + '>' + GigaChat.escapeHtml(it.label) + '</li>';
+        }
+        menu.innerHTML = html;
+        var lis = menu.querySelectorAll('li');
+        for (var k = 0; k < lis.length; k++) {
+            lis[k].addEventListener('click', function (e) {
+                e.stopPropagation();
+                setValue(e.currentTarget.dataset.value, true);
+                root.classList.remove('open');
+            });
+        }
+        var found = state.items.find(function (it) { return String(it.value) === String(state.value); });
+        labelEl.textContent = found ? found.label : '';
+        root.dataset.value = String(state.value);
+    }
+
+    function setValue(v, fireChange) {
+        state.value = v;
+        rebuild();
+        if (fireChange && onChange) onChange(v);
+    }
+
+    trigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var others = document.querySelectorAll('.gc-dropdown.open');
+        for (var i = 0; i < others.length; i++) if (others[i] !== root) others[i].classList.remove('open');
+        root.classList.toggle('open');
+    });
+    document.addEventListener('click', function () { root.classList.remove('open'); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') root.classList.remove('open'); });
+
+    rebuild();
+    return {
+        getValue: function () { return state.value; },
+        setValue: function (v) { setValue(v, false); },
+        setItems: function (newItems, newValue) {
+            state.items = newItems.slice();
+            state.value = newValue !== undefined ? newValue : state.value;
+            rebuild();
+        }
+    };
+}
 var previewSection = document.getElementById('previewSection');
 var previewTable = document.getElementById('previewTable');
 var previewRowCount = document.getElementById('previewRowCount');
@@ -573,15 +681,12 @@ function doMerge() {
     // Сбрасываем опции
     ignoredCols = new Set();
     optDedup.checked = false;
-    optSortCol.innerHTML = '<option value="-1">Без сортировки</option>';
+    var sortColItems = [{ value: '-1', label: 'Без сортировки' }];
     for (var i = 0; i < unionColumns.length; i++) {
-        var opt = document.createElement('option');
-        opt.value = String(i);
-        opt.textContent = unionColumns[i] || ('Колонка ' + (i + 1));
-        optSortCol.appendChild(opt);
+        sortColItems.push({ value: String(i), label: unionColumns[i] || ('Колонка ' + (i + 1)) });
     }
-    optSortCol.value = '-1';
-    optSortDir.value = 'asc';
+    sortColDropdown.setItems(sortColItems, '-1');
+    sortDirDropdown.setValue('asc');
     renderIgnoreList();
 
     optionsPanel.classList.add('show');
@@ -611,11 +716,11 @@ function recomputePreview() {
     var tables = collectParsedTables();
     if (tables.length === 0) return;
 
-    var sortCol = parseInt(optSortCol.value, 10);
+    var sortCol = parseInt(sortColDropdown.getValue(), 10);
     var opts = {
         dedup: optDedup.checked,
         sortColumn: isNaN(sortCol) ? -1 : sortCol,
-        sortDir: optSortDir.value,
+        sortDir: sortDirDropdown.getValue(),
         ignoreColumns: ignoredCols
     };
     currentMerged = GigaChat.mergeTables(tables, opts);
@@ -631,9 +736,9 @@ function renderPreview(merged) {
 
     // Стрелка ↑/↓ на сортируемой колонке. sortCol — индекс в unionColumns
     // (до игнора), а headers — после игнора, потому ищем по имени.
-    var sortColVal = parseInt(optSortCol.value, 10);
+    var sortColVal = parseInt(sortColDropdown.getValue(), 10);
     var sortedHeaderName = (sortColVal >= 0 && unionColumns[sortColVal]) ? unionColumns[sortColVal] : null;
-    var sortArrow = optSortDir.value === 'desc' ? ' <span class="sort-arrow">↓</span>' : ' <span class="sort-arrow">↑</span>';
+    var sortArrow = sortDirDropdown.getValue() === 'desc' ? ' <span class="sort-arrow">↓</span>' : ' <span class="sort-arrow">↑</span>';
 
     var html = '<thead><tr>';
     for (var i = 0; i < headers.length; i++) {
