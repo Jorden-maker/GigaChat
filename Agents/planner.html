@@ -302,6 +302,12 @@
             <div class="empty-chat">Создайте список задач, потом спланируйте их с помощью GigaChat</div>
         </div>
         <div class="bottom-area">
+            <!-- gc-attach-chips и attachBtn — обязательные slots для setupAttachment
+                 из _shared.js (createChatAgent его вызывает безусловно). В планировщике
+                 файлы пока не используются, поэтому контейнеры скрыты — скрепка не
+                 создаётся в visible-зоне. Без этих элементов createChatAgent падал
+                 с appendChild на null, ломая весь setup (resize, ping, status). -->
+            <div class="gc-attach-chips" id="attachChips" style="display:none"></div>
             <div id="input-area" class="gc-input-row">
                 <div class="gc-input-wrap">
                     <textarea id="msg" rows="1" placeholder="Спланируйте задачи..." disabled></textarea>
@@ -309,6 +315,7 @@
                         <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
                     </button>
                 </div>
+                <span id="attachBtn" style="display:none"></span>
             </div>
         </div>
     </div>
