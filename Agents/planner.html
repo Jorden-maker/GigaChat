@@ -226,7 +226,6 @@
         }
         .task-modal-body input[type="text"],
         .task-modal-body input[type="date"],
-        .task-modal-body select,
         .task-modal-body textarea {
             background: var(--bg-input); border: 1px solid var(--border);
             border-radius: 6px; padding: 8px 12px; color: var(--text-primary);
@@ -234,39 +233,66 @@
             transition: border-color 0.18s ease, background 0.18s ease;
         }
         .task-modal-body input:hover,
-        .task-modal-body select:hover,
         .task-modal-body textarea:hover { border-color: var(--text-secondary); }
         .task-modal-body input:focus,
-        .task-modal-body select:focus,
         .task-modal-body textarea:focus { border-color: var(--accent); background: var(--bg-secondary); }
         .task-modal-body textarea { resize: vertical; min-height: 60px; max-height: 200px; }
 
-        /* Кастомный select: убираем нативную стрелку, рисуем свою через SVG.
-           SVG inline в data-URL чтобы не таскать отдельный файл. Цвет стрелки —
-           text-secondary в обеих темах (одна SVG для обеих, currentColor в
-           background-image к сожалению не поддерживается, поэтому два варианта). */
-        .task-modal-body select {
-            appearance: none; -webkit-appearance: none; -moz-appearance: none;
-            padding-right: 36px;
-            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5l5 5 5-5' fill='none' stroke='%238a8a8a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
+        /* Кастомный dropdown (не native select — у того нельзя стилизовать
+           popup и option-теги полностью, отсюда был синий highlight и острые
+           углы). Свой widget на div'ах — полный контроль над всем рендером. */
+        .gc-select {
+            position: relative; cursor: pointer; user-select: none;
+            outline: none;
+        }
+        .gc-select-trigger {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 6px; padding: 8px 12px;
+            font-size: 14px; color: var(--text-primary);
+            transition: border-color 0.18s ease, background 0.18s ease;
+        }
+        .gc-select:hover .gc-select-trigger,
+        .gc-select:focus .gc-select-trigger { border-color: var(--text-secondary); }
+        .gc-select.open .gc-select-trigger {
+            border-color: var(--accent); background: var(--bg-secondary);
+        }
+        .gc-select-arrow {
+            width: 7px; height: 7px;
+            border-right: 1.5px solid var(--text-secondary);
+            border-bottom: 1.5px solid var(--text-secondary);
+            transform: translateY(-2px) rotate(45deg);
+            transition: transform 0.2s ease, border-color 0.18s ease;
+            flex-shrink: 0;
+        }
+        .gc-select.open .gc-select-arrow {
+            transform: translateY(2px) rotate(-135deg);
+            border-color: var(--accent);
+        }
+        .gc-select-menu {
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+            margin: 0; padding: 4px; list-style: none;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            z-index: 200;
+            opacity: 0; visibility: hidden; transform: translateY(-4px);
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+        }
+        .gc-select.open .gc-select-menu {
+            opacity: 1; visibility: visible; transform: translateY(0);
+        }
+        .gc-select-menu li {
+            padding: 8px 12px; border-radius: 5px;
+            font-size: 14px; color: var(--text-primary);
             cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
         }
-        :root[data-theme="light"] .task-modal-body select {
-            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5l5 5 5-5' fill='none' stroke='%236b6b68' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-        }
-        /* Подсветка стрелки при фокусе/hover делается через смену картинки на accent-цвет. */
-        .task-modal-body select:focus {
-            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5l5 5 5-5' fill='none' stroke='%23d4a574' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-        }
-        :root[data-theme="light"] .task-modal-body select:focus {
-            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5l5 5 5-5' fill='none' stroke='%23b8895d' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-        }
-        /* Стилизация выпадающего списка опций (поддерживается в основных
-           браузерах, специфика рендера может отличаться, но базовый цвет ок). */
-        .task-modal-body select option {
-            background: var(--bg-card); color: var(--text-primary);
+        .gc-select-menu li:hover { background: var(--bg-secondary); color: var(--accent); }
+        .gc-select-menu li.selected {
+            color: var(--accent); font-weight: 500;
+            background: var(--bg-secondary);
         }
 
         /* Кастомный date input: прячем нативную иконку календаря и рисуем
@@ -397,11 +423,17 @@
                     <textarea id="taskDescription" maxlength="5000" placeholder="Детали, ссылки, контекст..."></textarea>
                 </label>
                 <label>Приоритет
-                    <select id="taskPriority">
-                        <option value="low">Низкий</option>
-                        <option value="medium" selected>Средний</option>
-                        <option value="high">Высокий</option>
-                    </select>
+                    <div class="gc-select" id="taskPriority" data-value="medium" tabindex="0" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+                        <div class="gc-select-trigger">
+                            <span class="gc-select-label">Средний</span>
+                            <span class="gc-select-arrow" aria-hidden="true"></span>
+                        </div>
+                        <ul class="gc-select-menu" role="listbox">
+                            <li role="option" data-value="low">Низкий</li>
+                            <li role="option" data-value="medium" class="selected">Средний</li>
+                            <li role="option" data-value="high">Высокий</li>
+                        </ul>
+                    </div>
                 </label>
                 <label>Срок выполнения
                     <input type="date" id="taskDeadline">
@@ -500,16 +532,78 @@
         }
 
         // ========== Модалка добавления / редактирования ==========
+        // ========== Кастомный dropdown для приоритета ==========
+        // Native <select> нельзя стилизовать полностью (popup и option рендерит
+        // браузер/ОС — отсюда был синий highlight и острые углы). Свой widget
+        // на div'ах даёт полный контроль над поведением и внешним видом.
+        function initPrioritySelect() {
+            var sel = document.getElementById('taskPriority');
+            if (!sel || sel._initialized) return;
+            sel._initialized = true;
+            var trigger = sel.querySelector('.gc-select-trigger');
+            var menu = sel.querySelector('.gc-select-menu');
+            var label = sel.querySelector('.gc-select-label');
+
+            function setOpen(open) {
+                sel.classList.toggle('open', open);
+                sel.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setOpen(!sel.classList.contains('open'));
+            });
+            // Закрытие по клику вне
+            document.addEventListener('click', function (e) {
+                if (!sel.contains(e.target)) setOpen(false);
+            });
+            // Закрытие по Escape (обрабатывается в общем listener'е модалки тоже,
+            // но здесь для случая когда dropdown открыт без модалки)
+            sel.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && sel.classList.contains('open')) {
+                    setOpen(false); e.stopPropagation();
+                } else if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setOpen(!sel.classList.contains('open'));
+                }
+            });
+            // Выбор опции
+            menu.querySelectorAll('li').forEach(function (li) {
+                li.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    setPriorityValue(li.getAttribute('data-value'));
+                    setOpen(false);
+                });
+            });
+        }
+
+        function getPriorityValue() {
+            var sel = document.getElementById('taskPriority');
+            return sel ? (sel.getAttribute('data-value') || 'medium') : 'medium';
+        }
+
+        function setPriorityValue(value) {
+            var sel = document.getElementById('taskPriority');
+            if (!sel) return;
+            var menu = sel.querySelector('.gc-select-menu');
+            var label = sel.querySelector('.gc-select-label');
+            var target = menu.querySelector('li[data-value="' + value + '"]');
+            if (!target) return;
+            menu.querySelectorAll('li').forEach(function (x) { x.classList.remove('selected'); });
+            target.classList.add('selected');
+            sel.setAttribute('data-value', value);
+            label.textContent = target.textContent;
+        }
+
         function openTaskModal(taskId) {
             if (!currentSessionId) {
                 alert('Сначала создайте или выберите список задач');
                 return;
             }
+            initPrioritySelect();
             editingTaskId = (typeof taskId === 'number') ? taskId : null;
             var title = document.getElementById('taskModalTitle');
             var inTitle = document.getElementById('taskTitle');
             var inDesc = document.getElementById('taskDescription');
-            var inPrio = document.getElementById('taskPriority');
             var inDl = document.getElementById('taskDeadline');
             var err = document.getElementById('taskModalError');
 
@@ -519,13 +613,13 @@
                 if (!t) { closeTaskModal(); return; }
                 inTitle.value = t.title || '';
                 inDesc.value = t.description || '';
-                inPrio.value = t.priority || 'medium';
+                setPriorityValue(t.priority || 'medium');
                 inDl.value = t.deadline || '';
             } else {
                 title.textContent = 'Новая задача';
                 inTitle.value = '';
                 inDesc.value = '';
-                inPrio.value = 'medium';
+                setPriorityValue('medium');
                 inDl.value = '';
             }
             err.textContent = '';
@@ -548,7 +642,7 @@
                 session_id: currentSessionId,
                 title: title,
                 description: document.getElementById('taskDescription').value.trim(),
-                priority: document.getElementById('taskPriority').value,
+                priority: getPriorityValue(),
                 deadline: document.getElementById('taskDeadline').value || null
             };
 
