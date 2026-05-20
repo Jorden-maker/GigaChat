@@ -10,8 +10,8 @@
 |---|---|
 | `GigaChat-Start.sh` | Bash-аналог `GigaChat-Start.bat` — запускает Caddy с корневым Caddyfile |
 | `gigachat.service` | systemd unit для автозапуска сервера при загрузке |
-| `caddy` | Линуксовый бинарник Caddy (**не в git** — приносится отдельно, см. ниже) |
-| `.gitattributes` | Форсит LF-окончания строк для `.sh` (на случай клонирования через Windows) |
+| `caddy` | Линуксовый бинарник Caddy (ELF x86-64, ~50 МБ, статически слинкован) |
+| `.gitattributes` | LF-окончания для `.sh` + явный `binary` для `caddy` |
 | `README.md` | Этот файл |
 
 ## Что использует с корня проекта
@@ -88,25 +88,21 @@ sudo chown -R gigachat:gigachat /opt/gigachat
 При обновлении: на офисной машине `git pull origin main && git push office main`,
 на сервере `cd /opt/gigachat && sudo -u gigachat git pull`.
 
-### Шаг 2 — положить Linux-бинарник Caddy
+### Шаг 2 — проверить Caddy-бинарник
+
+Linux-бинарник `Linux/caddy` уже в git (50 МБ, статически слинкован, без зависимостей).
+После git pull/clone он будет на месте. Только убедись что executable-бит выставлен:
 
 ```bash
-# Скачать с домашней машины (есть интернет):
-curl -L -o caddy "https://caddyserver.com/api/download?os=linux&arch=amd64"
-chmod +x caddy
-
-# Перенести на флешке, потом на сервере:
-mv caddy /opt/gigachat/Linux/caddy
 chmod +x /opt/gigachat/Linux/caddy
-```
-
-Размер бинарника ~30 МБ. Зависимостей у него нет, статически слинкован.
-
-Проверка:
-```bash
 /opt/gigachat/Linux/caddy version
 # Должно вывести: v2.x.x h1:...
 ```
+
+Если когда-нибудь захочешь обновить Caddy — скачай свежий с
+https://caddyserver.com/download (linux/amd64), перепиши `Linux/caddy`,
+закоммить и пуш. Размер не должен превышать 100 МБ (хард-лимит GitHub
+на файл; нынешняя версия ~50 МБ — впритык, мониторь).
 
 ### Шаг 3 — попробовать запуск вручную
 

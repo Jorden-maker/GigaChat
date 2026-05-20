@@ -4,3 +4,9 @@
 # #!/usr/bin/env bash\r и ядро Linux выдаёт:
 #   bash: ./GigaChat-Start.sh: /usr/bin/env\r: bad interpreter
 *.sh text eol=lf
+
+# Caddy ELF-бинарник — явно binary, чтобы git ни при каких настройках
+# autocrlf не пытался конвертировать байты. Без этого на Windows-клиенте
+# с дефолтным autocrlf=true один из байтов вида 0x0D (\r) внутри machine
+# code мог бы быть «нормализован» при checkout. Маркируем как binary.
+caddy binary
