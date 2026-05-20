@@ -186,6 +186,10 @@
             html = html.replace(/\$([^$\n]+)\$/g, '$1');
             html = html.replace(/\\\(([^)]+?)\\\)/g, '$1');
             html = html.replace(/\\\[([^\]]+?)\\\]/g, '$1');
+            // Одиночные $ возле цифр — остатки не-парного LaTeX-маркапа
+            // (GigaChat иногда забывает закрывающий $). «$5 руб» → «5 руб».
+            // Math-агент не работает с долларовыми ценами, всегда лишний.
+            html = html.replace(/\$+(?=\d)/g, '').replace(/(?<=\d)\$+/g, '');
             // Простейшие LaTeX-команды без обёрток (одиночные \times, \cdot,
             // \approx, \ne и т.п.) — заменяем на читаемые символы.
             html = html.replace(/\\times\b/g, '×')
@@ -197,6 +201,14 @@
                        .replace(/\\ge\b|\\geq\b/g, '≥')
                        .replace(/\\pi\b/g, 'π')
                        .replace(/\\sqrt\b/g, '√');
+            // Убираем хвостовые нули в десятичных дробях: «3.0» → «3»,
+            // «30.800000» → «30.8», «1.4142135623730951» не трогаем.
+            // sympy.evalf() по умолчанию даёт 15 значащих знаков с нулями —
+            // юзеру неинформативно. Регэксп только для чисел вида d.d.
+            html = html.replace(/(\d+)\.(\d+)/g, function (match, intPart, decPart) {
+                var trimmed = decPart.replace(/0+$/, '');
+                return trimmed ? intPart + '.' + trimmed : intPart;
+            });
             html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
             html = html.replace(/\*(.+?)\*/g, '<i>$1</i>');
             html = html.replace(/\n/g, '<br>');
