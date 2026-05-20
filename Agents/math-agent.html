@@ -224,15 +224,18 @@
             // Маркер «Ответ\s*:» допускает пробел до двоеточия — LLM иногда
             // ставит его опечаточно. Без \s* строки «Ответ : 3.0» не чистились.
             html = html.replace(/^(\s*Ответ\s*:\s*)([^\n]+)/im, function (match, prefix, value) {
-                var cleaned = value.replace(/\$+(?=\d)/g, '').replace(/(?<=\d)\$+/g, '');
+                // $-strip с двух сторон от цифр. Lookahead/lookbehind для simple
+                // boundary — поддерживаются везде с ES2018+ включая Яндекс-браузер.
+                var cleaned = value.replace(/\$+(?=\d)/g, '').replace(/(\d)\$+/g, '$1');
                 // Хвостовые нули в десятичных: «3.0» → «3», «30.800000» → «30.8»,
                 // «1.4142135623730951» — не трогаем (значащих цифр > 1).
-                // Lookaround (?<![.\d]) + (?![.\d]) изолирует число — версии и IP
-                // (1.20.0, 192.168.1.0) больше не ломаются. Раньше regex без
-                // изоляции схватывал последний сегмент «1.0» в IP и срезал нуль.
-                cleaned = cleaned.replace(/(?<![.\d])(\d+)\.(\d+)(?![.\d])/g, function (m, intPart, decPart) {
+                // Изоляция числа через capture group вместо lookbehind — старые
+                // Safari < 16.4 и Edge Legacy не поддерживали lookbehind regex,
+                // и парс скрипта падал, ломая createChatAgent → кнопка
+                // «Новая сессия» не подключалась к обработчику.
+                cleaned = cleaned.replace(/(^|[^.\d])(\d+)\.(\d+)(?![.\d])/g, function (m, pre, intPart, decPart) {
                     var trimmed = decPart.replace(/0+$/, '');
-                    return trimmed ? intPart + '.' + trimmed : intPart;
+                    return pre + (trimmed ? intPart + '.' + trimmed : intPart);
                 });
                 return prefix + cleaned;
             });
@@ -240,8 +243,10 @@
             // Italic: требуем не-алфанумерическую границу с обеих сторон,
             // иначе ломаются мат-выражения вида «5*x + 3*y» (раньше italic-regex
             // съедал «*x + 3*» и оборачивал в <i>). Кириллица учтена явно —
-            // \w в JS не покрывает русские буквы.
-            html = html.replace(/(?<![A-Za-zА-Яа-я0-9])\*([^\s*][^*\n]*[^\s*]|\S)\*(?![A-Za-zА-Яа-я0-9])/g, '<i>$1</i>');
+            // \w в JS не покрывает русские буквы. БЕЗ lookbehind — для
+            // совместимости со старыми браузерами; границу слева ловим через
+            // capture group (^|[^...]).
+            html = html.replace(/(^|[^A-Za-zА-Яа-я0-9])\*([^\s*][^*\n]*[^\s*]|\S)\*(?![A-Za-zА-Яа-я0-9])/g, '$1<i>$2</i>');
             html = html.replace(/\n/g, '<br>');
             return html;
         }
