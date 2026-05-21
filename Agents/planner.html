@@ -701,9 +701,9 @@
          либо verify-токена вернул auth_required. Tabs Вход/Регистрация. -->
     <div class="gc-login-overlay" id="loginOverlay" style="display:none">
         <!-- Кнопка возврата в дашборд (визуально как .btn-home в сайдбаре) -->
-        <a class="gc-login-back" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat" title="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
+        <a class="gc-login-back" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
         <!-- Кнопка переключения тем (как #gc-theme-toggle на остальных страницах) -->
-        <button class="gc-login-theme" id="loginThemeToggle" type="button" onclick="loginToggleTheme()" aria-label="Переключить тему" title="Переключить тему"></button>
+        <button class="gc-login-theme" id="loginThemeToggle" type="button" onclick="loginToggleTheme()" aria-label="Переключить тему"></button>
         <div class="gc-login-modal">
             <div class="gc-login-header">Планировщик</div>
             <div class="gc-login-tabs">
@@ -712,19 +712,18 @@
             </div>
 
             <!-- Login form. data-next — id поля, на которое перейти при Enter.
-                 Пустой data-next или его отсутствие = native submit. -->
+                 Пустой data-next или его отсутствие = native submit.
+                 title= намеренно НЕ ставим — юзер запретил все тултипы на login. -->
             <form class="gc-login-form" data-form="login" onsubmit="event.preventDefault(); submitLogin()">
                 <label>Имя
                     <input type="text" id="loginUsername" maxlength="100" autocomplete="username"
-                           placeholder="Иванов" title="Имя — латиница или кириллица, до 100 символов"
-                           data-next="loginPassword">
+                           placeholder="Иванов" data-next="loginPassword">
                 </label>
                 <label>Пароль
                     <input type="password" id="loginPassword" maxlength="200" autocomplete="current-password"
-                           placeholder="••••••••" title="Ваш пароль"
-                           data-next="loginSubmitBtn">
+                           placeholder="••••••••" data-next="loginSubmitBtn">
                 </label>
-                <label class="gc-checkbox-row" title="Помнить вас 10 лет на этом устройстве">
+                <label class="gc-checkbox-row">
                     <input type="checkbox" id="loginRemember" checked>
                     <span>Запомнить меня</span>
                 </label>
@@ -735,18 +734,15 @@
             <form class="gc-login-form hidden" data-form="register" onsubmit="event.preventDefault(); submitRegister()">
                 <label>Имя
                     <input type="text" id="regUsername" maxlength="100" autocomplete="username"
-                           placeholder="Иванов" title="Имя — латиница или кириллица, до 100 символов"
-                           data-next="regPassword">
+                           placeholder="Иванов" data-next="regPassword">
                 </label>
                 <label>Пароль
                     <input type="password" id="regPassword" maxlength="200" autocomplete="new-password"
-                           placeholder="не менее 6 символов" title="Пароль не короче 6 символов"
-                           data-next="regPassword2">
+                           placeholder="не менее 6 символов" data-next="regPassword2">
                 </label>
                 <label>Подтвердите пароль
                     <input type="password" id="regPassword2" maxlength="200" autocomplete="new-password"
-                           placeholder="ещё раз" title="Повторите пароль для проверки"
-                           data-next="loginSubmitBtn">
+                           placeholder="ещё раз" data-next="loginSubmitBtn">
                 </label>
                 <div class="gc-login-error" id="regError"></div>
             </form>
@@ -965,7 +961,10 @@
             return h;
         }
 
-        // HTTP-обёртка для auth endpoint'а
+        // HTTP-обёртка для auth endpoint'а.
+        // network: true — отличает сетевую ошибку от серверного отказа.
+        // Тексты сообщений намеренно не формируем здесь — caller (submitLogin/
+        // submitRegister) сам выбирает фиксированный текст из разрешённого списка.
         async function authApi(payload) {
             try {
                 var res = await fetch(AUTH_URL, {
@@ -973,11 +972,11 @@
                     headers: { 'Content-Type': 'application/json; charset=utf-8' },
                     body: JSON.stringify(payload),
                 });
-                if (!res.ok) return { response: 'error', error: 'Сервер вернул ' + res.status };
+                if (!res.ok) return { response: 'error' };
                 return await res.json();
             } catch (e) {
                 console.error('Auth API error:', e);
-                return { response: 'error', error: 'Сеть недоступна: ' + e.message };
+                return { response: 'error', network: true };
             }
         }
 
@@ -1007,9 +1006,9 @@
             var dark = document.documentElement.getAttribute('data-theme') === 'dark';
             // На тёмной теме показываем солнце (переключатель на светлую) и наоборот.
             btn.innerHTML = dark ? LOGIN_SUN_SVG : LOGIN_MOON_SVG;
-            var label = dark ? 'Светлая тема' : 'Тёмная тема';
-            btn.title = label;
-            btn.setAttribute('aria-label', label);
+            // title= НЕ ставим — тултипы на login-экране запрещены.
+            // aria-label оставляем для скринридеров (не показывается визуально).
+            btn.setAttribute('aria-label', dark ? 'Светлая тема' : 'Тёмная тема');
         }
         function loginToggleTheme() {
             if (window.GigaChat && typeof window.GigaChat.toggleTheme === 'function') {
@@ -1065,6 +1064,9 @@
             }
         }
 
+        // submitLogin/submitRegister — единственное место, где формируется
+        // текст inline-ошибки. Список разрешённых сообщений фиксирован,
+        // серверный текст data.error НЕ показывается юзеру (только в console).
         async function submitLogin() {
             var btn = document.getElementById('loginSubmitBtn');
             var username = document.getElementById('loginUsername').value.trim();
@@ -1078,7 +1080,8 @@
             try {
                 var data = await authApi({ action: 'login', username: username, password: password, remember: remember });
                 if (data.response !== 'ok') {
-                    setLoginError('loginError', data.error || 'Не удалось войти');
+                    // Сеть упала → «Сеть недоступна», иначе сервер отказал → «Не удалось войти»
+                    setLoginError('loginError', data.network ? 'Сеть недоступна' : 'Не удалось войти');
                     return;
                 }
                 setStoredAuth(data.token, data.username);
@@ -1103,7 +1106,8 @@
             try {
                 var data = await authApi({ action: 'register', username: username, password: password });
                 if (data.response !== 'ok') {
-                    setLoginError('regError', data.error || 'Не удалось зарегистрироваться');
+                    // Для регистрации сетевую ошибку не разводим отдельно — единственный текст
+                    setLoginError('regError', 'Не удалось зарегистрироваться');
                     return;
                 }
                 // Авто-логин после успешной регистрации
