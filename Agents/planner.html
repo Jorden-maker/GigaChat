@@ -360,20 +360,20 @@
             text-transform: capitalize;
         }
         .gc-datepicker-nav {
-            background: none; border: none; cursor: pointer;
+            background: none !important; border: none; cursor: pointer;
             width: 28px; height: 28px; border-radius: 6px;
             color: var(--text-secondary);
             display: flex; align-items: center; justify-content: center;
             transition: color 0.18s ease, background 0.18s ease, transform 0.1s ease;
             font-family: inherit; outline: none;
         }
-        /* Подсветка ТОЛЬКО на hover. :focus-visible вариант убран, поскольку
-           для клавиатурной навигации мы добавили на саму datepicker-секцию
-           tabindex, и табать внутрь календаря необычно. JS делает
-           mousedown.preventDefault() — фокус вообще не садится на кнопку
-           при клике мышью, состояние «активная» не залипает. */
-        .gc-datepicker-nav:hover {
-            color: var(--accent); background: var(--bg-secondary);
+        /* CSS :hover в некоторых браузерах залипает после клика (видимо
+           что-то с pointer capture / mouse capture). Перешли на JS-контролируемый
+           hover: класс .is-hovering ставится через mouseenter, снимается через
+           mouseleave. !important на background выше нужен чтобы default-state
+           точно сбрасывался поверх любых унаследованных правил. */
+        .gc-datepicker-nav.is-hovering {
+            color: var(--accent); background: var(--bg-secondary) !important;
         }
         .gc-datepicker-nav:active { transform: scale(0.92); }
         .gc-datepicker-nav svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -869,13 +869,25 @@
                 // Внутренние клики не должны закрывать popup (только закрытие по выбору даты или actions)
                 e.stopPropagation();
             });
-            // КРИТИЧНО: на ВСЕ кнопки внутри popup'а вешаем mousedown.preventDefault().
-            // Без этого после клика мышью фокус «приклеивается» к кнопке, и в
-            // некоторых браузерах :focus-visible матчится → кнопка остаётся
-            // подсвеченной как hover. preventDefault на mousedown блокирует
-            // нативный focus-on-click, при этом click-event срабатывает.
+            // Полностью контролируемый hover через JS: :hover в CSS убран,
+            // вместо него класс .is-hovering ставится/снимается событиями
+            // mouseenter/mouseleave. Это устраняет залипание подсветки
+            // которое наблюдалось после клика мышью (некоторые браузеры
+            // держат :hover state даже после mouseout, особенно если фокус
+            // остаётся на кнопке). Плюс tabindex=-1 убирает кнопки из таб-
+            // ордера — фокус на них не садится никаким образом.
+            // mousedown.preventDefault() сохранён как двойная защита от focus.
             Array.prototype.forEach.call(popup.querySelectorAll('button'), function (btn) {
+                btn.setAttribute('tabindex', '-1');
                 btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+                btn.addEventListener('mouseenter', function () { btn.classList.add('is-hovering'); });
+                btn.addEventListener('mouseleave', function () { btn.classList.remove('is-hovering'); });
+                // Двойная защита от залипания: после клика принудительно
+                // снимаем класс (если mouseleave не отработал по какой-то причине).
+                btn.addEventListener('click', function () {
+                    btn.classList.remove('is-hovering');
+                    btn.blur();
+                });
             });
             popup.querySelector('.gc-datepicker-prev').addEventListener('click', function (e) {
                 // blur — иначе после клика мышью фокус застревает на кнопке,
