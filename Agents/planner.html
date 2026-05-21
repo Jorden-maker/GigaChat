@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>GigaChat Планировщик</title>
-    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}document.documentElement.classList.add('gc-pending-auth');})();</script>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -454,7 +454,17 @@
             position: fixed; inset: 0; z-index: 1000;
             background: var(--bg-primary);
             display: flex; align-items: center; justify-content: center;
+            opacity: 1;
+            transition: opacity 0.25s ease;
         }
+        /* Плавное растворение overlay после успешного login/register */
+        .gc-login-overlay.gc-fade-out { opacity: 0; pointer-events: none; }
+        /* Пока auth не разрешён (bootstrap проверяет токен или показывает
+           login) — основной UI скрыт. Это убирает FOUC «проскока чужого UI»
+           между login-формой и планировщиком. Класс ставится в inline-скрипте
+           в <head> ДО парсинга CSS, снимается в hideLoginScreen(). */
+        html.gc-pending-auth .sidebar,
+        html.gc-pending-auth .main { display: none !important; }
         /* Кнопка «Назад к GigaChat» в левом верхнем углу login-экрана.
            Визуально идентична .btn-home из _shared.js (та же — в сайдбаре после
            логина), но fixed-позиционирование, чтобы поверх overlay'а. */
@@ -1025,14 +1035,34 @@
         function showLoginScreen(activeTab) {
             var overlay = document.getElementById('loginOverlay');
             overlay.style.display = 'flex';
+            overlay.classList.remove('gc-fade-out');
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
             // Скрываем стандартный #gc-theme-toggle из _shared.js на login —
-            // в overlay есть своя .gc-login-theme. Возвращаем в initAuthenticatedUI.
+            // в overlay есть своя .gc-login-theme. Возвращаем в hideLoginScreen.
             var stdToggle = document.getElementById('gc-theme-toggle');
             if (stdToggle) stdToggle.style.display = 'none';
             updateLoginThemeIcon();
             switchLoginTab(activeTab || 'login');
+        }
+        // Плавно прячет login-overlay (opacity transition 250 мс) и снимает
+        // класс gc-pending-auth → main UI становится visible под overlay,
+        // успевает отрендериться, потом overlay уходит. Без reload.
+        function hideLoginScreen() {
+            var overlay = document.getElementById('loginOverlay');
+            // Сразу делаем main UI visible (был спрятан через .gc-pending-auth)
+            document.documentElement.classList.remove('gc-pending-auth');
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+            // Возвращаем стандартную theme-toggle (на overlay'е была своя)
+            var stdToggle = document.getElementById('gc-theme-toggle');
+            if (stdToggle) stdToggle.style.display = '';
+            if (!overlay) return;
+            overlay.classList.add('gc-fade-out');
+            setTimeout(function () {
+                overlay.style.display = 'none';
+                overlay.classList.remove('gc-fade-out');
+            }, 260);
         }
 
         // === Кнопка переключения тем на login-экране ========================
@@ -1125,8 +1155,13 @@
                     setLoginError('loginError', data.network ? 'Сеть недоступна' : 'Не удалось войти');
                     return;
                 }
+                // Без reload: ставим стейт, инициализируем UI, плавно прячем overlay.
                 setStoredAuth(data.token, data.username);
-                location.reload();
+                CURRENT_TOKEN = data.token;
+                CURRENT_USER = data.username;
+                AUTH_READY = true;
+                initAuthenticatedUI();
+                hideLoginScreen();
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Войти';
@@ -1151,14 +1186,25 @@
                     setLoginError('regError', 'Не удалось зарегистрироваться');
                     return;
                 }
-                // Авто-логин после успешной регистрации
-                document.getElementById('loginUsername').value = username;
-                document.getElementById('loginPassword').value = password;
-                document.getElementById('loginRemember').checked = true;
-                switchLoginTab('login');
-                await submitLogin();
+                // Авто-логин прямо здесь — без переключения вкладки на «Вход»
+                // и без подстановки значений в поля loginUsername/loginPassword.
+                // Юзер не должен видеть промежуточный экран входа с уже введёнными
+                // данными — переход сразу на планировщик.
+                btn.textContent = 'Вход…';
+                var login = await authApi({ action: 'login', username: username, password: password, remember: true });
+                if (login.response !== 'ok') {
+                    setLoginError('regError', login.network ? 'Сеть недоступна' : 'Не удалось войти');
+                    return;
+                }
+                setStoredAuth(login.token, login.username);
+                CURRENT_TOKEN = login.token;
+                CURRENT_USER = login.username;
+                AUTH_READY = true;
+                initAuthenticatedUI();
+                hideLoginScreen();
             } finally {
                 btn.disabled = false;
+                btn.textContent = 'Зарегистрироваться';
             }
         }
 
@@ -1263,6 +1309,9 @@
                 CURRENT_USER = data.username;
                 setStoredAuth(CURRENT_TOKEN, data.username);
                 AUTH_READY = true;
+                // verify прошёл — снимаем gc-pending-auth, main UI становится visible
+                // (login-overlay тут даже не показывали, скрывать нечего).
+                document.documentElement.classList.remove('gc-pending-auth');
                 initAuthenticatedUI();
             })();
         })();
