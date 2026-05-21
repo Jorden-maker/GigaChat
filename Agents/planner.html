@@ -206,7 +206,16 @@
             border-radius: 12px; width: min(520px, 92vw); max-height: 90vh;
             overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
             animation: plannerModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
         }
+        .task-modal::-webkit-scrollbar { width: 4px; }
+        .task-modal::-webkit-scrollbar-track { background: transparent; }
+        .task-modal::-webkit-scrollbar-thumb {
+            background: var(--border); border-radius: 10px;
+            transition: background 0.18s ease;
+        }
+        .task-modal::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
         .task-modal-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: 18px 22px; border-bottom: 1px solid var(--border);
@@ -325,13 +334,16 @@
         .gc-datepicker.open .gc-datepicker-icon { color: var(--accent); }
 
         .gc-datepicker-popup {
-            position: absolute; top: calc(100% + 6px); left: 0;
+            /* Открываемся ВВЕРХ — date input последнее поле модалки, popup
+               вниз перекрывал бы footer-кнопки. bottom:100% позиционирует
+               попап над триггером, без visible-отступа снизу. */
+            position: absolute; bottom: calc(100% + 4px); left: 0;
             width: 280px;
             background: var(--bg-input); border: 1px solid var(--border);
             border-radius: 10px; padding: 12px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.25);
             z-index: 250;
-            opacity: 0; visibility: hidden; transform: translateY(-6px);
+            opacity: 0; visibility: hidden; transform: translateY(6px);
             transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
         }
         .gc-datepicker.open .gc-datepicker-popup {
@@ -349,13 +361,24 @@
         }
         .gc-datepicker-nav {
             background: none; border: none; cursor: pointer;
-            width: 26px; height: 26px; border-radius: 6px;
+            width: 28px; height: 28px; border-radius: 6px;
             color: var(--text-secondary);
             display: flex; align-items: center; justify-content: center;
-            transition: color 0.18s ease, background 0.18s ease;
-            font-family: inherit;
+            transition: color 0.18s ease, background 0.18s ease, transform 0.1s ease;
+            font-family: inherit; outline: none;
         }
-        .gc-datepicker-nav:hover { color: var(--accent); background: var(--bg-secondary); }
+        /* Сбрасываем persistent :focus после клика (раньше левая стрелка
+           оставалась подсвеченной, потому что фокус оставался на ней). hover
+           и focus-visible (клавиатурная навигация) подсвечивают — обычный
+           click убирает фокус, состояние сбрасывается. */
+        .gc-datepicker-nav:focus:not(:focus-visible) {
+            color: var(--text-secondary); background: transparent;
+        }
+        .gc-datepicker-nav:hover,
+        .gc-datepicker-nav:focus-visible {
+            color: var(--accent); background: var(--bg-secondary);
+        }
+        .gc-datepicker-nav:active { transform: scale(0.92); }
         .gc-datepicker-nav svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
         .gc-datepicker-weekdays {
@@ -541,7 +564,7 @@
                             </div>
                             <div class="gc-datepicker-grid"></div>
                             <div class="gc-datepicker-actions">
-                                <button type="button" class="gc-datepicker-clear">Очистить</button>
+                                <button type="button" class="gc-datepicker-clear">Закрыть</button>
                                 <button type="button" class="gc-datepicker-today">Сегодня</button>
                             </div>
                         </div>
@@ -825,12 +848,16 @@
                 // Внутренние клики не должны закрывать popup (только закрытие по выбору даты или actions)
                 e.stopPropagation();
             });
-            popup.querySelector('.gc-datepicker-prev').addEventListener('click', function () {
+            popup.querySelector('.gc-datepicker-prev').addEventListener('click', function (e) {
+                // blur — иначе после клика мышью фокус застревает на кнопке,
+                // и она выглядит «активной» пока юзер не наведёт на что-то ещё.
+                e.currentTarget.blur();
                 viewMonth--;
                 if (viewMonth < 0) { viewMonth = 11; viewYear--; }
                 render();
             });
-            popup.querySelector('.gc-datepicker-next').addEventListener('click', function () {
+            popup.querySelector('.gc-datepicker-next').addEventListener('click', function (e) {
+                e.currentTarget.blur();
                 viewMonth++;
                 if (viewMonth > 11) { viewMonth = 0; viewYear++; }
                 render();
@@ -841,7 +868,10 @@
                 setOpen(false);
             });
             popup.querySelector('.gc-datepicker-clear').addEventListener('click', function () {
-                setValue(null);
+                // «Закрыть» — просто закрывает popup, не очищает значение.
+                // Если юзер выбрал дату и хочет передумать — клик вне или Esc
+                // тоже работают. Если хочет удалить ранее выбранную дату —
+                // редактирует задачу и оставляет поле пустым (или удаляет задачу).
                 setOpen(false);
             });
             // Outside click → close
