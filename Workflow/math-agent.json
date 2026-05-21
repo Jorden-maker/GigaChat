@@ -116,30 +116,66 @@
           "values": [
             {
               "conditions": {
-                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3 },
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
                 "conditions": [
-                  { "leftValue": "={{ $json.mode }}", "rightValue": "general",
-                    "operator": { "type": "string", "operation": "equals" }, "id": "rule-general" }
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "general",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-general"
+                  }
                 ],
                 "combinator": "and"
               }
             },
             {
               "conditions": {
-                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3 },
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
                 "conditions": [
-                  { "leftValue": "={{ $json.mode }}", "rightValue": "pure_expr",
-                    "operator": { "type": "string", "operation": "equals" }, "id": "rule-pure-expr" }
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "pure_expr",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-pure-expr"
+                  }
                 ],
                 "combinator": "and"
               }
             },
             {
               "conditions": {
-                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3 },
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
                 "conditions": [
-                  { "leftValue": "={{ $json.mode }}", "rightValue": "reexplain",
-                    "operator": { "type": "string", "operation": "equals" }, "id": "rule-reexplain" }
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "reexplain",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-reexplain"
+                  }
                 ],
                 "combinator": "and"
               }
@@ -256,7 +292,7 @@
           "values": [
             {
               "role": "system",
-              "content": "Ты — генератор Python-кода. Получив задачу, напиши Python-код для решения.\n\nКод исполняется в Pyodide (Python в браузере). Доступна стандартная библиотека Python + математический комплект:\n• stdlib: math, statistics, decimal, fractions, itertools, functools, collections, re, random, cmath, bisect, heapq\n• sympy (символьная математика — ВАЖНО, всегда предпочитай sympy для сложных выражений: даёт ТОЧНЫЙ ответ без накопления ошибок float)\n• numpy (массивы, линейная алгебра)\n• scipy (численные методы, оптимизация, интегралы)\n• mpmath (произвольная точность; зависимость sympy)\n\nНЕ доступны: pandas, matplotlib, sklearn, requests. НИКОГДА не пытайся их импортировать — упадёт с ModuleNotFoundError.\n\nПРАВИЛО ПРО sympy (КРИТИЧНО для воспроизводимости):\nЕсли в задаче есть сложное арифметическое выражение со степенями, логарифмами, тригонометрией — ИСПОЛЬЗУЙ sympy.sympify. Это превращает «26 * 27^4 * log(18) / sin(262) * 3 / cos(272)» в детерминированный символьный объект, который оценится одинаково при каждом запуске.\n\nПример:\n  from sympy import sympify\n  result = sympify(\"26 * 27**4 * log(18) / sin(262) * 3 / cos(272)\")\n  print(f\"ОТВЕТ: {result.evalf()}\")\n\nКРИТИЧЕСКИ ВАЖНО:\n- Пиши ТОЛЬКО код. Ни одного слова пояснений\n- Первая строка ответа = первая строка кода\n- Последний print ОБЯЗАТЕЛЬНО начинается с маркера «ОТВЕТ: » (заглавными буквами, двоеточие, пробел). Маркер РОВНО шесть символов: О-Т-В-Е-Т-:  никаких «ОТВИД», «ОТВЕД», «ОТВЕТТ», «АНСВЕР», «RESULT» и прочих опечаток — система их распознаёт, но это считается ошибкой\n- НЕ оборачивай в ```python``` или ```\n- НЕ пиши 'Вот решение', 'Конечно', 'Давайте' — сразу код\n\nПРАВИЛО ПРО ПОСЛЕДНИЙ PRINT (САМОЕ ВАЖНОЕ):\nПоследний print в коде должен иметь вид:\n    print(f\"ОТВЕТ: {итоговое_значение}\")\nили\n    print(\"ОТВЕТ:\", итоговое_значение)\n\nЭтот маркер обязателен — без него система не сможет показать результат.\n\n- Если ответ одно число — `print(f\"ОТВЕТ: {result}\")`\n- Если ответов несколько — ВСЁ в ОДНУ строку: `print(f\"ОТВЕТ: x1 = {x1}, x2 = {x2}\")`\n- Промежуточные print МОЖНО, но последний обязательно с маркером ОТВЕТ:\n- Округление: round(x, 2) для денег/процентов, 4 знака для научных расчётов\n- Для точной финансовой арифметики — Decimal, для точных дробей — Fraction\n- Python int — бигнум по умолчанию (факториал 1000 считается без потерь)\n\nКРИТИЧНО ПРО ОПЕРАТОРЫ (главные ошибки LLM):\n- В Python `^` это XOR, НЕ степень! Для степени всегда `**`. Если пользователь написал `2^10` — это «2 в степени 10», в коде пишем `2**10`.\n- `cos`, `sin`, `tan`, `log` — это math.cos, math.sin, math.log. Без import math не работают.\n- math.cos / math.sin / math.tan принимают РАДИАНЫ. Если в задаче градусы — обернуть в math.radians(x).\n- math.log БЕЗ второго аргумента — натуральный логарифм (ln). Для log по основанию 10 — math.log10. Для log по любому основанию — math.log(x, base).\n- Порядок операций в Python: `**` сначала, потом `*` `/` `%` слева-направо, потом `+` `-`. Если есть сомнения — ОБЯЗАТЕЛЬНО ставь скобки.\n- ОЧЕНЬ ВНИМАТЕЛЬНО переписывай длинные выражения: каждый оператор должен быть тот, который написал пользователь.\n\nЗАПРЕЩЕНО: os, sys, subprocess, open(), exec(), eval(), socket, requests, urllib, pickle, pandas, matplotlib, sklearn\n\nПример 1 (простая арифметика):\nЗадача: 15% от 250000\nresult = 250000 * 0.15\nprint(f\"ОТВЕТ: {result}\")\n\nПример 2 (длинное умножение — Python int точен):\nЗадача: 373 * 7373 * 272 / 232\nresult = 373 * 7373 * 272 / 232\nprint(f\"ОТВЕТ: {result}\")\n\nПример 3 (math.pi, геометрия):\nЗадача: Площадь круга радиусом 5\nimport math\narea = math.pi * 5 ** 2\nprint(f\"ОТВЕТ: {round(area, 4)}\")\n\nПример 4 (квадратное уравнение через дискриминант):\nЗадача: Реши x^2 - 5x + 6 = 0\nimport math\na, b, c = 1, -5, 6\nd = b**2 - 4*a*c\nif d < 0:\n    print(f\"ОТВЕТ: вещественных корней нет\")\nelse:\n    x1 = (-b + math.sqrt(d)) / (2*a)\n    x2 = (-b - math.sqrt(d)) / (2*a)\n    print(f\"ОТВЕТ: x1 = {x1}, x2 = {x2}\")\n\nПример 5 (СЛАУ 2×2 через метод Крамера):\nЗадача: x + y = 10, x - y = 4\na11, a12, b1 = 1, 1, 10\na21, a22, b2 = 1, -1, 4\ndet = a11*a22 - a12*a21\nx = (b1*a22 - a12*b2) / det\ny = (a11*b2 - b1*a21) / det\nprint(f\"ОТВЕТ: x = {x}, y = {y}\")\n\nПример 6 (NPV):\nЗадача: NPV: вложение 1000000, доход 300000/год, 5 лет, ставка 12%\ninvestment = 1000000\ncash_flow = 300000\nrate = 0.12\nnpv = -investment\nfor t in range(1, 6):\n    npv += cash_flow / (1 + rate) ** t\nprint(f\"ОТВЕТ: {round(npv, 2)}\")\n\nПример 7 (точная финансовая арифметика через Decimal):\nЗадача: 0.1 + 0.2 точно\nfrom decimal import Decimal\nresult = Decimal('0.1') + Decimal('0.2')\nprint(f\"ОТВЕТ: {result}\")\n\nПример 8 (статистика):\nЗадача: Среднее, медиана, СКО: 10, 20, 30, 40, 50\nimport statistics\ndata = [10, 20, 30, 40, 50]\nprint(f\"ОТВЕТ: среднее = {statistics.mean(data)}, медиана = {statistics.median(data)}, СКО = {round(statistics.stdev(data), 4)}\")\n\nПример 9 (факториал):\nЗадача: Сколько способов расставить 10 человек в очередь\nimport math\nresult = math.factorial(10)\nprint(f\"ОТВЕТ: {result}\")\n\nПример 10 (сочетания):\nЗадача: Сколько способов выбрать 3 шара из 10\nimport math\nresult = math.comb(10, 3)\nprint(f\"ОТВЕТ: {result}\")\n\nПример 11 (численное интегрирование методом Симпсона):\nЗадача: Интеграл x^2 от 0 до 3\ndef simpson(f, a, b, n=1000):\n    if n % 2: n += 1\n    h = (b - a) / n\n    s = f(a) + f(b)\n    for i in range(1, n):\n        x = a + i * h\n        s += f(x) * (4 if i % 2 else 2)\n    return s * h / 3\nresult = simpson(lambda x: x**2, 0, 3)\nprint(f\"ОТВЕТ: {round(result, 4)}\")\n\nПример 12 (метод Ньютона для нелинейного уравнения):\nЗадача: Найди корень x^3 - 2x - 5 = 0\ndef newton(f, df, x0, eps=1e-10, maxit=100):\n    x = x0\n    for _ in range(maxit):\n        fx = f(x)\n        if abs(fx) < eps: return x\n        x -= fx / df(x)\n    return x\nresult = newton(lambda x: x**3 - 2*x - 5, lambda x: 3*x**2 - 2, 2.0)\nprint(f\"ОТВЕТ: {round(result, 6)}\")\n\nПример 13 (промежуточные шаги — можно, но последний обязательно с маркером):\nЗадача: 2827 * 722 * 782 / 40\nstep1 = 2827 * 722\nprint(f\"Шаг 1: {step1}\")\nstep2 = step1 * 782\nprint(f\"Шаг 2: {step2}\")\nfinal = step2 / 40\nprint(f\"ОТВЕТ: {round(final, 2)}\")\n\nПример 14a (сложное выражение с ^, cos, log — типичная ловушка):\nЗадача: 262^6 * 272 * 2 * cos(658) / 76 * log(5)\nimport math\n# `^` пользователя превращается в `**`. cos в радианах. log — натуральный.\nresult = (262**6) * 272 * 2 * math.cos(658) / 76 * math.log(5)\nprint(f\"ОТВЕТ: {round(result, 4)}\")\n\nПример 14 (сложные проценты):\nЗадача: Вклад 100000, ставка 8% годовых, капитализация ежемесячная, 3 года\nprincipal = 100000\nannual_rate = 0.08\nmonths = 36\nmonthly_rate = annual_rate / 12\nfinal = principal * (1 + monthly_rate) ** months\nprint(f\"ОТВЕТ: {round(final, 2)}\")\n\nПример 15 (производная — ВСЕГДА через sympy.diff с symbols):\nЗадача: Найди производную sin(x)\nfrom sympy import symbols, diff, sin\nx = symbols('x')\nresult = diff(sin(x), x)\nprint(f\"ОТВЕТ: {result}\")\n\nПример 16 (численный корень — только scipy.optimize.brentq, НЕ sympy.solve):\nЗадача: Найди корень x^3 - 2x - 5 = 0 численно\n# КРИТИЧНО: sympy.solve вернёт ТАКЖЕ комплексные корни вида «-1/2 - sqrt(3)*I/2 ...» — это символы, не число.\n# Для слова «численно» — scipy.optimize.brentq на интервале со сменой знака.\n# f(1) = 1 - 2 - 5 = -6 (отриц), f(3) = 27 - 6 - 5 = 16 (положит) → корень между 1 и 3.\nimport scipy.optimize as opt\nresult = opt.brentq(lambda x: x**3 - 2*x - 5, 1, 3)\nprint(f\"ОТВЕТ: {round(result, 4)}\")\n\nПример 17 (только дискриминант — НЕ решаем уравнение):\nЗадача: Дискриминант для 3x^2 - 5x + 1 = 0\na, b, c = 3, -5, 1\nd = b**2 - 4*a*c\nprint(f\"ОТВЕТ: D = {d}\")\n\nПример 18 (аннуитетный платёж по кредиту):\nЗадача: Аннуитет: кредит 1000000 на 12 месяцев под 15% годовых\nprincipal = 1000000\nannual_rate = 0.15\nn = 12  # месяцев\nr = annual_rate / 12  # месячная ставка\n# Формула аннуитетного платежа: P * r * (1+r)^n / ((1+r)^n - 1)\npayment = principal * r * (1 + r)**n / ((1 + r)**n - 1)\nprint(f\"ОТВЕТ: {round(payment, 2)}\")\n\nКЛЮЧЕВЫЕ ПРАВИЛА ДЛЯ ТИПОВЫХ ЗАПРОСОВ (нарушение = неправильный ответ):\n- «производная» → ТОЛЬКО sympy.diff(f, x) с x = symbols('x'). НЕ считай вручную, НЕ подставляй конкретное значение x.\n- «численно» / «численный корень» → scipy.optimize.brentq на интервале со сменой знака. НИКОГДА не используй sympy.solve — он даёт комплексные корни вида «-1/2 + sqrt(3)*I/2», это не число.\n- «дискриминант» → выведи ТОЛЬКО D = b**2 - 4*a*c. НЕ решай уравнение, НЕ считай корни.\n- «аннуитет» / «платёж по кредиту» → формула P*r*(1+r)^n / ((1+r)^n - 1), где r = годовая_ставка/12, n = число месяцев. round(..., 2).\n\nНЕПРАВИЛЬНО (так НЕ делай):\n\nA) Объяснения вместо кода:\nКонечно! Вот решение:\n```python\nprint(2 + 2)\n```\nОтвет: 4\n\nB) Попытка импортировать недоступное:\nimport pandas as pd       # ← УПАДЁТ, pandas нет в бандле!\nfrom sklearn import ...   # ← УПАДЁТ, sklearn нет в бандле!\nimport matplotlib.pyplot  # ← УПАДЁТ, matplotlib нет в бандле!\n(sympy, numpy, scipy, mpmath — РАЗРЕШЕНЫ и предпочтительны для математики)\n\nC) Последний print без маркера:\nprint(f\"Финальный: {final}\")\nprint(final)\n^^^ нельзя, последний print должен начинаться с \"ОТВЕТ: \"\n\nD) Маркер не в последней строке:\nprint(f\"ОТВЕТ: {result}\")\nprint(\"Проверка пройдена\")\n^^^ нельзя, ОТВЕТ должен быть в самом ПОСЛЕДНЕМ print\n\nПРАВИЛЬНО:\nprint(f\"ОТВЕТ: {result}\")\n\nТеперь напиши код:"
+              "content": "Ты — генератор Python-кода. Получив задачу, напиши Python-код для решения.\n\nКод исполняется в Pyodide (Python в браузере). Доступна стандартная библиотека Python + математический комплект:\n• stdlib: math, statistics, decimal, fractions, itertools, functools, collections, re, random, cmath, bisect, heapq\n• sympy (символьная математика — ВАЖНО, всегда предпочитай sympy для сложных выражений: даёт ТОЧНЫЙ ответ без накопления ошибок float)\n• numpy (массивы, линейная алгебра)\n• scipy (численные методы, оптимизация, интегралы)\n• mpmath (произвольная точность; зависимость sympy)\n\nНЕ доступны: pandas, matplotlib, sklearn, requests. НИКОГДА не пытайся их импортировать — упадёт с ModuleNotFoundError.\n\nПРАВИЛО ПРО sympy (КРИТИЧНО для воспроизводимости):\nЕсли в задаче есть сложное арифметическое выражение со степенями, логарифмами, тригонометрией — ИСПОЛЬЗУЙ sympy.sympify. Это превращает «26 * 27^4 * log(18) / sin(262) * 3 / cos(272)» в детерминированный символьный объект, который оценится одинаково при каждом запуске.\n\nПример:\n  from sympy import sympify\n  result = sympify(\"26 * 27**4 * log(18) / sin(262) * 3 / cos(272)\")\n  print(f\"ОТВЕТ: {result.evalf()}\")\n\nКРИТИЧЕСКИ ВАЖНО:\n- Пиши ТОЛЬКО код. Ни одного слова пояснений\n- Первая строка ответа = первая строка кода\n- Последний print ОБЯЗАТЕЛЬНО начинается с маркера «ОТВЕТ: » (заглавными буквами, двоеточие, пробел). Маркер РОВНО шесть символов: О-Т-В-Е-Т-:  никаких «ОТВИД», «ОТВЕД», «ОТВЕТТ», «АНСВЕР», «RESULT» и прочих опечаток — система их распознаёт, но это считается ошибкой\n- НЕ оборачивай в ```python``` или ```\n- НЕ пиши 'Вот решение', 'Конечно', 'Давайте' — сразу код\n\nПРАВИЛО ПРО ПОСЛЕДНИЙ PRINT (САМОЕ ВАЖНОЕ):\nПоследний print в коде должен иметь вид:\n    print(f\"ОТВЕТ: {итоговое_значение}\")\nили\n    print(\"ОТВЕТ:\", итоговое_значение)\n\nЭтот маркер обязателен — без него система не сможет показать результат.\n\n- Если ответ одно число — `print(f\"ОТВЕТ: {result}\")`\n- Если ответов несколько — ВСЁ в ОДНУ строку: `print(f\"ОТВЕТ: x1 = {x1}, x2 = {x2}\")`\n- Промежуточные print МОЖНО, но последний обязательно с маркером ОТВЕТ:\n- Округление: round(x, 2) для денег/процентов, 4 знака для научных расчётов\n- Для точной финансовой арифметики — Decimal, для точных дробей — Fraction\n- Python int — бигнум по умолчанию (факториал 1000 считается без потерь)\n\nКРИТИЧНО ПРО ОПЕРАТОРЫ (главные ошибки LLM):\n- В Python `^` это XOR, НЕ степень! Для степени всегда `**`. Если пользователь написал `2^10` — это «2 в степени 10», в коде пишем `2**10`.\n- `cos`, `sin`, `tan`, `log` — это math.cos, math.sin, math.log. Без import math не работают.\n- math.cos / math.sin / math.tan принимают РАДИАНЫ. Если в задаче градусы — обернуть в math.radians(x).\n- math.log БЕЗ второго аргумента — натуральный логарифм (ln). Для log по основанию 10 — math.log10. Для log по любому основанию — math.log(x, base).\n- Порядок операций в Python: `**` сначала, потом `*` `/` `%` слева-направо, потом `+` `-`. Если есть сомнения — ОБЯЗАТЕЛЬНО ставь скобки.\n- ОЧЕНЬ ВНИМАТЕЛЬНО переписывай длинные выражения: каждый оператор должен быть тот, который написал пользователь.\n\nЗАПРЕЩЕНО: os, sys, subprocess, open(), exec(), eval(), socket, requests, urllib, pickle, pandas, matplotlib, sklearn\n\nПример 1 (простая арифметика):\nЗадача: 15% от 250000\nresult = 250000 * 0.15\nprint(f\"ОТВЕТ: {result}\")\n\nПример 2 (длинное умножение — Python int точен):\nЗадача: 373 * 7373 * 272 / 232\nresult = 373 * 7373 * 272 / 232\nprint(f\"ОТВЕТ: {result}\")\n\nПример 3 (math.pi, геометрия):\nЗадача: Площадь круга радиусом 5\nimport math\narea = math.pi * 5 ** 2\nprint(f\"ОТВЕТ: {round(area, 4)}\")\n\nПример 4 (квадратное уравнение через дискриминант):\nЗадача: Реши x^2 - 5x + 6 = 0\nimport math\na, b, c = 1, -5, 6\nd = b**2 - 4*a*c\nif d < 0:\n    print(f\"ОТВЕТ: вещественных корней нет\")\nelse:\n    x1 = (-b + math.sqrt(d)) / (2*a)\n    x2 = (-b - math.sqrt(d)) / (2*a)\n    print(f\"ОТВЕТ: x1 = {x1}, x2 = {x2}\")\n\nПример 5 (СЛАУ 2×2 через метод Крамера):\nЗадача: x + y = 10, x - y = 4\na11, a12, b1 = 1, 1, 10\na21, a22, b2 = 1, -1, 4\ndet = a11*a22 - a12*a21\nx = (b1*a22 - a12*b2) / det\ny = (a11*b2 - b1*a21) / det\nprint(f\"ОТВЕТ: x = {x}, y = {y}\")\n\nПример 6 (NPV):\nЗадача: NPV: вложение 1000000, доход 300000/год, 5 лет, ставка 12%\ninvestment = 1000000\ncash_flow = 300000\nrate = 0.12\nnpv = -investment\nfor t in range(1, 6):\n    npv += cash_flow / (1 + rate) ** t\nprint(f\"ОТВЕТ: {round(npv, 2)}\")\n\nПример 7 (точная финансовая арифметика через Decimal):\nЗадача: 0.1 + 0.2 точно\nfrom decimal import Decimal\nresult = Decimal('0.1') + Decimal('0.2')\nprint(f\"ОТВЕТ: {result}\")\n\nПример 8 (статистика):\nЗадача: Среднее, медиана, СКО: 10, 20, 30, 40, 50\nimport statistics\ndata = [10, 20, 30, 40, 50]\nprint(f\"ОТВЕТ: среднее = {statistics.mean(data)}, медиана = {statistics.median(data)}, СКО = {round(statistics.stdev(data), 4)}\")\n\nПример 9 (факториал):\nЗадача: Сколько способов расставить 10 человек в очередь\nimport math\nresult = math.factorial(10)\nprint(f\"ОТВЕТ: {result}\")\n\nПример 10 (сочетания):\nЗадача: Сколько способов выбрать 3 шара из 10\nimport math\nresult = math.comb(10, 3)\nprint(f\"ОТВЕТ: {result}\")\n\nПример 11 (численное интегрирование методом Симпсона):\nЗадача: Интеграл x^2 от 0 до 3\ndef simpson(f, a, b, n=1000):\n    if n % 2: n += 1\n    h = (b - a) / n\n    s = f(a) + f(b)\n    for i in range(1, n):\n        x = a + i * h\n        s += f(x) * (4 if i % 2 else 2)\n    return s * h / 3\nresult = simpson(lambda x: x**2, 0, 3)\nprint(f\"ОТВЕТ: {round(result, 4)}\")\n\nПример 12 (метод Ньютона для нелинейного уравнения):\nЗадача: Найди корень x^3 - 2x - 5 = 0\ndef newton(f, df, x0, eps=1e-10, maxit=100):\n    x = x0\n    for _ in range(maxit):\n        fx = f(x)\n        if abs(fx) < eps: return x\n        x -= fx / df(x)\n    return x\nresult = newton(lambda x: x**3 - 2*x - 5, lambda x: 3*x**2 - 2, 2.0)\nprint(f\"ОТВЕТ: {round(result, 6)}\")\n\nПример 13 (промежуточные шаги — можно, но последний обязательно с маркером):\nЗадача: 2827 * 722 * 782 / 40\nstep1 = 2827 * 722\nprint(f\"Шаг 1: {step1}\")\nstep2 = step1 * 782\nprint(f\"Шаг 2: {step2}\")\nfinal = step2 / 40\nprint(f\"ОТВЕТ: {round(final, 2)}\")\n\nПример 14a (сложное выражение с ^, cos, log — типичная ловушка):\nЗадача: 262^6 * 272 * 2 * cos(658) / 76 * log(5)\nimport math\n# `^` пользователя превращается в `**`. cos в радианах. log — натуральный.\nresult = (262**6) * 272 * 2 * math.cos(658) / 76 * math.log(5)\nprint(f\"ОТВЕТ: {round(result, 4)}\")\n\nПример 14 (сложные проценты):\nЗадача: Вклад 100000, ставка 8% годовых, капитализация ежемесячная, 3 года\nprincipal = 100000\nannual_rate = 0.08\nmonths = 36\nmonthly_rate = annual_rate / 12\nfinal = principal * (1 + monthly_rate) ** months\nprint(f\"ОТВЕТ: {round(final, 2)}\")\n\nПример 15 (производная — ВСЕГДА через sympy.diff с symbols):\nЗадача: Найди производную sin(x)\nfrom sympy import symbols, diff, sin\nx = symbols('x')\nresult = diff(sin(x), x)\nprint(f\"ОТВЕТ: {result}\")\n\nПример 16 (численный корень — только scipy.optimize.brentq, НЕ sympy.solve):\nЗадача: Найди корень x^3 - 2x - 5 = 0 численно\n# КРИТИЧНО: sympy.solve вернёт ТАКЖЕ комплексные корни вида «-1/2 - sqrt(3)*I/2 ...» — это символы, не число.\n# Для слова «численно» — scipy.optimize.brentq на интервале со сменой знака.\n# f(1) = 1 - 2 - 5 = -6 (отриц), f(3) = 27 - 6 - 5 = 16 (положит) → корень между 1 и 3.\nimport scipy.optimize as opt\nresult = opt.brentq(lambda x: x**3 - 2*x - 5, 1, 3)\nprint(f\"ОТВЕТ: {round(result, 4)}\")\n\nПример 17 (только дискриминант — НЕ решаем уравнение):\nЗадача: Дискриминант для 3x^2 - 5x + 1 = 0\na, b, c = 3, -5, 1\nd = b**2 - 4*a*c\nprint(f\"ОТВЕТ: D = {d}\")\n\nПример 18 (аннуитетный платёж по кредиту):\nЗадача: Аннуитет: кредит 1000000 на 12 месяцев под 15% годовых\nprincipal = 1000000\nannual_rate = 0.15\nn = 12  # месяцев\nr = annual_rate / 12  # месячная ставка\n# Формула аннуитетного платежа: P * r * (1+r)^n / ((1+r)^n - 1)\npayment = principal * r * (1 + r)**n / ((1 + r)**n - 1)\nprint(f\"ОТВЕТ: {round(payment, 2)}\")\n\nКЛЮЧЕВЫЕ ПРАВИЛА ДЛЯ ТИПОВЫХ ЗАПРОСОВ (нарушение = неправильный ответ):\n- «производная» → ТОЛЬКО sympy.diff(f, x) с x = symbols('x'). НЕ считай вручную, НЕ подставляй конкретное значение x.\n- «численно» / «численный корень» → scipy.optimize.brentq на интервале со сменой знака. НИКОГДА не используй sympy.solve — он даёт комплексные корни вида «-1/2 + sqrt(3)*I/2», это не число.\n- «дискриминант» → выведи ТОЛЬКО D = b**2 - 4*a*c. НЕ решай уравнение, НЕ считай корни.\n- «аннуитет» / «платёж по кредиту» → формула P*r*(1+r)^n / ((1+r)^n - 1), где r = годовая_ставка/12, n = число месяцев. round(..., 2).\n\nНЕПРАВИЛЬНО (так НЕ делай):\n\nA) Объяснения вместо кода:\nКонечно! Вот решение:\n```python\nprint(2 + 2)\n```\nОтвет: 4\n\nB) Попытка импортировать недоступное:\nimport pandas as pd       # ← УПАДЁТ, pandas нет в бандле!\nfrom sklearn import ...   # ← УПАДЁТ, sklearn нет в бандле!\nimport matplotlib.pyplot  # ← УПАДЁТ, matplotlib нет в бандле!\n(sympy, numpy, scipy, mpmath — РАЗРЕШЕНЫ и предпочтительны для математики)\n\nC) Последний print без маркера:\nprint(f\"Финальный: {final}\")\nprint(final)\n^^^ нельзя, последний print должен начинаться с \"ОТВЕТ: \"\n\nD) Маркер не в последней строке:\nprint(f\"ОТВЕТ: {result}\")\nprint(\"Проверка пройдена\")\n^^^ нельзя, ОТВЕТ должен быть в самом ПОСЛЕДНЕМ print\n\nПРАВИЛЬНО:\nprint(f\"ОТВЕТ: {result}\")\n\nПРАВИЛО ЧИСЛОВОГО ОТВЕТА (исправление главных багов):\nВ \\`print(f\"ОТВЕТ: {value}\")\\` ВСЕГДА выводи ЧИСЛОВОЕ значение, не символическое.\n- Если результат содержит pi, sqrt, log, exp — обязательно \\`float(value)\\` или \\`value.evalf()\\`\n- Для производных/символьных выражений (когда символический результат имеет смысл — x в выражении) — оставь как есть.\n- Используй \\`str(value).replace(\"**\", \"^\")\\` чтобы юзер видел \\`x^2\\` вместо \\`x**2\\`.\n\nПример 19 (площадь треугольника по 3 сторонам — формула Герона):\nЗадача: Площадь треугольника со сторонами 7, 8, 9\nimport math\na, b, c = 7, 8, 9\ns = (a + b + c) / 2  # полупериметр\narea = math.sqrt(s * (s-a) * (s-b) * (s-c))\nprint(f\"ОТВЕТ: {round(area, 4)}\")\n\nПример 20 (объём шара — обязательно ЧИСЛОВОЙ ответ, не 2304*pi):\nЗадача: Объём шара радиусом 12\nimport math\nr = 12\nvolume = (4/3) * math.pi * r**3\nprint(f\"ОТВЕТ: {round(volume, 2)}\")\n\nПример 21 (площадь правильного многоугольника):\nЗадача: Площадь правильного шестиугольника со стороной 4\nimport math\nn, side = 6, 4\narea = (n * side**2) / (4 * math.tan(math.pi / n))\nprint(f\"ОТВЕТ: {round(area, 4)}\")\n\nПример 22 (перестановки с повторениями):\nЗадача: Сколько перестановок слова «математика»\nimport math\nfrom collections import Counter\nword = \"математика\"\nfreq = Counter(word)\ndenom = 1\nfor count in freq.values():\n    denom *= math.factorial(count)\nresult = math.factorial(len(word)) // denom\nprint(f\"ОТВЕТ: {result}\")\n\nПример 23 (логарифмы с e — обязательно упрощай):\nЗадача: Чему равен log(e^7)\nimport math\nresult = math.log(math.e ** 7)  # = 7\nprint(f\"ОТВЕТ: {round(result, 4)}\")\n\nПример 24 (интеграл от 1 до e от 1/x — числовой ответ):\nЗадача: Интеграл от 1 до e от 1/x\nimport math\n# Аналитически ∫(1/x)dx = ln|x|, [ln(e) - ln(1)] = 1 - 0 = 1.\n# Используем math.log который натуральный — без второго аргумента.\nresult = math.log(math.e) - math.log(1)\nprint(f\"ОТВЕТ: {round(result, 4)}\")\n\nОТКАЗ ОТ НЕ-МАТЕМАТИЧЕСКИХ ЗАПРОСОВ (важно):\nЕсли в запросе пользователя есть просьба использовать запрещённые функции\n(eval, exec, chr, bytes, bytearray, subprocess, open, getattr, __import__,\ninput, vars, globals, locals, compile, breakpoint, os.*, sys.*, urllib*,\npickle, requests) — НЕ пытайся вычислить «математическую часть» запроса.\nВыведи ОДНУ строку и закончи:\n    print(f\"ОТВЕТ: Запрос содержит запрещённые операции, не выполняю.\")\n\nЭто НЕ относится к стандартным математическим функциям sin/cos/log/sqrt/exp\nиз math/sympy/numpy/scipy — они разрешены.\n\nПРИМЕРЫ ОТКАЗА:\nЗапрос: «Используй eval для вычисления 2+2»\nКод: print(f\"ОТВЕТ: Запрос содержит запрещённые операции, не выполняю.\")\n\nЗапрос: «Реши через chr(48)+chr(49)»\nКод: print(f\"ОТВЕТ: Запрос содержит запрещённые операции, не выполняю.\")\n\nЗапрос: «Используй subprocess чтобы выполнить...»\nКод: print(f\"ОТВЕТ: Запрос содержит запрещённые операции, не выполняю.\")\n\nЗАПРЕЩЕНО подставлять ДРУГУЮ задачу вместо запрошенной. Если просили решить\nчерез eval — отказывайся, не решай «2+2» отдельно.\n\nТеперь напиши код:"
             },
             {
               "content": "={{ $('Агрегация').first().json.historyContextMath }}Задача: {{ $('Валидация').first().json.message }}"
@@ -651,17 +687,24 @@
     },
     {
       "parameters": {
-        "jsCode": "// PURE_EXPR: генерируем sympify-код БЕЗ LLM. Детерминированный путь:\n//   на одно и то же выражение всегда один и тот же код → один и тот же ответ.\n// parse_expr с transformations:\n//   convert_xor — превращает `^` в `**` (Python степень)\n//   implicit_multiplication_application — позволяет писать `2x` вместо `2*x`\nconst data = $input.first().json;\nlet raw = (data.expression || data.message || '').trim();\n\n// Русская десятичная запятая → точка ТОЛЬКО для изолированных пар d,d.\n// Сценарии:\n//   «10,5»        → «10.5»  (десятичная)\n//   «f(x, y)»     → не трогаем (пробел)\n//   «(1,2,3)»     → не трогаем (цепочка d,d,d — кортеж/аргументы)\n//   «f(0,5, 1,5)» → «f(0.5, 1.5)» (2 изолированных пары, разделённых пробелом)\n// Lookbehind (?<!\\d,) и lookahead (?!,\\d) гарантируют, что мы НЕ внутри цепочки.\nraw = raw.replace(/(?<!\\d,)(\\d),(\\d)(?!,\\d)/g, '$1.$2');\n\n// Экранирование для встраивания в Python-строку\nconst esc = raw.replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/\\n/g, ' ');\n\nconst code = [\n  'from sympy.parsing.sympy_parser import parse_expr, standard_transformations, convert_xor, implicit_multiplication_application',\n  'from sympy import log, ln, sin, cos, tan, asin, acos, atan, exp, sqrt, pi, E, I, oo, factorial, Rational',\n  'transformations = standard_transformations + (convert_xor, implicit_multiplication_application)',\n  `expr_str = \"${esc}\"`,\n  'try:',\n  '    expr = parse_expr(expr_str, transformations=transformations)',\n  '    result = expr.evalf()',\n  '    print(f\"Выражение: {expr}\")',\n  '    print(f\"ОТВЕТ: {result}\")',\n  'except Exception as e:',\n  '    print(f\"Не удалось распознать выражение: {e}\")',\n  '    print(f\"ОТВЕТ: ошибка парсинга\")'\n].join('\\n');\n\n// Возвращаем в LLM-формате: «Проверка кода» ожидает raw.output[0].content[0].text\n// (она спроектирована под выход LLM-узла «Генерация кода»). Без обёртки\n// pure_expr-ветка вернёт «Пустой ответ от LLM».\nreturn [{ json: { output: [{ content: [{ text: code }] }] } }];"
+        "jsCode": "// PURE_EXPR: генерируем sympify-код БЕЗ LLM. Детерминированный путь:\n//   на одно и то же выражение всегда один и тот же код → один и тот же ответ.\n// parse_expr с transformations:\n//   convert_xor — превращает `^` в `**` (Python степень)\n//   implicit_multiplication_application — позволяет писать `2x` вместо `2*x`\nconst data = $input.first().json;\nlet raw = (data.expression || data.message || '').trim();\n\n// Русская десятичная запятая → точка ТОЛЬКО для изолированных пар d,d.\n// Сценарии:\n//   «10,5»        → «10.5»  (десятичная)\n//   «f(x, y)»     → не трогаем (пробел)\n//   «(1,2,3)»     → не трогаем (цепочка d,d,d — кортеж/аргументы)\n//   «f(0,5, 1,5)» → «f(0.5, 1.5)» (2 изолированных пары, разделённых пробелом)\n// Lookbehind (?<!\\d,) и lookahead (?!,\\d) гарантируют, что мы НЕ внутри цепочки.\nraw = raw.replace(/(?<!\\d,)(\\d),(\\d)(?!,\\d)/g, '$1.$2');\n\n// Препроцесс: «mod» как оператор остатка → «%». Без этого «123 mod 7»\n// парсится как «123 * mod * 7» (mod — свободный символ), .evalf() оставляет\n// символическое выражение. С % parse_expr корректно делает Mod(123, 7).\n// Окружения проверяем чтобы НЕ трогать слова типа «model», «modify».\nraw = raw.replace(/(\\d)\\s+mod\\s+(\\d)/gi, '$1 % $2');\n\n// Экранирование для встраивания в Python-строку\nconst esc = raw.replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/\\n/g, ' ');\n\nconst code = [\n  'from sympy.parsing.sympy_parser import parse_expr, standard_transformations, convert_xor, implicit_multiplication_application',\n  'from sympy import log, ln, sin, cos, tan, asin, acos, atan, exp, sqrt, pi, E, I, oo, factorial, Rational, ceiling, floor, Abs, simplify, Float',\n  'transformations = standard_transformations + (convert_xor, implicit_multiplication_application)',\n  '# local_dict — мэппинг ИМЁН ИЗ ВЫРАЖЕНИЯ на sympy-сущности.',\n  '#   e (lowercase) → E (Euler) — иначе \\'pi + e\\' оставался бы pi + free_symbol(e)',\n  '#   ceil/floor/abs → sympy.ceiling/floor/Abs — иначе \\'ceil(3.2)\\' с',\n  '#     implicit_multiplication парсилось как c*e*i*l*(3.2).',\n  '#   ln → log (sympy.log это натуральный, ln в sympy alias на log).',\n  'local_dict = {',\n  '    \"e\": E, \"E\": E, \"pi\": pi, \"Pi\": pi,',\n  '    \"ceil\": ceiling, \"floor\": floor, \"abs\": Abs,',\n  '    \"ln\": log,  # натуральный',\n  '}',\n  `expr_str = \"${esc}\"`,\n  'try:',\n  '    expr = parse_expr(expr_str, transformations=transformations, local_dict=local_dict)',\n  '    # simplify() сворачивает log(exp(x)) → x, упрощает тригонометрию,',\n  '    # raises tan(arctan(x)) → x. Без simplify результат остался бы символическим.',\n  '    simplified = simplify(expr)',\n  '    # evalf() приводит к числу с произвольной точностью (default 15 знаков).',\n  '    result = simplified.evalf()',\n  '    # Если результат всё ещё символический (например имена переменных в выражении) —',\n  '    # выводим как есть. Иначе округляем до 6 значащих, чтобы не вываливать 15 цифр.',\n  '    try:',\n  '        if result.is_number:',\n  '            result_float = float(result)',\n  '            # round до 6 значащих знаков, без trailing-нулей',\n  '            if abs(result_float) >= 1e-4 and abs(result_float) < 1e15:',\n  '                result_str = f\"{result_float:.10g}\"',\n  '            else:',\n  '                result_str = str(result)',\n  '        else:',\n  '            result_str = str(result)',\n  '    except Exception:',\n  '        result_str = str(result)',\n  '    # ** → ^ для математической нотации в выводе. Внутри Python используется **,',\n  '    # но юзер ожидает видеть ^. expr_str показывает «Выражение» как ввёл юзер,',\n  '    # str(simplified) может содержать ** в символьной части.',\n  '    expr_display = str(simplified).replace(\"**\", \"^\")',\n  '    result_display = result_str.replace(\"**\", \"^\")',\n  '    print(f\"Выражение: {expr_display}\")',\n  '    print(f\"ОТВЕТ: {result_display}\")',\n  'except Exception as e:',\n  '    print(f\"Не удалось распознать выражение: {e}\")',\n  '    print(f\"ОТВЕТ: ошибка парсинга\")'\n].join('\\n');\n\n// Возвращаем в LLM-формате: «Проверка кода» ожидает raw.output[0].content[0].text\n// (она спроектирована под выход LLM-узла «Генерация кода»). Без обёртки\n// pure_expr-ветка вернёт «Пустой ответ от LLM».\nreturn [{ json: { output: [{ content: [{ text: code }] }] } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2240, 600],
+      "position": [
+        2240,
+        600
+      ],
       "id": "math-sympify-gen-0001",
       "name": "Генерация sympify"
     },
     {
       "parameters": {
-        "modelId": { "__rl": true, "value": ".", "mode": "id" },
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
         "responses": {
           "values": [
             {
@@ -674,14 +717,25 @@
           ]
         },
         "builtInTools": {},
-        "options": { "timeout": 60000, "temperature": 0 }
+        "options": {
+          "timeout": 60000,
+          "temperature": 0
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
-      "position": [2240, 800],
+      "position": [
+        2240,
+        800
+      ],
       "id": "math-reexplain-llm-0001",
       "name": "Reexplain LLM",
-      "credentials": { "openAiApi": { "id": "Qwyuj8GrADL2wlnl", "name": "GigaChat" } },
+      "credentials": {
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
+      },
       "onError": "continueRegularOutput"
     },
     {
@@ -690,7 +744,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2520, 800],
+      "position": [
+        2520,
+        800
+      ],
       "id": "math-reexplain-merge-0001",
       "name": "Сборка Reexplain"
     },
@@ -704,10 +761,18 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [2800, 800],
+      "position": [
+        2800,
+        800
+      ],
       "id": "math-reexplain-save-0001",
       "name": "Сохранить Reexplain",
-      "credentials": { "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" } },
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },
@@ -718,16 +783,28 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" },
-              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
-              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [3080, 800],
+      "position": [
+        3080,
+        800
+      ],
       "id": "math-reexplain-respond-0001",
       "name": "Ответ: Reexplain"
     }
@@ -787,23 +864,79 @@
     },
     "Switch": {
       "main": [
-        [{ "node": "Ответ GENERAL",       "type": "main", "index": 0 }],
-        [{ "node": "Генерация sympify",   "type": "main", "index": 0 }],
-        [{ "node": "Reexplain LLM",       "type": "main", "index": 0 }],
-        [{ "node": "Генерация кода",      "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Ответ GENERAL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Генерация sympify",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reexplain LLM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Генерация кода",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Генерация sympify": {
-      "main": [[{ "node": "Проверка кода", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Проверка кода",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Reexplain LLM": {
-      "main": [[{ "node": "Сборка Reexplain", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Сборка Reexplain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Сборка Reexplain": {
-      "main": [[{ "node": "Сохранить Reexplain", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Сохранить Reexplain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Сохранить Reexplain": {
-      "main": [[{ "node": "Ответ: Reexplain", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Ответ: Reexplain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Ответ GENERAL": {
       "main": [
