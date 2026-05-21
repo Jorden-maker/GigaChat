@@ -31,34 +31,133 @@
 
 ---
 
-## Сценарий 1: PostgreSQL на Linux-сервере (по SSH)
+## Сценарий 1: офис — Windows-ПК + PostgreSQL на Linux-сервере по SSH
 
-Типичная офисная схема: Postgres стоит на удалённом Linux-сервере, ходишь к нему через `ssh`.
+> Полный пошаговый рецепт. Подставь свои значения: **`130.100.X.X`** = IP сервера, **`7022`** = SSH-порт, **`postgres`** = SSH-юзер.
+> Если у тебя другие — замени в командах.
 
-**Шаг 1 — со своего ПК положить `init-db.sql` на сервер:**
+### Шаг 0 — открыть PowerShell на Windows-ПК
+
+Нажми `Win` → набери `powershell` → Enter. Откроется синее окно PowerShell.
+
+### Шаг 1 — перейти в папку с проектом
 
 ```powershell
-scp -P 7022 "База данных/init-db.sql" postgres@130.100.X.X:~/
+cd C:\Users\Lenovo\Desktop\GigaChat
 ```
 
-**Шаг 2 — зайти на сервер:**
+Проверь, что файл на месте:
+
+```powershell
+dir "База данных\init-db.sql"
+```
+
+Должно вывести строку с размером файла (~16 КБ).
+
+### Шаг 2 — скопировать `init-db.sql` на сервер
+
+```powershell
+scp -P 7022 "База данных\init-db.sql" postgres@130.100.X.X:~/
+```
+
+PowerShell спросит пароль SSH-юзера `postgres`. Введи — символы не отображаются (это нормально), Enter.
+
+Ожидаемый вывод:
+
+```
+init-db.sql                                   100%   16KB   320.5KB/s   00:00
+```
+
+### Шаг 3 — подключиться к серверу по SSH
 
 ```powershell
 ssh postgres@130.100.X.X -p 7022
 ```
 
-**Шаг 3 — на сервере снести старую БД и накатить новую:**
+Снова пароль (тот же что в шаге 2). После ввода окажешься в shell сервера — приглашение сменится на что-то вроде `postgres@server:~$`.
+
+### Шаг 4 — на сервере: удалить старую БД
 
 ```bash
 psql -U postgres -c "DROP DATABASE IF EXISTS ai_agent;"
+```
+
+Если БД ещё не существует — выведет `NOTICE: database "ai_agent" does not exist, skipping`. Это норма.
+Если существует и пустая — выведет `DROP DATABASE`.
+
+> ⚠️ После DROP вся история чатов агентов, задачи планировщика, документы RAG будут безвозвратно удалены. Если в `ai_agent` есть боевые данные — сначала бэкап (`pg_dump`, см. [`PostgreSQL-Guide.md`](PostgreSQL-Guide.md)).
+
+### Шаг 5 — на сервере: создать пустую БД
+
+```bash
 psql -U postgres -c "CREATE DATABASE ai_agent;"
+```
+
+Ожидаемый вывод:
+
+```
+CREATE DATABASE
+```
+
+### Шаг 6 — на сервере: накатить весь SQL
+
+```bash
 psql -U postgres -d ai_agent -f ~/init-db.sql
 ```
 
-После этого `\dt` в `ai_agent` покажет 11 таблиц.
+Это создаст все 11 таблиц + расширения + тест-данные. Будет много строк вида `CREATE EXTENSION`, `CREATE TABLE`, `CREATE INDEX`, `INSERT 0 5`, etc. Финал должен показать таблицу со списком 11 таблиц (`\dt`) и список расширений (`\dx`).
 
-> ⚠️ **Перед DROP** убедись, что в `ai_agent` нет рабочих данных, которые жалко
-> потерять (история чатов агентов, задачи планировщика). После DROP всё уйдёт.
+### Шаг 7 — на сервере: проверить результат
+
+```bash
+psql -U postgres -d ai_agent -c "\dt"
+```
+
+Должны быть видны 11 таблиц:
+
+```
+              List of relations
+ Schema |       Name       | Type  |  Owner
+--------+------------------+-------+----------
+ public | appeal_employees | table | postgres
+ public | appeal_event1    | table | postgres
+ public | appeal_event2    | table | postgres
+ public | chat_memory      | table | postgres
+ public | chat_summaries   | table | postgres
+ public | clients          | table | postgres
+ public | documents        | table | postgres
+ public | orders           | table | postgres
+ public | planner_sessions | table | postgres
+ public | planner_tasks    | table | postgres
+ public | planner_users    | table | postgres
+(11 rows)
+```
+
+И проверь, что тест-данные залились:
+
+```bash
+psql -U postgres -d ai_agent -c "SELECT count(*) FROM clients; SELECT count(*) FROM appeal_employees;"
+```
+
+Должно быть `5` (клиенты) и `58` (сотрудники для алгоритма обращений).
+
+### Шаг 8 — удалить временный файл с сервера (опционально)
+
+```bash
+rm ~/init-db.sql
+```
+
+### Шаг 9 — выйти из SSH
+
+```bash
+exit
+```
+
+PowerShell вернётся к локальному приглашению `PS C:\Users\Lenovo\Desktop\GigaChat>`.
+
+### Готово ✅
+
+Дальше — импорт workflow в n8n (см. [`../Import-Workflows-Guide.md`](../Import-Workflows-Guide.md)) и проверка агентов через дашборд.
 
 ---
 
