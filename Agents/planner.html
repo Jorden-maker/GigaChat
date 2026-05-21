@@ -620,6 +620,29 @@
             min-height: 16px; font-size: 12px; color: var(--priority-high);
             text-align: center; margin-top: 4px;
         }
+        /* Success-стейт (после регистрации): зелёный бэйдж с белой галочкой
+           слева + текст справа. Заменяет error-стиль (красный) на 2 секунды,
+           потом setLoginError('regError','') / clear возвращают обычный вид. */
+        .gc-login-error.gc-success {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px;
+            color: var(--text-primary); font-size: 13px;
+        }
+        .gc-success-badge {
+            flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px;
+            background: #4caf50; border-radius: 50%;
+            position: relative;
+        }
+        /* Галочка внутри — тот же приём что в чекбоксе .gc-checkbox-box */
+        .gc-success-badge::before {
+            content: '';
+            width: 5px; height: 9px;
+            border: solid #fff;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg) translate(-1px, -1px);
+        }
         .gc-login-footer {
             padding: 14px 22px 22px;
         }
@@ -1151,6 +1174,7 @@
 
         // Установка inline-ошибки с авто-очисткой через 5 секунд.
         // Если text пустой — очищает мгновенно и отменяет старый таймер.
+        // Также сбрасывает success-стейт (зелёный бэйдж после регистрации).
         function setLoginError(elId, text) {
             var el = document.getElementById(elId);
             if (!el) return;
@@ -1158,6 +1182,7 @@
                 clearTimeout(el._clearTimer);
                 el._clearTimer = null;
             }
+            el.classList.remove('gc-success');
             el.textContent = text || '';
             if (text) {
                 el._clearTimer = setTimeout(function () {
@@ -1165,6 +1190,20 @@
                     el._clearTimer = null;
                 }, 5000);
             }
+        }
+
+        // Показ success-бэйджа после регистрации в той же области, где ошибки.
+        // Зелёный кружок с белой галочкой + текст справа. Очищается при
+        // следующем setLoginError или явно через clearRegSuccess().
+        function showRegSuccess() {
+            var el = document.getElementById('regError');
+            if (!el) return;
+            if (el._clearTimer) {
+                clearTimeout(el._clearTimer);
+                el._clearTimer = null;
+            }
+            el.classList.add('gc-success');
+            el.innerHTML = '<span class="gc-success-badge" aria-hidden="true"></span><span>Вы зарегистрированы</span>';
         }
 
         // submitLogin/submitRegister — единственное место, где формируется
@@ -1211,32 +1250,30 @@
             if (password !== password2) { setLoginError('regError', 'Пароли не совпадают'); return; }
             btn.disabled = true;
             btn.textContent = 'Регистрация…';
-            try {
-                var data = await authApi({ action: 'register', username: username, password: password });
-                if (data.response !== 'ok') {
-                    setLoginError('regError', 'Не удалось зарегистрироваться');
-                    return;
-                }
-                // Регистрация прошла — НЕ создаём сессию, не пускаем сразу в
-                // планировщик. Плавно переключаемся на вкладку «Вход»,
-                // предзаполняем имя (юзер только что его ввёл — пусть не вводит
-                // повторно). Пароль и поля reg-формы чистим — пусть юзер
-                // подтвердит вход явно.
+            var data = await authApi({ action: 'register', username: username, password: password });
+            if (data.response !== 'ok') {
+                setLoginError('regError', 'Не удалось зарегистрироваться');
+                btn.disabled = false;
+                btn.textContent = 'Зарегистрироваться';
+                return;
+            }
+            // Регистрация прошла — показываем зелёный бэйдж «Вы зарегистрированы»
+            // на 2 секунды, потом плавный переход на «Вход» с предзаполненным
+            // именем. Сессия НЕ создаётся, юзер логинится явно. Кнопку
+            // оставляем disabled чтобы повторно не нажал в эти 2 секунды.
+            showRegSuccess();
+            btn.textContent = 'Готово';
+            setTimeout(function () {
                 document.getElementById('loginUsername').value = username;
                 document.getElementById('loginPassword').value = '';
                 document.getElementById('regUsername').value = '';
                 document.getElementById('regPassword').value = '';
                 document.getElementById('regPassword2').value = '';
+                // switchLoginTab внутри вызовет setLoginError('regError','')
+                // — это снимет gc-success класс и innerHTML бэйджа.
                 switchLoginTab('login', { focusFieldId: 'loginPassword' });
-            } finally {
                 btn.disabled = false;
-                // Кнопка снова получит свой текст в switchLoginTab → 'Войти'.
-                // Если switchLoginTab не успел (например ошибка на API) — текст
-                // нужен правильный для вкладки регистрации.
-                if (!document.querySelector('.gc-login-tab[data-tab="login"].active')) {
-                    btn.textContent = 'Зарегистрироваться';
-                }
-            }
+            }, 2000);
         }
 
         // === Enter-цепочка в login/register формах =========================
