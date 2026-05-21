@@ -64,31 +64,29 @@ PostgreSQL
 
 ### Если БД уже работает (n8n использует chat_memory и др.)
 
-Достаточно прогнать одну миграцию — добавить таблицу планировщика:
+Достаточно прогнать одну миграцию — добавить таблицы планировщика:
 
 **Если сервер на Linux + PostgreSQL в Docker:**
 ```bash
 # Перенести planner-schema.sql на сервер (scp/rsync через флэшку,
 # см. Linux/README.md общий поток обновлений).
 # Имя контейнера Postgres подставь своё (узнать: `docker ps`).
-cat planner-schema.sql | docker exec -i <postgres-container> psql -U postgres -d ai_agent
+cat "База данных/planner-schema.sql" | docker exec -i <postgres-container> psql -U postgres -d ai_agent
 ```
 
 **Если PostgreSQL на Windows напрямую (без Docker):**
 ```powershell
-psql -U postgres -d ai_agent -f planner-schema.sql
+psql -U postgres -d ai_agent -f "База данных/planner-schema.sql"
 ```
 
-После выполнения должна вывестись строка `planner_tasks готов.`
+После выполнения должна вывестись строка `planner-schema v3 готов`.
 
 ### Если БД ещё не создана
 
-Сначала пройди по [PostgreSQL-Guide.md](../PostgreSQL-Guide.md) — там
-описано создание БД `ai_agent`, всех остальных таблиц + индексов.
-Таблица `planner_tasks` уже включена в основной CREATE-блок гайда
-(раздел 8 в SQL), так что отдельная миграция не нужна. Файл
-`planner-schema.sql` остаётся в этой папке как самостоятельный модуль —
-полезен если планировщик ставится отдельно или как docs.
+Используй [`База данных/init-db.sql`](../База%20данных/README.md) — он
+одним прогоном собирает ВСЮ БД проекта (все таблицы всех агентов +
+планировщика + алгоритма обращений + расширения + тестовые данные).
+Подробно — в [`База данных/README.md`](../База%20данных/README.md).
 
 ### Схема таблицы (v2 — multi-user)
 
@@ -237,10 +235,10 @@ DELETE FROM planner_users WHERE username = 'Иванов';
 
 ```bash
 # Linux + Postgres в Docker:
-cat Планировщик/migration-v3-auth.sql | docker exec -i <postgres-container> psql -U postgres -d ai_agent
+cat "База данных/migration-v3-auth.sql" | docker exec -i <postgres-container> psql -U postgres -d ai_agent
 
 # Windows + Postgres напрямую:
-psql -U postgres -d ai_agent -f Планировщик/migration-v3-auth.sql
+psql -U postgres -d ai_agent -f "База данных/migration-v3-auth.sql"
 ```
 
 **⚠ Важно:** миграция v3 **удаляет все существующие задачи** в `planner_tasks`
@@ -464,7 +462,7 @@ DELETE FROM planner_tasks WHERE id = $1 AND session_id = $2 RETURNING id
 | Цвет приоритетов | `Agents/planner.html` CSS | переменные `--priority-high/medium/low` |
 | Лимит задач в AI-контексте | `Workflow/planner.json` | в SELECT для query — `LIMIT 100` |
 | Сортировка задач в списке | `Workflow/planner.json` | ORDER BY в action=list |
-| Доступные приоритеты | `Workflow/planner.json` + `Agents/planner.html` + `Планировщик/planner-schema.sql` | три места: CHECK constraint в SQL, валидация в workflow, options в HTML |
+| Доступные приоритеты | `Workflow/planner.json` + `Agents/planner.html` + `База данных/planner-schema.sql` | три места: CHECK constraint в SQL, валидация в workflow, options в HTML |
 | LLM-температура для AI-запросов | `Workflow/planner.json` | нода «LLM: ответ» → options.temperature (по умолчанию 0.3) |
 | Системный промпт AI | `Workflow/planner.json` | нода «Собрать промпт», переменная `systemPrompt` |
 | Текст пустого состояния | `Agents/planner.html` | `emptyChatHtml`, `tasks-empty` |
@@ -481,7 +479,7 @@ respondToWebhook, фронт получает пустой body.
 ```sql
 \dt planner_tasks
 ```
-Если пусто — запусти миграцию (`psql ... -f planner-schema.sql`,
+Если пусто — запусти миграцию (`psql ... -f "База данных/planner-schema.sql"`,
 см. раздел [Настройка БД](#настройка-бд)).
 
 Другие причины:

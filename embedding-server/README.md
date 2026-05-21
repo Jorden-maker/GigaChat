@@ -701,4 +701,4 @@ vectors = model.encode(prepared, batch_size=8, normalize_embeddings=True, show_p
 | `Workflow/document-loader.json`       | «Эмбеддинг»              | Векторизует куски текста при загрузке доков |
 | `Workflow/rag-agent.json`             | «Эмбеддинг вопроса»      | Векторизует пользовательский вопрос         |
 
-В таблице `documents` колонка `embedding VECTOR(1024)` — размерность совпадает с моделью E5-large. См. `PostgreSQL-Guide.md` раздел «Размерность вектора», если хочешь использовать другую модель.
+В таблице `documents` колонка `embedding VECTOR(1024)` — размерность совпадает с моделью E5-large. См. [`База данных/PostgreSQL-Guide.md`](../База%20данных/PostgreSQL-Guide.md) раздел «Размерность вектора», если хочешь использовать другую модель.

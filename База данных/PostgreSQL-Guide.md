@@ -211,10 +211,14 @@ ALTER TABLE chat_memory ADD COLUMN IF NOT EXISTS extras JSONB;
 
 ```sql
 \c ai_agent
-\i /path/to/GigaChat/Workflow/planner-schema.sql
+\i /path/to/GigaChat/База данных/planner-schema.sql
 ```
 
-Или просто скопировать содержимое `Workflow/planner-schema.sql` в `psql`.
+Или просто скопировать содержимое `База данных/planner-schema.sql` в `psql`.
+
+> ⚡ **Проще:** если делаешь полную инициализацию БД с нуля — используй
+> `База данных/init-db.sql` (см. [`README.md`](README.md)). Один файл,
+> все таблицы проекта (включая planner_*), все расширения, тестовые данные.
 
 ### Размерность вектора
 

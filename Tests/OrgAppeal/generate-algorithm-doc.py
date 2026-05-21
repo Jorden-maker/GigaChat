@@ -628,7 +628,7 @@ def main():
 
     add_par(doc, 'Перед запуском', size=14, bold=True, color='444444', space_before=4, space_after=4)
     steps = [
-        '1. Раскатить SQL из OrgAppeal-Setup.md в Postgres (3 таблицы + ~130 строк тест-данных)',
+        '1. Раскатить SQL из База данных/OrgAppeal-Setup.md в Postgres (3 таблицы + ~130 строк тест-данных)',
         '2. Импортировать Workflow/organization-appeal.json в n8n и привязать credentials (Postgres + GigaChat)',
         '3. Активировать workflow в n8n',
         '4. Убедиться, что OCR-сервис слушает http://130.100.94.119:8055/extract',
