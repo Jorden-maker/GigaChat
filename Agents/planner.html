@@ -521,16 +521,21 @@
         .gc-login-modal {
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 12px;
-            /* Ширина фиксирована, верх держится flex'ом overlay (flex-start
-               + padding-top). При смене вкладки меняется только высота (вниз). */
             width: min(420px, 92vw);
             flex-shrink: 0;
-            transition: height 0.25s ease;
+            /* Flex column: footer прижат margin-top:auto к нижней границе.
+               При transition height (рост вниз) footer движется синхронно
+               с нижней границей модалки — не «прыгает». */
+            display: flex; flex-direction: column;
+            overflow: hidden;  /* контент не торчит за границу при swap */
+            transition: height 0.18s ease;
             animation: plannerModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        /* Footer всегда прижат к низу модалки */
+        .gc-login-footer { margin-top: auto; }
         /* Плавный fade форм при смене вкладки — fade-out до движения рамки,
-           fade-in после. CSS только задаёт transition, opacity управляется JS. */
-        .gc-login-form { transition: opacity 0.15s ease; }
+           fade-in после. 90мс — быстро, но различимо. */
+        .gc-login-form { transition: opacity 0.09s ease; }
         .gc-login-header {
             padding: 22px 24px 6px; font-size: 18px; font-weight: 600;
             color: var(--text-primary); text-align: center;
@@ -1164,25 +1169,23 @@
             }
 
             if (!isSameTab && modal && currentActive) {
-                // 3-фазная анимация:
-                //   Фаза 1 (150мс): opacity текущей формы → 0
-                //   Фаза 2 (250мс): swap содержимого + height transition (рост вниз)
-                //   Фаза 3 (150мс): opacity новой формы → 1
+                // 3-фазная анимация (≈400мс полный цикл):
+                //   Фаза 1 (90мс): opacity текущей формы → 0
+                //   Фаза 2 (200мс): swap + height transition, footer движется
+                //                   синхронно с нижней границей (flex column)
+                //   Фаза 3 (90мс): opacity новой формы → 1
                 if (modal._switchTimers) modal._switchTimers.forEach(clearTimeout);
                 modal._switchTimers = [];
 
                 var oldForm = document.querySelector('.gc-login-form:not(.hidden)');
-                // Фаза 1: fade-out текущей формы
                 if (oldForm) oldForm.style.opacity = '0';
 
                 modal._switchTimers.push(setTimeout(function () {
-                    // Фаза 2: swap + измерение высот + height transition
                     var fromHeight = modal.offsetHeight;
                     modal.style.height = fromHeight + 'px';
                     modal.offsetHeight; // force reflow
                     applySwap();
                     var newForm = document.querySelector('.gc-login-form:not(.hidden)');
-                    // Новая форма начинает с opacity 0, чтобы не вспыхнуть
                     if (newForm) newForm.style.opacity = '0';
                     modal.style.height = 'auto';
                     var toHeight = modal.offsetHeight;
@@ -1191,20 +1194,17 @@
                     modal.style.height = toHeight + 'px';
 
                     modal._switchTimers.push(setTimeout(function () {
-                        // Фаза 3: height transition закончился — снимаем явный
-                        // height, fade-in новой формы
                         modal.style.height = '';
                         if (oldForm) oldForm.style.opacity = '';
                         if (newForm) newForm.style.opacity = '1';
 
                         modal._switchTimers.push(setTimeout(function () {
-                            // Чистим inline opacity на новой форме — CSS дефолт 1
                             if (newForm) newForm.style.opacity = '';
                             modal._switchTimers = [];
                             focusTarget();
-                        }, 170));
-                    }, 270));
-                }, 170));
+                        }, 100));
+                    }, 210));
+                }, 100));
             } else {
                 // Первое отображение или тот же tab — без анимации
                 applySwap();
