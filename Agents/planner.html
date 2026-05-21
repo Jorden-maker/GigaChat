@@ -1095,26 +1095,58 @@
             updateLoginThemeIcon();
         }
 
-        function switchLoginTab(tab) {
-            var tabs = document.querySelectorAll('.gc-login-tab');
-            var forms = document.querySelectorAll('.gc-login-form');
-            for (var i = 0; i < tabs.length; i++) {
-                tabs[i].classList.toggle('active', tabs[i].dataset.tab === tab);
+        // Плавное переключение вкладки: модалка fade-out → меняем активную
+        // вкладку и форму → fade-in. options.focusFieldId — id поля для фокуса
+        // после переключения (по умолчанию первое поле новой формы).
+        // Если переключаем на ту же вкладку — анимации нет, только обновим фокус.
+        function switchLoginTab(tab, options) {
+            options = options || {};
+            var currentActive = document.querySelector('.gc-login-tab.active');
+            var isSameTab = currentActive && currentActive.dataset.tab === tab;
+            var modal = document.querySelector('.gc-login-modal');
+
+            function applySwap() {
+                var tabs = document.querySelectorAll('.gc-login-tab');
+                var forms = document.querySelectorAll('.gc-login-form');
+                for (var i = 0; i < tabs.length; i++) {
+                    tabs[i].classList.toggle('active', tabs[i].dataset.tab === tab);
+                }
+                for (var i = 0; i < forms.length; i++) {
+                    forms[i].classList.toggle('hidden', forms[i].dataset.form !== tab);
+                }
+                var btn = document.getElementById('loginSubmitBtn');
+                if (btn) btn.textContent = tab === 'register' ? 'Зарегистрироваться' : 'Войти';
+                setLoginError('loginError', '');
+                setLoginError('regError', '');
             }
-            for (var i = 0; i < forms.length; i++) {
-                forms[i].classList.toggle('hidden', forms[i].dataset.form !== tab);
+
+            function focusTarget() {
+                var target = options.focusFieldId
+                    ? document.getElementById(options.focusFieldId)
+                    : document.querySelector('.gc-login-form:not(.hidden) input');
+                if (target) target.focus();
             }
-            // Кнопка submit меняет label
-            var btn = document.getElementById('loginSubmitBtn');
-            if (btn) btn.textContent = tab === 'register' ? 'Зарегистрироваться' : 'Войти';
-            // Очистка ошибок (мгновенно при переключении табов)
-            setLoginError('loginError', '');
-            setLoginError('regError', '');
-            // Фокус на первое поле активной формы
-            setTimeout(function () {
-                var firstInput = document.querySelector('.gc-login-form:not(.hidden) input');
-                if (firstInput) firstInput.focus();
-            }, 50);
+
+            if (!isSameTab && modal && currentActive) {
+                // Плавный fade: модалка целиком тускнеет, меняется содержимое,
+                // возвращается. 150мс — быстро, но различимо для глаза.
+                modal.style.transition = 'opacity 0.15s ease';
+                modal.style.opacity = '0';
+                setTimeout(function () {
+                    applySwap();
+                    modal.style.opacity = '1';
+                    setTimeout(function () {
+                        modal.style.transition = '';
+                        modal.style.opacity = '';
+                        focusTarget();
+                    }, 160);
+                }, 150);
+            } else {
+                // Первое отображение (нет ещё активной вкладки) или повторный
+                // вызов с тем же tab — без анимации.
+                applySwap();
+                setTimeout(focusTarget, 50);
+            }
         }
 
         // Установка inline-ошибки с авто-очисткой через 5 секунд.
@@ -1182,29 +1214,28 @@
             try {
                 var data = await authApi({ action: 'register', username: username, password: password });
                 if (data.response !== 'ok') {
-                    // Для регистрации сетевую ошибку не разводим отдельно — единственный текст
                     setLoginError('regError', 'Не удалось зарегистрироваться');
                     return;
                 }
-                // Авто-логин прямо здесь — без переключения вкладки на «Вход»
-                // и без подстановки значений в поля loginUsername/loginPassword.
-                // Юзер не должен видеть промежуточный экран входа с уже введёнными
-                // данными — переход сразу на планировщик.
-                btn.textContent = 'Вход…';
-                var login = await authApi({ action: 'login', username: username, password: password, remember: true });
-                if (login.response !== 'ok') {
-                    setLoginError('regError', login.network ? 'Сеть недоступна' : 'Не удалось войти');
-                    return;
-                }
-                setStoredAuth(login.token, login.username);
-                CURRENT_TOKEN = login.token;
-                CURRENT_USER = login.username;
-                AUTH_READY = true;
-                initAuthenticatedUI();
-                hideLoginScreen();
+                // Регистрация прошла — НЕ создаём сессию, не пускаем сразу в
+                // планировщик. Плавно переключаемся на вкладку «Вход»,
+                // предзаполняем имя (юзер только что его ввёл — пусть не вводит
+                // повторно). Пароль и поля reg-формы чистим — пусть юзер
+                // подтвердит вход явно.
+                document.getElementById('loginUsername').value = username;
+                document.getElementById('loginPassword').value = '';
+                document.getElementById('regUsername').value = '';
+                document.getElementById('regPassword').value = '';
+                document.getElementById('regPassword2').value = '';
+                switchLoginTab('login', { focusFieldId: 'loginPassword' });
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Зарегистрироваться';
+                // Кнопка снова получит свой текст в switchLoginTab → 'Войти'.
+                // Если switchLoginTab не успел (например ошибка на API) — текст
+                // нужен правильный для вкладки регистрации.
+                if (!document.querySelector('.gc-login-tab[data-tab="login"].active')) {
+                    btn.textContent = 'Зарегистрироваться';
+                }
             }
         }
 
