@@ -1,20 +1,47 @@
 -- ============================================================================
--- Схема для инструмента «Планировщик»
+-- Схема для инструмента «Планировщик» (v3 — с полноценной аутентификацией)
 -- Запустить один раз на сервере (Linux или Windows, неважно):
 --   psql -U postgres -d ai_agent -f planner-schema.sql
 --
--- Если БД уже создана со старой версии (без user_id) — запускай
--- migration-add-users.sql вместо этого файла.
+-- Если БД уже создана со старой версии (без planner_users/planner_sessions) —
+-- запускай migration-v3-auth.sql вместо этого файла.
 -- ============================================================================
 
--- Активные и выполненные задачи юзера. Сессия = отдельный список
--- (например «Личные», «Работа», «Проект Х»). user_id — идентификатор
--- пользователя из login-модалки (имя), задачи изолированы между юзерами.
--- История AI-запросов хранится в общей таблице chat_memory с тем же session_id.
+-- pgcrypto для bcrypt-хешей паролей.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- 1) Юзеры. password_hash — bcrypt-хеш через crypt() из pgcrypto.
+CREATE TABLE IF NOT EXISTS planner_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_login_at TIMESTAMP,
+    password_changed_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_planner_users_username_lower
+    ON planner_users (LOWER(username));
+
+-- 2) Сессии. token = 64 hex символа (32 байта = 256 бит).
+-- remember=true → expires_at через 10 лет, иначе через 24 часа.
+CREATE TABLE IF NOT EXISTS planner_sessions (
+    token VARCHAR(64) PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES planner_users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_used_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    remember BOOLEAN DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS idx_planner_sessions_user
+    ON planner_sessions (user_id);
+CREATE INDEX IF NOT EXISTS idx_planner_sessions_expires
+    ON planner_sessions (expires_at);
+
+-- 3) Задачи. user_id — FK на planner_users.id (целостность гарантирована).
+-- Сессия (session_id) = отдельный список задач юзера («Личные», «Работа»).
 CREATE TABLE IF NOT EXISTS planner_tasks (
     id SERIAL PRIMARY KEY,
-    user_id VARCHAR(100) NOT NULL DEFAULT 'anonymous',
+    user_id INTEGER NOT NULL REFERENCES planner_users(id) ON DELETE CASCADE,
     session_id VARCHAR(255) NOT NULL,
     title TEXT NOT NULL,
     description TEXT,
@@ -26,14 +53,9 @@ CREATE TABLE IF NOT EXISTS planner_tasks (
     completed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW()
 );
-
--- Композитный индекс под основной запрос:
---   SELECT * FROM planner_tasks WHERE user_id=$1 AND session_id=$2 AND status=$3
 CREATE INDEX IF NOT EXISTS idx_planner_tasks_user_session_status
-ON planner_tasks (user_id, session_id, status, created_at DESC);
-
--- Индекс по дедлайну — для запросов «что просрочено» и сортировки по дате.
+    ON planner_tasks (user_id, session_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_planner_tasks_user_deadline
-ON planner_tasks (user_id, deadline) WHERE deadline IS NOT NULL;
+    ON planner_tasks (user_id, deadline) WHERE deadline IS NOT NULL;
 
-SELECT 'planner_tasks готов (multi-user режим).' AS result;
+SELECT 'planner-schema v3 готов (auth + tasks).' AS result;

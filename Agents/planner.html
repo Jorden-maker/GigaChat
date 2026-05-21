@@ -470,32 +470,126 @@
             padding: 0 24px 18px; font-size: 13px; color: var(--text-secondary);
             line-height: 1.5; text-align: center;
         }
-        .gc-login-body {
-            padding: 0 24px 18px; display: flex; flex-direction: column; gap: 8px;
+        /* Tabs Вход / Регистрация */
+        .gc-login-tabs {
+            display: flex; gap: 4px;
+            margin: 4px 22px 14px;
+            padding: 4px;
+            background: var(--bg-input); border-radius: 8px;
         }
-        .gc-login-body input {
+        .gc-login-tab {
+            flex: 1; background: transparent; border: none; cursor: pointer;
+            padding: 8px 12px; border-radius: 6px;
+            font-family: inherit; font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            transition: background 0.18s ease, color 0.18s ease;
+        }
+        .gc-login-tab:hover { color: var(--text-primary); }
+        .gc-login-tab.active {
+            background: var(--accent); color: #fff;
+        }
+
+        /* Формы вход/регистрация */
+        .gc-login-form { padding: 0 22px; display: flex; flex-direction: column; gap: 10px; }
+        .gc-login-form.hidden { display: none; }
+        .gc-login-form label {
+            display: flex; flex-direction: column; gap: 4px;
+            font-size: 12px; color: var(--text-secondary); font-weight: 500;
+        }
+        .gc-login-form input[type="text"],
+        .gc-login-form input[type="password"] {
             background: var(--bg-input); border: 1px solid var(--border);
             border-radius: 6px; padding: 10px 14px; color: var(--text-primary);
-            font-family: inherit; font-size: 15px; outline: none;
+            font-family: inherit; font-size: 14px; outline: none;
             transition: border-color 0.18s ease, background 0.18s ease;
         }
-        .gc-login-body input:focus {
+        .gc-login-form input:hover { border-color: var(--text-secondary); }
+        .gc-login-form input:focus {
             border-color: var(--accent); background: var(--bg-secondary);
+        }
+        .gc-checkbox-row {
+            flex-direction: row !important;
+            align-items: center; gap: 8px !important;
+            cursor: pointer;
+        }
+        .gc-checkbox-row input[type="checkbox"] {
+            width: 16px; height: 16px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .gc-checkbox-row span {
+            font-size: 13px; color: var(--text-primary); font-weight: 400;
         }
         .gc-login-error {
             min-height: 16px; font-size: 12px; color: var(--priority-high);
+            text-align: center; margin-top: 4px;
         }
         .gc-login-footer {
-            padding: 14px 24px 22px;
+            padding: 14px 22px 22px;
         }
         .gc-login-footer button {
             width: 100%; padding: 10px 18px; border-radius: 6px;
             background: var(--accent); color: #fff; border: none; cursor: pointer;
             font-family: inherit; font-size: 14px; font-weight: 600;
-            transition: background 0.18s ease, transform 0.1s ease;
+            transition: background 0.18s ease, transform 0.1s ease, opacity 0.18s ease;
         }
         .gc-login-footer button:hover { background: var(--accent-hover); }
         .gc-login-footer button:active { transform: scale(0.98); }
+        .gc-login-footer button:disabled {
+            opacity: 0.5; cursor: not-allowed;
+        }
+
+        /* Change-password модалка — отдельная overlay поверх основного UI */
+        .gc-chgpwd-overlay {
+            position: fixed; inset: 0; z-index: 800;
+            background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(3px);
+            display: none; align-items: center; justify-content: center;
+        }
+        .gc-chgpwd-overlay.show { display: flex; }
+        .gc-chgpwd-modal {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: 12px; width: min(420px, 92vw);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            animation: plannerModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .gc-chgpwd-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 22px; border-bottom: 1px solid var(--border);
+            font-size: 15px; font-weight: 600; color: var(--text-primary);
+        }
+        .gc-chgpwd-close {
+            background: none; border: none; color: var(--text-secondary);
+            font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px;
+        }
+        .gc-chgpwd-close:hover { color: var(--text-primary); }
+        .gc-chgpwd-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; }
+        .gc-chgpwd-body label {
+            display: flex; flex-direction: column; gap: 4px;
+            font-size: 12px; color: var(--text-secondary); font-weight: 500;
+        }
+        .gc-chgpwd-body input {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 6px; padding: 9px 12px; color: var(--text-primary);
+            font-family: inherit; font-size: 14px; outline: none;
+            transition: border-color 0.18s ease, background 0.18s ease;
+        }
+        .gc-chgpwd-body input:focus { border-color: var(--accent); background: var(--bg-secondary); }
+        .gc-chgpwd-error { padding: 0 22px; min-height: 14px; color: var(--priority-high); font-size: 12px; }
+        .gc-chgpwd-footer {
+            display: flex; justify-content: flex-end; gap: 8px;
+            padding: 14px 22px 20px;
+        }
+        .gc-chgpwd-footer button {
+            padding: 8px 18px; border-radius: 6px;
+            font-family: inherit; font-size: 13px; cursor: pointer;
+            border: 1px solid var(--border); background: transparent;
+            color: var(--text-secondary); transition: all 0.18s ease;
+        }
+        .gc-chgpwd-footer button:hover { color: var(--text-primary); }
+        .gc-chgpwd-footer .primary {
+            background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600;
+        }
+        .gc-chgpwd-footer .primary:hover { opacity: 0.85; color: #fff; }
 
         /* === User menu в шапке ============================================
            «Иванов ▼» с dropdown'ом «Сменить имя / Выйти». Стиль — как
@@ -557,19 +651,73 @@
     <script src="lib/jszip.min.js"></script>
 </head>
 <body>
-    <!-- Login-screen: показывается при первом заходе если в localStorage нет
-         planner_user. Юзер вводит имя → сохраняем → reload (чтобы createChatAgent
-         подхватил динамический prefix для localStorage сессий). -->
+    <!-- Login-screen: показывается если в localStorage нет валидного planner_token
+         либо verify-токена вернул auth_required. Tabs Вход/Регистрация. -->
     <div class="gc-login-overlay" id="loginOverlay" style="display:none">
         <div class="gc-login-modal">
             <div class="gc-login-header">Планировщик</div>
-            <div class="gc-login-subtitle">Введите ваше имя</div>
-            <div class="gc-login-body">
-                <input type="text" id="loginInput" maxlength="100" placeholder="Например: Иванов" autocomplete="off">
-                <div class="gc-login-error" id="loginError"></div>
+            <div class="gc-login-tabs">
+                <button class="gc-login-tab active" data-tab="login" onclick="switchLoginTab('login')">Вход</button>
+                <button class="gc-login-tab" data-tab="register" onclick="switchLoginTab('register')">Регистрация</button>
             </div>
+
+            <!-- Login form -->
+            <form class="gc-login-form" data-form="login" onsubmit="event.preventDefault(); submitLogin()">
+                <label>Логин
+                    <input type="text" id="loginUsername" maxlength="100" autocomplete="username" placeholder="Иванов">
+                </label>
+                <label>Пароль
+                    <input type="password" id="loginPassword" maxlength="200" autocomplete="current-password" placeholder="••••••••">
+                </label>
+                <label class="gc-checkbox-row">
+                    <input type="checkbox" id="loginRemember" checked>
+                    <span>Запомнить меня</span>
+                </label>
+                <div class="gc-login-error" id="loginError"></div>
+            </form>
+
+            <!-- Register form -->
+            <form class="gc-login-form hidden" data-form="register" onsubmit="event.preventDefault(); submitRegister()">
+                <label>Логин
+                    <input type="text" id="regUsername" maxlength="100" autocomplete="username" placeholder="Иванов">
+                </label>
+                <label>Пароль
+                    <input type="password" id="regPassword" maxlength="200" autocomplete="new-password" placeholder="не менее 6 символов">
+                </label>
+                <label>Подтвердите пароль
+                    <input type="password" id="regPassword2" maxlength="200" autocomplete="new-password" placeholder="ещё раз">
+                </label>
+                <div class="gc-login-error" id="regError"></div>
+            </form>
+
             <div class="gc-login-footer">
-                <button id="loginSubmit" onclick="submitLogin()">Войти</button>
+                <button id="loginSubmitBtn" onclick="document.querySelector('.gc-login-form:not(.hidden)').requestSubmit()">Войти</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change-password модалка — вызывается из user-menu после login -->
+    <div class="gc-chgpwd-overlay" id="chgpwdOverlay" onclick="if(event.target===this)closeChgpwdModal()">
+        <div class="gc-chgpwd-modal">
+            <div class="gc-chgpwd-header">
+                Сменить пароль
+                <button class="gc-chgpwd-close" onclick="closeChgpwdModal()" aria-label="Закрыть">&times;</button>
+            </div>
+            <div class="gc-chgpwd-body">
+                <label>Текущий пароль
+                    <input type="password" id="chgpwdOld" autocomplete="current-password">
+                </label>
+                <label>Новый пароль
+                    <input type="password" id="chgpwdNew" autocomplete="new-password" placeholder="не менее 6 символов">
+                </label>
+                <label>Подтвердите новый
+                    <input type="password" id="chgpwdNew2" autocomplete="new-password">
+                </label>
+            </div>
+            <div class="gc-chgpwd-error" id="chgpwdError"></div>
+            <div class="gc-chgpwd-footer">
+                <button onclick="closeChgpwdModal()">Отмена</button>
+                <button class="primary" onclick="submitChangePassword()">Сохранить</button>
             </div>
         </div>
     </div>
@@ -600,7 +748,7 @@
                         <span class="gc-user-menu-arrow" aria-hidden="true"></span>
                     </button>
                     <div class="gc-user-menu-dropdown" role="menu">
-                        <button type="button" onclick="changeUserName()">Сменить имя</button>
+                        <button type="button" onclick="openChgpwdModal()">Сменить пароль</button>
                         <button type="button" onclick="logoutUser()">Выйти</button>
                     </div>
                 </div>
@@ -712,26 +860,38 @@
     <script>
         var escapeHtml = GigaChat.escapeHtml;
         var PLANNER_URL = GigaChat.webhookUrl('planner');
+        var AUTH_URL = GigaChat.webhookUrl('planner-auth');
 
-        // ========== Multi-user identification ==========
-        // user_id хранится в localStorage. Если пуст — показываем login-модалку
-        // ДО инициализации createChatAgent (потому что createChatAgent создаёт
-        // session-storage с префиксом который включает имя юзера, и пересоздать
-        // его после уже нельзя без полного релоада страницы).
-        var USER_STORAGE_KEY = 'planner_user';
-        var RESERVED_NAMES = ['system', 'admin', 'root', 'null', 'undefined', 'anonymous'];
+        // ========== Полноценная аутентификация ==========
+        // localStorage хранит:
+        //   planner_token    — session-токен (64 hex символа)
+        //   planner_username — имя юзера (для отображения в header'е)
+        // При старте страницы делаем verify(token). Если ОК — main UI.
+        // Если нет/протух — login-форма. Запросы к /webhook/planner шлют token,
+        // workflow проверяет в SQL Verify token и подставляет user_id.
+        var TOKEN_KEY = 'planner_token';
+        var USERNAME_KEY = 'planner_username';
 
-        function getCurrentUserName() {
-            try { return localStorage.getItem(USER_STORAGE_KEY) || ''; }
-            catch (e) { return ''; }
+        function getStoredToken() {
+            try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
+        }
+        function getStoredUsername() {
+            try { return localStorage.getItem(USERNAME_KEY) || ''; } catch (e) { return ''; }
+        }
+        function setStoredAuth(token, username) {
+            try {
+                localStorage.setItem(TOKEN_KEY, token);
+                localStorage.setItem(USERNAME_KEY, username);
+            } catch (e) {}
+        }
+        function clearStoredAuth() {
+            try {
+                localStorage.removeItem(TOKEN_KEY);
+                localStorage.removeItem(USERNAME_KEY);
+            } catch (e) {}
         }
 
         function sanitizeUserForPrefix(name) {
-            // Префикс для localStorage-ключей сессий. Кириллица в ключах
-            // localStorage работает, но безопаснее транслитерировать в latin/digits.
-            // Простейший fallback: оставляем алфанумерику ASCII, остальное → '_'.
-            // Полная кириллическая идентичность хранится в planner_user отдельно,
-            // эта функция нужна только для namespaceing'а сессий.
             return name.replace(/[^A-Za-z0-9_]/g, '_').toLowerCase().slice(0, 50)
                 || 'user_' + Math.abs(hashString(name));
         }
@@ -744,89 +904,204 @@
             return h;
         }
 
-        function showLoginModal() {
+        // HTTP-обёртка для auth endpoint'а
+        async function authApi(payload) {
+            try {
+                var res = await fetch(AUTH_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                    body: JSON.stringify(payload),
+                });
+                if (!res.ok) return { response: 'error', error: 'Сервер вернул ' + res.status };
+                return await res.json();
+            } catch (e) {
+                console.error('Auth API error:', e);
+                return { response: 'error', error: 'Сеть недоступна: ' + e.message };
+            }
+        }
+
+        // === Login screen UI ===
+        function showLoginScreen(activeTab) {
             var overlay = document.getElementById('loginOverlay');
-            var input = document.getElementById('loginInput');
-            var err = document.getElementById('loginError');
             overlay.style.display = 'flex';
-            err.textContent = '';
-            input.value = '';
-            // Прячем scrollbar страницы пока login-экран активен — основной UI
-            // за ним всё равно не виден (overlay solid-background), скролл лишний.
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
-            setTimeout(function () { input.focus(); }, 50);
-            // Enter в input → submit
-            input.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') { e.preventDefault(); submitLogin(); }
-            });
+            switchLoginTab(activeTab || 'login');
         }
 
-        function submitLogin() {
-            var input = document.getElementById('loginInput');
+        function switchLoginTab(tab) {
+            var tabs = document.querySelectorAll('.gc-login-tab');
+            var forms = document.querySelectorAll('.gc-login-form');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].classList.toggle('active', tabs[i].dataset.tab === tab);
+            }
+            for (var i = 0; i < forms.length; i++) {
+                forms[i].classList.toggle('hidden', forms[i].dataset.form !== tab);
+            }
+            // Кнопка submit меняет label
+            var btn = document.getElementById('loginSubmitBtn');
+            if (btn) btn.textContent = tab === 'register' ? 'Зарегистрироваться' : 'Войти';
+            // Очистка ошибок
+            document.getElementById('loginError').textContent = '';
+            document.getElementById('regError').textContent = '';
+            // Фокус на первое поле активной формы
+            setTimeout(function () {
+                var firstInput = document.querySelector('.gc-login-form:not(.hidden) input');
+                if (firstInput) firstInput.focus();
+            }, 50);
+        }
+
+        async function submitLogin() {
             var err = document.getElementById('loginError');
-            var name = input.value.trim();
-            if (!name) { err.textContent = 'Введите имя'; return; }
-            if (name.length > 100) { err.textContent = 'Слишком длинное имя (>100 символов)'; return; }
-            if (!/^[A-Za-zА-Яа-яЁё0-9_\-. ]+$/.test(name)) {
-                err.textContent = 'Можно: буквы, цифры, пробел, _ - .';
-                return;
-            }
-            if (RESERVED_NAMES.includes(name.toLowerCase())) {
-                err.textContent = 'Это имя зарезервировано системой, выберите другое';
-                return;
-            }
-            try { localStorage.setItem(USER_STORAGE_KEY, name); }
-            catch (e) { err.textContent = 'Не удалось сохранить — проверьте localStorage'; return; }
-            // Перезагружаем чтобы createChatAgent инициализировался с правильным prefix'ом
-            location.reload();
-        }
-
-        function changeUserName() {
-            // Не очищаем сразу — даём юзеру ввести новое имя; если отменит, останется старое
-            try { localStorage.removeItem(USER_STORAGE_KEY); }
-            catch (e) {}
-            location.reload();
-        }
-
-        function logoutUser() {
-            // То же что changeUserName, но юзер ушёл «по своей воле» — никаких отличий в эффекте,
-            // просто отдельный пункт меню для ясности.
-            try { localStorage.removeItem(USER_STORAGE_KEY); }
-            catch (e) {}
-            location.reload();
-        }
-
-        // === Если юзер не задан — показываем login, инициализацию НЕ запускаем ===
-        var CURRENT_USER = getCurrentUserName();
-        if (!CURRENT_USER) {
-            // Не throw — иначе глобальный error-handler в _shared.js покажет toast.
-            // Условная инициализация ниже: если CURRENT_USER пуст, ничего больше
-            // не запускаем. Function declarations (saveTask, openTaskModal и пр.)
-            // остаются определёнными — onclick из login-формы (submitLogin)
-            // продолжает работать.
-            showLoginModal();
-        } else {
-            // === User-menu в шапке: показываем имя + dropdown ===
-            (function initUserMenu() {
-                var menu = document.getElementById('userMenu');
-                var trigger = document.getElementById('userMenuTrigger');
-                var label = document.getElementById('userMenuLabel');
-                label.textContent = CURRENT_USER;
-                menu.style.display = '';
-
-                function setOpen(open) {
-                    menu.classList.toggle('open', open);
-                    trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+            var btn = document.getElementById('loginSubmitBtn');
+            var username = document.getElementById('loginUsername').value.trim();
+            var password = document.getElementById('loginPassword').value;
+            var remember = document.getElementById('loginRemember').checked;
+            err.textContent = '';
+            if (!username) { err.textContent = 'Введите логин'; return; }
+            if (!password) { err.textContent = 'Введите пароль'; return; }
+            btn.disabled = true;
+            btn.textContent = 'Вход…';
+            try {
+                var data = await authApi({ action: 'login', username: username, password: password, remember: remember });
+                if (data.response !== 'ok') {
+                    err.textContent = data.error || 'Не удалось войти';
+                    return;
                 }
-                trigger.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    setOpen(!menu.classList.contains('open'));
-                });
-                document.addEventListener('click', function (e) {
-                    if (!menu.contains(e.target)) setOpen(false);
-                });
+                setStoredAuth(data.token, data.username);
+                location.reload();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Войти';
+            }
+        }
+
+        async function submitRegister() {
+            var err = document.getElementById('regError');
+            var btn = document.getElementById('loginSubmitBtn');
+            var username = document.getElementById('regUsername').value.trim();
+            var password = document.getElementById('regPassword').value;
+            var password2 = document.getElementById('regPassword2').value;
+            err.textContent = '';
+            if (!username) { err.textContent = 'Введите логин'; return; }
+            if (password.length < 6) { err.textContent = 'Пароль не короче 6 символов'; return; }
+            if (password !== password2) { err.textContent = 'Пароли не совпадают'; return; }
+            btn.disabled = true;
+            btn.textContent = 'Регистрация…';
+            try {
+                var data = await authApi({ action: 'register', username: username, password: password });
+                if (data.response !== 'ok') {
+                    err.textContent = data.error || 'Не удалось зарегистрироваться';
+                    return;
+                }
+                // Авто-логин после успешной регистрации
+                document.getElementById('loginUsername').value = username;
+                document.getElementById('loginPassword').value = password;
+                document.getElementById('loginRemember').checked = true;
+                switchLoginTab('login');
+                await submitLogin();
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // === Logout / Change-password ===
+        async function logoutUser() {
+            var token = getStoredToken();
+            // Fire-and-forget — если сеть упала, всё равно очищаем локально.
+            if (token) {
+                try { await authApi({ action: 'logout', token: token }); } catch (e) {}
+            }
+            clearStoredAuth();
+            location.reload();
+        }
+
+        function openChgpwdModal() {
+            document.getElementById('chgpwdOverlay').classList.add('show');
+            document.getElementById('chgpwdOld').value = '';
+            document.getElementById('chgpwdNew').value = '';
+            document.getElementById('chgpwdNew2').value = '';
+            document.getElementById('chgpwdError').textContent = '';
+            setTimeout(function () { document.getElementById('chgpwdOld').focus(); }, 50);
+        }
+        function closeChgpwdModal() {
+            document.getElementById('chgpwdOverlay').classList.remove('show');
+        }
+        async function submitChangePassword() {
+            var err = document.getElementById('chgpwdError');
+            var oldP = document.getElementById('chgpwdOld').value;
+            var newP = document.getElementById('chgpwdNew').value;
+            var newP2 = document.getElementById('chgpwdNew2').value;
+            err.textContent = '';
+            if (!oldP) { err.textContent = 'Введите текущий пароль'; return; }
+            if (newP.length < 6) { err.textContent = 'Новый пароль не короче 6 символов'; return; }
+            if (newP !== newP2) { err.textContent = 'Новые пароли не совпадают'; return; }
+            if (oldP === newP) { err.textContent = 'Новый пароль должен отличаться от текущего'; return; }
+            var token = getStoredToken();
+            if (!token) { err.textContent = 'Не авторизован'; return; }
+            var data = await authApi({
+                action: 'change_password',
+                token: token,
+                old_password: oldP,
+                new_password: newP,
+            });
+            if (data.response !== 'ok') {
+                err.textContent = data.error || 'Не удалось сменить пароль';
+                return;
+            }
+            closeChgpwdModal();
+            alert('Пароль успешно изменён');
+        }
+
+        // === Старт страницы: verify token → main UI или login screen ===
+        var CURRENT_USER = '';
+        var CURRENT_TOKEN = getStoredToken();
+        var AUTH_READY = false;  // true когда verify прошёл успешно
+
+        (function bootstrap() {
+            if (!CURRENT_TOKEN) {
+                // Нет токена — сразу login
+                showLoginScreen('login');
+                return;
+            }
+            // Проверяем токен у сервера. Делаем sync-ish через async IIFE.
+            (async function verify() {
+                var data = await authApi({ action: 'verify', token: CURRENT_TOKEN });
+                if (data.response !== 'ok' || data.auth_required) {
+                    clearStoredAuth();
+                    showLoginScreen('login');
+                    return;
+                }
+                // Токен валиден — обновляем username (может изменился на сервере)
+                CURRENT_USER = data.username;
+                setStoredAuth(CURRENT_TOKEN, data.username);
+                AUTH_READY = true;
+                initAuthenticatedUI();
             })();
+        })();
+
+        function initAuthenticatedUI() {
+            // User-menu в шапке: показываем имя + dropdown
+            var menu = document.getElementById('userMenu');
+            var trigger = document.getElementById('userMenuTrigger');
+            var label = document.getElementById('userMenuLabel');
+            label.textContent = CURRENT_USER;
+            menu.style.display = '';
+
+            function setOpen(open) {
+                menu.classList.toggle('open', open);
+                trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setOpen(!menu.classList.contains('open'));
+            });
+            document.addEventListener('click', function (e) {
+                if (!menu.contains(e.target)) setOpen(false);
+            });
+
+            // Запускаем основную инициализацию планировщика
+            initPlannerMainUI();
         }
 
         // ========== Локальное состояние панели задач ==========
@@ -859,9 +1134,9 @@
 
         // ========== HTTP-обёртка для всех CRUD-операций ==========
         async function plannerApi(payload) {
-            // Подмешиваем user_id в каждый запрос. Сервер фильтрует задачи и сессии
-            // по этому полю, юзер видит только свои данные.
-            payload.user_id = CURRENT_USER;
+            // Подмешиваем token в каждый запрос. Сервер делает SQL Verify token,
+            // вытаскивает user_id, фильтрует задачи. Юзер видит только свои.
+            payload.token = getStoredToken();
             try {
                 var res = await GigaChat.fetchWithRetry(PLANNER_URL, {
                     method: 'POST',
@@ -869,7 +1144,15 @@
                     body: JSON.stringify(payload)
                 }, { timeout: 30000, retries: 1 });
                 if (!res.ok) throw new Error('Сервер вернул ' + res.status);
-                return await res.json();
+                var data = await res.json();
+                // Если сервер сказал unauthorized — токен протух/невалиден.
+                // Чистим локально и перенаправляем на login.
+                if (data && data.auth_required) {
+                    clearStoredAuth();
+                    location.reload();
+                    return { response: 'error', error: 'Сессия истекла' };
+                }
+                return data;
             } catch (e) {
                 console.error('Planner API error:', e);
                 return { response: 'error', error: e.message };
@@ -1326,9 +1609,12 @@
         // на одном браузере. Иванов вошёл → видит свои списки; вышел, Петров
         // вошёл → видит свои. Имена сессий безопасно живут в plain ASCII
         // (sanitizeUserForPrefix транслитерирует кириллицу в _).
-        // Условно — только если CURRENT_USER задан (если пуст, показан login,
-        // дальнейшая инициализация не нужна, юзер залогинится и страница reload'нётся).
-        if (CURRENT_USER) {
+        //
+        // Эта функция вызывается из initAuthenticatedUI ПОСЛЕ успешного
+        // verify-токена — раньше делать нельзя, потому что createChatAgent
+        // создаёт sessionStore с user-зависимым префиксом, а сменить его
+        // после без полного релоада нельзя.
+        function initPlannerMainUI() {
         var USER_PREFIX = sanitizeUserForPrefix(CURRENT_USER);
         plannerAgent = GigaChat.createChatAgent({
             webhookPath: 'planner',
@@ -1389,7 +1675,7 @@
                 initialWidth: 270, minWidth: 220, maxWidth: 440
             });
         }
-        } // end if (CURRENT_USER) — закрытие условной инициализации
+        } // end function initPlannerMainUI — вызывается из initAuthenticatedUI после verify
     </script>
 </body>
 </html>

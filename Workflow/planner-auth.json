@@ -1,0 +1,795 @@
+{
+  "name": "Планировщик — Auth. Поток",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "planner-auth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        400
+      ],
+      "id": "auth-webhook-0001",
+      "name": "Webhook Auth",
+      "webhookId": "planner-auth-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst body = $input.first().json.body || {};\nconst action = String(body.action || '').trim();\n\n// Ping для health-check со страницы платформы\nif (action === 'ping' || body.message === 'ping') {\n  return [{ json: { valid: 0, error: 'pong', action: 'ping' } }];\n}\n\nconst ALLOWED = ['register', 'login', 'logout', 'verify', 'change_password'];\nif (!ALLOWED.includes(action)) {\n  return [{ json: { valid: 0, error: 'Неизвестный action: ' + action } }];\n}\n\n// Валидация username (для register/login)\nfunction validateUsername(s) {\n  const u = String(s || '').trim();\n  if (!u) return { ok: false, error: 'Логин обязателен' };\n  if (u.length < 2) return { ok: false, error: 'Логин слишком короткий (минимум 2 символа)' };\n  if (u.length > 100) return { ok: false, error: 'Логин слишком длинный (максимум 100 символов)' };\n  if (!/^[A-Za-zА-Яа-яЁё0-9_\\-. ]+$/.test(u)) {\n    return { ok: false, error: 'Логин: разрешены буквы, цифры, пробел, _ - .' };\n  }\n  const RESERVED = ['system', 'admin', 'root', 'null', 'undefined', 'anonymous'];\n  if (RESERVED.includes(u.toLowerCase())) {\n    return { ok: false, error: 'Это имя зарезервировано системой' };\n  }\n  return { ok: true, value: u };\n}\n\n// Валидация пароля\nfunction validatePassword(s, label) {\n  label = label || 'Пароль';\n  const p = String(s || '');\n  if (!p) return { ok: false, error: label + ' обязателен' };\n  if (p.length < 6) return { ok: false, error: label + ' слишком короткий (минимум 6 символов)' };\n  if (p.length > 200) return { ok: false, error: label + ' слишком длинный (максимум 200 символов)' };\n  return { ok: true, value: p };\n}\n\n// Валидация токена\nfunction validateToken(s) {\n  const t = String(s || '').trim();\n  if (!t) return { ok: false, error: 'Токен обязателен' };\n  if (!/^[a-f0-9]{64}$/.test(t)) return { ok: false, error: 'Неверный формат токена' };\n  return { ok: true, value: t };\n}\n\nconst out = { valid: 1, action };\n\nif (action === 'register' || action === 'login') {\n  const u = validateUsername(body.username);\n  if (!u.ok) return [{ json: { valid: 0, error: u.error } }];\n  const p = validatePassword(body.password);\n  if (!p.ok) return [{ json: { valid: 0, error: p.error } }];\n  out.username = u.value;\n  out.password = p.value;\n  if (action === 'login') {\n    out.remember = !!body.remember;\n    // Генерируем токен заранее — если пароль верный, INSERT'им в planner_sessions.\n    // Если пароль неверный, токен просто отбросится без сохранения.\n    out.token = crypto.randomBytes(32).toString('hex');\n    // expires_at: remember → 10 лет, иначе 24 часа\n    const ms = out.remember ? (10 * 365 * 24 * 60 * 60 * 1000) : (24 * 60 * 60 * 1000);\n    out.expires_at_ms = Date.now() + ms;\n  }\n}\n\nif (action === 'logout' || action === 'verify') {\n  const t = validateToken(body.token);\n  if (!t.ok) return [{ json: { valid: 0, error: t.error } }];\n  out.token = t.value;\n}\n\nif (action === 'change_password') {\n  const t = validateToken(body.token);\n  if (!t.ok) return [{ json: { valid: 0, error: t.error } }];\n  const op = validatePassword(body.old_password, 'Текущий пароль');\n  if (!op.ok) return [{ json: { valid: 0, error: op.error } }];\n  const np = validatePassword(body.new_password, 'Новый пароль');\n  if (!np.ok) return [{ json: { valid: 0, error: np.error } }];\n  if (body.old_password === body.new_password) {\n    return [{ json: { valid: 0, error: 'Новый пароль должен отличаться от текущего' } }];\n  }\n  out.token = t.value;\n  out.old_password = op.value;\n  out.new_password = np.value;\n}\n\nreturn [{ json: out }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        400
+      ],
+      "id": "auth-validate-0002",
+      "name": "Валидация"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        400
+      ],
+      "id": "auth-if-valid-0003",
+      "name": "Валидно?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: 'error', error: $json.error || 'Ошибка валидации', action: $json.action || null }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        840,
+        640
+      ],
+      "id": "auth-resp-error-0004",
+      "name": "Ответ: ошибка"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "register",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-register"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "login",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-login"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "logout",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-logout"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "verify",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-verify"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "change_password",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-changepwd"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        },
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        840,
+        400
+      ],
+      "id": "auth-switch-0005",
+      "name": "Switch action"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO planner_users (username, password_hash) VALUES ($1, crypt($2, gen_salt('bf', 12))) RETURNING id, username, created_at::text",
+        "options": {
+          "queryReplacement": "={{ [$json.username, $json.password] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        100
+      ],
+      "id": "auth-register-sql-0006",
+      "name": "SQL: register user",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format register response. Если UNIQUE-нарушение на username — даём\n// читаемое сообщение «логин занят» вместо технического Postgres-error.\nconst item = $input.first();\nconst data = item && item.json ? item.json : null;\nif (!data || data.error) {\n  const msg = data && data.error ? String(data.error.message || data.error) : 'Не удалось сохранить';\n  if (/unique|duplicate|already exists/i.test(msg)) {\n    return [{ json: { response: 'error', error: 'Этот логин уже занят' } }];\n  }\n  return [{ json: { response: 'error', error: 'Ошибка регистрации: ' + msg } }];\n}\nreturn [{ json: { response: 'ok', user_id: data.id, username: data.username } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        100
+      ],
+      "id": "auth-register-fmt-0007",
+      "name": "Format register"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, username FROM planner_users WHERE LOWER(username) = LOWER($1) AND password_hash = crypt($2, password_hash)",
+        "options": {
+          "queryReplacement": "={{ [$json.username, $json.password] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        280
+      ],
+      "id": "auth-login-verify-sql-0008",
+      "name": "SQL: login verify",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Если пароль не подошёл — пустой ответ от SELECT. Возвращаем error.\n// Если подошёл — пробрасываем user_id + токен (из Валидации) в следующий SQL для INSERT.\nconst item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('Валидация').first().json;\n\nif (!data || !data.id || data.error) {\n  // Не подошли креды (или Postgres error) — единое сообщение чтобы не разглашать\n  // «есть ли такой юзер». Стандартная практика безопасности.\n  return [{ json: { _skip_insert: true, response: 'error', error: 'Неверный логин или пароль' } }];\n}\n\nreturn [{ json: {\n  _skip_insert: false,\n  user_id: data.id,\n  username: data.username,\n  token: src.token,\n  expires_at_ms: src.expires_at_ms,\n  remember: src.remember,\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        280
+      ],
+      "id": "auth-login-prep-0009",
+      "name": "Login prep"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-skip",
+              "leftValue": "={{ $json._skip_insert }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        280
+      ],
+      "id": "auth-login-if-ok-0010",
+      "name": "Login OK?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO planner_sessions (token, user_id, expires_at, remember) VALUES ($1, $2, to_timestamp($3 / 1000.0), $4) RETURNING token, user_id, expires_at::text;\nUPDATE planner_users SET last_login_at = NOW() WHERE id = $2;",
+        "options": {
+          "queryReplacement": "={{ [$json.token, $json.user_id, $json.expires_at_ms, $json.remember] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1960,
+        200
+      ],
+      "id": "auth-login-insert-sql-0011",
+      "name": "SQL: login insert session",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final format for login. Берём token и user_id из prep'а\n// (login insert возвращает row с token, но prep сохраняет username отдельно).\nconst item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst prep = $('Login prep').first().json;\nif (!data || data.error) {\n  return [{ json: { response: 'error', error: 'Не удалось создать сессию: ' + (data && data.error ? data.error.message || data.error : 'неизвестная ошибка') } }];\n}\nreturn [{ json: {\n  response: 'ok',\n  token: prep.token,\n  user_id: prep.user_id,\n  username: prep.username,\n  remember: prep.remember,\n  expires_at_ms: prep.expires_at_ms,\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        200
+      ],
+      "id": "auth-login-fmt-0012",
+      "name": "Format login OK"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $input.first().json }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        360
+      ],
+      "id": "auth-login-fail-0013",
+      "name": "Format login fail"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM planner_sessions WHERE token = $1 RETURNING token",
+        "options": {
+          "queryReplacement": "={{ [$json.token] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        460
+      ],
+      "id": "auth-logout-sql-0014",
+      "name": "SQL: logout",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Идемпотентный logout: даже если токен уже удалён или не существовал —\n// возвращаем ok. Юзер на фронте всё равно очищает localStorage.\nreturn [{ json: { response: 'ok' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        460
+      ],
+      "id": "auth-logout-fmt-0015",
+      "name": "Format logout"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM planner_sessions WHERE expires_at < NOW();\nUPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1;\nSELECT s.user_id, u.username, s.expires_at::text, s.remember FROM planner_sessions s JOIN planner_users u ON u.id = s.user_id WHERE s.token = $1 AND s.expires_at > NOW();",
+        "options": {
+          "queryReplacement": "={{ [$json.token] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        640
+      ],
+      "id": "auth-verify-sql-0016",
+      "name": "SQL: verify token",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nif (!data || data.error || !data.user_id) {\n  return [{ json: { response: 'error', error: 'Токен невалиден или истёк', auth_required: true } }];\n}\nreturn [{ json: {\n  response: 'ok',\n  user_id: data.user_id,\n  username: data.username,\n  expires_at: data.expires_at,\n  remember: data.remember,\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        640
+      ],
+      "id": "auth-verify-fmt-0017",
+      "name": "Format verify"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE planner_users SET password_hash = crypt($3, gen_salt('bf', 12)), password_changed_at = NOW() WHERE id = (SELECT user_id FROM planner_sessions WHERE token = $1 AND expires_at > NOW()) AND password_hash = crypt($2, password_hash) RETURNING id, username",
+        "options": {
+          "queryReplacement": "={{ [$json.token, $json.old_password, $json.new_password] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        820
+      ],
+      "id": "auth-chgpwd-sql-0018",
+      "name": "SQL: change password",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nif (!data || data.error || !data.id) {\n  // Пусто = либо токен невалиден, либо старый пароль не совпал.\n  // Не разглашаем какое именно — единое сообщение.\n  return [{ json: { response: 'error', error: 'Не удалось сменить пароль (проверь текущий пароль)' } }];\n}\n// После смены пароля все остальные сессии этого юзера лучше invalidate'нуть,\n// но это уже security policy решение. Пока оставляем — пусть «запомненные»\n// сессии работают пока не истекут.\nreturn [{ json: { response: 'ok' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        820
+      ],
+      "id": "auth-chgpwd-fmt-0019",
+      "name": "Format change_password"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2520,
+        400
+      ],
+      "id": "auth-resp-ok-0020",
+      "name": "Ответ: OK"
+    }
+  ],
+  "connections": {
+    "Webhook Auth": {
+      "main": [
+        [
+          {
+            "node": "Валидация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация": {
+      "main": [
+        [
+          {
+            "node": "Валидно?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидно?": {
+      "main": [
+        [
+          {
+            "node": "Switch action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch action": {
+      "main": [
+        [
+          {
+            "node": "SQL: register user",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SQL: login verify",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SQL: logout",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SQL: verify token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SQL: change password",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: register user": {
+      "main": [
+        [
+          {
+            "node": "Format register",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: login verify": {
+      "main": [
+        [
+          {
+            "node": "Login prep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login prep": {
+      "main": [
+        [
+          {
+            "node": "Login OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login OK?": {
+      "main": [
+        [
+          {
+            "node": "SQL: login insert session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format login fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: login insert session": {
+      "main": [
+        [
+          {
+            "node": "Format login OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: logout": {
+      "main": [
+        [
+          {
+            "node": "Format logout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: verify token": {
+      "main": [
+        [
+          {
+            "node": "Format verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: change password": {
+      "main": [
+        [
+          {
+            "node": "Format change_password",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format register": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format login OK": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format login fail": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format logout": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format verify": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format change_password": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "planner-auth-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "planner-auth-workflow",
+  "tags": []
+}

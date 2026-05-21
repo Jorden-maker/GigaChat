@@ -115,70 +115,146 @@ CREATE TABLE planner_tasks (
 
 ## Многопользовательский режим
 
-Каждый сотрудник вводит своё имя при первом заходе и видит только свои
-задачи. Это **идентификация (не аутентификация)** — простой identity-flow
-для офиса в LAN с доверием к коллегам. Никаких паролей, токенов, ролей.
+Полноценная аутентификация: логин + пароль (bcrypt), session-токены в БД,
+самостоятельная регистрация. Юзер видит только свои задачи, его задачи
+криптографически изолированы от чужих.
 
 ### Как это работает с точки зрения юзера
 
 1. Юзер открывает `http://server:8765/Agents/planner.html`
-2. Если он тут впервые — модалка **«Введите ваше имя»**
-3. Вводит, например, «Иванов» → жмёт Войти → страница перезагружается
-4. Видит свои списки задач (если уже что-то создавал) или пустое состояние
-5. В шапке справа — «Иванов ▼» с dropdown'ом «Сменить имя / Выйти»
-6. Любой коллега с другого компьютера (или той же машины, после Выйти)
-   входит как «Петров» — видит свои задачи, изолированно
+2. Видит экран входа с табами **Вход / Регистрация**
+3. Если ещё нет аккаунта — жмёт «Регистрация», вводит логин + пароль
+   (мин. 6 символов) → авто-логин → попадает в планировщик
+4. Иначе — «Вход», логин + пароль + чекбокс «Запомнить меня» → планировщик
+5. В шапке справа — «Иванов ▼» с dropdown'ом «Сменить пароль / Выйти»
+6. Сессия живёт 24 часа (без «Запомнить») или 10 лет (с «Запомнить меня»).
+   После истечения — обратно на login.
+
+### Архитектура auth
+
+```
+┌─────────────────────────────────────────────┐
+│ Браузер                                      │
+│   localStorage: planner_token (64 hex)      │
+│                 planner_username             │
+└─────────────────────────────────────────────┘
+                  │ token в каждом запросе
+                  ↓
+┌─────────────────────────────────────────────┐
+│ n8n: planner-auth.json                       │
+│   /webhook/planner-auth                      │
+│   ├─ register  → INSERT planner_users        │
+│   ├─ login     → verify password + INSERT    │
+│   │             planner_sessions             │
+│   ├─ logout    → DELETE planner_sessions     │
+│   ├─ verify    → SELECT user by token        │
+│   └─ change_pwd → UPDATE password            │
+│                                              │
+│ n8n: planner.json                            │
+│   /webhook/planner                           │
+│   → SQL Verify token → user_id, username     │
+│   → CRUD/AI с этим user_id                   │
+└─────────────────────────────────────────────┘
+                  │
+                  ↓
+┌─────────────────────────────────────────────┐
+│ PostgreSQL                                   │
+│   planner_users    (id, username UNIQUE,     │
+│                     password_hash, ...)      │
+│   planner_sessions (token PK, user_id FK,    │
+│                     expires_at, remember)    │
+│   planner_tasks    (id, user_id FK, ...)     │
+└─────────────────────────────────────────────┘
+```
 
 ### Что хранится и где
 
 | Где | Что | Зачем |
 |---|---|---|
-| Браузер юзера (`localStorage`) | `planner_user = 'Иванов'` | Чтобы при следующем заходе не спрашивать имя заново |
-| Браузер юзера (`localStorage`) | `planner_ivanov_sessions`, `planner_ivanov_active`, ... | Списки задач (sessions sidebar), отдельный namespace на юзера |
-| Сервер (`planner_tasks`) | `user_id` колонка в каждой строке | Сервер фильтрует задачи по user_id в каждом SQL-запросе |
-| Сервер (`chat_memory`) | AI-история с `session_id` имеющим user-префикс | История AI-диалогов изолирована вместе с сессиями |
+| Браузер (`localStorage`) | `planner_token` — 64 hex символа | Bearer-токен для всех запросов |
+| Браузер (`localStorage`) | `planner_username` | Для отображения в header'е (источник истины всё равно сервер при verify) |
+| Браузер (`localStorage`) | `planner_<safeuser>_sessions`, ... | Списки задач (sessions sidebar) per-user namespace |
+| Сервер (`planner_users`) | id, username, password_hash (bcrypt), timestamps | Регистрация + login |
+| Сервер (`planner_sessions`) | token, user_id, expires_at, remember | Session-токены, легко revoke удалением строки |
+| Сервер (`planner_tasks`) | user_id (INTEGER FK на planner_users) | Изоляция задач по юзеру |
 
-### Что валидируется
+### Защита
 
-**На фронте** (`Agents/planner.html`):
-- Имя 1-100 символов
-- Разрешены: буквы (рус+lat), цифры, пробел, `_`, `-`, `.`
-- Зарезервированные имена нельзя: `system`, `admin`, `root`, `null`, `undefined`, `anonymous`
+| | Реализовано | Уровень |
+|---|---|---|
+| Пароли | bcrypt с work factor 12 (pgcrypto, ~250ms на хеш) | Высокий — устойчив к brute force |
+| Токены | 32 байта random (256 бит энтропии), 64 hex символа | Высокий — невозможно угадать |
+| Хранение токенов | В БД, expires_at + last_used_at, легко invalidate | Высокий — DELETE FROM planner_sessions |
+| FK constraints | user_id INTEGER REFERENCES, ON DELETE CASCADE | Высокий — нельзя осиротить задачи |
+| Сокрытие existence | «Неверный логин или пароль» (не указывает что именно неверно) | Стандартная практика |
+| Login на разных устройствах | Каждое устройство → свой токен в planner_sessions | Один юзер, много сессий |
+| Token expiration | 24 часа (без remember) / 10 лет (с remember) | Балансир между UX и безопасностью |
+| Чистка протухших | При каждом verify — `DELETE WHERE expires_at < NOW()` | Не нужен отдельный cron |
 
-**На сервере** (workflow `Валидация` нода) — те же правила.
-Зашифровать/обмануть фронт легко (это идентификация, не auth), но прямые
-запросы к webhook'у со «злым» именем сервер тоже не пропустит.
+### Чего НЕ реализовано (намеренно, можно добавить позже)
 
-### Что НЕЛЬЗЯ делать через этот режим
+- ✗ Rate-limit на login (защита от brute force) — для офисного LAN не критично
+- ✗ 2FA / TOTP / SMS — overkill
+- ✗ Email-подтверждение регистрации — нет SMTP
+- ✗ Восстановление пароля через email — нет SMTP. Только через админа (см. ниже).
+- ✗ Captcha — overkill
+- ✗ HTTPS-only cookies — в LAN всё по HTTP, токен в localStorage
+- ✗ CSRF tokens — нет cookies, payload через JSON body
+- ✗ Audit log входов — можно посмотреть `last_login_at` в planner_users
 
-- ✗ Скрывать конфиденциальные данные между юзерами — любой может ввести
-  имя коллеги и увидеть его задачи (если знает имя)
-- ✗ Делить роли (admin/user) — все юзеры равны
-- ✗ Шарить задачи между юзерами (assignment / общие проекты)
-- ✗ Сменить имя задачи задним числом юзеру (имя в БД — это просто строка)
+### Восстановление пароля (через админа)
 
-Если что-то из этого нужно — это уже другой проект (см. Plane или
-аналогичные team-PM инструменты). Наш планировщик намеренно остаётся
-максимально простым.
+Юзер забыл пароль — обращается к админу с просьбой. Админ заходит в БД
+и сбрасывает:
 
-### Миграция со старой версии (без user_id)
+```sql
+-- 1. Сгенерировать новый пароль (например 'NewPass123')
+UPDATE planner_users
+   SET password_hash = crypt('NewPass123', gen_salt('bf', 12)),
+       password_changed_at = NOW()
+ WHERE username = 'Иванов';
 
-Если у тебя уже стояла предыдущая версия планировщика — задачи в
-`planner_tasks` уже есть, но без `user_id`. Запусти миграцию:
+-- 2. Invalidate все активные сессии этого юзера (опционально)
+DELETE FROM planner_sessions
+ WHERE user_id = (SELECT id FROM planner_users WHERE username = 'Иванов');
+```
+
+Сообщить юзеру новый пароль через надёжный канал (личная встреча,
+корпоративный мессенджер). Юзер заходит, в user-menu выбирает «Сменить
+пароль», ставит свой.
+
+### Удаление юзера (через админа)
+
+```sql
+DELETE FROM planner_users WHERE username = 'Иванов';
+-- ON DELETE CASCADE удалит все его задачи и сессии автоматически
+```
+
+### Миграция со старой версии (identity-flow без паролей)
+
+Если у тебя стояла **v2** (multi-user через имя без паролей) — запусти
+миграцию v3:
 
 ```bash
 # Linux + Postgres в Docker:
-cat Планировщик/migration-add-users.sql | docker exec -i <postgres-container> psql -U postgres -d ai_agent
+cat Планировщик/migration-v3-auth.sql | docker exec -i <postgres-container> psql -U postgres -d ai_agent
 
 # Windows + Postgres напрямую:
-psql -U postgres -d ai_agent -f Планировщик/migration-add-users.sql
+psql -U postgres -d ai_agent -f Планировщик/migration-v3-auth.sql
 ```
 
-Старые задачи получат `user_id = 'anonymous'` и не будут видны новым
-юзерам с именами. Можно удалить вручную:
+**⚠ Важно:** миграция v3 **удаляет все существующие задачи** в `planner_tasks`
+(старая схема user_id была VARCHAR с именем, новая — INTEGER FK на
+planner_users.id; преобразование невозможно без ручного создания юзеров).
+Если задачи важны — экспортируй их вручную ДО запуска миграции:
+
 ```sql
-DELETE FROM planner_tasks WHERE user_id = 'anonymous';
+COPY planner_tasks TO '/tmp/planner_tasks_backup.csv' CSV HEADER;
 ```
+
+После миграции — re-import оба workflow в n8n:
+- `Workflow/planner-auth.json` (новый) — импортнуть как новый workflow → Activate
+- `Workflow/planner.json` (обновлён) — Replace existing → Activate
 
 ## Как работает workflow
 
