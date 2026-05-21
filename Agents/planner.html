@@ -476,9 +476,29 @@
             stroke: currentColor; fill: none;
             stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
         }
-        /* Поверх login-overlay (z-index:1000) — theme-toggle из _shared.js
-           использует z-index:9999, но на всякий случай override для надёжности. */
-        #gc-theme-toggle { z-index: 1001 !important; }
+        /* Кнопка переключения тем в правом верхнем углу login-экрана.
+           Не полагаемся на #gc-theme-toggle из _shared.js — он может быть
+           перекрыт overlay в некоторых браузерах. Своя кнопка — надёжнее.
+           Стиль скопирован один-в-один из _shared.js (круглая, иконка-луна/солнце). */
+        .gc-login-theme {
+            position: fixed; top: 10px; right: 14px; z-index: 1001;
+            width: 36px; height: 36px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 50%; color: var(--text-secondary);
+            cursor: pointer; padding: 0; font-family: inherit;
+            transition: background .15s, color .15s, border-color .15s, transform .15s;
+        }
+        .gc-login-theme:hover {
+            background: var(--bg-hover, rgba(255,255,255,0.06));
+            color: var(--accent); border-color: var(--accent);
+            transform: rotate(15deg);
+        }
+        .gc-login-theme svg {
+            width: 16px; height: 16px;
+            stroke: currentColor; fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
         .gc-login-modal {
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 12px; width: min(420px, 92vw);
@@ -680,6 +700,8 @@
     <div class="gc-login-overlay" id="loginOverlay" style="display:none">
         <!-- Кнопка возврата в дашборд (визуально как .btn-home в сайдбаре) -->
         <a class="gc-login-back" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat" title="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
+        <!-- Кнопка переключения тем (как #gc-theme-toggle на остальных страницах) -->
+        <button class="gc-login-theme" id="loginThemeToggle" type="button" onclick="loginToggleTheme()" aria-label="Переключить тему" title="Переключить тему"></button>
         <div class="gc-login-modal">
             <div class="gc-login-header">Планировщик</div>
             <div class="gc-login-tabs">
@@ -963,7 +985,42 @@
             overlay.style.display = 'flex';
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
+            // Скрываем стандартный #gc-theme-toggle из _shared.js на login —
+            // в overlay есть своя .gc-login-theme. Возвращаем в initAuthenticatedUI.
+            var stdToggle = document.getElementById('gc-theme-toggle');
+            if (stdToggle) stdToggle.style.display = 'none';
+            updateLoginThemeIcon();
             switchLoginTab(activeTab || 'login');
+        }
+
+        // === Кнопка переключения тем на login-экране ========================
+        // Используем GigaChat.toggleTheme если доступен (sync hljs, иконка
+        // стандартной кнопки, cross-tab sync), иначе локальный fallback.
+        var LOGIN_SUN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>';
+        var LOGIN_MOON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+        function updateLoginThemeIcon() {
+            var btn = document.getElementById('loginThemeToggle');
+            if (!btn) return;
+            var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+            // На тёмной теме показываем солнце (переключатель на светлую) и наоборот.
+            btn.innerHTML = dark ? LOGIN_SUN_SVG : LOGIN_MOON_SVG;
+            var label = dark ? 'Светлая тема' : 'Тёмная тема';
+            btn.title = label;
+            btn.setAttribute('aria-label', label);
+        }
+        function loginToggleTheme() {
+            if (window.GigaChat && typeof window.GigaChat.toggleTheme === 'function') {
+                window.GigaChat.toggleTheme();
+            } else {
+                // Fallback: переключаем data-theme + сохраняем в localStorage
+                var html = document.documentElement;
+                var cur = html.getAttribute('data-theme') || 'light';
+                var next = cur === 'dark' ? 'light' : 'dark';
+                html.setAttribute('data-theme', next);
+                try { localStorage.setItem('giga_theme', next); } catch (e) {}
+            }
+            updateLoginThemeIcon();
         }
 
         function switchLoginTab(tab) {
@@ -978,9 +1035,9 @@
             // Кнопка submit меняет label
             var btn = document.getElementById('loginSubmitBtn');
             if (btn) btn.textContent = tab === 'register' ? 'Зарегистрироваться' : 'Войти';
-            // Очистка ошибок
-            document.getElementById('loginError').textContent = '';
-            document.getElementById('regError').textContent = '';
+            // Очистка ошибок (мгновенно при переключении табов)
+            setLoginError('loginError', '');
+            setLoginError('regError', '');
             // Фокус на первое поле активной формы
             setTimeout(function () {
                 var firstInput = document.querySelector('.gc-login-form:not(.hidden) input');
@@ -988,21 +1045,38 @@
             }, 50);
         }
 
+        // Установка inline-ошибки с авто-очисткой через 5 секунд.
+        // Если text пустой — очищает мгновенно и отменяет старый таймер.
+        function setLoginError(elId, text) {
+            var el = document.getElementById(elId);
+            if (!el) return;
+            if (el._clearTimer) {
+                clearTimeout(el._clearTimer);
+                el._clearTimer = null;
+            }
+            el.textContent = text || '';
+            if (text) {
+                el._clearTimer = setTimeout(function () {
+                    el.textContent = '';
+                    el._clearTimer = null;
+                }, 5000);
+            }
+        }
+
         async function submitLogin() {
-            var err = document.getElementById('loginError');
             var btn = document.getElementById('loginSubmitBtn');
             var username = document.getElementById('loginUsername').value.trim();
             var password = document.getElementById('loginPassword').value;
             var remember = document.getElementById('loginRemember').checked;
-            err.textContent = '';
-            if (!username) { err.textContent = 'Введите логин'; return; }
-            if (!password) { err.textContent = 'Введите пароль'; return; }
+            setLoginError('loginError', '');
+            if (!username) { setLoginError('loginError', 'Введите имя'); return; }
+            if (!password) { setLoginError('loginError', 'Введите пароль'); return; }
             btn.disabled = true;
             btn.textContent = 'Вход…';
             try {
                 var data = await authApi({ action: 'login', username: username, password: password, remember: remember });
                 if (data.response !== 'ok') {
-                    err.textContent = data.error || 'Не удалось войти';
+                    setLoginError('loginError', data.error || 'Не удалось войти');
                     return;
                 }
                 setStoredAuth(data.token, data.username);
@@ -1014,21 +1088,20 @@
         }
 
         async function submitRegister() {
-            var err = document.getElementById('regError');
             var btn = document.getElementById('loginSubmitBtn');
             var username = document.getElementById('regUsername').value.trim();
             var password = document.getElementById('regPassword').value;
             var password2 = document.getElementById('regPassword2').value;
-            err.textContent = '';
-            if (!username) { err.textContent = 'Введите логин'; return; }
-            if (password.length < 6) { err.textContent = 'Пароль не короче 6 символов'; return; }
-            if (password !== password2) { err.textContent = 'Пароли не совпадают'; return; }
+            setLoginError('regError', '');
+            if (!username) { setLoginError('regError', 'Введите имя'); return; }
+            if (password.length < 6) { setLoginError('regError', 'Пароль не короче 6 символов'); return; }
+            if (password !== password2) { setLoginError('regError', 'Пароли не совпадают'); return; }
             btn.disabled = true;
             btn.textContent = 'Регистрация…';
             try {
                 var data = await authApi({ action: 'register', username: username, password: password });
                 if (data.response !== 'ok') {
-                    err.textContent = data.error || 'Не удалось зарегистрироваться';
+                    setLoginError('regError', data.error || 'Не удалось зарегистрироваться');
                     return;
                 }
                 // Авто-логин после успешной регистрации
@@ -1148,6 +1221,10 @@
         })();
 
         function initAuthenticatedUI() {
+            // Возвращаем стандартный #gc-theme-toggle (мы прятали его на login-экране,
+            // там работала своя .gc-login-theme).
+            var stdToggle = document.getElementById('gc-theme-toggle');
+            if (stdToggle) stdToggle.style.display = '';
             // User-menu в шапке: показываем имя + dropdown
             var menu = document.getElementById('userMenu');
             var trigger = document.getElementById('userMenuTrigger');
