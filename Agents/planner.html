@@ -453,9 +453,13 @@
         .gc-login-overlay {
             position: fixed; inset: 0; z-index: 1000;
             background: var(--bg-primary);
-            /* НЕ flex-центрирование: модалка позиционируется absolute с
-               фиксированным top, чтобы при смене вкладки верх рамки
-               оставался на месте, а высота росла только вниз. */
+            /* Flex: горизонтальное центрирование (без конфликта с
+               animation transform на модалке), верх прибит к padding-top.
+               align-items: flex-start → при изменении высоты растёт только вниз. */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 18vh;
             opacity: 1;
             transition: opacity 0.25s ease;
             overflow-y: auto;
@@ -517,19 +521,16 @@
         .gc-login-modal {
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 12px;
-            /* Ширина фиксирована, верх модалки прибит к 18vh от верха окна.
-               При смене вкладки меняется только высота (рост вниз). */
+            /* Ширина фиксирована, верх держится flex'ом overlay (flex-start
+               + padding-top). При смене вкладки меняется только высота (вниз). */
             width: min(420px, 92vw);
-            position: absolute;
-            top: 18vh;
-            left: 50%;
-            transform: translateX(-50%);
-            /* Плавный переход высоты — устанавливается JS в switchLoginTab */
+            flex-shrink: 0;
             transition: height 0.25s ease;
-            /* Без box-shadow — фон однотонный, модалка отделяется только
-               border'ом и контрастом bg-secondary vs bg-primary. */
             animation: plannerModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        /* Плавный fade форм при смене вкладки — fade-out до движения рамки,
+           fade-in после. CSS только задаёт transition, opacity управляется JS. */
+        .gc-login-form { transition: opacity 0.15s ease; }
         .gc-login-header {
             padding: 22px 24px 6px; font-size: 18px; font-weight: 600;
             color: var(--text-primary); text-align: center;
@@ -1163,27 +1164,47 @@
             }
 
             if (!isSameTab && modal && currentActive) {
-                // Прерываем предыдущий height-transition, если шёл
-                if (modal._heightTimer) clearTimeout(modal._heightTimer);
-                // 1. Замораживаем текущую высоту явным значением
-                var fromHeight = modal.offsetHeight;
-                modal.style.height = fromHeight + 'px';
-                modal.offsetHeight; // force reflow
-                // 2. Подменяем формы и измеряем новую естественную высоту
-                applySwap();
-                modal.style.height = 'auto';
-                var toHeight = modal.offsetHeight;
-                // 3. Возвращаем from-height, force reflow, потом ставим to —
-                //    CSS transition height срабатывает
-                modal.style.height = fromHeight + 'px';
-                modal.offsetHeight; // force reflow
-                modal.style.height = toHeight + 'px';
-                // 4. После transition снимаем явный height (auto на будущее)
-                modal._heightTimer = setTimeout(function () {
-                    modal.style.height = '';
-                    modal._heightTimer = null;
-                    focusTarget();
-                }, 270);
+                // 3-фазная анимация:
+                //   Фаза 1 (150мс): opacity текущей формы → 0
+                //   Фаза 2 (250мс): swap содержимого + height transition (рост вниз)
+                //   Фаза 3 (150мс): opacity новой формы → 1
+                if (modal._switchTimers) modal._switchTimers.forEach(clearTimeout);
+                modal._switchTimers = [];
+
+                var oldForm = document.querySelector('.gc-login-form:not(.hidden)');
+                // Фаза 1: fade-out текущей формы
+                if (oldForm) oldForm.style.opacity = '0';
+
+                modal._switchTimers.push(setTimeout(function () {
+                    // Фаза 2: swap + измерение высот + height transition
+                    var fromHeight = modal.offsetHeight;
+                    modal.style.height = fromHeight + 'px';
+                    modal.offsetHeight; // force reflow
+                    applySwap();
+                    var newForm = document.querySelector('.gc-login-form:not(.hidden)');
+                    // Новая форма начинает с opacity 0, чтобы не вспыхнуть
+                    if (newForm) newForm.style.opacity = '0';
+                    modal.style.height = 'auto';
+                    var toHeight = modal.offsetHeight;
+                    modal.style.height = fromHeight + 'px';
+                    modal.offsetHeight; // force reflow
+                    modal.style.height = toHeight + 'px';
+
+                    modal._switchTimers.push(setTimeout(function () {
+                        // Фаза 3: height transition закончился — снимаем явный
+                        // height, fade-in новой формы
+                        modal.style.height = '';
+                        if (oldForm) oldForm.style.opacity = '';
+                        if (newForm) newForm.style.opacity = '1';
+
+                        modal._switchTimers.push(setTimeout(function () {
+                            // Чистим inline opacity на новой форме — CSS дефолт 1
+                            if (newForm) newForm.style.opacity = '';
+                            modal._switchTimers = [];
+                            focusTarget();
+                        }, 170));
+                    }, 270));
+                }, 170));
             } else {
                 // Первое отображение или тот же tab — без анимации
                 applySwap();
