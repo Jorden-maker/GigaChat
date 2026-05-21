@@ -514,8 +514,22 @@
         .gc-login-modal {
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 12px; width: min(420px, 92vw);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            /* Трёхслойная мягкая тень — без резкого контура. Близкий слой
+               для лёгкого «отрыва» от фона, средний для глубины, дальний
+               для растушёванного гало. На светлой теме переопределяется
+               ниже более лёгкими значениями (на белом 40% чёрная тень
+               смотрелась бы грубо). */
+            box-shadow:
+                0 2px 8px rgba(0, 0, 0, 0.18),
+                0 14px 40px rgba(0, 0, 0, 0.28),
+                0 48px 120px rgba(0, 0, 0, 0.42);
             animation: plannerModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        :root[data-theme="light"] .gc-login-modal {
+            box-shadow:
+                0 2px 8px rgba(0, 0, 0, 0.05),
+                0 14px 40px rgba(0, 0, 0, 0.08),
+                0 48px 120px rgba(0, 0, 0, 0.12);
         }
         .gc-login-header {
             padding: 22px 24px 6px; font-size: 18px; font-weight: 600;
