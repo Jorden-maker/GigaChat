@@ -482,7 +482,9 @@
            Стиль скопирован один-в-один из _shared.js (круглая, иконка-луна/солнце). */
         .gc-login-theme {
             position: fixed; top: 10px; right: 14px; z-index: 1001;
-            width: 36px; height: 36px;
+            /* Размер 32×32 — точно как у #gc-theme-toggle из _shared.js
+               (на других страницах). Не путать с .btn-home (36×36). */
+            width: 32px; height: 32px;
             display: inline-flex; align-items: center; justify-content: center;
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 50%; color: var(--text-secondary);
