@@ -367,15 +367,12 @@
             transition: color 0.18s ease, background 0.18s ease, transform 0.1s ease;
             font-family: inherit; outline: none;
         }
-        /* Сбрасываем persistent :focus после клика (раньше левая стрелка
-           оставалась подсвеченной, потому что фокус оставался на ней). hover
-           и focus-visible (клавиатурная навигация) подсвечивают — обычный
-           click убирает фокус, состояние сбрасывается. */
-        .gc-datepicker-nav:focus:not(:focus-visible) {
-            color: var(--text-secondary); background: transparent;
-        }
-        .gc-datepicker-nav:hover,
-        .gc-datepicker-nav:focus-visible {
+        /* Подсветка ТОЛЬКО на hover. :focus-visible вариант убран, поскольку
+           для клавиатурной навигации мы добавили на саму datepicker-секцию
+           tabindex, и табать внутрь календаря необычно. JS делает
+           mousedown.preventDefault() — фокус вообще не садится на кнопку
+           при клике мышью, состояние «активная» не залипает. */
+        .gc-datepicker-nav:hover {
             color: var(--accent); background: var(--bg-secondary);
         }
         .gc-datepicker-nav:active { transform: scale(0.92); }
@@ -847,6 +844,14 @@
             popup.addEventListener('click', function (e) {
                 // Внутренние клики не должны закрывать popup (только закрытие по выбору даты или actions)
                 e.stopPropagation();
+            });
+            // КРИТИЧНО: на ВСЕ кнопки внутри popup'а вешаем mousedown.preventDefault().
+            // Без этого после клика мышью фокус «приклеивается» к кнопке, и в
+            // некоторых браузерах :focus-visible матчится → кнопка остаётся
+            // подсвеченной как hover. preventDefault на mousedown блокирует
+            // нативный focus-on-click, при этом click-event срабатывает.
+            Array.prototype.forEach.call(popup.querySelectorAll('button'), function (btn) {
+                btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
             });
             popup.querySelector('.gc-datepicker-prev').addEventListener('click', function (e) {
                 // blur — иначе после клика мышью фокус застревает на кнопке,

@@ -248,11 +248,13 @@
           "id": "OYsyciMf7Eq9W4FS",
           "name": "Postgres"
         }
-      }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "// Аккумулируем все строки SELECT в один массив tasks для ответа.\nconst items = $input.all();\nconst tasks = items.map(i => i.json);\nreturn [{ json: { response: 'ok', tasks: tasks } }];"
+        "jsCode": "const inputData = $input.first() ? $input.first().json : null;\nif (inputData && inputData.error) {\n  const errMsg = String(inputData.error.message || inputData.error.detail || inputData.error || 'Ошибка БД');\n  const friendly = errMsg.includes('does not exist') || errMsg.includes('relation \"planner_tasks\"')\n    ? 'Таблица planner_tasks не создана в БД. Запустите Планировщик/planner-schema.sql (см. инструкцию в Планировщик/README.md).'\n    : 'Ошибка БД: ' + errMsg;\n  return [{ json: { response: 'error', error: friendly } }];\n}\nconst items = $input.all();\nconst tasks = items.map(i => i.json).filter(t => t && t.id);\nreturn [{ json: { response: 'ok', tasks: tasks } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -284,11 +286,13 @@
           "id": "OYsyciMf7Eq9W4FS",
           "name": "Postgres"
         }
-      }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "const row = $input.first().json;\nreturn [{ json: { response: 'ok', task: row } }];"
+        "jsCode": "const inputData = $input.first() ? $input.first().json : null;\nif (inputData && inputData.error) {\n  const errMsg = String(inputData.error.message || inputData.error.detail || inputData.error || 'Ошибка БД');\n  const friendly = errMsg.includes('does not exist') || errMsg.includes('relation \"planner_tasks\"')\n    ? 'Таблица planner_tasks не создана в БД. Запустите Планировщик/planner-schema.sql (см. инструкцию в Планировщик/README.md).'\n    : 'Ошибка БД: ' + errMsg;\n  return [{ json: { response: 'error', error: friendly } }];\n}\nconst row = $input.first().json;\nreturn [{ json: { response: 'ok', task: row } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -333,11 +337,13 @@
           "id": "OYsyciMf7Eq9W4FS",
           "name": "Postgres"
         }
-      }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "const row = $input.first().json;\nif (!row || !row.id) {\n  return [{ json: { response: 'not_found', error: 'Задача не найдена или не принадлежит этой сессии' } }];\n}\nreturn [{ json: { response: 'ok', task: row } }];"
+        "jsCode": "const inputData = $input.first() ? $input.first().json : null;\nif (inputData && inputData.error) {\n  const errMsg = String(inputData.error.message || inputData.error.detail || inputData.error || 'Ошибка БД');\n  const friendly = errMsg.includes('does not exist') || errMsg.includes('relation \"planner_tasks\"')\n    ? 'Таблица planner_tasks не создана в БД. Запустите Планировщик/planner-schema.sql (см. инструкцию в Планировщик/README.md).'\n    : 'Ошибка БД: ' + errMsg;\n  return [{ json: { response: 'error', error: friendly } }];\n}\nconst row = $input.first().json;\nif (!row || !row.id) {\n  return [{ json: { response: 'not_found', error: 'Задача не найдена или не принадлежит этой сессии' } }];\n}\nreturn [{ json: { response: 'ok', task: row } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -369,11 +375,13 @@
           "id": "OYsyciMf7Eq9W4FS",
           "name": "Postgres"
         }
-      }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "const r = $input.first().json;\nreturn [{ json: { response: r && r.id ? 'ok' : 'not_found', id: r ? r.id : null } }];"
+        "jsCode": "const inputData = $input.first() ? $input.first().json : null;\nif (inputData && inputData.error) {\n  const errMsg = String(inputData.error.message || inputData.error.detail || inputData.error || 'Ошибка БД');\n  const friendly = errMsg.includes('does not exist') || errMsg.includes('relation \"planner_tasks\"')\n    ? 'Таблица planner_tasks не создана в БД. Запустите Планировщик/planner-schema.sql (см. инструкцию в Планировщик/README.md).'\n    : 'Ошибка БД: ' + errMsg;\n  return [{ json: { response: 'error', error: friendly } }];\n}\nconst r = $input.first().json;\nreturn [{ json: { response: r && r.id ? 'ok' : 'not_found', id: r ? r.id : null } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
