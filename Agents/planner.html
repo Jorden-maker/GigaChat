@@ -455,6 +455,30 @@
             background: var(--bg-primary);
             display: flex; align-items: center; justify-content: center;
         }
+        /* Кнопка «Назад к GigaChat» в левом верхнем углу login-экрана.
+           Визуально идентична .btn-home из _shared.js (та же — в сайдбаре после
+           логина), но fixed-позиционирование, чтобы поверх overlay'а. */
+        .gc-login-back {
+            position: fixed; top: 10px; left: 14px; z-index: 1001;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 36px; height: 36px;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text-secondary);
+            text-decoration: none;
+            transition: background .15s, color .15s, border-color .15s;
+        }
+        .gc-login-back:hover {
+            background: var(--bg-input); color: var(--text-primary);
+            border-color: var(--text-muted);
+        }
+        .gc-login-back svg {
+            width: 16px; height: 16px;
+            stroke: currentColor; fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
+        /* Поверх login-overlay (z-index:1000) — theme-toggle из _shared.js
+           использует z-index:9999, но на всякий случай override для надёжности. */
+        #gc-theme-toggle { z-index: 1001 !important; }
         .gc-login-modal {
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 12px; width: min(420px, 92vw);
@@ -654,6 +678,8 @@
     <!-- Login-screen: показывается если в localStorage нет валидного planner_token
          либо verify-токена вернул auth_required. Tabs Вход/Регистрация. -->
     <div class="gc-login-overlay" id="loginOverlay" style="display:none">
+        <!-- Кнопка возврата в дашборд (визуально как .btn-home в сайдбаре) -->
+        <a class="gc-login-back" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat" title="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
         <div class="gc-login-modal">
             <div class="gc-login-header">Планировщик</div>
             <div class="gc-login-tabs">
@@ -661,15 +687,20 @@
                 <button class="gc-login-tab" data-tab="register" onclick="switchLoginTab('register')">Регистрация</button>
             </div>
 
-            <!-- Login form -->
+            <!-- Login form. data-next — id поля, на которое перейти при Enter.
+                 Пустой data-next или его отсутствие = native submit. -->
             <form class="gc-login-form" data-form="login" onsubmit="event.preventDefault(); submitLogin()">
-                <label>Логин
-                    <input type="text" id="loginUsername" maxlength="100" autocomplete="username" placeholder="Иванов">
+                <label>Имя
+                    <input type="text" id="loginUsername" maxlength="100" autocomplete="username"
+                           placeholder="латиница или кириллица" title="Имя — латиница или кириллица, до 100 символов"
+                           data-next="loginPassword">
                 </label>
                 <label>Пароль
-                    <input type="password" id="loginPassword" maxlength="200" autocomplete="current-password" placeholder="••••••••">
+                    <input type="password" id="loginPassword" maxlength="200" autocomplete="current-password"
+                           placeholder="••••••••" title="Ваш пароль"
+                           data-next="loginSubmitBtn">
                 </label>
-                <label class="gc-checkbox-row">
+                <label class="gc-checkbox-row" title="Помнить вас 10 лет на этом устройстве">
                     <input type="checkbox" id="loginRemember" checked>
                     <span>Запомнить меня</span>
                 </label>
@@ -678,14 +709,20 @@
 
             <!-- Register form -->
             <form class="gc-login-form hidden" data-form="register" onsubmit="event.preventDefault(); submitRegister()">
-                <label>Логин
-                    <input type="text" id="regUsername" maxlength="100" autocomplete="username" placeholder="Иванов">
+                <label>Имя
+                    <input type="text" id="regUsername" maxlength="100" autocomplete="username"
+                           placeholder="латиница или кириллица" title="Имя — латиница или кириллица, до 100 символов"
+                           data-next="regPassword">
                 </label>
                 <label>Пароль
-                    <input type="password" id="regPassword" maxlength="200" autocomplete="new-password" placeholder="не менее 6 символов">
+                    <input type="password" id="regPassword" maxlength="200" autocomplete="new-password"
+                           placeholder="не менее 6 символов" title="Пароль не короче 6 символов"
+                           data-next="regPassword2">
                 </label>
                 <label>Подтвердите пароль
-                    <input type="password" id="regPassword2" maxlength="200" autocomplete="new-password" placeholder="ещё раз">
+                    <input type="password" id="regPassword2" maxlength="200" autocomplete="new-password"
+                           placeholder="ещё раз" title="Повторите пароль для проверки"
+                           data-next="loginSubmitBtn">
                 </label>
                 <div class="gc-login-error" id="regError"></div>
             </form>
@@ -1004,6 +1041,36 @@
                 btn.disabled = false;
             }
         }
+
+        // === Enter-цепочка в login/register формах =========================
+        // Поведение: Enter в input'е НЕ сабмитит форму, а переводит фокус
+        // на следующее поле (data-next=id). Если data-next указывает на
+        // кнопку (loginSubmitBtn) — Enter триггерит её клик (= submit).
+        // Чекбоксы остаются с нативным поведением (Space переключает,
+        // Enter не нужен — это последнее поле перед submit).
+        function handleLoginEnterChain(e) {
+            if (e.key !== 'Enter') return;
+            var inp = e.target;
+            if (!inp || inp.tagName !== 'INPUT') return;
+            if (inp.type === 'checkbox') return;  // native — на checkbox Enter ничего не делает
+            var nextId = inp.getAttribute('data-next');
+            if (!nextId) return;  // нет data-next → native submit формы
+            var nextEl = document.getElementById(nextId);
+            if (!nextEl) return;
+            e.preventDefault();
+            if (nextEl.tagName === 'BUTTON') {
+                // Последнее поле — Enter кликает «Войти» / «Зарегистрироваться»
+                nextEl.click();
+            } else {
+                nextEl.focus();
+            }
+        }
+        (function bindLoginEnterChain() {
+            var inputs = document.querySelectorAll('.gc-login-form input');
+            for (var i = 0; i < inputs.length; i++) {
+                inputs[i].addEventListener('keydown', handleLoginEnterChain);
+            }
+        })();
 
         // === Logout / Change-password ===
         async function logoutUser() {
