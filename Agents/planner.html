@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>GigaChat Планировщик</title>
-    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}document.documentElement.classList.add('gc-pending-auth');})();</script>
+    <script>(function(){var t='light';try{t=localStorage.getItem('giga_theme')||'light'}catch(e){}document.documentElement.setAttribute('data-theme',t);/* Сразу красим фон до загрузки CSS — иначе белая вспышка при переходе с дашборда */document.documentElement.style.background=t==='dark'?'#1f1f1e':'#fdfdfc';document.documentElement.classList.add('gc-pending-auth');})();</script>
     <style>
         :root {
             --bg-primary: #1f1f1e;
