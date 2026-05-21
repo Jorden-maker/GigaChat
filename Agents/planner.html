@@ -453,9 +453,12 @@
         .gc-login-overlay {
             position: fixed; inset: 0; z-index: 1000;
             background: var(--bg-primary);
-            display: flex; align-items: center; justify-content: center;
+            /* НЕ flex-центрирование: модалка позиционируется absolute с
+               фиксированным top, чтобы при смене вкладки верх рамки
+               оставался на месте, а высота росла только вниз. */
             opacity: 1;
             transition: opacity 0.25s ease;
+            overflow-y: auto;
         }
         /* Плавное растворение overlay после успешного login/register */
         .gc-login-overlay.gc-fade-out { opacity: 0; pointer-events: none; }
@@ -513,10 +516,18 @@
         }
         .gc-login-modal {
             background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 12px; width: min(420px, 92vw);
-            /* Без box-shadow — задний фон однотонный var(--bg-primary),
-               модалка отделяется только border'ом и контрастом
-               bg-secondary vs bg-primary. */
+            border-radius: 12px;
+            /* Ширина фиксирована, верх модалки прибит к 18vh от верха окна.
+               При смене вкладки меняется только высота (рост вниз). */
+            width: min(420px, 92vw);
+            position: absolute;
+            top: 18vh;
+            left: 50%;
+            transform: translateX(-50%);
+            /* Плавный переход высоты — устанавливается JS в switchLoginTab */
+            transition: height 0.25s ease;
+            /* Без box-shadow — фон однотонный, модалка отделяется только
+               border'ом и контрастом bg-secondary vs bg-primary. */
             animation: plannerModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .gc-login-header {
@@ -1120,10 +1131,9 @@
             updateLoginThemeIcon();
         }
 
-        // Плавное переключение вкладки: модалка fade-out → меняем активную
-        // вкладку и форму → fade-in. options.focusFieldId — id поля для фокуса
-        // после переключения (по умолчанию первое поле новой формы).
-        // Если переключаем на ту же вкладку — анимации нет, только обновим фокус.
+        // Переключение вкладки: ширина и верх модалки фиксированы, плавно
+        // меняется только высота (рост/убывание снизу). Содержимое формы
+        // переключается мгновенно. options.focusFieldId — id поля для фокуса.
         function switchLoginTab(tab, options) {
             options = options || {};
             var currentActive = document.querySelector('.gc-login-tab.active');
@@ -1153,22 +1163,29 @@
             }
 
             if (!isSameTab && modal && currentActive) {
-                // Плавный fade: модалка целиком тускнеет, меняется содержимое,
-                // возвращается. 150мс — быстро, но различимо для глаза.
-                modal.style.transition = 'opacity 0.15s ease';
-                modal.style.opacity = '0';
-                setTimeout(function () {
-                    applySwap();
-                    modal.style.opacity = '1';
-                    setTimeout(function () {
-                        modal.style.transition = '';
-                        modal.style.opacity = '';
-                        focusTarget();
-                    }, 160);
-                }, 150);
+                // Прерываем предыдущий height-transition, если шёл
+                if (modal._heightTimer) clearTimeout(modal._heightTimer);
+                // 1. Замораживаем текущую высоту явным значением
+                var fromHeight = modal.offsetHeight;
+                modal.style.height = fromHeight + 'px';
+                modal.offsetHeight; // force reflow
+                // 2. Подменяем формы и измеряем новую естественную высоту
+                applySwap();
+                modal.style.height = 'auto';
+                var toHeight = modal.offsetHeight;
+                // 3. Возвращаем from-height, force reflow, потом ставим to —
+                //    CSS transition height срабатывает
+                modal.style.height = fromHeight + 'px';
+                modal.offsetHeight; // force reflow
+                modal.style.height = toHeight + 'px';
+                // 4. После transition снимаем явный height (auto на будущее)
+                modal._heightTimer = setTimeout(function () {
+                    modal.style.height = '';
+                    modal._heightTimer = null;
+                    focusTarget();
+                }, 270);
             } else {
-                // Первое отображение (нет ещё активной вкладки) или повторный
-                // вызов с тем же tab — без анимации.
+                // Первое отображение или тот же tab — без анимации
                 applySwap();
                 setTimeout(focusTarget, 50);
             }
