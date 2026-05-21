@@ -553,19 +553,23 @@
         .gc-login-form input:focus {
             border-color: var(--accent); background: var(--bg-secondary);
         }
-        /* Кастомный чекбокс: нативный input спрятан (но кликабелен через label,
-           держит фокус и accessibility), визуальный квадрат — span.gc-checkbox-box.
-           При :checked — заливка accent + галочка через ::after (border-rotate). */
+        /* Кастомный чекбокс: нативный input спрятан, визуальный квадрат —
+           span.gc-checkbox-box. Hover/click только на самом квадрате —
+           клик по тексту не переключает чекбокс. Tab→input, Space→toggle. */
         .gc-checkbox-row {
-            flex-direction: row !important;
+            display: flex !important; flex-direction: row !important;
             align-items: center; gap: 10px !important;
-            cursor: pointer; user-select: none;
-            padding: 2px 0;
+            user-select: none; padding: 2px 0;
+            /* cursor на row НЕ ставим — кликабелен только сам box */
         }
         .gc-checkbox-row input[type="checkbox"] {
-            /* Прячем нативный, но НЕ display:none — иначе фокус и keyboard не работают */
+            /* Прячем нативный visually-hidden способом — фокус сохраняется,
+               accessibility tree не теряет элемент. Pointer-events:none —
+               клик по box идёт в JS (см. onclick на span) или native через Tab+Space. */
             position: absolute; opacity: 0; pointer-events: none;
-            width: 0; height: 0; margin: 0;
+            width: 1px; height: 1px; margin: -1px;
+            clip: rect(0 0 0 0); clip-path: inset(50%);
+            overflow: hidden; white-space: nowrap;
         }
         .gc-checkbox-box {
             flex-shrink: 0;
@@ -575,9 +579,11 @@
             background: var(--bg-input);
             display: inline-flex; align-items: center; justify-content: center;
             position: relative;
+            cursor: pointer;
             transition: border-color 0.18s ease, background 0.18s ease;
         }
-        .gc-checkbox-row:hover .gc-checkbox-box {
+        /* Подсветка только при наведении на сам квадрат */
+        .gc-checkbox-box:hover {
             border-color: var(--accent);
         }
         .gc-checkbox-row input[type="checkbox"]:focus-visible + .gc-checkbox-box {
@@ -598,6 +604,7 @@
         .gc-checkbox-row .gc-checkbox-label {
             font-size: 14px; color: var(--text-primary); font-weight: 500;
             letter-spacing: 0.2px; line-height: 1;
+            cursor: default;
         }
         .gc-login-error {
             min-height: 16px; font-size: 12px; color: var(--priority-high);
@@ -756,11 +763,11 @@
                     <input type="password" id="loginPassword" maxlength="200" autocomplete="current-password"
                            placeholder="••••••••" data-next="loginSubmitBtn">
                 </label>
-                <label class="gc-checkbox-row">
+                <div class="gc-checkbox-row">
                     <input type="checkbox" id="loginRemember" checked>
-                    <span class="gc-checkbox-box" aria-hidden="true"></span>
+                    <span class="gc-checkbox-box" aria-hidden="true" onclick="document.getElementById('loginRemember').click()"></span>
                     <span class="gc-checkbox-label">Запомнить меня</span>
-                </label>
+                </div>
                 <div class="gc-login-error" id="loginError"></div>
             </form>
 
