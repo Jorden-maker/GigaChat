@@ -583,8 +583,30 @@
         // ========== Локальное состояние панели задач ==========
         var currentFilter = 'active';
         var currentTasks = [];           // последний загруженный массив с сервера
-        var currentSessionId = null;     // обновляется через onSwitchExtra
         var editingTaskId = null;        // null = создание новой, число = редактирование
+        var plannerAgent = null;         // ссылка на результат createChatAgent — нужна для чтения sessionStore.state
+
+        // Читаем activeSessionId напрямую из sessionStore. Раньше держали
+        // отдельную переменную currentSessionId, обновлявшуюся в onSwitchExtra,
+        // но onEmpty (срабатывает при удалении ПОСЛЕДНЕЙ сессии) НЕ зовёт
+        // onSwitchExtra → переменная не сбрасывалась → юзер мог открыть модалку
+        // и создать задачу в несуществующей сессии. Прямое чтение из source-of-truth
+        // решает: после удаления sessionStore.state.activeSessionId = null.
+        function getCurrentSessionId() {
+            if (!plannerAgent || !plannerAgent.sessionStore || !plannerAgent.sessionStore.state) return null;
+            return plannerAgent.sessionStore.state.activeSessionId || null;
+        }
+
+        // Визуально показываем что без сессии нельзя добавить задачу.
+        function updateTasksAddBtnState() {
+            var btn = document.querySelector('.tasks-add-btn');
+            if (!btn) return;
+            var has = !!getCurrentSessionId();
+            btn.disabled = !has;
+            btn.style.opacity = has ? '' : '0.45';
+            btn.style.cursor = has ? '' : 'not-allowed';
+            btn.setAttribute('aria-disabled', has ? 'false' : 'true');
+        }
 
         // ========== HTTP-обёртка для всех CRUD-операций ==========
         async function plannerApi(payload) {
@@ -604,12 +626,14 @@
 
         // ========== Загрузка задач для текущей сессии ==========
         async function loadTasks() {
-            if (!currentSessionId) {
+            var sid = getCurrentSessionId();
+            if (!sid) {
+                currentTasks = [];
                 document.getElementById('tasks-list').innerHTML = '<div class="tasks-empty"></div>';
                 return;
             }
             var data = await plannerApi({
-                action: 'list', session_id: currentSessionId, filter: currentFilter
+                action: 'list', session_id: sid, filter: currentFilter
             });
             currentTasks = (data && Array.isArray(data.tasks)) ? data.tasks : [];
             renderTasks();
@@ -906,7 +930,7 @@
         }
 
         function openTaskModal(taskId) {
-            if (!currentSessionId) {
+            if (!getCurrentSessionId()) {
                 alert('Сначала создайте или выберите список задач');
                 return;
             }
@@ -945,12 +969,17 @@
 
         async function saveTask() {
             var err = document.getElementById('taskModalError');
+            var sid = getCurrentSessionId();
+            if (!sid) {
+                err.textContent = 'Сессия не выбрана — создайте новый список задач слева';
+                return;
+            }
             var title = document.getElementById('taskTitle').value.trim();
             if (!title) { err.textContent = 'Название не может быть пустым'; return; }
             if (title.length > 500) { err.textContent = 'Название слишком длинное (>500)'; return; }
 
             var payload = {
-                session_id: currentSessionId,
+                session_id: sid,
                 title: title,
                 description: document.getElementById('taskDescription').value.trim(),
                 priority: getPriorityValue(),
@@ -975,6 +1004,8 @@
 
         // ========== Отметить выполненной / вернуть в активные ==========
         async function toggleTask(taskId) {
+            var sid = getCurrentSessionId();
+            if (!sid) return;
             var t = currentTasks.find(function (x) { return x.id === taskId; });
             if (!t) return;
             var newStatus = t.status === 'completed' ? 'active' : 'completed';
@@ -982,7 +1013,7 @@
             t.status = newStatus;
             renderTasks();
             var data = await plannerApi({
-                action: 'update', session_id: currentSessionId,
+                action: 'update', session_id: sid,
                 id: taskId, status: newStatus
             });
             if (data.response !== 'ok') {
@@ -997,9 +1028,11 @@
 
         // ========== Удаление ==========
         async function deleteTask(taskId) {
+            var sid = getCurrentSessionId();
+            if (!sid) return;
             if (!confirm('Удалить задачу безвозвратно?')) return;
             var data = await plannerApi({
-                action: 'delete', session_id: currentSessionId, id: taskId
+                action: 'delete', session_id: sid, id: taskId
             });
             if (data.response === 'ok') {
                 await loadTasks();
@@ -1024,7 +1057,7 @@
         }
 
         // ========== Инициализация чат-агента ==========
-        GigaChat.createChatAgent({
+        plannerAgent = GigaChat.createChatAgent({
             webhookPath: 'planner',
             historyPath: 'history',
             prefix: 'planner',
@@ -1044,10 +1077,35 @@
                 };
             },
             onSwitchExtra: function (sid) {
-                currentSessionId = sid;
+                // sid здесь — id новой активной сессии. Прямо его не сохраняем,
+                // источник истины — sessionStore.state.activeSessionId (читается
+                // через getCurrentSessionId()). Обновляем UI и грузим задачи.
+                updateTasksAddBtnState();
                 loadTasks();
             }
         });
+
+        // Отслеживаем удаление сессий через DOM-изменения сайдбара. _shared.js
+        // при удалении ПОСЛЕДНЕЙ сессии не зовёт onSwitch (и значит не зовёт
+        // наш onSwitchExtra) — только onEmpty. Этот колбэк хардкодится в
+        // createChatAgent, расширить его нельзя. MutationObserver на
+        // #sessionList — единственный надёжный сигнал что состав сессий изменился.
+        (function () {
+            var sl = document.getElementById('sessionList');
+            if (!sl) return;
+            new MutationObserver(function () {
+                updateTasksAddBtnState();
+                if (!getCurrentSessionId()) {
+                    // Активная сессия исчезла — чистим панель задач
+                    currentTasks = [];
+                    document.getElementById('tasks-list').innerHTML = '<div class="tasks-empty"></div>';
+                }
+            }).observe(sl, { childList: true, subtree: false });
+        })();
+
+        // Начальное состояние кнопки «+ Задача» — на момент init может не быть
+        // активной сессии (новый юзер без сохранённых списков).
+        updateTasksAddBtnState();
 
         // Safety-net: explicit init resize. createChatAgent уже вызывает его внутри,
         // но если по какой-то причине setup прервался — функция идемпотентна
