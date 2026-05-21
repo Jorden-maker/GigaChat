@@ -12,7 +12,7 @@
       "typeVersion": 2.1,
       "position": [
         0,
-        400
+        200
       ],
       "id": "planner-webhook-0001",
       "name": "Webhook Planner",
@@ -25,8 +25,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        280,
-        400
+        240,
+        200
       ],
       "id": "planner-validate-0002",
       "name": "Валидация"
@@ -59,8 +59,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        560,
-        400
+        480,
+        200
       ],
       "id": "planner-if-valid-0003",
       "name": "Валидно?"
@@ -92,7 +92,7 @@
       "typeVersion": 1.5,
       "position": [
         840,
-        640
+        600
       ],
       "id": "planner-resp-error-0004",
       "name": "Ответ: ошибка"
@@ -221,8 +221,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        840,
-        400
+        1440,
+        200
       ],
       "id": "planner-switch-0005",
       "name": "Switch action"
@@ -238,8 +238,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1120,
-        100
+        1680,
+        -300
       ],
       "id": "planner-list-sql-0006",
       "name": "SQL: list tasks",
@@ -259,8 +259,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1400,
-        100
+        1920,
+        -300
       ],
       "id": "planner-list-fmt-0007",
       "name": "Собрать tasks"
@@ -276,8 +276,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1120,
-        280
+        1680,
+        -50
       ],
       "id": "planner-create-sql-0008",
       "name": "SQL: create task",
@@ -297,8 +297,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1400,
-        280
+        1920,
+        -50
       ],
       "id": "planner-create-fmt-0009",
       "name": "Собрать created"
@@ -310,8 +310,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
-        460
+        1680,
+        200
       ],
       "id": "planner-update-prep-0010",
       "name": "Подготовить update"
@@ -327,8 +327,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1400,
-        460
+        1920,
+        200
       ],
       "id": "planner-update-sql-0011",
       "name": "SQL: update task",
@@ -348,8 +348,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
-        460
+        2160,
+        200
       ],
       "id": "planner-update-fmt-0012",
       "name": "Собрать updated"
@@ -365,8 +365,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1120,
-        640
+        1680,
+        450
       ],
       "id": "planner-delete-sql-0013",
       "name": "SQL: delete task",
@@ -386,8 +386,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1400,
-        640
+        1920,
+        450
       ],
       "id": "planner-delete-fmt-0014",
       "name": "Собрать deleted"
@@ -404,8 +404,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1120,
-        820
+        1680,
+        700
       ],
       "id": "planner-query-fetch-0015",
       "name": "SQL: активные задачи",
@@ -424,8 +424,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1400,
-        820
+        1920,
+        700
       ],
       "id": "planner-query-prompt-0016",
       "name": "Собрать промпт"
@@ -457,8 +457,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1680,
-        820
+        2160,
+        700
       ],
       "id": "planner-query-llm-0017",
       "name": "LLM: ответ",
@@ -477,8 +477,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1960,
-        820
+        2400,
+        700
       ],
       "id": "planner-query-extract-0018",
       "name": "Извлечь ответ"
@@ -495,8 +495,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2240,
-        820
+        2640,
+        700
       ],
       "id": "planner-query-save-0019",
       "name": "SQL: сохранить диалог",
@@ -516,8 +516,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2520,
-        820
+        2880,
+        700
       ],
       "id": "planner-query-fmt-0020",
       "name": "Собрать query-ответ"
@@ -548,8 +548,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2800,
-        400
+        3200,
+        200
       ],
       "id": "planner-resp-ok-0021",
       "name": "Ответ: OK"
@@ -566,8 +566,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        840,
-        280
+        720,
+        200
       ],
       "id": "planner-verify-token-sql-0001",
       "name": "SQL: Verify token",
@@ -587,8 +587,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
-        280
+        960,
+        200
       ],
       "id": "planner-token-result-0001",
       "name": "Token result"
@@ -620,8 +620,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1400,
-        280
+        1200,
+        200
       ],
       "id": "planner-token-ok-0001",
       "name": "Token OK?"
