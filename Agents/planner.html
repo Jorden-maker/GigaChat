@@ -444,6 +444,109 @@
         .task-modal-error {
             padding: 8px 22px 0; color: var(--priority-high); font-size: 12px; min-height: 14px;
         }
+
+        /* === Login-модалка (первый заход юзера) ============================
+           Отдельная overlay, показывается до основной инициализации
+           планировщика. Юзер вводит имя → сохраняется в localStorage →
+           страница перезагружается с уже известным юзером. Очень простой
+           identity-flow для офиса в LAN (не auth с паролями). */
+        .gc-login-overlay {
+            position: fixed; inset: 0; z-index: 1000;
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .gc-login-modal {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: 12px; width: min(420px, 92vw);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            animation: plannerModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .gc-login-header {
+            padding: 22px 24px 6px; font-size: 16px; font-weight: 600;
+            color: var(--text-primary);
+        }
+        .gc-login-subtitle {
+            padding: 0 24px 18px; font-size: 13px; color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        .gc-login-body {
+            padding: 0 24px 18px; display: flex; flex-direction: column; gap: 8px;
+        }
+        .gc-login-body input {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 6px; padding: 10px 14px; color: var(--text-primary);
+            font-family: inherit; font-size: 15px; outline: none;
+            transition: border-color 0.18s ease, background 0.18s ease;
+        }
+        .gc-login-body input:focus {
+            border-color: var(--accent); background: var(--bg-secondary);
+        }
+        .gc-login-error {
+            min-height: 16px; font-size: 12px; color: var(--priority-high);
+        }
+        .gc-login-footer {
+            padding: 14px 24px 22px;
+        }
+        .gc-login-footer button {
+            width: 100%; padding: 10px 18px; border-radius: 6px;
+            background: var(--accent); color: #fff; border: none; cursor: pointer;
+            font-family: inherit; font-size: 14px; font-weight: 600;
+            transition: background 0.18s ease, transform 0.1s ease;
+        }
+        .gc-login-footer button:hover { background: var(--accent-hover); }
+        .gc-login-footer button:active { transform: scale(0.98); }
+
+        /* === User menu в шапке ============================================
+           «Иванов ▼» с dropdown'ом «Сменить имя / Выйти». Стиль — как
+           gc-select trigger из модалки задач, единая визуальная семья. */
+        .gc-user-menu { position: relative; }
+        .gc-user-menu-trigger {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: transparent; border: 1px solid var(--border);
+            border-radius: 6px; padding: 6px 10px;
+            color: var(--text-primary); font-family: inherit; font-size: 13px;
+            cursor: pointer; outline: none;
+            transition: border-color 0.18s ease, background 0.18s ease;
+        }
+        .gc-user-menu-trigger:hover { border-color: var(--text-secondary); }
+        .gc-user-menu.open .gc-user-menu-trigger {
+            border-color: var(--accent); background: var(--bg-secondary);
+        }
+        .gc-user-menu-arrow {
+            width: 6px; height: 6px;
+            border-right: 1.5px solid var(--text-secondary);
+            border-bottom: 1.5px solid var(--text-secondary);
+            transform: translateY(-2px) rotate(45deg);
+            transition: transform 0.18s ease, border-color 0.18s ease;
+        }
+        .gc-user-menu.open .gc-user-menu-arrow {
+            transform: translateY(2px) rotate(-135deg);
+            border-color: var(--accent);
+        }
+        .gc-user-menu-dropdown {
+            position: absolute; top: calc(100% + 4px); right: 0;
+            min-width: 160px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 8px; padding: 4px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            z-index: 90;
+            opacity: 0; visibility: hidden; transform: translateY(-4px);
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+        }
+        .gc-user-menu.open .gc-user-menu-dropdown {
+            opacity: 1; visibility: visible; transform: translateY(0);
+        }
+        .gc-user-menu-dropdown button {
+            display: block; width: 100%;
+            background: none; border: none; cursor: pointer;
+            padding: 8px 12px; border-radius: 5px;
+            font-family: inherit; font-size: 13px;
+            color: var(--text-primary); text-align: left;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .gc-user-menu-dropdown button:hover {
+            background: var(--bg-secondary); color: var(--accent);
+        }
     </style>
     <script src="_config.js"></script>
     <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark">
@@ -453,6 +556,26 @@
     <script src="lib/jszip.min.js"></script>
 </head>
 <body>
+    <!-- Login-модалка: показывается при первом заходе если в localStorage нет
+         planner_user. Юзер вводит имя → сохраняем → reload (чтобы createChatAgent
+         подхватил динамический prefix для localStorage сессий). -->
+    <div class="gc-login-overlay" id="loginOverlay" style="display:none">
+        <div class="gc-login-modal">
+            <div class="gc-login-header">Добро пожаловать в Планировщик</div>
+            <div class="gc-login-subtitle">
+                Введите ваше имя — оно используется чтобы ваши задачи не смешивались
+                с задачами коллег. Можно сменить позже через меню в правом верхнем углу.
+            </div>
+            <div class="gc-login-body">
+                <input type="text" id="loginInput" maxlength="100" placeholder="Например: Иванов" autocomplete="off">
+                <div class="gc-login-error" id="loginError"></div>
+            </div>
+            <div class="gc-login-footer">
+                <button id="loginSubmit" onclick="submitLogin()">Войти</button>
+            </div>
+        </div>
+    </div>
+
     <div class="sidebar">
         <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
         <div class="sidebar-header"><h3>Списки задач</h3></div>
@@ -470,6 +593,18 @@
                 <div class="status" id="statusBar">
                     <span class="dot checking" id="statusDot"></span>
                     <span id="statusText">проверка...</span>
+                </div>
+                <!-- User-menu: имя текущего юзера + dropdown «Сменить/Выйти».
+                     Заполняется JS при инициализации (берёт имя из localStorage). -->
+                <div class="gc-user-menu" id="userMenu" style="display:none">
+                    <button class="gc-user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false">
+                        <span id="userMenuLabel">—</span>
+                        <span class="gc-user-menu-arrow" aria-hidden="true"></span>
+                    </button>
+                    <div class="gc-user-menu-dropdown" role="menu">
+                        <button type="button" onclick="changeUserName()">Сменить имя</button>
+                        <button type="button" onclick="logoutUser()">Выйти</button>
+                    </div>
                 </div>
                 <button class="btn-export" onclick="exportChat()">Экспорт</button>
             </div>
@@ -580,6 +715,115 @@
         var escapeHtml = GigaChat.escapeHtml;
         var PLANNER_URL = GigaChat.webhookUrl('planner');
 
+        // ========== Multi-user identification ==========
+        // user_id хранится в localStorage. Если пуст — показываем login-модалку
+        // ДО инициализации createChatAgent (потому что createChatAgent создаёт
+        // session-storage с префиксом который включает имя юзера, и пересоздать
+        // его после уже нельзя без полного релоада страницы).
+        var USER_STORAGE_KEY = 'planner_user';
+        var RESERVED_NAMES = ['system', 'admin', 'root', 'null', 'undefined', 'anonymous'];
+
+        function getCurrentUserName() {
+            try { return localStorage.getItem(USER_STORAGE_KEY) || ''; }
+            catch (e) { return ''; }
+        }
+
+        function sanitizeUserForPrefix(name) {
+            // Префикс для localStorage-ключей сессий. Кириллица в ключах
+            // localStorage работает, но безопаснее транслитерировать в latin/digits.
+            // Простейший fallback: оставляем алфанумерику ASCII, остальное → '_'.
+            // Полная кириллическая идентичность хранится в planner_user отдельно,
+            // эта функция нужна только для namespaceing'а сессий.
+            return name.replace(/[^A-Za-z0-9_]/g, '_').toLowerCase().slice(0, 50)
+                || 'user_' + Math.abs(hashString(name));
+        }
+        function hashString(s) {
+            var h = 0;
+            for (var i = 0; i < s.length; i++) {
+                h = ((h << 5) - h) + s.charCodeAt(i);
+                h |= 0;
+            }
+            return h;
+        }
+
+        function showLoginModal() {
+            var overlay = document.getElementById('loginOverlay');
+            var input = document.getElementById('loginInput');
+            var err = document.getElementById('loginError');
+            overlay.style.display = 'flex';
+            err.textContent = '';
+            input.value = '';
+            setTimeout(function () { input.focus(); }, 50);
+            // Enter в input → submit
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); submitLogin(); }
+            });
+        }
+
+        function submitLogin() {
+            var input = document.getElementById('loginInput');
+            var err = document.getElementById('loginError');
+            var name = input.value.trim();
+            if (!name) { err.textContent = 'Введите имя'; return; }
+            if (name.length > 100) { err.textContent = 'Слишком длинное имя (>100 символов)'; return; }
+            if (!/^[A-Za-zА-Яа-яЁё0-9_\-. ]+$/.test(name)) {
+                err.textContent = 'Можно: буквы, цифры, пробел, _ - .';
+                return;
+            }
+            if (RESERVED_NAMES.includes(name.toLowerCase())) {
+                err.textContent = 'Это имя зарезервировано системой, выберите другое';
+                return;
+            }
+            try { localStorage.setItem(USER_STORAGE_KEY, name); }
+            catch (e) { err.textContent = 'Не удалось сохранить — проверьте localStorage'; return; }
+            // Перезагружаем чтобы createChatAgent инициализировался с правильным prefix'ом
+            location.reload();
+        }
+
+        function changeUserName() {
+            // Не очищаем сразу — даём юзеру ввести новое имя; если отменит, останется старое
+            try { localStorage.removeItem(USER_STORAGE_KEY); }
+            catch (e) {}
+            location.reload();
+        }
+
+        function logoutUser() {
+            // То же что changeUserName, но юзер ушёл «по своей воле» — никаких отличий в эффекте,
+            // просто отдельный пункт меню для ясности.
+            try { localStorage.removeItem(USER_STORAGE_KEY); }
+            catch (e) {}
+            location.reload();
+        }
+
+        // === Если юзер не задан — показываем login, инициализацию НЕ запускаем ===
+        var CURRENT_USER = getCurrentUserName();
+        if (!CURRENT_USER) {
+            showLoginModal();
+            // НЕ запускаем дальнейший код — login submitLogin() сделает reload
+            throw new Error('__login_required__');  // обрывает выполнение остального скрипта
+        }
+
+        // === User-menu в шапке: показываем имя + dropdown ===
+        (function initUserMenu() {
+            var menu = document.getElementById('userMenu');
+            var trigger = document.getElementById('userMenuTrigger');
+            var label = document.getElementById('userMenuLabel');
+            label.textContent = CURRENT_USER;
+            menu.style.display = '';
+
+            function setOpen(open) {
+                menu.classList.toggle('open', open);
+                trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setOpen(!menu.classList.contains('open'));
+            });
+            document.addEventListener('click', function (e) {
+                if (!menu.contains(e.target)) setOpen(false);
+            });
+        })();
+
         // ========== Локальное состояние панели задач ==========
         var currentFilter = 'active';
         var currentTasks = [];           // последний загруженный массив с сервера
@@ -610,6 +854,9 @@
 
         // ========== HTTP-обёртка для всех CRUD-операций ==========
         async function plannerApi(payload) {
+            // Подмешиваем user_id в каждый запрос. Сервер фильтрует задачи и сессии
+            // по этому полю, юзер видит только свои данные.
+            payload.user_id = CURRENT_USER;
             try {
                 var res = await GigaChat.fetchWithRetry(PLANNER_URL, {
                     method: 'POST',
@@ -1069,11 +1316,17 @@
         }
 
         // ========== Инициализация чат-агента ==========
+        // ВАЖНО: prefix/idPrefix зависят от текущего юзера — благодаря этому
+        // списки задач (sessions в localStorage) изолированы между юзерами
+        // на одном браузере. Иванов вошёл → видит свои списки; вышел, Петров
+        // вошёл → видит свои. Имена сессий безопасно живут в plain ASCII
+        // (sanitizeUserForPrefix транслитерирует кириллицу в _).
+        var USER_PREFIX = sanitizeUserForPrefix(CURRENT_USER);
         plannerAgent = GigaChat.createChatAgent({
             webhookPath: 'planner',
             historyPath: 'history',
-            prefix: 'planner',
-            idPrefix: 'planner_',
+            prefix: 'planner_' + USER_PREFIX,
+            idPrefix: 'planner_' + USER_PREFIX + '_',
             namePrefix: 'List-',
             inflightLabel: 'Думаю',
             exportAgentName: 'GigaChat Планировщик',
