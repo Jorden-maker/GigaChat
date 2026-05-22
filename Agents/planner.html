@@ -2737,6 +2737,13 @@
                     extras: {}
                 };
             },
+            // CRUD-операции идут через plannerApi() который сам подмешивает token.
+            // Но чат — через createChatAgent.sendMsg, который без extraBody шлёт
+            // только {message, session_id}. Workflow без token → unauthorized.
+            // Прокидываем токен в каждый чат-запрос.
+            extraBody: function () {
+                return { token: getStoredToken() };
+            },
             onSwitchExtra: function (sid) {
                 // sid здесь — id новой активной сессии. Прямо его не сохраняем,
                 // источник истины — sessionStore.state.activeSessionId (читается
