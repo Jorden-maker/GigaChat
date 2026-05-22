@@ -5,14 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GigaChat — Панель управления</title>
     <style>
-        /* Pre-paint фон + color-scheme — чтобы при переходе на другую страницу
-           GigaChat браузер не показывал белый «canvas навигации». */
+        /* Pre-paint фон + color-scheme + базовый body — первый paint в
+           правильных цветах и шрифтах, без серифного фолбэка. */
         html { color-scheme: light; background: #fdfdfc; }
         html[data-theme="dark"] { color-scheme: dark; background: #1f1f1e; }
-        /* FOUC: скрываем body пока большой <style>-блок не применился.
-           gc-css-ready ставится скриптом в конце <head>. */
-        body { visibility: hidden; }
-        html.gc-css-ready body { visibility: visible; }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            color: #1f1f1e;
+            background: #fdfdfc;
+        }
+        html[data-theme="dark"] body {
+            color: #d4d4d4;
+            background: #1f1f1e;
+        }
     </style>
     <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
     <style>
@@ -296,8 +302,6 @@
         }
 
     </style>
-    <!-- Маркер: основной <style>-блок применён, body можно показывать (FOUC fix). -->
-    <script>document.documentElement.classList.add('gc-css-ready');</script>
     <script src="Agents/_config.js"></script>
     <script src="Agents/_shared.js"></script>
 </head>
