@@ -230,7 +230,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, title, description, priority, deadline::text AS deadline, status, completed_at::text AS completed_at, created_at::text AS created_at, sort_order, parent_id, recurrence FROM planner_tasks WHERE session_id = $1 AND ($2 = 'all' OR status = $2) AND user_id = $3 ORDER BY status ASC, sort_order ASC, created_at DESC",
+        "query": "SELECT id, title, description, priority, deadline::text AS deadline, status, completed_at::text AS completed_at, created_at::text AS created_at, sort_order, parent_id, recurrence FROM planner_tasks WHERE session_id = $1 AND ($2 = 'all' OR status = $2) AND user_id = $3 ORDER BY status ASC, sort_order ASC, (CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END) ASC, COALESCE(deadline, '9999-12-31'::date) ASC, created_at DESC",
         "options": {
           "queryReplacement": "={{ [$json.session_id, $json.filter, $json.user_id] }}"
         }

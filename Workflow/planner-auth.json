@@ -471,7 +471,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH updated AS (UPDATE planner_users SET password_hash = crypt($3, gen_salt('bf', 12)), password_changed_at = NOW() WHERE id = (SELECT user_id FROM planner_sessions WHERE token = $1 AND expires_at > NOW()) AND password_hash = crypt($2, password_hash) RETURNING id, username), killed AS (DELETE FROM planner_sessions WHERE user_id IN (SELECT id FROM updated) AND token != $1 RETURNING token) SELECT id, username FROM updated",
+        "query": "UPDATE planner_users SET password_hash = crypt($3, gen_salt('bf', 12)), password_changed_at = NOW() WHERE id = (SELECT user_id FROM planner_sessions WHERE token = $1 AND expires_at > NOW()) AND password_hash = crypt($2, password_hash) RETURNING id, username",
         "options": {
           "queryReplacement": "={{ [$json.token, $json.old_password, $json.new_password] }}"
         },

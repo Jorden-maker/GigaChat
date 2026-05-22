@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>GigaChat Планировщик</title>
-    <script>(function(){var t='light';try{t=localStorage.getItem('giga_theme')||'light'}catch(e){}document.documentElement.setAttribute('data-theme',t);/* Сразу красим фон до загрузки CSS — иначе белая вспышка при переходе с дашборда */document.documentElement.style.background=t==='dark'?'#1f1f1e':'#fdfdfc';document.documentElement.classList.add('gc-pending-auth');})();</script>
+    <script>(function(){var t='light';try{t=localStorage.getItem('giga_theme')||'light'}catch(e){}document.documentElement.setAttribute('data-theme',t);/* !important чтобы не перебилось последующими стилями (FOUC fix) */document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');document.documentElement.classList.add('gc-pending-auth');})();</script>
+    <style>html.gc-pending-auth,html.gc-pending-auth body{background:inherit !important}</style>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -1901,6 +1902,9 @@
             try { localStorage.setItem(getSessionsKey(), JSON.stringify(arr)); }
             catch (e) {}
         }
+        // Sync метаданных НЕ должен выкидывать юзера на login при любых ошибках —
+        // это вторичный feature, primary остаётся localStorage. Просто игнорим
+        // auth_required и сетевые сбои.
         async function plannerMetaApi(payload) {
             payload.token = getStoredToken();
             try {
@@ -1910,7 +1914,10 @@
                     body: JSON.stringify(payload)
                 });
                 if (!res.ok) return { response: 'error' };
-                return await res.json();
+                var data = await res.json();
+                // НЕ делаем clearAuth/reload даже если auth_required — это не критично
+                if (data && data.auth_required) return { response: 'error', skipped: true };
+                return data;
             } catch (e) { return { response: 'error', network: true }; }
         }
         async function syncSessionsAtInit() {
@@ -1943,26 +1950,43 @@
                 }
             }
         }
-        // Diff-sync при изменении состава sessions в localStorage
+        // Diff-sync при изменении состава sessions в localStorage.
+        // null = ещё не инициализирован snapshot. На первом вызове только
+        // сохраняем snapshot, без diff (чтобы не дубль-пушить при загрузке).
         var prevSessionsSnapshot = null;
-        function diffPushSessions() {
-            var cur = getLocalSessions();
-            var prev = prevSessionsSnapshot || [];
-            var prevIds = {}, curIds = {}, prevByMap = {};
-            prev.forEach(function (s) { prevIds[s.id] = true; prevByMap[s.id] = s; });
-            cur.forEach(function (s) { curIds[s.id] = true; });
-            // Удалённые
-            prev.forEach(function (s) {
-                if (!curIds[s.id]) plannerMetaApi({ action: 'delete', session_id: s.id });
-            });
-            // Добавленные или переименованные
-            cur.forEach(function (s, idx) {
-                var prevS = prevByMap[s.id];
-                if (!prevS || prevS.name !== s.name) {
-                    plannerMetaApi({ action: 'upsert', session_id: s.id, name: s.name, sort_order: idx });
+        var _diffInFlight = false;
+        async function diffPushSessions() {
+            if (_diffInFlight) return;  // re-entrance guard
+            _diffInFlight = true;
+            try {
+                var cur = getLocalSessions();
+                if (prevSessionsSnapshot === null) {
+                    // Первый вызов — просто фиксируем snapshot без push
+                    prevSessionsSnapshot = cur.slice();
+                    return;
                 }
-            });
-            prevSessionsSnapshot = cur.slice();
+                var prev = prevSessionsSnapshot;
+                var curIds = {}, prevByMap = {};
+                prev.forEach(function (s) { prevByMap[s.id] = s; });
+                cur.forEach(function (s) { curIds[s.id] = true; });
+                // Удалённые
+                for (var i = 0; i < prev.length; i++) {
+                    if (!curIds[prev[i].id]) {
+                        await plannerMetaApi({ action: 'delete', session_id: prev[i].id });
+                    }
+                }
+                // Добавленные или переименованные
+                for (var j = 0; j < cur.length; j++) {
+                    var s = cur[j];
+                    var prevS = prevByMap[s.id];
+                    if (!prevS || prevS.name !== s.name) {
+                        await plannerMetaApi({ action: 'upsert', session_id: s.id, name: s.name, sort_order: j });
+                    }
+                }
+                prevSessionsSnapshot = cur.slice();
+            } finally {
+                _diffInFlight = false;
+            }
         }
 
         // ========== Импорт / экспорт в Excel ==========
@@ -2609,19 +2633,33 @@
         }
 
         // ========== Рендер bot-сообщений: простой текст + переносы + actions ==========
+        // Глобальный Set для отслеживания обработанных сообщений по contentHash —
+        // formatBotMessage вызывается многократно (typewriter, перерендер истории,
+        // и т.д.), но actions должны выполниться РОВНО ОДИН РАЗ.
+        var _processedActionContent = new Set();
+        function _contentHash(s) {
+            var h = 0;
+            for (var i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+            return String(h);
+        }
         function formatBotMessage(msg) {
             if (!msg.content) return '';
-            // Парсим action-блоки и убираем их из визуального текста,
-            // запускаем async-выполнение и refresh задач.
             var parsed = parseActionBlocks(String(msg.content));
-            if (parsed.actions.length && !msg._actionsRun) {
-                msg._actionsRun = true;
-                executeAiActions(parsed.actions).then(function (results) {
-                    var ok = results.filter(function (r) { return r.ok; }).length;
-                    var failed = results.length - ok;
-                    if (ok && typeof loadTasks === 'function') loadTasks();
-                    console.log('AI actions:', ok, 'ok,', failed, 'failed');
-                });
+            // Action-блоки выполняются ОДИН РАЗ на уникальный content
+            if (parsed.actions.length) {
+                var key = _contentHash(String(msg.content));
+                if (!_processedActionContent.has(key)) {
+                    _processedActionContent.add(key);
+                    // Лимит на размер Set (защита от утечки памяти)
+                    if (_processedActionContent.size > 500) {
+                        var first = _processedActionContent.values().next().value;
+                        _processedActionContent.delete(first);
+                    }
+                    executeAiActions(parsed.actions).then(function (results) {
+                        var ok = results.filter(function (r) { return r.ok; }).length;
+                        if (ok && typeof loadTasks === 'function') loadTasks();
+                    }).catch(function (e) { console.warn('AI actions error:', e); });
+                }
             }
             var html = parsed.clean
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2686,21 +2724,24 @@
         (function () {
             var sl = document.getElementById('sessionList');
             if (!sl) return;
+            // Debounce diffPushSessions — много мутаций подряд (rename input
+            // focus+blur, drag&drop) могут вызывать каскад вызовов
+            var diffDebounceTimer = null;
             new MutationObserver(function () {
                 updateTasksAddBtnState();
                 if (!getCurrentSessionId()) {
-                    // Активная сессия исчезла — чистим панель задач, показываем подсказку
                     currentTasks = [];
                     document.getElementById('tasks-list').innerHTML = '';
                     var ns = document.getElementById('tasksNoSession');
                     if (ns) ns.classList.remove('hidden');
                 }
-                // Diff-sync имён списков на сервер: добавленные → upsert,
-                // удалённые → delete, переименованные → upsert
+                // Diff-sync с дебаунсом (500мс) и ТОЛЬКО на childList event
+                // (не на characterData → не триггерится при typing в rename)
                 if (typeof diffPushSessions === 'function') {
-                    setTimeout(diffPushSessions, 50);
+                    if (diffDebounceTimer) clearTimeout(diffDebounceTimer);
+                    diffDebounceTimer = setTimeout(diffPushSessions, 500);
                 }
-            }).observe(sl, { childList: true, subtree: true, characterData: true });
+            }).observe(sl, { childList: true, subtree: false });
         })();
 
         // Начальное состояние кнопки «+ Задача» — на момент init может не быть
