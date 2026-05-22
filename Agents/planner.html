@@ -2556,10 +2556,74 @@
             if (e.key === 'Escape') closeTaskModal();
         });
 
-        // ========== Рендер bot-сообщений: простой текст + переносы ==========
+        // ========== Парсинг и выполнение AI action-блоков ==========
+        // LLM может выдавать блоки ```action{"action":"create",...}```
+        // Парсим, выполняем через plannerApi, заменяем блок на статус-маркер.
+        function parseActionBlocks(text) {
+            if (!text) return { clean: text, actions: [] };
+            var re = /```action\s*\n?([\s\S]*?)```/g;
+            var actions = [];
+            var clean = String(text).replace(re, function (_full, body) {
+                try {
+                    var obj = JSON.parse(body.trim());
+                    if (obj && obj.action) actions.push(obj);
+                    return '⏳ ' + (obj.action || 'действие') + '…';
+                } catch (e) {
+                    return '⚠ невалидный action-блок';
+                }
+            });
+            return { clean: clean, actions: actions };
+        }
+        // Выполняем action на сервере через plannerApi.
+        async function executeAiActions(actions) {
+            if (!actions || !actions.length) return [];
+            var sid = getCurrentSessionId();
+            if (!sid) return actions.map(function (a) { return { action: a.action, ok: false, error: 'no session' }; });
+            var results = [];
+            for (var i = 0; i < actions.length; i++) {
+                var a = actions[i];
+                var payload = { action: a.action, session_id: sid };
+                if (a.action === 'create') {
+                    payload.title = a.title;
+                    if (a.description) payload.description = a.description;
+                    if (a.priority) payload.priority = a.priority;
+                    if (a.deadline) payload.deadline = a.deadline;
+                    if (a.recurrence) payload.recurrence = a.recurrence;
+                    if (a.parent_id) payload.parent_id = a.parent_id;
+                } else if (a.action === 'update' || a.action === 'delete') {
+                    if (a.id) payload.id = a.id;
+                    if (a.title !== undefined) payload.title = a.title;
+                    if (a.description !== undefined) payload.description = a.description;
+                    if (a.priority !== undefined) payload.priority = a.priority;
+                    if (a.deadline !== undefined) payload.deadline = a.deadline;
+                    if (a.status !== undefined) payload.status = a.status;
+                } else { results.push({ action: a.action, ok: false, error: 'unknown' }); continue; }
+                try {
+                    var data = await plannerApi(payload);
+                    results.push({ action: a.action, ok: data && data.response === 'ok', task: data && data.task });
+                } catch (e) {
+                    results.push({ action: a.action, ok: false, error: e.message });
+                }
+            }
+            return results;
+        }
+
+        // ========== Рендер bot-сообщений: простой текст + переносы + actions ==========
         function formatBotMessage(msg) {
             if (!msg.content) return '';
-            var html = String(msg.content)
+            // Парсим action-блоки и убираем их из визуального текста,
+            // запускаем async-выполнение и refresh задач.
+            var parsed = parseActionBlocks(String(msg.content));
+            if (parsed.actions.length && !msg._actionsRun) {
+                msg._actionsRun = true;
+                executeAiActions(parsed.actions).then(function (results) {
+                    var ok = results.filter(function (r) { return r.ok; }).length;
+                    var failed = results.length - ok;
+                    if (ok && typeof loadTasks === 'function') loadTasks();
+                    console.log('AI actions:', ok, 'ok,', failed, 'failed');
+                });
+            }
+            var html = parsed.clean
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
             html = html.replace(/\n/g, '<br>');
