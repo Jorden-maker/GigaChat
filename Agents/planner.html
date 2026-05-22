@@ -3,8 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <title>GigaChat Планировщик</title>
+    <style>
+        /* Pre-paint фон ДО любого JS — браузер парсит <style> в head и применяет
+           background на html сразу. Без этого между дашбордом и планировщиком
+           проскакивал белый «canvas навигации» браузера.
+           color-scheme сообщает браузеру, какие цвета использовать в системных
+           элементах (скроллбар, canvas навигации, dialog backdrop). */
+        html { color-scheme: light; background: #fdfdfc; }
+        html[data-theme="dark"] { color-scheme: dark; background: #1f1f1e; }
+        html.gc-pending-auth, html.gc-pending-auth body { background: inherit !important }
+    </style>
     <script>(function(){var t='light';try{t=localStorage.getItem('giga_theme')||'light'}catch(e){}document.documentElement.setAttribute('data-theme',t);/* !important чтобы не перебилось последующими стилями (FOUC fix) */document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');document.documentElement.classList.add('gc-pending-auth');})();</script>
-    <style>html.gc-pending-auth,html.gc-pending-auth body{background:inherit !important}</style>
     <style>
         :root {
             --bg-primary: #1f1f1e;
