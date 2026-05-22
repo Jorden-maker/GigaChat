@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS planner_tasks (
     completed_at TIMESTAMP,
     sort_order INTEGER NOT NULL DEFAULT 0,
     parent_id INTEGER REFERENCES planner_tasks(id) ON DELETE CASCADE,
+    recurrence VARCHAR(20) CHECK (recurrence IS NULL OR recurrence IN ('daily','weekly','monthly')),
     created_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_planner_tasks_user_session_status

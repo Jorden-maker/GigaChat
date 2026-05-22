@@ -274,6 +274,10 @@
             font-size: 11px; color: var(--text-secondary); flex-shrink: 0;
         }
         .task-deadline.overdue { color: var(--priority-high); font-weight: 600; }
+        .task-recurrence {
+            font-size: 14px; color: var(--accent); cursor: help;
+            flex-shrink: 0; user-select: none;
+        }
         .task-description {
             font-size: 12px; color: var(--text-secondary); margin-top: 4px;
             word-break: break-word;
@@ -1145,6 +1149,14 @@
                         <option value="">— Самостоятельная задача —</option>
                     </select>
                 </label>
+                <label>Повторять
+                    <select id="taskRecurrence">
+                        <option value="">Не повторять</option>
+                        <option value="daily">Ежедневно</option>
+                        <option value="weekly">Еженедельно</option>
+                        <option value="monthly">Ежемесячно</option>
+                    </select>
+                </label>
                 <label>Срок выполнения
                     <div class="gc-datepicker" id="taskDeadline" data-value="" tabindex="0" role="button" aria-haspopup="dialog" aria-expanded="false">
                         <div class="gc-datepicker-trigger">
@@ -1845,6 +1857,7 @@
                     + '<div class="task-title-row">'
                     + '<span class="task-priority ' + t.priority + '">' + prioRu + '</span>'
                     + '<span class="task-title">' + escapeHtml(t.title) + '</span>'
+                    + (t.recurrence ? '<span class="task-recurrence" title="' + (t.recurrence === 'daily' ? 'Ежедневно' : t.recurrence === 'weekly' ? 'Еженедельно' : 'Ежемесячно') + '">↻</span>' : '')
                     + (dlText ? '<span class="task-deadline ' + dlClass + '">' + dlText + '</span>' : '')
                     + '</div>'
                     + descHtml
@@ -2428,6 +2441,7 @@
                 setPriorityValue(t.priority || 'medium');
                 setDeadlineValue(t.deadline || null);
                 document.getElementById('taskParent').value = t.parent_id ? String(t.parent_id) : '';
+                document.getElementById('taskRecurrence').value = t.recurrence || '';
             } else {
                 title.textContent = 'Новая задача';
                 inTitle.value = '';
@@ -2435,6 +2449,7 @@
                 setPriorityValue('medium');
                 setDeadlineValue(null);
                 document.getElementById('taskParent').value = '';
+                document.getElementById('taskRecurrence').value = '';
             }
             err.textContent = '';
             document.getElementById('taskModal').classList.add('show');
@@ -2472,6 +2487,9 @@
             var parentSel = document.getElementById('taskParent');
             var parentVal = parentSel ? parentSel.value : '';
             if (parentVal) payload.parent_id = parseInt(parentVal, 10);
+            // recurrence — всегда передаём (пустое = очистить повтор)
+            var recurSel = document.getElementById('taskRecurrence');
+            payload.recurrence = recurSel ? recurSel.value : '';
 
             if (editingTaskId !== null) {
                 payload.action = 'update';
