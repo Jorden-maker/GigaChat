@@ -134,6 +134,15 @@
         .tasks-add-btn:hover { background: var(--accent-hover); }
         .tasks-add-btn:active { transform: scale(0.97); }
 
+        /* Счётчик задач: «Активных N · Просрочено M · Выполнено K» */
+        .tasks-counter {
+            font-size: 12px; color: var(--text-secondary);
+            margin: 4px 0 10px; letter-spacing: 0.2px;
+        }
+        .tasks-counter .ct-num { color: var(--text-primary); font-weight: 600; }
+        .tasks-counter .ct-overdue { color: var(--priority-high); font-weight: 600; }
+        .tasks-counter .ct-sep { margin: 0 8px; opacity: 0.5; }
+
         /* Поисковая строка над списком задач */
         .tasks-search-row {
             position: relative;
@@ -1021,6 +1030,8 @@
                         Задача
                     </button>
                 </div>
+                <!-- Счётчик задач — обновляется в renderTasks из currentTasks -->
+                <div class="tasks-counter" id="tasksCounter"></div>
                 <!-- Поиск по задачам в текущем списке. Фильтрует currentTasks
                      по title+description в реальном времени. -->
                 <div class="tasks-search-row">
@@ -1683,6 +1694,10 @@
         }
 
         // ========== Загрузка задач для текущей сессии ==========
+        // Всегда грузим ВСЕ задачи списка (filter='all') — счётчик и поиск
+        // работают по полному набору, фильтр Активные/Выполненные/Все —
+        // на клиенте в renderTasks. На несколько сотен задач быстрее, чем
+        // делать отдельный запрос за счётчиком.
         async function loadTasks() {
             var sid = getCurrentSessionId();
             var noSessionEl = document.getElementById('tasksNoSession');
@@ -1690,24 +1705,53 @@
                 currentTasks = [];
                 document.getElementById('tasks-list').innerHTML = '';
                 if (noSessionEl) noSessionEl.classList.remove('hidden');
+                updateTasksCounter();
                 return;
             }
             if (noSessionEl) noSessionEl.classList.add('hidden');
             var data = await plannerApi({
-                action: 'list', session_id: sid, filter: currentFilter
+                action: 'list', session_id: sid, filter: 'all'
             });
             currentTasks = (data && Array.isArray(data.tasks)) ? data.tasks : [];
             renderTasks();
         }
 
+        // Обновление счётчика «Активных N · Просрочено M · Выполнено K».
+        // Считается по полному currentTasks (не по visible после фильтра/поиска).
+        function updateTasksCounter() {
+            var el = document.getElementById('tasksCounter');
+            if (!el) return;
+            if (!currentTasks.length) { el.innerHTML = ''; return; }
+            var today = new Date().toISOString().slice(0, 10);
+            var active = 0, overdue = 0, completed = 0;
+            for (var i = 0; i < currentTasks.length; i++) {
+                var t = currentTasks[i];
+                if (t.status === 'completed') completed++;
+                else {
+                    active++;
+                    if (t.deadline && t.deadline < today) overdue++;
+                }
+            }
+            var parts = ['Активных: <span class="ct-num">' + active + '</span>'];
+            if (overdue > 0) parts.push('Просрочено: <span class="ct-overdue">' + overdue + '</span>');
+            parts.push('Выполнено: <span class="ct-num">' + completed + '</span>');
+            el.innerHTML = parts.join('<span class="ct-sep">·</span>');
+        }
+
         function renderTasks() {
             var list = document.getElementById('tasks-list');
-            // Фильтр поиска: title + description содержат подстроку (lowercase).
-            // Пустой query → ничего не отсеиваем.
+            updateTasksCounter();
+            // Фильтрация на клиенте: сначала currentFilter (статус),
+            // потом поиск (title+description).
             var visibleTasks = currentTasks;
+            if (currentFilter === 'active') {
+                visibleTasks = visibleTasks.filter(function (t) { return t.status === 'active'; });
+            } else if (currentFilter === 'completed') {
+                visibleTasks = visibleTasks.filter(function (t) { return t.status === 'completed'; });
+            }
             if (tasksSearchQuery) {
                 var q = tasksSearchQuery;
-                visibleTasks = currentTasks.filter(function (t) {
+                visibleTasks = visibleTasks.filter(function (t) {
                     var hay = ((t.title || '') + ' ' + (t.description || '')).toLowerCase();
                     return hay.indexOf(q) !== -1;
                 });
@@ -1757,7 +1801,8 @@
             var tabs = document.querySelectorAll('.tasks-filter-tabs button');
             for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
             btn.classList.add('active');
-            loadTasks();
+            // Фильтрация client-side: задачи уже загружены, просто перерендер
+            renderTasks();
         }
 
         // ========== Поиск по задачам (фильтр текущего списка) ==========
