@@ -954,6 +954,14 @@
     <script src="lib/jszip.min.js"></script>
 </head>
 <body>
+    <!-- Анти-FOUC заставка. Закрывает всё что есть в body однотонным цветом до тех
+         пор, пока document не дойдёт до readyState='complete'. Тогда JS в самом
+         конце <body> удаляет div. Это гарантирует, что юзер НЕ видит частично
+         отрисованный layout/шрифты во время загрузки (что не помогали ни
+         color-scheme, ни pre-paint <style>-блок). -->
+    <div id="__gc-bootloader" style="position:fixed;inset:0;background:#1f1f1e;z-index:99999;pointer-events:none"></div>
+    <script>(function(){var t=document.documentElement.getAttribute('data-theme');if(t!=='dark'){var el=document.getElementById('__gc-bootloader');if(el)el.style.background='#fdfdfc';}})();</script>
+
     <!-- Login-screen: показывается если в localStorage нет валидного planner_token
          либо verify-токена вернул auth_required. Tabs Вход/Регистрация. -->
     <div class="gc-login-overlay" id="loginOverlay" style="display:none">
@@ -2784,6 +2792,29 @@
             });
         }
         } // end function initPlannerMainUI — вызывается из initAuthenticatedUI после verify
+    </script>
+    <script>
+        // Убираем анти-FOUC заставку только когда страница ПОЛНОСТЬЮ готова —
+        // все scripts выполнены, все stylesheets применены, все элементы
+        // отрисованы. К этому моменту никакой нестилизованный контент мелькнуть
+        // уже не может.
+        (function () {
+            function removeBootloader() {
+                var el = document.getElementById('__gc-bootloader');
+                if (!el) return;
+                // Плавное исчезновение чтобы не было резкого «щелчка»
+                el.style.transition = 'opacity 0.2s ease';
+                el.style.opacity = '0';
+                setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 220);
+            }
+            if (document.readyState === 'complete') {
+                requestAnimationFrame(removeBootloader);
+            } else {
+                window.addEventListener('load', function () {
+                    requestAnimationFrame(removeBootloader);
+                });
+            }
+        })();
     </script>
 </body>
 </html>
