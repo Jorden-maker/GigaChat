@@ -134,6 +134,23 @@
         .tasks-add-btn:hover { background: var(--accent-hover); }
         .tasks-add-btn:active { transform: scale(0.97); }
 
+        /* Иконки Импорт / Экспорт (XLSX) — справа от + Задача */
+        .tasks-io-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px;
+            background: transparent; border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary); cursor: pointer; padding: 0;
+            transition: color .15s, background .15s, border-color .15s;
+        }
+        .tasks-io-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--bg-hover); }
+        .tasks-io-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .tasks-io-btn svg {
+            width: 16px; height: 16px;
+            stroke: currentColor; fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
+
         /* Счётчик задач: «Активных N · Просрочено M · Выполнено K» */
         .tasks-counter {
             font-size: 12px; color: var(--text-secondary);
@@ -1034,6 +1051,13 @@
                         <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Задача
                     </button>
+                    <button class="tasks-io-btn" onclick="exportTasksXlsx()" aria-label="Экспорт в Excel" title="Экспорт списка в Excel">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </button>
+                    <button class="tasks-io-btn" onclick="document.getElementById('tasksImportInput').click()" aria-label="Импорт из Excel" title="Импорт списка из Excel">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    </button>
+                    <input type="file" id="tasksImportInput" style="display:none" accept=".xlsx,.xlsm" onchange="importTasksXlsx(this.files[0]); this.value=''">
                 </div>
                 <!-- Счётчик задач — обновляется в renderTasks из currentTasks -->
                 <div class="tasks-counter" id="tasksCounter"></div>
@@ -1808,6 +1832,89 @@
             btn.classList.add('active');
             // Фильтрация client-side: задачи уже загружены, просто перерендер
             renderTasks();
+        }
+
+        // ========== Импорт / экспорт в Excel ==========
+        // Колонки: Название, Описание, Приоритет, Дедлайн, Статус.
+        // Шапка обязательна — при импорте первая строка пропускается.
+        var PRIO_RU = { high: 'Высокий', medium: 'Средний', low: 'Низкий' };
+        var PRIO_RU2EN = { 'высокий': 'high', 'средний': 'medium', 'низкий': 'low',
+                           'high': 'high', 'medium': 'medium', 'low': 'low' };
+        var STATUS_RU = { active: 'Активная', completed: 'Выполненная' };
+        var STATUS_RU2EN = { 'активная': 'active', 'выполненная': 'completed',
+                              'active': 'active', 'completed': 'completed' };
+
+        async function exportTasksXlsx() {
+            if (!currentTasks.length) { alert('В этом списке нет задач для экспорта.'); return; }
+            var headers = ['Название', 'Описание', 'Приоритет', 'Дедлайн', 'Статус'];
+            var rows = currentTasks.map(function (t) {
+                return [
+                    t.title || '',
+                    t.description || '',
+                    PRIO_RU[t.priority] || 'Средний',
+                    t.deadline || '',
+                    STATUS_RU[t.status] || 'Активная'
+                ];
+            });
+            try {
+                var blob = await GigaChat.buildXlsxBlob(headers, rows, 'Задачи');
+                var sid = getCurrentSessionId() || 'tasks';
+                var fname = 'planner_' + sid + '_' + new Date().toISOString().slice(0,10) + '.xlsx';
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url; a.download = fname;
+                document.body.appendChild(a); a.click();
+                document.body.removeChild(a);
+                setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+            } catch (e) {
+                console.error('Export error:', e);
+                alert('Не удалось экспортировать: ' + e.message);
+            }
+        }
+
+        async function importTasksXlsx(file) {
+            if (!file) return;
+            var sid = getCurrentSessionId();
+            if (!sid) { alert('Сначала создайте или выберите список задач.'); return; }
+            try {
+                var parsed = await GigaChat.parseXlsxFile(file);
+                // parseXlsxFile возвращает массив строк (массивов значений) или { rows: [...] }
+                var rows = Array.isArray(parsed) ? parsed
+                         : (parsed && Array.isArray(parsed.rows)) ? parsed.rows
+                         : [];
+                if (!rows.length) { alert('В файле нет данных.'); return; }
+                // Первая строка — шапка, пропускаем
+                var dataRows = rows.slice(1).filter(function (r) {
+                    return Array.isArray(r) && String(r[0] || '').trim().length > 0;
+                });
+                if (!dataRows.length) { alert('В файле нет задач (после шапки).'); return; }
+                if (dataRows.length > 200) {
+                    if (!confirm('В файле ' + dataRows.length + ' задач. Импортировать все?')) return;
+                }
+                var created = 0, failed = 0;
+                for (var i = 0; i < dataRows.length; i++) {
+                    var r = dataRows[i];
+                    var title = String(r[0] || '').trim().slice(0, 500);
+                    if (!title) { failed++; continue; }
+                    var description = String(r[1] || '').trim().slice(0, 5000);
+                    var prioStr = String(r[2] || '').trim().toLowerCase();
+                    var priority = PRIO_RU2EN[prioStr] || 'medium';
+                    var deadline = String(r[3] || '').trim();
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) deadline = '';
+                    var data = await plannerApi({
+                        action: 'create', session_id: sid,
+                        title: title, description: description,
+                        priority: priority, deadline: deadline || null
+                    });
+                    if (data && data.response === 'ok') created++;
+                    else failed++;
+                }
+                alert('Импортировано: ' + created + (failed ? ', не удалось: ' + failed : ''));
+                await loadTasks();
+            } catch (e) {
+                console.error('Import error:', e);
+                alert('Не удалось импортировать: ' + e.message);
+            }
         }
 
         // ========== Drag & Drop сортировка задач ==========
