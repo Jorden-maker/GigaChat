@@ -119,6 +119,40 @@
         .modal-box button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
         .modal-box button:not(.primary):hover { border-color: var(--accent); color: var(--text-primary); }
         .modal-box .modal-err { color: #dc2626; font-size: 13px; margin-top: 10px; min-height: 18px; }
+        /* Direct-test modal: шире, со списком action-карточек */
+        .modal-box.wide { min-width: 520px; max-width: 640px; max-height: 86vh; overflow-y: auto; }
+        .modal-box.wide::-webkit-scrollbar { width: 6px; }
+        .modal-box.wide::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        .dt-card {
+            border: 1px solid var(--border); border-radius: 10px;
+            padding: 12px 14px; margin: 10px 0;
+            background: var(--bg-secondary);
+        }
+        .dt-card h4 { margin: 0 0 8px; font-size: 14px; color: var(--text-primary); font-weight: 600; }
+        .dt-card .dt-hint { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+        .dt-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+        .dt-row input, .dt-row select {
+            flex: 1; min-width: 110px; padding: 7px 10px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--bg-input); color: var(--text-primary);
+            font-size: 13px; font-family: inherit; outline: none;
+        }
+        .dt-row input:focus, .dt-row select:focus { border-color: var(--accent); }
+        .dt-row button {
+            padding: 7px 14px; border-radius: 6px; border: 1px solid var(--accent);
+            background: var(--accent); color: #fff; font-size: 13px; cursor: pointer;
+            font-family: inherit; transition: background 0.2s;
+        }
+        .dt-row button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+        .dt-row button:disabled { opacity: 0.5; cursor: default; }
+        .dt-result {
+            margin-top: 8px; padding: 8px 10px; border-radius: 6px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            font-family: Consolas, monospace; font-size: 12px;
+            white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto;
+            display: none;
+        }
+        .dt-result.show { display: block; }
+        .dt-result.err { border-color: #dc2626; color: #dc2626; }
         /* Auth-gate: блок поверх всего при отсутствии planner_token */
         .auth-gate {
             position: fixed; inset: 0; background: var(--bg-primary); z-index: 999;
@@ -159,6 +193,7 @@
             <div class="header-right">
                 <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
                 <button class="btn-settings" onclick="openSettings()">Plane-настройки</button>
+                <button class="btn-settings" onclick="openDirectTest()">Тест без LLM</button>
                 <button class="btn-export" onclick="exportChat()">Экспорт</button>
             </div>
         </header>
@@ -173,6 +208,116 @@
                     </button>
                 </div>
                 <span id="attachBtn"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Direct test modal: 6 action-карточек для теста workflow без LLM.
+         Каждая карточка шлёт {action, params, token, plane_*} напрямую и показывает JSON-ответ. -->
+    <div class="modal-backdrop" id="directTestModal" onclick="if(event.target===this)closeDirectTest()">
+        <div class="modal-box wide">
+            <h3>Тест без LLM (прямые action-вызовы)</h3>
+            <div class="modal-hint">
+                Workflow поддерживает direct-режим: если в теле есть <code>action</code>, LLM пропускается.
+                Тут — UI поверх этого режима. Нужны заполненные Plane-настройки и валидный planner-токен.
+            </div>
+
+            <div class="dt-card">
+                <h4>1. Список проектов</h4>
+                <div class="dt-hint">action=list_projects, params={}</div>
+                <div class="dt-row">
+                    <button onclick="runDirect('list_projects', {}, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-list_projects"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>2. Список задач в проекте</h4>
+                <div class="dt-hint">action=list_issues, params={ project_name }</div>
+                <div class="dt-row">
+                    <input id="dt-li-project" placeholder="project_name (напр. office)" autocomplete="off">
+                    <button onclick="runDirect('list_issues', { project_name: document.getElementById('dt-li-project').value.trim() }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-list_issues"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>3. Создать задачу</h4>
+                <div class="dt-hint">action=create_issue, params={ project_name, name, priority? }</div>
+                <div class="dt-row">
+                    <input id="dt-ci-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-ci-name" placeholder="название задачи" autocomplete="off">
+                    <select id="dt-ci-prio">
+                        <option value="none">приоритет: нет</option>
+                        <option value="low">низкий</option>
+                        <option value="medium">средний</option>
+                        <option value="high" selected>высокий</option>
+                        <option value="urgent">срочный</option>
+                    </select>
+                    <button onclick="runDirect('create_issue', {
+                        project_name: document.getElementById('dt-ci-project').value.trim(),
+                        name: document.getElementById('dt-ci-name').value.trim(),
+                        priority: document.getElementById('dt-ci-prio').value
+                    }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-create_issue"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>4. Обновить задачу</h4>
+                <div class="dt-hint">action=update_issue, params={ project_name, issue_name, priority?, name? }</div>
+                <div class="dt-row">
+                    <input id="dt-ui-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-ui-issue" placeholder="имя задачи (точное)" autocomplete="off">
+                    <select id="dt-ui-prio">
+                        <option value="">не менять приоритет</option>
+                        <option value="none">приоритет: нет</option>
+                        <option value="low">низкий</option>
+                        <option value="medium">средний</option>
+                        <option value="high">высокий</option>
+                        <option value="urgent">срочный</option>
+                    </select>
+                    <button onclick="(function(b){
+                        var p = { project_name: document.getElementById('dt-ui-project').value.trim(),
+                                  issue_name: document.getElementById('dt-ui-issue').value.trim() };
+                        var prio = document.getElementById('dt-ui-prio').value;
+                        if (prio) p.priority = prio;
+                        runDirect('update_issue', p, b);
+                    })(this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-update_issue"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>5. Удалить задачу</h4>
+                <div class="dt-hint">action=delete_issue, params={ project_name, issue_name }</div>
+                <div class="dt-row">
+                    <input id="dt-di-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-di-issue" placeholder="имя задачи (точное)" autocomplete="off">
+                    <button onclick="runDirect('delete_issue', {
+                        project_name: document.getElementById('dt-di-project').value.trim(),
+                        issue_name: document.getElementById('dt-di-issue').value.trim()
+                    }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-delete_issue"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>6. Поиск задач</h4>
+                <div class="dt-hint">action=search_issues, params={ project_name, query }</div>
+                <div class="dt-row">
+                    <input id="dt-si-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-si-query" placeholder="поисковая строка" autocomplete="off">
+                    <button onclick="runDirect('search_issues', {
+                        project_name: document.getElementById('dt-si-project').value.trim(),
+                        query: document.getElementById('dt-si-query').value.trim()
+                    }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-search_issues"></div>
+            </div>
+
+            <div class="modal-buttons">
+                <button onclick="closeDirectTest()">Закрыть</button>
             </div>
         </div>
     </div>
@@ -299,12 +444,98 @@
             var msgInput = document.getElementById('msg');
             if (msgInput) msgInput.placeholder = 'Например: покажи мои проекты или создай задачу...';
         }
-        // ESC закрывает modal
+        // ESC закрывает modal'ы (settings + direct-test)
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && document.getElementById('settingsModal').classList.contains('open')) {
+            if (e.key !== 'Escape') return;
+            if (document.getElementById('settingsModal').classList.contains('open')) {
                 closeSettings();
             }
+            if (document.getElementById('directTestModal').classList.contains('open')) {
+                closeDirectTest();
+            }
         });
+
+        // ============ Direct test modal ============
+        // Шлёт {action, params, token, plane_*} напрямую на /webhook/plane-agent.
+        // Workflow в direct-режиме пропускает LLM. Ответ — JSON, отображается в карточке.
+        function openDirectTest() {
+            // Прокидываем дефолтный slug в project_name поля (удобство).
+            var s = loadPlaneSettings();
+            var defaultProj = s.slug || '';
+            ['dt-li-project','dt-ci-project','dt-ui-project','dt-di-project','dt-si-project']
+                .forEach(function (id) {
+                    var el = document.getElementById(id);
+                    if (el && !el.value) el.value = defaultProj;
+                });
+            document.getElementById('directTestModal').classList.add('open');
+        }
+        function closeDirectTest() {
+            document.getElementById('directTestModal').classList.remove('open');
+        }
+        async function runDirect(action, params, btn) {
+            // Префлайт: токен и Plane-настройки должны быть
+            var token = getAuthToken();
+            if (!token) {
+                showDirectResult(action, { error: 'Нет planner-токена. Войди через Планировщик.' }, true);
+                return;
+            }
+            var s = loadPlaneSettings();
+            if (!planeSettingsComplete(s)) {
+                showDirectResult(action, { error: 'Заполни Plane-настройки (URL, slug, token).' }, true);
+                openSettings();
+                return;
+            }
+            // Чистим параметры от пустых строк, чтобы не слать в API лишний шум
+            var cleanParams = {};
+            Object.keys(params || {}).forEach(function (k) {
+                var v = params[k];
+                if (v !== '' && v !== null && v !== undefined) cleanParams[k] = v;
+            });
+
+            btn.disabled = true;
+            var originalText = btn.textContent;
+            btn.textContent = '...';
+            showDirectResult(action, null, false); // спрятать предыдущий результат
+
+            try {
+                var res = await fetch(GigaChat.webhookUrl('plane-agent'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                    body: JSON.stringify({
+                        action: action,
+                        params: cleanParams,
+                        token: token,
+                        workspace_slug: s.slug,
+                        plane_url: s.url,
+                        plane_token: s.token,
+                        session_id: 'plane-direct-test'
+                    })
+                });
+                var data;
+                try { data = await res.json(); }
+                catch (_) { data = { error: 'Ответ не JSON: HTTP ' + res.status }; }
+                var isErr = !res.ok || (data && (data.error || data.action === 'error'));
+                showDirectResult(action, data, isErr);
+            } catch (e) {
+                showDirectResult(action, { error: 'Сеть/таймаут: ' + (e.message || e) }, true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+        function showDirectResult(action, data, isError) {
+            var box = document.getElementById('dt-res-' + action);
+            if (!box) return;
+            if (data === null) {
+                box.classList.remove('show', 'err');
+                box.textContent = '';
+                return;
+            }
+            box.classList.add('show');
+            box.classList.toggle('err', !!isError);
+            try { box.textContent = JSON.stringify(data, null, 2); }
+            catch (_) { box.textContent = String(data); }
+        }
 
         // ============ Auth gate ============
         // Если planner_token отсутствует — показываем заглушку с кнопкой в Планировщик.
