@@ -203,6 +203,11 @@
             transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
         }
         .task-item:hover { border-color: var(--accent); background: var(--bg-input); }
+        /* Drag & drop состояния */
+        .task-item { cursor: grab; }
+        .task-item.dragging { opacity: 0.4; cursor: grabbing; }
+        .task-item.drop-above { box-shadow: inset 0 2px 0 var(--accent); }
+        .task-item.drop-below { box-shadow: inset 0 -2px 0 var(--accent); }
         .task-item.completed { opacity: 0.5; }
         .task-item.completed:hover { opacity: 0.75; }
         .task-item.completed .task-title { text-decoration: line-through; }
@@ -1777,7 +1782,7 @@
                 var prioRu = t.priority === 'high' ? 'Высокий'
                            : t.priority === 'low' ? 'Низкий' : 'Средний';
                 var descHtml = t.description ? '<div class="task-description">' + escapeHtml(t.description) + '</div>' : '';
-                return '<div class="task-item ' + (isCompleted ? 'completed ' : '') + (isOverdue ? 'overdue' : '') + '" data-id="' + t.id + '">'
+                return '<div class="task-item ' + (isCompleted ? 'completed ' : '') + (isOverdue ? 'overdue' : '') + '" data-id="' + t.id + '" draggable="true">'
                     + '<div class="task-check ' + (isCompleted ? 'checked' : '') + '" onclick="toggleTask(' + t.id + ')" role="checkbox" aria-checked="' + isCompleted + '"></div>'
                     + '<div class="task-body" onclick="openTaskModal(' + t.id + ')">'
                     + '<div class="task-title-row">'
@@ -1803,6 +1808,80 @@
             btn.classList.add('active');
             // Фильтрация client-side: задачи уже загружены, просто перерендер
             renderTasks();
+        }
+
+        // ========== Drag & Drop сортировка задач ==========
+        // Делегирование на #tasks-list — handlers ставятся один раз,
+        // работают для всех task-item даже при перерендере.
+        function initTasksDnD() {
+            var list = document.getElementById('tasks-list');
+            if (!list || list._dndInit) return;
+            list._dndInit = true;
+            var dragSrcId = null;
+            function clearIndicators() {
+                var arr = list.querySelectorAll('.task-item.drop-above, .task-item.drop-below');
+                for (var i = 0; i < arr.length; i++) arr[i].classList.remove('drop-above', 'drop-below');
+            }
+            list.addEventListener('dragstart', function (e) {
+                var item = e.target.closest('.task-item');
+                if (!item) return;
+                dragSrcId = parseInt(item.dataset.id, 10);
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                try { e.dataTransfer.setData('text/plain', String(dragSrcId)); } catch (_) {}
+            });
+            list.addEventListener('dragover', function (e) {
+                var item = e.target.closest('.task-item');
+                if (!item || parseInt(item.dataset.id, 10) === dragSrcId) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                clearIndicators();
+                var rect = item.getBoundingClientRect();
+                var before = (e.clientY - rect.top) < rect.height / 2;
+                item.classList.add(before ? 'drop-above' : 'drop-below');
+            });
+            list.addEventListener('drop', function (e) {
+                e.preventDefault();
+                var item = e.target.closest('.task-item');
+                if (!item || dragSrcId === null) return;
+                var dstId = parseInt(item.dataset.id, 10);
+                if (dstId === dragSrcId) { clearIndicators(); return; }
+                var before = item.classList.contains('drop-above');
+                clearIndicators();
+                reorderTask(dragSrcId, dstId, before);
+                dragSrcId = null;
+            });
+            list.addEventListener('dragend', function (e) {
+                var item = e.target.closest('.task-item');
+                if (item) item.classList.remove('dragging');
+                clearIndicators();
+                dragSrcId = null;
+            });
+        }
+        async function reorderTask(srcId, dstId, before) {
+            var srcIdx = currentTasks.findIndex(function (t) { return t.id === srcId; });
+            var dstIdx = currentTasks.findIndex(function (t) { return t.id === dstId; });
+            if (srcIdx < 0 || dstIdx < 0) return;
+            var moved = currentTasks.splice(srcIdx, 1)[0];
+            var insertAt = dstIdx;
+            if (srcIdx < dstIdx) insertAt--;
+            if (!before) insertAt++;
+            // Новый sort_order = среднее между соседями (gap-based, без массового update)
+            var prev = insertAt > 0 ? currentTasks[insertAt - 1] : null;
+            var next = insertAt < currentTasks.length ? currentTasks[insertAt] : null;
+            var newOrder;
+            if (prev && next) newOrder = Math.floor((prev.sort_order + next.sort_order) / 2);
+            else if (prev) newOrder = (prev.sort_order || 0) + 10;
+            else if (next) newOrder = (next.sort_order || 0) - 10;
+            else newOrder = 0;
+            moved.sort_order = newOrder;
+            currentTasks.splice(insertAt, 0, moved);
+            renderTasks();
+            var sid = getCurrentSessionId();
+            if (!sid) return;
+            try {
+                await plannerApi({ action: 'update', session_id: sid, id: srcId, sort_order: newOrder });
+            } catch (e) { /* при ошибке перезагрузим */ await loadTasks(); }
         }
 
         // ========== Поиск по задачам (фильтр текущего списка) ==========
@@ -2287,6 +2366,8 @@
         // Начальное состояние кнопки «+ Задача» — на момент init может не быть
         // активной сессии (новый юзер без сохранённых списков).
         updateTasksAddBtnState();
+        // Привязываем drag&drop handlers к #tasks-list (один раз)
+        initTasksDnD();
 
         // Safety-net: explicit init resize. createChatAgent уже вызывает его внутри,
         // но если по какой-то причине setup прервался — функция идемпотентна

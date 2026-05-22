@@ -95,12 +95,15 @@ CREATE TABLE IF NOT EXISTS planner_tasks (
     status VARCHAR(20) DEFAULT 'active'
         CHECK (status IN ('active','completed')),
     completed_at TIMESTAMP,
+    sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_planner_tasks_user_session_status
     ON planner_tasks (user_id, session_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_planner_tasks_user_deadline
     ON planner_tasks (user_id, deadline) WHERE deadline IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_planner_tasks_sort
+    ON planner_tasks (user_id, session_id, sort_order);
 
 \echo '== Тестовые данные для SQL-агента =='
 INSERT INTO clients (name, city, email, revenue) VALUES
