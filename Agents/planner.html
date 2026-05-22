@@ -788,7 +788,9 @@
         /* === User menu в шапке ============================================
            «Иванов ▼» с dropdown'ом «Сменить имя / Выйти». Стиль — как
            gc-select trigger из модалки задач, единая визуальная семья. */
-        .gc-user-menu { position: relative; }
+        /* z-index создаёт stacking context для всего user-menu, чтобы
+           dropdown поднимался поверх #tasks-panel (z-index:5). */
+        .gc-user-menu { position: relative; z-index: 50; }
         .gc-user-menu-trigger {
             display: inline-flex; align-items: center; gap: 6px;
             background: transparent; border: 1px solid var(--border);
