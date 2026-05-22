@@ -1111,9 +1111,21 @@
             } catch (e) {}
         }
 
+        // Уникальный ASCII-prefix для localStorage по имени юзера.
+        // ВАЖНО: для кириллицы старая версия (replace [^A-Za-z0-9_] → '_')
+        // давала ОДИНАКОВЫЙ prefix для двух русских имён одинаковой длины
+        // ('Иванов' и 'Петров' оба → '______') — юзеры видели и удаляли
+        // чужие списки. Используем btoa(UTF-8 bytes) — гарантия уникальности.
         function sanitizeUserForPrefix(name) {
-            return name.replace(/[^A-Za-z0-9_]/g, '_').toLowerCase().slice(0, 50)
-                || 'user_' + Math.abs(hashString(name));
+            var s = String(name || '');
+            try {
+                var bytes = new TextEncoder().encode(s);
+                var bin = '';
+                for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+                var b64 = btoa(bin).replace(/[^A-Za-z0-9]/g, '');
+                if (b64) return b64;
+            } catch (e) { /* fallback ниже */ }
+            return 'user_' + Math.abs(hashString(s));
         }
         function hashString(s) {
             var h = 0;
