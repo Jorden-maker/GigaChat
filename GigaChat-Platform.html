@@ -9,6 +9,10 @@
            GigaChat браузер не показывал белый «canvas навигации». */
         html { color-scheme: light; background: #fdfdfc; }
         html[data-theme="dark"] { color-scheme: dark; background: #1f1f1e; }
+        /* FOUC: скрываем body пока большой <style>-блок не применился.
+           gc-css-ready ставится скриптом в конце <head>. */
+        body { visibility: hidden; }
+        html.gc-css-ready body { visibility: visible; }
     </style>
     <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
     <style>
@@ -292,6 +296,8 @@
         }
 
     </style>
+    <!-- Маркер: основной <style>-блок применён, body можно показывать (FOUC fix). -->
+    <script>document.documentElement.classList.add('gc-css-ready');</script>
     <script src="Agents/_config.js"></script>
     <script src="Agents/_shared.js"></script>
 </head>

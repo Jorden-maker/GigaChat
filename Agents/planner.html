@@ -4,14 +4,19 @@
     <meta charset="UTF-8">
     <title>GigaChat Планировщик</title>
     <style>
-        /* Pre-paint фон ДО любого JS — браузер парсит <style> в head и применяет
-           background на html сразу. Без этого между дашбордом и планировщиком
-           проскакивал белый «canvas навигации» браузера.
-           color-scheme сообщает браузеру, какие цвета использовать в системных
-           элементах (скроллбар, canvas навигации, dialog backdrop). */
+        /* Pre-paint фон + color-scheme — браузер применяет к html сразу,
+           до парсинга больших CSS. Цвет для системных элементов (canvas
+           навигации, скроллбар, dialog backdrop). */
         html { color-scheme: light; background: #fdfdfc; }
         html[data-theme="dark"] { color-scheme: dark; background: #1f1f1e; }
         html.gc-pending-auth, html.gc-pending-auth body { background: inherit !important }
+        /* Скрываем body ДО полной загрузки CSS — это РАДИКАЛЬНЫЙ FOUC-фикс.
+           Без него браузер мог отрисовать body с базовыми (serif) шрифтами
+           и без layout'а пока большой <style>-блок не дораспарсился.
+           Класс gc-css-ready ставится скриптом в конце head'а (после
+           основного <style>-блока) — к этому моменту вся CSS уже применена. */
+        body { visibility: hidden; }
+        html.gc-css-ready body { visibility: visible; }
     </style>
     <script>(function(){var t='light';try{t=localStorage.getItem('giga_theme')||'light'}catch(e){}document.documentElement.setAttribute('data-theme',t);/* !important чтобы не перебилось последующими стилями (FOUC fix) */document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');document.documentElement.classList.add('gc-pending-auth');})();</script>
     <style>
@@ -931,6 +936,10 @@
             background: var(--bg-secondary); color: var(--accent);
         }
     </style>
+    <!-- Маркер: основной <style>-блок применён, body можно показывать.
+         Срабатывает синхронно ДО первого paint — браузер парсит head полностью
+         до окончания head, и только после этого даёт «green light» на отрисовку. -->
+    <script>document.documentElement.classList.add('gc-css-ready');</script>
     <script src="_config.js"></script>
     <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark">
     <link rel="stylesheet" href="lib/hljs-light.min.css" id="hljs-theme-light" disabled>
