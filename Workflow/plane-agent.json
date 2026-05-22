@@ -1,0 +1,193 @@
+{
+  "name": "Plane-агент. Поток",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "plane-agent",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 300],
+      "id": "plane-agent-webhook-0001",
+      "name": "Webhook",
+      "webhookId": "plane-agent-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Валидация запроса от GigaChat фронта.\n// action — что делать (list_projects, list_issues, create_issue, ...)\n// token — наш GigaChat-token (от planner_sessions), не Plane API token.\nconst body = $input.first().json.body || {};\nconst action = String(body.action || 'list_projects').trim();\nconst ALLOWED = ['ping', 'list_projects', 'list_issues', 'create_issue', 'update_issue', 'delete_issue', 'search_issues'];\nif (!ALLOWED.includes(action)) {\n  return [{ json: { valid: 0, error: 'Неизвестный action: ' + action } }];\n}\nif (action === 'ping') {\n  return [{ json: { valid: 0, error: 'pong', action: 'ping' } }];\n}\nconst token = String(body.token || '').trim();\nif (!/^[a-f0-9]{64}$/.test(token)) {\n  return [{ json: { valid: 0, error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { valid: 1, action, token, body } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 300],
+      "id": "plane-agent-validate-0002",
+      "name": "Валидация"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [{
+            "id": "cond-valid",
+            "leftValue": "={{ $json.valid }}",
+            "rightValue": 1,
+            "operator": {"type": "number", "operation": "equals"}
+          }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [560, 300],
+      "id": "plane-agent-if-valid-0003",
+      "name": "Валидно?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1 AND expires_at > NOW();\nSELECT s.user_id, u.username FROM planner_sessions s JOIN planner_users u ON u.id = s.user_id WHERE s.token = $1 AND s.expires_at > NOW();",
+        "options": {"queryReplacement": "={{ [$json.token] }}"},
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [840, 300],
+      "id": "plane-agent-verify-sql-0004",
+      "name": "SQL: Verify token",
+      "credentials": {
+        "postgres": {"id": "OYsyciMf7Eq9W4FS", "name": "Postgres"}
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('Валидация').first().json;\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id, username: data.username } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "id": "plane-agent-token-result-0005",
+      "name": "Token result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [{
+            "id": "cond-token",
+            "leftValue": "={{ $json.token_valid }}",
+            "rightValue": true,
+            "operator": {"type": "boolean", "operation": "true"}
+          }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1400, 300],
+      "id": "plane-agent-if-token-0006",
+      "name": "Token OK?"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://host.docker.internal:8000/api/v1/workspaces/office/projects/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "X-API-Key", "value": "plane_api_2f8f19fa934b4f72a65518f7422aadc6"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "options": {"timeout": 15000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 200],
+      "id": "plane-agent-list-projects-0007",
+      "name": "Plane API: list projects",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nif (!data || data.error) {\n  return [{ json: { response: 'error', error: 'Plane API: ' + (data && data.error ? data.error : 'нет ответа') } }];\n}\n// list_projects вернёт пагинированный объект — извлекаем results\nconst projects = (data.results || []).map(p => ({\n  id: p.id,\n  name: p.name,\n  identifier: p.identifier,\n  total_members: p.total_members,\n  is_member: p.is_member\n}));\nreturn [{ json: { response: 'ok', projects, count: projects.length } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 200],
+      "id": "plane-agent-format-0008",
+      "name": "Формат"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"},
+              {"name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS"}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [2240, 300],
+      "id": "plane-agent-resp-ok-0009",
+      "name": "Ответ: OK"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: 'error', error: $json.error || 'Ошибка', auth_required: $json.auth_required || false }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"},
+              {"name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS"}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1680, 500],
+      "id": "plane-agent-resp-err-0010",
+      "name": "Ответ: ошибка"
+    }
+  ],
+  "connections": {
+    "Webhook": {"main": [[{"node": "Валидация", "type": "main", "index": 0}]]},
+    "Валидация": {"main": [[{"node": "Валидно?", "type": "main", "index": 0}]]},
+    "Валидно?": {
+      "main": [
+        [{"node": "SQL: Verify token", "type": "main", "index": 0}],
+        [{"node": "Ответ: ошибка", "type": "main", "index": 0}]
+      ]
+    },
+    "SQL: Verify token": {"main": [[{"node": "Token result", "type": "main", "index": 0}]]},
+    "Token result": {"main": [[{"node": "Token OK?", "type": "main", "index": 0}]]},
+    "Token OK?": {
+      "main": [
+        [{"node": "Plane API: list projects", "type": "main", "index": 0}],
+        [{"node": "Ответ: ошибка", "type": "main", "index": 0}]
+      ]
+    },
+    "Plane API: list projects": {"main": [[{"node": "Формат", "type": "main", "index": 0}]]},
+    "Формат": {"main": [[{"node": "Ответ: OK", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "plane-agent-v1-skeleton",
+  "meta": {"templateCredsSetupCompleted": true},
+  "id": "plane-agent-workflow",
+  "tags": []
+}
