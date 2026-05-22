@@ -134,6 +134,40 @@
         .tasks-add-btn:hover { background: var(--accent-hover); }
         .tasks-add-btn:active { transform: scale(0.97); }
 
+        /* Поисковая строка над списком задач */
+        .tasks-search-row {
+            position: relative;
+            margin-bottom: 10px;
+        }
+        .tasks-search-row input {
+            width: 100%; box-sizing: border-box;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 32px 8px 12px;
+            color: var(--text-primary); font-family: inherit; font-size: 13px;
+            outline: none;
+            transition: border-color 0.18s ease, background 0.18s ease;
+        }
+        .tasks-search-row input::placeholder { color: var(--text-muted); }
+        .tasks-search-row input:hover { border-color: var(--text-secondary); }
+        .tasks-search-row input:focus {
+            border-color: var(--accent); background: var(--bg-secondary);
+        }
+        .tasks-search-clear {
+            position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+            width: 22px; height: 22px;
+            background: transparent; border: none;
+            color: var(--text-secondary); cursor: pointer;
+            font-size: 18px; line-height: 1;
+            border-radius: 4px;
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 0;
+            transition: color 0.15s, background 0.15s;
+        }
+        .tasks-search-clear:hover { color: var(--accent); background: var(--bg-hover); }
+        .tasks-search-clear.show { display: inline-flex; }
+
         #tasks-list { display: flex; flex-direction: column; gap: 6px; }
         .tasks-empty {
             padding: 20px; text-align: center; color: var(--text-muted);
@@ -987,6 +1021,14 @@
                         Задача
                     </button>
                 </div>
+                <!-- Поиск по задачам в текущем списке. Фильтрует currentTasks
+                     по title+description в реальном времени. -->
+                <div class="tasks-search-row">
+                    <input type="text" id="tasksSearch" placeholder="Поиск по задачам…"
+                           autocomplete="off" oninput="onTasksSearchInput()">
+                    <button type="button" class="tasks-search-clear" id="tasksSearchClear"
+                            onclick="clearTasksSearch()" aria-label="Очистить поиск">×</button>
+                </div>
                 <div id="tasks-list">
                     <div class="tasks-empty"></div>
                 </div>
@@ -1588,6 +1630,7 @@
         var editingSessionId = null;     // session_id зафиксированный в момент openTaskModal —
                                          // защита от race: юзер открыл модалку, переключил
                                          // активный список, нажал Save → задача попадёт в исходный
+        var tasksSearchQuery = '';       // фильтр поиска по title+description (lowercase)
         var plannerAgent = null;         // ссылка на результат createChatAgent — нужна для чтения sessionStore.state
 
         // Читаем activeSessionId напрямую из sessionStore. Раньше держали
@@ -1659,15 +1702,30 @@
 
         function renderTasks() {
             var list = document.getElementById('tasks-list');
-            if (currentTasks.length === 0) {
-                var msg = currentFilter === 'active' ? 'Активных задач нет. Добавьте первую.'
+            // Фильтр поиска: title + description содержат подстроку (lowercase).
+            // Пустой query → ничего не отсеиваем.
+            var visibleTasks = currentTasks;
+            if (tasksSearchQuery) {
+                var q = tasksSearchQuery;
+                visibleTasks = currentTasks.filter(function (t) {
+                    var hay = ((t.title || '') + ' ' + (t.description || '')).toLowerCase();
+                    return hay.indexOf(q) !== -1;
+                });
+            }
+            if (visibleTasks.length === 0) {
+                var msg;
+                if (tasksSearchQuery && currentTasks.length > 0) {
+                    msg = 'По запросу «' + escapeHtml(tasksSearchQuery) + '» ничего не нашлось.';
+                } else {
+                    msg = currentFilter === 'active' ? 'Активных задач нет. Добавьте первую.'
                         : currentFilter === 'completed' ? 'Ничего пока не выполнено.'
                         : 'Список пуст.';
+                }
                 list.innerHTML = '<div class="tasks-empty">' + msg + '</div>';
                 return;
             }
             var today = new Date().toISOString().slice(0, 10);
-            var html = currentTasks.map(function (t) {
+            var html = visibleTasks.map(function (t) {
                 var isCompleted = t.status === 'completed';
                 var isOverdue = !isCompleted && t.deadline && t.deadline < today;
                 var dlClass = isOverdue ? 'overdue' : '';
@@ -1700,6 +1758,24 @@
             for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
             btn.classList.add('active');
             loadTasks();
+        }
+
+        // ========== Поиск по задачам (фильтр текущего списка) ==========
+        function onTasksSearchInput() {
+            var inp = document.getElementById('tasksSearch');
+            var clearBtn = document.getElementById('tasksSearchClear');
+            tasksSearchQuery = (inp.value || '').trim().toLowerCase();
+            if (clearBtn) clearBtn.classList.toggle('show', tasksSearchQuery.length > 0);
+            renderTasks();
+        }
+        function clearTasksSearch() {
+            var inp = document.getElementById('tasksSearch');
+            var clearBtn = document.getElementById('tasksSearchClear');
+            if (inp) inp.value = '';
+            tasksSearchQuery = '';
+            if (clearBtn) clearBtn.classList.remove('show');
+            renderTasks();
+            if (inp) inp.focus();
         }
 
         // ========== Модалка добавления / редактирования ==========
@@ -2137,6 +2213,8 @@
                 // источник истины — sessionStore.state.activeSessionId (читается
                 // через getCurrentSessionId()). Обновляем UI и грузим задачи.
                 updateTasksAddBtnState();
+                // Сбрасываем поиск — он relevant только для предыдущего списка
+                if (typeof clearTasksSearch === 'function') clearTasksSearch();
                 loadTasks();
             }
         });
