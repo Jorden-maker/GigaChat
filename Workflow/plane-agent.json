@@ -17,11 +17,11 @@
     },
     {
       "parameters": {
-        "jsCode": "// Валидация запроса от GigaChat фронта.\n// action — что делать (list_projects, list_issues, create_issue, ...)\n// token — наш GigaChat-token (от planner_sessions), не Plane API token.\nconst body = $input.first().json.body || {};\nconst action = String(body.action || 'list_projects').trim();\nconst ALLOWED = ['ping', 'list_projects', 'list_issues', 'create_issue', 'update_issue', 'delete_issue', 'search_issues'];\nif (!ALLOWED.includes(action)) {\n  return [{ json: { valid: 0, error: 'Неизвестный action: ' + action } }];\n}\nif (action === 'ping') {\n  return [{ json: { valid: 0, error: 'pong', action: 'ping' } }];\n}\nconst token = String(body.token || '').trim();\nif (!/^[a-f0-9]{64}$/.test(token)) {\n  return [{ json: { valid: 0, error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { valid: 1, action, token, body } }];"
+        "jsCode": "// Валидация запроса от Plane-агента.\n// Поля в body:\n//   message       — NL-запрос пользователя\n//   session_id    — для чата (chat_memory)\n//   token         — GigaChat-token (planner_sessions, 64 hex), не Plane API\n//   workspace_slug — slug рабочего пространства в Plane (напр. 'office')\n//   plane_url     — базовый URL Plane API (напр. 'http://host.docker.internal:8000' или 'https://api.plane.so')\n//   plane_token   — Plane API token (X-API-Key), хранится у юзера в localStorage\nconst body = $input.first().json.body || {};\nconst message = String(body.message || '').trim();\nconst session_id = String(body.session_id || 'plane-default').trim();\n\n// Health-check\nif (message === 'ping') {\n  return [{ json: { valid: 0, error: 'pong' } }];\n}\n\nif (!message || message.length < 2) {\n  return [{ json: { valid: 0, error: 'Введите сообщение' } }];\n}\nif (message.length > 4000) {\n  return [{ json: { valid: 0, error: 'Слишком длинный запрос (максимум 4000 символов)' } }];\n}\nif (!/^[a-zA-Z0-9_-]{3,64}$/.test(session_id)) {\n  return [{ json: { valid: 0, error: 'session_id содержит недопустимые символы' } }];\n}\n\nconst token = String(body.token || '').trim();\nif (!/^[a-f0-9]{64}$/.test(token)) {\n  return [{ json: { valid: 0, error: 'unauthorized', auth_required: true } }];\n}\n\nconst workspace_slug = String(body.workspace_slug || '').trim();\nconst plane_url = String(body.plane_url || '').trim().replace(/\\/$/, '');\nconst plane_token = String(body.plane_token || '').trim();\n\n// Plane-настройки: если хоть одного нет — фронт ещё не настроил.\n// Возвращаем понятный код, чтобы фронт открыл диалог настроек.\nif (!workspace_slug || !plane_url || !plane_token) {\n  return [{ json: { valid: 0, error: 'Plane не настроен', plane_setup_required: true } }];\n}\nif (!/^[a-z0-9_-]{1,64}$/i.test(workspace_slug)) {\n  return [{ json: { valid: 0, error: 'workspace_slug содержит недопустимые символы' } }];\n}\nif (!/^https?:\\/\\//.test(plane_url)) {\n  return [{ json: { valid: 0, error: 'plane_url должен начинаться с http:// или https://' } }];\n}\n\nreturn [{ json: { valid: 1, message, session_id, token, workspace_slug, plane_url, plane_token } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [280, 300],
+      "position": [260, 300],
       "id": "plane-agent-validate-0002",
       "name": "Валидация"
     },
@@ -41,7 +41,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [560, 300],
+      "position": [520, 300],
       "id": "plane-agent-if-valid-0003",
       "name": "Валидно?"
     },
@@ -54,7 +54,7 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [840, 300],
+      "position": [780, 200],
       "id": "plane-agent-verify-sql-0004",
       "name": "SQL: Verify token",
       "credentials": {
@@ -65,11 +65,11 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('Валидация').first().json;\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id, username: data.username } }];"
+        "jsCode": "// Token result: если SQL вернул user_id — сессия валидна, иначе 401.\nconst item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('Валидация').first().json;\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id, username: data.username } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 300],
+      "position": [1040, 200],
       "id": "plane-agent-token-result-0005",
       "name": "Token result"
     },
@@ -89,18 +89,18 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1400, 300],
+      "position": [1300, 200],
       "id": "plane-agent-if-token-0006",
       "name": "Token OK?"
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "=http://host.docker.internal:8000/api/v1/workspaces/office/projects/",
+        "url": "={{ $json.plane_url }}/api/v1/workspaces/{{ $json.workspace_slug }}/projects/",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "X-API-Key", "value": "plane_api_2f8f19fa934b4f72a65518f7422aadc6"},
+            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
             {"name": "Content-Type", "value": "application/json"}
           ]
         },
@@ -108,20 +108,222 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1680, 200],
-      "id": "plane-agent-list-projects-0007",
-      "name": "Plane API: list projects",
+      "position": [1560, 100],
+      "id": "plane-agent-fetch-projects-0007",
+      "name": "Plane API: projects",
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const data = $input.first().json;\nif (!data || data.error) {\n  return [{ json: { response: 'error', error: 'Plane API: ' + (data && data.error ? data.error : 'нет ответа') } }];\n}\n// list_projects вернёт пагинированный объект — извлекаем results\nconst projects = (data.results || []).map(p => ({\n  id: p.id,\n  name: p.name,\n  identifier: p.identifier,\n  total_members: p.total_members,\n  is_member: p.is_member\n}));\nreturn [{ json: { response: 'ok', projects, count: projects.length } }];"
+        "jsCode": "// Собираем projects[] из ответа Plane (пагинированный объект или массив).\n// Передаём дальше как контекст для LLM (чтобы понимал, какие проекты есть).\nconst raw = $input.first().json || {};\nconst src = $('Token result').first().json;\nlet projects = [];\nif (Array.isArray(raw)) {\n  projects = raw;\n} else if (Array.isArray(raw.results)) {\n  projects = raw.results;\n} else if (raw.error || raw.detail) {\n  // Plane вернул ошибку (нет доступа, не тот URL, плохой token).\n  return [{ json: { ...src, plane_error: raw.error || raw.detail || 'Plane API недоступен', projects: [] } }];\n}\nconst projectsSlim = projects.map(p => ({\n  id: p.id,\n  name: p.name,\n  identifier: p.identifier\n}));\nreturn [{ json: { ...src, projects: projectsSlim } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1960, 200],
-      "id": "plane-agent-format-0008",
-      "name": "Формат"
+      "position": [1820, 100],
+      "id": "plane-agent-projects-ctx-0008",
+      "name": "Контекст: проекты"
+    },
+    {
+      "parameters": {
+        "modelId": {"__rl": true, "value": ".", "mode": "id"},
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=Ты — Plane-агент GigaChat. Помогаешь пользователю управлять задачами в Plane на естественном языке.\n\nКРИТИЧЕСКОЕ ПРАВИЛО: НИКОГДА не начинай ответ с приветствия («Привет», «Здравствуйте», «Hi» и т.п.). Начинай сразу с сути.\n\nДоступные операции (tools):\n1. list_projects — показать список проектов. params: {} (пусто).\n2. list_issues — показать задачи в проекте. params: { project_name: string }.\n3. create_issue — создать задачу. params: { project_name: string, name: string, description?: string, priority?: 'urgent'|'high'|'medium'|'low'|'none' }.\n4. update_issue — обновить задачу. params: { project_name: string, issue_name: string, name?: string, description?: string, priority?: 'urgent'|'high'|'medium'|'low'|'none' }.\n5. delete_issue — удалить задачу. params: { project_name: string, issue_name: string }.\n6. search_issues — поиск задач. params: { project_name: string, query: string }.\n7. chat — обычный ответ без действия (для приветствий, вопросов, объяснений).\n\nДоступные проекты у пользователя:\n{{ ($json.projects || []).length > 0 ? JSON.stringify($json.projects.map(p => p.name)) : '[нет проектов]' }}\n\nФормат ответа — СТРОГО валидный JSON, без markdown, без ```json блоков:\n{\"action\": \"имя_операции\", \"params\": {...}, \"text\": \"короткое объяснение что делаешь\"}\n\nПравила:\n- text — на русском, 1-2 предложения, что ты сейчас сделаешь (например: \"Создаю задачу 'Звонок' в проекте Office.\")\n- params.project_name должен ТОЧНО совпадать с одним из доступных проектов (case-insensitive)\n- Если пользователь не указал проект, а действие требует его — задай уточняющий вопрос через action=chat\n- Если запрос НЕ про Plane (погода, философия, чит-чат) — отвечай через action=chat\n- Если у юзера 0 проектов и он просит список — отвечай через action=list_projects (вернёт пустой список)\n- Если юзер просит создать проект — отвечай через action=chat, объясни что создание проектов вручную через интерфейс Plane (API ограничено)\n\nПримеры:\n\nЗапрос: «Покажи мои проекты»\nОтвет: {\"action\":\"list_projects\",\"params\":{},\"text\":\"Сейчас покажу проекты.\"}\n\nЗапрос: «Какие задачи в проекте Office?»\nОтвет: {\"action\":\"list_issues\",\"params\":{\"project_name\":\"Office\"},\"text\":\"Сейчас покажу задачи проекта Office.\"}\n\nЗапрос: «Создай в Office задачу 'Звонок клиенту' с высоким приоритетом»\nОтвет: {\"action\":\"create_issue\",\"params\":{\"project_name\":\"Office\",\"name\":\"Звонок клиенту\",\"priority\":\"high\"},\"text\":\"Создаю задачу 'Звонок клиенту' в проекте Office с высоким приоритетом.\"}\n\nЗапрос: «Удали задачу Тест в проекте Office»\nОтвет: {\"action\":\"delete_issue\",\"params\":{\"project_name\":\"Office\",\"issue_name\":\"Тест\"},\"text\":\"Удаляю задачу 'Тест' из проекта Office.\"}\n\nЗапрос: «Найди задачи про дизайн в проекте Office»\nОтвет: {\"action\":\"search_issues\",\"params\":{\"project_name\":\"Office\",\"query\":\"дизайн\"},\"text\":\"Ищу задачи по запросу 'дизайн' в проекте Office.\"}\n\nЗапрос: «Привет»\nОтвет: {\"action\":\"chat\",\"params\":{},\"text\":\"Я Plane-агент — помогу управлять задачами. Скажи: покажи проекты, создай задачу, найди задачу — и я сделаю.\"}\n\nЗапрос: «Какая сегодня погода?»\nОтвет: {\"action\":\"chat\",\"params\":{},\"text\":\"Я работаю с Plane и не подключён к погодным сервисам. Могу помочь с задачами и проектами.\"}"
+            },
+            {"content": "={{ $json.message }}"}
+          ]
+        },
+        "builtInTools": {},
+        "options": {"timeout": 60000, "temperature": 0}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [2080, 100],
+      "id": "plane-agent-llm-0009",
+      "name": "LLM: extract intent",
+      "credentials": {
+        "openAiApi": {"id": "Qwyuj8GrADL2wlnl", "name": "GigaChat"}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Парсим LLM-ответ → action/params/text. LLM иногда оборачивает JSON в ```json...```\n// или добавляет лишний текст. Идём от строгого parse к фоллбекам.\nconst raw = $input.first().json;\nconst src = $('Контекст: проекты').first().json;\n\nfunction extractText(raw) {\n  if (!raw) return '';\n  // openAi-node ответ: output[0].content[0].text\n  if (raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0]) {\n    return String(raw.output[0].content[0].text || '');\n  }\n  // Запасной формат\n  if (raw.choices && raw.choices[0] && raw.choices[0].message) {\n    return String(raw.choices[0].message.content || '');\n  }\n  return '';\n}\n\nconst text = extractText(raw).trim();\nif (!text) {\n  return [{ json: { ...src, action: 'chat', params: {}, llm_text: 'Не удалось получить ответ от LLM. Попробуйте ещё раз.', llm_error: true } }];\n}\n\nfunction tryParse(s) {\n  try { return JSON.parse(s); } catch(_) { return null; }\n}\n\nlet parsed = tryParse(text);\nif (!parsed) {\n  // Срезаем ```json ... ``` обёртку\n  const m = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) parsed = tryParse(m[1].trim());\n}\nif (!parsed) {\n  // Берём первый {...} в строке\n  const m2 = text.match(/\\{[\\s\\S]*\\}/);\n  if (m2) parsed = tryParse(m2[0]);\n}\n\nif (!parsed || typeof parsed !== 'object') {\n  // LLM ушёл в свободный текст — трактуем как chat\n  return [{ json: { ...src, action: 'chat', params: {}, llm_text: text } }];\n}\n\nconst ALLOWED = new Set(['list_projects','list_issues','create_issue','update_issue','delete_issue','search_issues','chat']);\nconst action = ALLOWED.has(parsed.action) ? parsed.action : 'chat';\nconst params = (parsed.params && typeof parsed.params === 'object') ? parsed.params : {};\nconst llm_text = String(parsed.text || '').trim() || 'Готово.';\n\n// Резолвим project_name → project_id (case-insensitive)\nlet project_id = null;\nlet project_name_canonical = null;\nif (params.project_name) {\n  const wanted = String(params.project_name).toLowerCase();\n  const found = (src.projects || []).find(p => String(p.name || '').toLowerCase() === wanted);\n  if (found) {\n    project_id = found.id;\n    project_name_canonical = found.name;\n  }\n}\n\n// Если для action нужен project_id, но не нашли — даунгрейд до chat с подсказкой\nconst NEEDS_PROJECT = new Set(['list_issues','create_issue','update_issue','delete_issue','search_issues']);\nif (NEEDS_PROJECT.has(action) && !project_id) {\n  const available = (src.projects || []).map(p => p.name).join(', ') || '— у вас нет проектов';\n  return [{ json: {\n    ...src,\n    action: 'chat',\n    params: {},\n    llm_text: `Не нашёл проект «${params.project_name || '—'}». Доступные проекты: ${available}.`\n  } }];\n}\n\nreturn [{ json: { ...src, action, params, project_id, project_name_canonical, llm_text } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2340, 100],
+      "id": "plane-agent-parse-llm-0010",
+      "name": "Parse LLM"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "list_projects", "operator": {"type": "string", "operation": "equals"}, "id": "rule-list-projects"}], "combinator": "and"}},
+            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "list_issues", "operator": {"type": "string", "operation": "equals"}, "id": "rule-list-issues"}], "combinator": "and"}},
+            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "create_issue", "operator": {"type": "string", "operation": "equals"}, "id": "rule-create-issue"}], "combinator": "and"}},
+            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "update_issue", "operator": {"type": "string", "operation": "equals"}, "id": "rule-update-issue"}], "combinator": "and"}},
+            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "delete_issue", "operator": {"type": "string", "operation": "equals"}, "id": "rule-delete-issue"}], "combinator": "and"}},
+            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "search_issues", "operator": {"type": "string", "operation": "equals"}, "id": "rule-search-issues"}], "combinator": "and"}}
+          ]
+        },
+        "options": {"fallbackOutput": "extra"},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [2600, 100],
+      "id": "plane-agent-switch-0011",
+      "name": "Switch action"
+    },
+    {
+      "parameters": {
+        "jsCode": "// list_projects: данные уже есть в $json.projects (фетчили в Контекст: проекты).\nconst src = $input.first().json;\nreturn [{ json: { ...src, api_result: { projects: src.projects || [] }, api_ok: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2860, -300],
+      "id": "plane-agent-list-projects-0012",
+      "name": "list_projects: pass-through"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.plane_url }}/api/v1/workspaces/{{ $json.workspace_slug }}/projects/{{ $json.project_id }}/issues/?per_page=30",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "options": {"timeout": 15000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2860, -100],
+      "id": "plane-agent-list-issues-0013",
+      "name": "list_issues: GET",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.plane_url }}/api/v1/workspaces/{{ $json.workspace_slug }}/projects/{{ $json.project_id }}/issues/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  name: $json.params.name || 'Без названия',\n  description_html: $json.params.description ? ('<p>' + String($json.params.description).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</p>') : '<p></p>',\n  priority: ['urgent','high','medium','low','none'].includes($json.params.priority) ? $json.params.priority : 'none'\n}) }}",
+        "options": {"timeout": 15000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2860, 100],
+      "id": "plane-agent-create-issue-0014",
+      "name": "create_issue: POST",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Перед update/delete нужно найти issue_id по issue_name. Делаем GET issues + find.\n// Возвращаем json с issue_id или ошибку.\nconst src = $input.first().json;\nconst issueName = String((src.params && src.params.issue_name) || '').trim().toLowerCase();\nif (!issueName) {\n  return [{ json: { ...src, _resolve_error: 'Не указано название задачи' } }];\n}\nconst url = `${src.plane_url}/api/v1/workspaces/${src.workspace_slug}/projects/${src.project_id}/issues/?per_page=100`;\ntry {\n  const resp = await this.helpers.httpRequest({\n    method: 'GET', url, headers: {\n      'X-API-Key': src.plane_token,\n      'Content-Type': 'application/json'\n    }, timeout: 15000, json: true\n  });\n  const issues = Array.isArray(resp) ? resp : (resp.results || []);\n  const found = issues.find(i => String(i.name || '').toLowerCase() === issueName);\n  if (!found) {\n    return [{ json: { ...src, _resolve_error: `Задача «${src.params.issue_name}» не найдена в проекте ${src.project_name_canonical}` } }];\n  }\n  return [{ json: { ...src, issue_id: found.id, issue_name_canonical: found.name } }];\n} catch (e) {\n  return [{ json: { ...src, _resolve_error: 'Ошибка поиска задачи: ' + (e.message || e) } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2860, 300],
+      "id": "plane-agent-resolve-update-0015",
+      "name": "update: resolve issue_id"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.plane_url }}/api/v1/workspaces/{{ $json.workspace_slug }}/projects/{{ $json.project_id }}/issues/{{ $json.issue_id }}/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const out = {};\n  if ($json.params.name) out.name = $json.params.name;\n  if ($json.params.description) out.description_html = '<p>' + String($json.params.description).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</p>';\n  if (['urgent','high','medium','low','none'].includes($json.params.priority)) out.priority = $json.params.priority;\n  return out;\n})()) }}",
+        "options": {"timeout": 15000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3120, 300],
+      "id": "plane-agent-update-issue-0016",
+      "name": "update_issue: PATCH",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// delete: тот же resolve issue_id что и в update, отдельная нода для чистоты графа.\nconst src = $input.first().json;\nconst issueName = String((src.params && src.params.issue_name) || '').trim().toLowerCase();\nif (!issueName) {\n  return [{ json: { ...src, _resolve_error: 'Не указано название задачи' } }];\n}\nconst url = `${src.plane_url}/api/v1/workspaces/${src.workspace_slug}/projects/${src.project_id}/issues/?per_page=100`;\ntry {\n  const resp = await this.helpers.httpRequest({\n    method: 'GET', url, headers: {\n      'X-API-Key': src.plane_token,\n      'Content-Type': 'application/json'\n    }, timeout: 15000, json: true\n  });\n  const issues = Array.isArray(resp) ? resp : (resp.results || []);\n  const found = issues.find(i => String(i.name || '').toLowerCase() === issueName);\n  if (!found) {\n    return [{ json: { ...src, _resolve_error: `Задача «${src.params.issue_name}» не найдена в проекте ${src.project_name_canonical}` } }];\n  }\n  return [{ json: { ...src, issue_id: found.id, issue_name_canonical: found.name } }];\n} catch (e) {\n  return [{ json: { ...src, _resolve_error: 'Ошибка поиска задачи: ' + (e.message || e) } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2860, 500],
+      "id": "plane-agent-resolve-delete-0017",
+      "name": "delete: resolve issue_id"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ $json.plane_url }}/api/v1/workspaces/{{ $json.workspace_slug }}/projects/{{ $json.project_id }}/issues/{{ $json.issue_id }}/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "options": {"timeout": 15000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3120, 500],
+      "id": "plane-agent-delete-issue-0018",
+      "name": "delete_issue: DELETE",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.plane_url }}/api/v1/workspaces/{{ $json.workspace_slug }}/projects/{{ $json.project_id }}/issues/?search={{ encodeURIComponent($json.params.query || '') }}&per_page=30",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "options": {"timeout": 15000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2860, 700],
+      "id": "plane-agent-search-issues-0019",
+      "name": "search_issues: GET",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Единый форматтер для всех веток (list_projects, list_issues, create, update, delete, search, chat).\n// На входе либо родительский json (из Parse LLM) + api-результат, либо api-ответ.\n// Задача: собрать чистый { response, action, data, error } для фронта.\n\n// Универсальный поиск \"src\" из Parse LLM\nfunction getSrc() {\n  try { return $('Parse LLM').first().json; } catch(_) { return {}; }\n}\nconst src = getSrc();\nconst input = $input.first().json || {};\n\nconst action = src.action || 'chat';\nconst llm_text = src.llm_text || '';\n\n// Для chat-веток (или если LLM упал) — просто текст\nif (action === 'chat' || src.llm_error) {\n  return [{ json: {\n    response: llm_text || 'Готово.',\n    action: 'chat',\n    data: null\n  } }];\n}\n\n// Если на пути был _resolve_error (update/delete не нашли issue) — пересказываем\nif (input._resolve_error) {\n  return [{ json: {\n    response: input._resolve_error,\n    action,\n    data: null,\n    error: input._resolve_error\n  } }];\n}\n\n// Plane API мог вернуть ошибку (error/detail/status_code) — выловим её\nfunction planeError(r) {\n  if (!r || typeof r !== 'object') return null;\n  if (r.error) return String(r.error);\n  if (r.detail) return String(r.detail);\n  if (r.error_message) return String(r.error_message);\n  if (r.status_code && r.status_code >= 400) return `HTTP ${r.status_code}`;\n  return null;\n}\n\n// === list_projects ===\nif (action === 'list_projects') {\n  const projects = (input.api_result && input.api_result.projects) || src.projects || [];\n  return [{ json: {\n    response: llm_text + (projects.length === 0 ? '\\n\\nНет доступных проектов.' : ''),\n    action,\n    data: { projects: projects.map(p => ({ id: p.id, name: p.name, identifier: p.identifier })) }\n  } }];\n}\n\n// === list_issues / search_issues ===\nif (action === 'list_issues' || action === 'search_issues') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось получить задачи: ${err}`, action, data: null, error: err } }];\n  }\n  const issues = Array.isArray(input) ? input : (input.results || []);\n  return [{ json: {\n    response: llm_text + (issues.length === 0 ? '\\n\\nЗадач не найдено.' : `\\n\\nНайдено: ${issues.length}.`),\n    action,\n    data: {\n      project: src.project_name_canonical,\n      issues: issues.map(i => ({\n        id: i.id,\n        name: i.name,\n        priority: i.priority,\n        state: i.state,\n        sequence_id: i.sequence_id,\n        created_at: i.created_at\n      }))\n    }\n  } }];\n}\n\n// === create_issue ===\nif (action === 'create_issue') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось создать задачу: ${err}`, action, data: null, error: err } }];\n  }\n  return [{ json: {\n    response: llm_text + ` Задача создана: ${input.name} (#${input.sequence_id || '?'}).`,\n    action,\n    data: { issue: { id: input.id, name: input.name, sequence_id: input.sequence_id, priority: input.priority } }\n  } }];\n}\n\n// === update_issue ===\nif (action === 'update_issue') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось обновить задачу: ${err}`, action, data: null, error: err } }];\n  }\n  return [{ json: {\n    response: llm_text + ` Задача обновлена: ${input.name || src.params.issue_name}.`,\n    action,\n    data: { issue: { id: input.id, name: input.name, sequence_id: input.sequence_id, priority: input.priority } }\n  } }];\n}\n\n// === delete_issue ===\nif (action === 'delete_issue') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось удалить задачу: ${err}`, action, data: null, error: err } }];\n  }\n  return [{ json: {\n    response: llm_text + ` Задача удалена.`,\n    action,\n    data: null\n  } }];\n}\n\n// Фоллбек\nreturn [{ json: { response: llm_text || 'Готово.', action, data: null } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3400, 100],
+      "id": "plane-agent-format-0020",
+      "name": "Формат ответа"
     },
     {
       "parameters": {
@@ -139,14 +341,14 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [2240, 300],
-      "id": "plane-agent-resp-ok-0009",
+      "position": [3680, 100],
+      "id": "plane-agent-resp-ok-0021",
       "name": "Ответ: OK"
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ response: 'error', error: $json.error || 'Ошибка', auth_required: $json.auth_required || false }) }}",
+        "responseBody": "={{ JSON.stringify({ response: $json.error || 'Ошибка', action: 'error', error: $json.error || 'Ошибка', auth_required: $json.auth_required || false, plane_setup_required: $json.plane_setup_required || false }) }}",
         "options": {
           "responseHeaders": {
             "entries": [
@@ -159,8 +361,8 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1680, 500],
-      "id": "plane-agent-resp-err-0010",
+      "position": [780, 540],
+      "id": "plane-agent-resp-err-0022",
       "name": "Ответ: ошибка"
     }
   ],
@@ -177,16 +379,38 @@
     "Token result": {"main": [[{"node": "Token OK?", "type": "main", "index": 0}]]},
     "Token OK?": {
       "main": [
-        [{"node": "Plane API: list projects", "type": "main", "index": 0}],
+        [{"node": "Plane API: projects", "type": "main", "index": 0}],
         [{"node": "Ответ: ошибка", "type": "main", "index": 0}]
       ]
     },
-    "Plane API: list projects": {"main": [[{"node": "Формат", "type": "main", "index": 0}]]},
-    "Формат": {"main": [[{"node": "Ответ: OK", "type": "main", "index": 0}]]}
+    "Plane API: projects": {"main": [[{"node": "Контекст: проекты", "type": "main", "index": 0}]]},
+    "Контекст: проекты": {"main": [[{"node": "LLM: extract intent", "type": "main", "index": 0}]]},
+    "LLM: extract intent": {"main": [[{"node": "Parse LLM", "type": "main", "index": 0}]]},
+    "Parse LLM": {"main": [[{"node": "Switch action", "type": "main", "index": 0}]]},
+    "Switch action": {
+      "main": [
+        [{"node": "list_projects: pass-through", "type": "main", "index": 0}],
+        [{"node": "list_issues: GET", "type": "main", "index": 0}],
+        [{"node": "create_issue: POST", "type": "main", "index": 0}],
+        [{"node": "update: resolve issue_id", "type": "main", "index": 0}],
+        [{"node": "delete: resolve issue_id", "type": "main", "index": 0}],
+        [{"node": "search_issues: GET", "type": "main", "index": 0}],
+        [{"node": "Формат ответа", "type": "main", "index": 0}]
+      ]
+    },
+    "list_projects: pass-through": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
+    "list_issues: GET": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
+    "create_issue: POST": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
+    "update: resolve issue_id": {"main": [[{"node": "update_issue: PATCH", "type": "main", "index": 0}]]},
+    "update_issue: PATCH": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
+    "delete: resolve issue_id": {"main": [[{"node": "delete_issue: DELETE", "type": "main", "index": 0}]]},
+    "delete_issue: DELETE": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
+    "search_issues: GET": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
+    "Формат ответа": {"main": [[{"node": "Ответ: OK", "type": "main", "index": 0}]]}
   },
   "active": false,
   "settings": {"executionOrder": "v1"},
-  "versionId": "plane-agent-v1-skeleton",
+  "versionId": "plane-agent-v2-llm",
   "meta": {"templateCredsSetupCompleted": true},
   "id": "plane-agent-workflow",
   "tags": []

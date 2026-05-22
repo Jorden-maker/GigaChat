@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>GigaChat Plane</title>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <style>
+        :root {
+            --bg-primary: #1f1f1e;
+            --bg-secondary: #1f1e1c;
+            --bg-sidebar: #262626;
+            --bg-input: #2c2c2a;
+            --bg-user: rgba(212, 165, 116, 0.10);
+            --bg-bot: #1f1e1c;
+            --border: #363432;
+            --text-primary: #d4d4d4;
+            --text-secondary: #8a8a8a;
+            --text-muted: #5a5a5a;
+            --accent: #d4a574;
+            --accent-hover: #c08a5a;
+            --sidebar-width: 270px;
+        }
+        :root[data-theme="light"] {
+            --bg-primary: #fdfdfc;
+            --bg-secondary: #f3f1ec;
+            --bg-sidebar: #fdfdfc;
+            --bg-input: #fffffe;
+            --bg-user: rgba(184, 137, 93, 0.12);
+            --bg-bot: #f3f1ec;
+            --border: #e3dfd5;
+            --text-primary: #1f1f1e;
+            --text-secondary: #6b6b68;
+            --text-muted: #a8a59f;
+            --accent: #b8895d;
+            --accent-hover: #a0764d;
+        }
+        /* Общие стили чат-агента — в _shared.js через GigaChat.injectAgentCss().
+           Здесь только per-page правила. */
+        #chat { flex: 1; overflow-y: auto; padding: 20px 40px 45px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        #chat::-webkit-scrollbar { width: 5px; }
+        #chat::-webkit-scrollbar-track { background: transparent; }
+        #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        .bottom-area { padding: 0 20px 20px; flex-shrink: 0; }
+        #input-area { display: flex; gap: 8px; align-items: flex-end; }
+        #msg {
+            flex: 1; padding: 10px 16px; word-break: break-word; overflow-wrap: anywhere; border-radius: 10px; border: 1px solid var(--border);
+            background: var(--bg-input); color: var(--text-primary);
+            font-family: Segoe UI, Tahoma, sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s;
+            resize: none; min-height: 36px; max-height: 130px; line-height: 1.5;
+            overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+        }
+        #msg::-webkit-scrollbar { width: 4px; }
+        #msg::-webkit-scrollbar-track { background: transparent; }
+        #msg::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        #msg:focus { border-color: var(--accent); }
+        #msg:disabled { opacity: 0.4; }
+        #msg::placeholder { color: var(--text-muted); }
+        /* Header: добавляем кнопку Plane-настроек */
+        .btn-settings {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn-settings:hover { color: var(--text-primary); border-color: var(--accent); }
+        /* Карточки проектов / задач в bot-сообщении */
+        .plane-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin: 6px 0;
+            background: var(--bg-secondary);
+            font-size: 14px;
+        }
+        .plane-card .pc-title { font-weight: 600; color: var(--text-primary); }
+        .plane-card .pc-meta { color: var(--text-secondary); font-size: 12px; margin-top: 4px; }
+        .plane-card .pc-prio {
+            display: inline-block; padding: 1px 8px; border-radius: 10px;
+            font-size: 11px; margin-left: 6px; vertical-align: middle;
+        }
+        .pc-prio.urgent { background: rgba(220, 38, 38, 0.18); color: #dc2626; }
+        .pc-prio.high   { background: rgba(217, 119, 6, 0.18); color: #d97706; }
+        .pc-prio.medium { background: rgba(202, 138, 4, 0.18); color: #ca8a04; }
+        .pc-prio.low    { background: rgba(34, 197, 94, 0.18); color: #16a34a; }
+        .pc-prio.none   { background: rgba(120, 120, 120, 0.18); color: var(--text-secondary); }
+        /* Settings modal */
+        .modal-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal-box {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: 12px; padding: 22px 24px; min-width: 380px; max-width: 480px;
+            color: var(--text-primary); font-family: Segoe UI, Tahoma, sans-serif;
+        }
+        .modal-box h3 { margin: 0 0 14px; font-size: 17px; }
+        .modal-box label { display: block; font-size: 13px; color: var(--text-secondary); margin: 10px 0 4px; }
+        .modal-box input {
+            width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--bg-input); color: var(--text-primary); font-size: 14px;
+            font-family: inherit; box-sizing: border-box; outline: none;
+        }
+        .modal-box input:focus { border-color: var(--accent); }
+        .modal-box .modal-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        .modal-box .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+        .modal-box button {
+            padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--bg-input); color: var(--text-primary);
+            cursor: pointer; font-size: 14px; font-family: inherit;
+            transition: all 0.2s;
+        }
+        .modal-box button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .modal-box button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+        .modal-box button:not(.primary):hover { border-color: var(--accent); color: var(--text-primary); }
+        .modal-box .modal-err { color: #dc2626; font-size: 13px; margin-top: 10px; min-height: 18px; }
+        /* Auth-gate: блок поверх всего при отсутствии planner_token */
+        .auth-gate {
+            position: fixed; inset: 0; background: var(--bg-primary); z-index: 999;
+            display: none; align-items: center; justify-content: center;
+            flex-direction: column; text-align: center; padding: 20px;
+        }
+        .auth-gate.show { display: flex; }
+        .auth-gate h2 { color: var(--text-primary); font-size: 20px; margin-bottom: 8px; font-weight: 500; }
+        .auth-gate p { color: var(--text-secondary); font-size: 15px; max-width: 420px; line-height: 1.5; }
+        .auth-gate a {
+            margin-top: 18px; padding: 10px 22px; background: var(--accent); color: #fff;
+            border-radius: 8px; text-decoration: none; font-size: 14px;
+            transition: background 0.2s;
+        }
+        .auth-gate a:hover { background: var(--accent-hover); }
+    </style>
+    <script src="_config.js"></script>
+    <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark">
+    <link rel="stylesheet" href="lib/hljs-light.min.css" id="hljs-theme-light" disabled>
+    <script src="lib/highlight.min.js"></script>
+    <script src="_shared.js"></script>
+</head>
+<body>
+    <div class="auth-gate" id="authGate">
+        <h2>Требуется вход</h2>
+        <p>Plane-агент использует учётную запись GigaChat. Войдите через Планировщик — токен сессии будет автоматически подхвачен здесь.</p>
+        <a href="planner.html">Перейти в Планировщик</a>
+    </div>
+    <div class="sidebar">
+        <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
+        <div class="sidebar-header"><h3>Сессии</h3></div>
+        <div class="sidebar-add"><button onclick="createNewSession()">Новая сессия</button></div>
+        <div class="session-list" id="sessionList"></div>
+    </div>
+    <div class="main">
+        <header>
+            <div class="header-left"><h1>GigaChat Plane</h1></div>
+            <div class="header-right">
+                <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
+                <button class="btn-settings" onclick="openSettings()">Plane-настройки</button>
+                <button class="btn-export" onclick="exportChat()">Экспорт</button>
+            </div>
+        </header>
+        <div id="chat"><div class="empty-chat">Создайте новую сессию для начала работы</div></div>
+        <div class="bottom-area">
+            <div class="gc-attach-chips" id="attachChips"></div>
+            <div id="input-area" class="gc-input-row">
+                <div class="gc-input-wrap">
+                    <textarea id="msg" rows="1" placeholder="Например: покажи мои проекты или создай задачу..." disabled></textarea>
+                    <button id="send" class="gc-send-icon" onclick="sendMsg()" disabled aria-label="Отправить">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                    </button>
+                </div>
+                <span id="attachBtn"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings modal: Plane URL + workspace_slug + API token. Хранится в localStorage. -->
+    <div class="modal-backdrop" id="settingsModal" onclick="if(event.target===this)closeSettings()">
+        <div class="modal-box">
+            <h3>Plane-настройки</h3>
+            <label for="set-url">Plane URL</label>
+            <input id="set-url" type="text" placeholder="http://host.docker.internal:8000" autocomplete="off">
+            <div class="modal-hint">Базовый адрес Plane API. Для локального self-host обычно <code>http://host.docker.internal:8000</code>, для облака — <code>https://api.plane.so</code>.</div>
+            <label for="set-slug">Workspace slug</label>
+            <input id="set-slug" type="text" placeholder="office" autocomplete="off">
+            <div class="modal-hint">Slug рабочего пространства (виден в URL Plane: <code>/your-slug/projects</code>).</div>
+            <label for="set-token">API token (X-API-Key)</label>
+            <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off">
+            <div class="modal-hint">Создаётся в Plane: <em>Settings → API tokens → Add API token</em>.</div>
+            <div class="modal-err" id="set-err"></div>
+            <div class="modal-buttons">
+                <button onclick="closeSettings()">Отмена</button>
+                <button class="primary" onclick="saveSettings()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var escapeHtml = GigaChat.escapeHtml;
+
+        // ============ Auth: используем planner_token из localStorage ============
+        // Plane-агент работает поверх той же auth-инфраструктуры что и Планировщик
+        // (таблица planner_sessions). Юзер заходит один раз в planner.html, а
+        // все остальные агенты подтягивают токен из localStorage. При отсутствии
+        // токена показываем auth-gate с предложением перейти в Планировщик.
+        var PLANNER_TOKEN_KEY = 'planner_token';
+        var PLANNER_USERNAME_KEY = 'planner_username';
+        function getAuthToken() {
+            try { return localStorage.getItem(PLANNER_TOKEN_KEY) || ''; } catch (e) { return ''; }
+        }
+        function getAuthUsername() {
+            try { return localStorage.getItem(PLANNER_USERNAME_KEY) || ''; } catch (e) { return ''; }
+        }
+
+        // ============ Plane settings: workspace_slug + plane_url + plane_token ============
+        // Хранятся per-user (префикс — base64 от имени, как в Планировщике).
+        // Если хоть одного нет — открываем диалог настроек.
+        function sanitizeUserForPrefix(name) {
+            var s = String(name || '');
+            try {
+                var bytes = new TextEncoder().encode(s);
+                var bin = '';
+                for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+                var b64 = btoa(bin).replace(/[^A-Za-z0-9]/g, '');
+                if (b64) return b64;
+            } catch (e) {}
+            // Фоллбек для нестандартных символов
+            var h = 0;
+            for (var i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+            return 'u_' + Math.abs(h);
+        }
+        function planePrefix() {
+            return 'plane_' + sanitizeUserForPrefix(getAuthUsername()) + '_';
+        }
+        function loadPlaneSettings() {
+            var p = planePrefix();
+            try {
+                return {
+                    url: localStorage.getItem(p + 'url') || '',
+                    slug: localStorage.getItem(p + 'slug') || '',
+                    token: localStorage.getItem(p + 'token') || ''
+                };
+            } catch (e) { return { url: '', slug: '', token: '' }; }
+        }
+        function savePlaneSettings(s) {
+            var p = planePrefix();
+            try {
+                localStorage.setItem(p + 'url', s.url);
+                localStorage.setItem(p + 'slug', s.slug);
+                localStorage.setItem(p + 'token', s.token);
+                return true;
+            } catch (e) { return false; }
+        }
+        function planeSettingsComplete(s) {
+            s = s || loadPlaneSettings();
+            return !!(s.url && s.slug && s.token);
+        }
+
+        // ============ Settings modal ============
+        function openSettings() {
+            var modal = document.getElementById('settingsModal');
+            var s = loadPlaneSettings();
+            document.getElementById('set-url').value = s.url;
+            document.getElementById('set-slug').value = s.slug;
+            document.getElementById('set-token').value = s.token;
+            document.getElementById('set-err').textContent = '';
+            modal.classList.add('open');
+            setTimeout(function () { document.getElementById('set-url').focus(); }, 50);
+        }
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('open');
+        }
+        function saveSettings() {
+            var url  = (document.getElementById('set-url').value || '').trim().replace(/\/$/, '');
+            var slug = (document.getElementById('set-slug').value || '').trim();
+            var token = (document.getElementById('set-token').value || '').trim();
+            var err = document.getElementById('set-err');
+            if (!url || !slug || !token) {
+                err.textContent = 'Заполните все три поля.';
+                return;
+            }
+            if (!/^https?:\/\//.test(url)) {
+                err.textContent = 'URL должен начинаться с http:// или https://';
+                return;
+            }
+            if (!/^[a-z0-9_-]{1,64}$/i.test(slug)) {
+                err.textContent = 'Workspace slug содержит недопустимые символы.';
+                return;
+            }
+            if (!savePlaneSettings({ url: url, slug: slug, token: token })) {
+                err.textContent = 'Не удалось сохранить настройки в localStorage.';
+                return;
+            }
+            closeSettings();
+            // Обновляем placeholder поля ввода + включаем send если был disabled
+            var msgInput = document.getElementById('msg');
+            if (msgInput) msgInput.placeholder = 'Например: покажи мои проекты или создай задачу...';
+        }
+        // ESC закрывает modal
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.getElementById('settingsModal').classList.contains('open')) {
+                closeSettings();
+            }
+        });
+
+        // ============ Auth gate ============
+        // Если planner_token отсутствует — показываем заглушку с кнопкой в Планировщик.
+        // Иначе — поднимаем чат-агент.
+        (function authBoot() {
+            var token = getAuthToken();
+            if (!token) {
+                document.getElementById('authGate').classList.add('show');
+                return;
+            }
+            bootAgent();
+        })();
+
+        // ============ Рендер bot-сообщений ============
+        // data из workflow: { response, action, data: {projects?, issues?, issue?}, error? }
+        // В parseBotMessage сохраняем всё в extras, в formatBotHtml — собираем красивый HTML.
+
+        function formatProjectsList(projects) {
+            if (!projects || !projects.length) return '';
+            return projects.map(function (p) {
+                var ident = p.identifier ? ' <span style="color:var(--text-secondary);font-size:12px">' + escapeHtml(p.identifier) + '</span>' : '';
+                return '<div class="plane-card">' +
+                    '<div class="pc-title">' + escapeHtml(p.name || '—') + ident + '</div>' +
+                    '</div>';
+            }).join('');
+        }
+        function formatIssuesList(issues, projectName) {
+            if (!issues || !issues.length) return '';
+            return issues.map(function (i) {
+                var prio = String(i.priority || 'none').toLowerCase();
+                var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий',none:'—'})[prio] || prio;
+                var seq = i.sequence_id ? '#' + i.sequence_id + ' ' : '';
+                return '<div class="plane-card">' +
+                    '<div class="pc-title">' + seq + escapeHtml(i.name || '—') +
+                    '<span class="pc-prio ' + prio + '">' + prioLabel + '</span>' +
+                    '</div></div>';
+            }).join('');
+        }
+        function formatIssueCard(issue) {
+            if (!issue) return '';
+            var prio = String(issue.priority || 'none').toLowerCase();
+            var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий',none:'—'})[prio] || prio;
+            var seq = issue.sequence_id ? '#' + issue.sequence_id + ' ' : '';
+            return '<div class="plane-card">' +
+                '<div class="pc-title">' + seq + escapeHtml(issue.name || '—') +
+                '<span class="pc-prio ' + prio + '">' + prioLabel + '</span>' +
+                '</div></div>';
+        }
+        function formatBotMessage(msg) {
+            var content = String(msg.content || '');
+            // markdown: упрощённый — переводы строк, bold, italic
+            var html = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+            html = html.replace(/\n/g, '<br>');
+
+            // Доп-блоки из extras (action-результаты)
+            var ex = msg.extras || {};
+            var blocks = '';
+            if (ex.projects && ex.projects.length)  blocks += formatProjectsList(ex.projects);
+            if (ex.issues && ex.issues.length)      blocks += formatIssuesList(ex.issues, ex.project);
+            if (ex.issue)                           blocks += formatIssueCard(ex.issue);
+            return html + (blocks ? '<div style="margin-top:10px">' + blocks + '</div>' : '');
+        }
+
+        function bootAgent() {
+            GigaChat.createChatAgent({
+                webhookPath: 'plane-agent',
+                historyPath: 'history',
+                prefix: 'plane',
+                idPrefix: 'plane_',
+                namePrefix: 'Plane-',
+                inflightLabel: 'Обрабатываю',
+                exportAgentName: 'GigaChat Plane',
+                emptyChatHtml: '<div class="empty-chat">Создайте новую сессию для начала работы</div>',
+                historyErrorHtml: '<div class="empty-chat">Не удалось загрузить историю.</div>',
+                historyLoadingHtml: '<div class="empty-chat">Загружаю историю...</div>',
+                formatBotHtml: formatBotMessage,
+                parseBotMessage: function (data) {
+                    // Если workflow требует настройки — открываем модалку (один раз на сессию).
+                    if (data && data.plane_setup_required) {
+                        setTimeout(openSettings, 100);
+                    }
+                    // Если auth_required — сбрасываем токен и показываем auth-gate.
+                    if (data && data.auth_required) {
+                        try {
+                            localStorage.removeItem(PLANNER_TOKEN_KEY);
+                            localStorage.removeItem(PLANNER_USERNAME_KEY);
+                        } catch (e) {}
+                        document.getElementById('authGate').classList.add('show');
+                    }
+                    var extras = (data && data.data) ? data.data : {};
+                    return {
+                        role: 'assistant',
+                        content: (data && data.response) || 'Пустой ответ',
+                        extras: extras
+                    };
+                },
+                extraBody: function () {
+                    // К каждому POST прикрепляем токен + Plane-настройки.
+                    // Workflow проверит токен → если invalid вернёт {auth_required:true},
+                    // если settings пустые → {plane_setup_required:true}.
+                    var s = loadPlaneSettings();
+                    return {
+                        token: getAuthToken(),
+                        workspace_slug: s.slug,
+                        plane_url: s.url,
+                        plane_token: s.token
+                    };
+                }
+            });
+
+            // Если Plane-настройки ещё не заданы — открываем модалку сразу,
+            // не дожидаясь первого сообщения (UX: юзер понимает, что надо настроить).
+            if (!planeSettingsComplete()) {
+                setTimeout(openSettings, 300);
+            }
+        }
+    </script>
+</body>
+</html>

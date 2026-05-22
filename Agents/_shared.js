@@ -3219,6 +3219,11 @@
     // за объяснением. ctx = { sendUrl, sessionId, message, signal, sessionStore,
     // setInflightLabel(label) — обновляет текст лоадера на лету }.
     var interceptBotData = opts.interceptBotData || null;
+    // extraBody({sessionId, message}) — функция, возвращающая объект с дополнительными
+    // полями для тела POST-запроса в webhook. Plane-агент использует это, чтобы
+    // прокинуть token (planner_sessions), workspace_slug, plane_url, plane_token.
+    // Если опция не задана — тело отправляется без доп. полей (как раньше).
+    var extraBody = opts.extraBody || function () { return {}; };
 
     var attachment = null;
     var sessionStore = createSessionStore({
@@ -3484,10 +3489,16 @@
 
       var sendCtrl = makeCancellableSend(sendBtn, sendSessionId);
       try {
+        // Базовое тело + произвольные доп. поля от extraBody() (token, plane-настройки).
+        // Если extraBody вернул объект с полями message/session_id — НЕ перезаписываем,
+        // чтобы случайный override из callback'а не сломал sendSessionId.
+        var bodyObj = Object.assign({}, extraBody({ sessionId: sendSessionId, message: messageForAgent }) || {});
+        bodyObj.message = messageForAgent;
+        bodyObj.session_id = sendSessionId;
         var res = await fetchWithRetry(sendUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json; charset=utf-8' },
-          body: JSON.stringify({ message: messageForAgent, session_id: sendSessionId })
+          body: JSON.stringify(bodyObj)
         }, { retries: MAX_RETRIES, signal: sendCtrl.signal });
         sessionStore.clearInflight(sendSessionId);
         if (!res.ok) throw new Error('Сервер вернул ошибку: ' + res.status);
