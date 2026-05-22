@@ -230,6 +230,12 @@
         .task-item.completed .task-title { text-decoration: line-through; }
         .task-item.overdue { border-left: 3px solid var(--priority-high); }
         .task-item.removing { opacity: 0; transform: translateX(20px); }
+        /* Подзадача — отступ слева + вертикальная линия слева */
+        .task-item.subtask {
+            margin-left: 28px;
+            border-left: 2px solid var(--border);
+        }
+        .task-item.subtask .task-title { font-size: 13px; }
 
         .task-check {
             margin-top: 2px; flex-shrink: 0;
@@ -365,6 +371,13 @@
         .task-modal-body input:focus,
         .task-modal-body textarea:focus { border-color: var(--accent); background: var(--bg-secondary); }
         .task-modal-body textarea { resize: vertical; min-height: 60px; max-height: 200px; }
+        .task-modal-body select {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 6px; padding: 9px 12px; color: var(--text-primary);
+            font-family: inherit; font-size: 13px; outline: none; cursor: pointer;
+            transition: border-color 0.18s, background 0.18s;
+        }
+        .task-modal-body select:focus { border-color: var(--accent); background: var(--bg-secondary); }
 
         /* Кастомный dropdown (не native select — у того нельзя стилизовать
            popup и option-теги полностью, отсюда был синий highlight и острые
@@ -1127,6 +1140,11 @@
                         </ul>
                     </div>
                 </label>
+                <label>Подзадача (опционально)
+                    <select id="taskParent">
+                        <option value="">— Самостоятельная задача —</option>
+                    </select>
+                </label>
                 <label>Срок выполнения
                     <div class="gc-datepicker" id="taskDeadline" data-value="" tabindex="0" role="button" aria-haspopup="dialog" aria-expanded="false">
                         <div class="gc-datepicker-trigger">
@@ -1798,7 +1816,22 @@
                 return;
             }
             var today = new Date().toISOString().slice(0, 10);
-            var html = visibleTasks.map(function (t) {
+            // Иерархия: top-level (parent_id is null) → их подзадачи сразу после.
+            // visibleTasks может содержать подзадачи parent'ов которые скрыты
+            // фильтром поиска — отображаем их как top-level если parent невидим.
+            var visibleIds = {};
+            visibleTasks.forEach(function (t) { visibleIds[t.id] = true; });
+            var topLevel = visibleTasks.filter(function (t) {
+                return !t.parent_id || !visibleIds[t.parent_id];
+            });
+            var byParent = {};
+            visibleTasks.forEach(function (t) {
+                if (t.parent_id && visibleIds[t.parent_id]) {
+                    if (!byParent[t.parent_id]) byParent[t.parent_id] = [];
+                    byParent[t.parent_id].push(t);
+                }
+            });
+            function renderOne(t, isSub) {
                 var isCompleted = t.status === 'completed';
                 var isOverdue = !isCompleted && t.deadline && t.deadline < today;
                 var dlClass = isOverdue ? 'overdue' : '';
@@ -1806,7 +1839,7 @@
                 var prioRu = t.priority === 'high' ? 'Высокий'
                            : t.priority === 'low' ? 'Низкий' : 'Средний';
                 var descHtml = t.description ? '<div class="task-description">' + escapeHtml(t.description) + '</div>' : '';
-                return '<div class="task-item ' + (isCompleted ? 'completed ' : '') + (isOverdue ? 'overdue' : '') + '" data-id="' + t.id + '" draggable="true">'
+                return '<div class="task-item ' + (isSub ? 'subtask ' : '') + (isCompleted ? 'completed ' : '') + (isOverdue ? 'overdue' : '') + '" data-id="' + t.id + '" draggable="true">'
                     + '<div class="task-check ' + (isCompleted ? 'checked' : '') + '" onclick="toggleTask(' + t.id + ')" role="checkbox" aria-checked="' + isCompleted + '"></div>'
                     + '<div class="task-body" onclick="openTaskModal(' + t.id + ')">'
                     + '<div class="task-title-row">'
@@ -1820,6 +1853,12 @@
                     + '<button class="delete" onclick="event.stopPropagation();deleteTask(' + t.id + ')" aria-label="Удалить">×</button>'
                     + '</div>'
                     + '</div>';
+            }
+            var html = topLevel.map(function (t) {
+                var s = renderOne(t, false);
+                var subs = byParent[t.id] || [];
+                for (var j = 0; j < subs.length; j++) s += renderOne(subs[j], true);
+                return s;
             }).join('');
             list.innerHTML = html;
         }
@@ -2358,6 +2397,23 @@
             initPrioritySelect();
             initDatepicker();
             editingTaskId = (typeof taskId === 'number') ? taskId : null;
+            // Заполняем select «Подзадача (опционально)» top-level задачами
+            // того же списка. Если редактируем — исключаем текущую (не может
+            // быть собственным родителем) и её подзадачи (циклы).
+            (function fillParentSelect() {
+                var sel = document.getElementById('taskParent');
+                if (!sel) return;
+                sel.innerHTML = '<option value="">— Самостоятельная задача —</option>';
+                var excludeId = editingTaskId;
+                currentTasks.forEach(function (other) {
+                    if (other.id === excludeId) return;
+                    if (other.parent_id) return; // вложенность только 1 уровень
+                    var opt = document.createElement('option');
+                    opt.value = String(other.id);
+                    opt.textContent = other.title || ('#' + other.id);
+                    sel.appendChild(opt);
+                });
+            })();
             var title = document.getElementById('taskModalTitle');
             var inTitle = document.getElementById('taskTitle');
             var inDesc = document.getElementById('taskDescription');
@@ -2371,12 +2427,14 @@
                 inDesc.value = t.description || '';
                 setPriorityValue(t.priority || 'medium');
                 setDeadlineValue(t.deadline || null);
+                document.getElementById('taskParent').value = t.parent_id ? String(t.parent_id) : '';
             } else {
                 title.textContent = 'Новая задача';
                 inTitle.value = '';
                 inDesc.value = '';
                 setPriorityValue('medium');
                 setDeadlineValue(null);
+                document.getElementById('taskParent').value = '';
             }
             err.textContent = '';
             document.getElementById('taskModal').classList.add('show');
@@ -2410,6 +2468,10 @@
                 priority: getPriorityValue(),
                 deadline: getDeadlineValue() || null
             };
+            // parent_id для подзадачи — берём из select (пустое значение → null)
+            var parentSel = document.getElementById('taskParent');
+            var parentVal = parentSel ? parentSel.value : '';
+            if (parentVal) payload.parent_id = parseInt(parentVal, 10);
 
             if (editingTaskId !== null) {
                 payload.action = 'update';

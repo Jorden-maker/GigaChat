@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS planner_tasks (
         CHECK (status IN ('active','completed')),
     completed_at TIMESTAMP,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    parent_id INTEGER REFERENCES planner_tasks(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_planner_tasks_user_session_status
@@ -63,5 +64,19 @@ CREATE INDEX IF NOT EXISTS idx_planner_tasks_user_deadline
     ON planner_tasks (user_id, deadline) WHERE deadline IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_planner_tasks_sort
     ON planner_tasks (user_id, session_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_planner_tasks_parent
+    ON planner_tasks (parent_id) WHERE parent_id IS NOT NULL;
+
+-- Multi-device sync: имена списков задач (session_id ↔ name).
+-- localStorage остаётся primary, БД — для multi-device sync.
+CREATE TABLE IF NOT EXISTS planner_session_meta (
+    user_id INTEGER NOT NULL REFERENCES planner_users(id) ON DELETE CASCADE,
+    session_id VARCHAR(255) NOT NULL,
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (user_id, session_id)
+);
 
 SELECT 'planner-schema v3 готов (auth + tasks).' AS result;
