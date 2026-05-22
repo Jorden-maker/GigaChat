@@ -2801,32 +2801,43 @@
         } // end function initPlannerMainUI — вызывается из initAuthenticatedUI после verify
     </script>
     <script>
-        // Снимаем анти-FOUC заставку через ДВОЙНОЙ requestAnimationFrame после
-        // window.load. Между «load» и «реальный paint всего layout'а» у браузера
-        // обычно 1-2 frame'а паузы — за это время большой <style>-блок реально
-        // применяется ко всем элементам. Без двойного RAF юзер успевал увидеть
-        // unstyled content (h1 в правильном шрифте но без header-стилей,
-        // элементы в vertical stack без flex/grid layout'а).
+        // Снимаем анти-FOUC заставку только когда большой <style>-блок РЕАЛЬНО
+        // применён ко всем элементам. Раньше я гадал с rAF/load — но это
+        // эвристика. Точный признак — есть ли в computed style :root CSS-
+        // переменная --bg-primary (определена в большом <style>, см. :root {}
+        // в начале блока). Пока --bg-primary пуста — большой стиль не применён,
+        // poll'им через rAF. Как только получили значение — overlay снимаем.
+        // Это детерминированно: не раньше и не позже, чем layout стал готов.
         (function () {
+            var POLL_LIMIT_MS = 3000; // safety: max 3 секунды поллинга
+            var started = Date.now();
+
             function removeBootloader() {
                 var el = document.getElementById('__gc-bootloader');
                 if (!el) return;
-                el.style.transition = 'opacity 0.2s ease';
+                el.style.transition = 'opacity 0.18s ease';
                 el.style.opacity = '0';
-                setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 220);
+                setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 200);
             }
-            function schedule() {
-                requestAnimationFrame(function () { requestAnimationFrame(removeBootloader); });
+
+            function ready() {
+                // Проба: CSS-переменная из большого <style>-блока.
+                var v = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim();
+                return v.length > 0;
             }
-            // Дополнительная защита: max 2 секунды overlay'а — если window.load
-            // никогда не придёт (сетевая ошибка с висящим fetch'ем), всё равно
-            // покажем UI а не оставим юзера на чёрном экране.
-            setTimeout(schedule, 2000);
-            if (document.readyState === 'complete') {
-                schedule();
-            } else {
-                window.addEventListener('load', schedule);
+
+            function poll() {
+                if (ready() || (Date.now() - started) > POLL_LIMIT_MS) {
+                    // Ещё один rAF после ready'я — чтобы браузер успел сделать
+                    // полный paint с применёнными стилями ПОД overlay'ом, прежде
+                    // чем мы overlay снимем. Так на единственном кадре flash
+                    // быть не может.
+                    requestAnimationFrame(removeBootloader);
+                } else {
+                    requestAnimationFrame(poll);
+                }
             }
+            poll();
         })();
     </script>
 </body>
