@@ -139,6 +139,20 @@
             padding: 20px; text-align: center; color: var(--text-muted);
             font-size: 13px; font-style: italic;
         }
+        /* Подсказка «Создайте список задач…» в центре панели — пиксельно как
+           .empty-chat в чате. Показывается когда нет активной сессии. */
+        .tasks-no-session {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-muted);
+            font-size: 14px;
+            text-align: center;
+            pointer-events: none;
+            max-width: 600px;
+            padding: 0 20px;
+        }
+        .tasks-no-session.hidden { display: none; }
         .task-item {
             display: flex; align-items: flex-start; gap: 10px;
             padding: 10px 12px; background: var(--bg-secondary);
@@ -974,6 +988,8 @@
                 <div id="tasks-list">
                     <div class="tasks-empty"></div>
                 </div>
+                <!-- Подсказка по центру панели когда нет активной сессии -->
+                <div id="tasksNoSession" class="tasks-no-session hidden">Создайте список задач, потом спланируйте их с помощью GigaChat</div>
             </div>
 
             <!-- AI-чат для запросов -->
@@ -1605,11 +1621,14 @@
         // ========== Загрузка задач для текущей сессии ==========
         async function loadTasks() {
             var sid = getCurrentSessionId();
+            var noSessionEl = document.getElementById('tasksNoSession');
             if (!sid) {
                 currentTasks = [];
-                document.getElementById('tasks-list').innerHTML = '<div class="tasks-empty"></div>';
+                document.getElementById('tasks-list').innerHTML = '';
+                if (noSessionEl) noSessionEl.classList.remove('hidden');
                 return;
             }
+            if (noSessionEl) noSessionEl.classList.add('hidden');
             var data = await plannerApi({
                 action: 'list', session_id: sid, filter: currentFilter
             });
@@ -2098,9 +2117,11 @@
             new MutationObserver(function () {
                 updateTasksAddBtnState();
                 if (!getCurrentSessionId()) {
-                    // Активная сессия исчезла — чистим панель задач
+                    // Активная сессия исчезла — чистим панель задач, показываем подсказку
                     currentTasks = [];
-                    document.getElementById('tasks-list').innerHTML = '<div class="tasks-empty"></div>';
+                    document.getElementById('tasks-list').innerHTML = '';
+                    var ns = document.getElementById('tasksNoSession');
+                    if (ns) ns.classList.remove('hidden');
                 }
             }).observe(sl, { childList: true, subtree: false });
         })();
