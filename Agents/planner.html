@@ -687,7 +687,8 @@
         .gc-chgpwd-modal {
             background: var(--bg-primary); border: 1px solid var(--border);
             border-radius: 12px; width: min(420px, 92vw);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            /* Без тени в обоих темах. Модалка отделяется только border'ом
+               и контрастом bg-primary vs backdrop overlay. */
             animation: plannerModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .gc-chgpwd-header {
@@ -855,19 +856,22 @@
             </div>
             <div class="gc-chgpwd-body">
                 <label>Текущий пароль
-                    <input type="password" id="chgpwdOld" autocomplete="current-password">
+                    <input type="password" id="chgpwdOld" autocomplete="current-password"
+                           data-next="chgpwdNew">
                 </label>
                 <label>Новый пароль
-                    <input type="password" id="chgpwdNew" autocomplete="new-password" placeholder="не менее 6 символов">
+                    <input type="password" id="chgpwdNew" autocomplete="new-password"
+                           placeholder="не менее 6 символов" data-next="chgpwdNew2">
                 </label>
-                <label>Подтвердите новый
-                    <input type="password" id="chgpwdNew2" autocomplete="new-password">
+                <label>Подтвердите новый пароль
+                    <input type="password" id="chgpwdNew2" autocomplete="new-password"
+                           data-next="chgpwdSaveBtn">
                 </label>
             </div>
             <div class="gc-chgpwd-error" id="chgpwdError"></div>
             <div class="gc-chgpwd-footer">
                 <button onclick="closeChgpwdModal()">Отмена</button>
-                <button class="primary" onclick="submitChangePassword()">Сохранить</button>
+                <button class="primary" id="chgpwdSaveBtn" onclick="submitChangePassword()">Сохранить</button>
             </div>
         </div>
     </div>
@@ -1340,7 +1344,9 @@
             }
         }
         (function bindLoginEnterChain() {
-            var inputs = document.querySelectorAll('.gc-login-form input');
+            // Login/register формы + change-password модалка используют одну
+            // и ту же логику data-next (handleLoginEnterChain). Биндим разом.
+            var inputs = document.querySelectorAll('.gc-login-form input, .gc-chgpwd-body input');
             for (var i = 0; i < inputs.length; i++) {
                 inputs[i].addEventListener('keydown', handleLoginEnterChain);
             }
