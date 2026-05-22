@@ -639,10 +639,11 @@
             min-height: 16px; font-size: 12px; color: var(--priority-high);
             text-align: center; margin-top: 4px;
         }
-        /* Success-стейт (после регистрации): зелёный бэйдж с белой галочкой
-           слева + текст справа. Заменяет error-стиль (красный) на 2 секунды,
-           потом setLoginError('regError','') / clear возвращают обычный вид. */
-        .gc-login-error.gc-success {
+        /* Success-стейт (после регистрации/смены пароля): зелёный бэйдж с
+           белой галочкой слева + текст справа. Один стиль для login-экрана
+           и chgpwd-модалки. setLoginError снимает класс при следующей ошибке. */
+        .gc-login-error.gc-success,
+        .gc-chgpwd-error.gc-success {
             display: flex; align-items: center; justify-content: center;
             gap: 8px;
             color: var(--text-primary); font-size: 13px;
@@ -1236,18 +1237,20 @@
             }
         }
 
-        // Показ success-бэйджа после регистрации в той же области, где ошибки.
-        // Зелёный кружок с белой галочкой + текст справа. Очищается при
-        // следующем setLoginError или явно через clearRegSuccess().
-        function showRegSuccess() {
-            var el = document.getElementById('regError');
+        // Показ success-бэйджа в области ошибки (regError или chgpwdError).
+        // Зелёный кружок с белой галочкой + произвольный текст справа.
+        // Очищается при следующем setLoginError(elId, ...).
+        function showSuccessBadge(elId, text) {
+            var el = document.getElementById(elId);
             if (!el) return;
             if (el._clearTimer) {
                 clearTimeout(el._clearTimer);
                 el._clearTimer = null;
             }
             el.classList.add('gc-success');
-            el.innerHTML = '<span class="gc-success-badge" aria-hidden="true"></span><span>Вы зарегистрированы</span>';
+            // Текст вставляем через textContent второго span — защита от XSS
+            el.innerHTML = '<span class="gc-success-badge" aria-hidden="true"></span><span></span>';
+            el.lastElementChild.textContent = text;
         }
 
         // submitLogin/submitRegister — единственное место, где формируется
@@ -1305,7 +1308,7 @@
             // на 2 секунды, потом плавный переход на «Вход» с предзаполненным
             // именем. Сессия НЕ создаётся, юзер логинится явно. Кнопку
             // оставляем disabled чтобы повторно не нажал в эти 2 секунды.
-            showRegSuccess();
+            showSuccessBadge('regError', 'Вы зарегистрированы');
             btn.textContent = 'Готово';
             setTimeout(function () {
                 document.getElementById('loginUsername').value = username;
@@ -1374,18 +1377,29 @@
         function closeChgpwdModal() {
             document.getElementById('chgpwdOverlay').classList.remove('show');
         }
+        // Список разрешённых inline-сообщений в этой модалке:
+        //   1) «Введите текущий пароль»
+        //   2) «Новый пароль не короче 6 символов»
+        //   3) «Новые пароли не совпадают»
+        //   4) «Новый пароль должен отличаться от текущего»
+        //   5) «Не авторизован»            (нет токена в localStorage)
+        //   6) «Не удалось сменить пароль» (любая ошибка сервера/сети)
+        //   + success-бэйдж «Пароль изменён»
+        // Серверный data.error НЕ показывается юзеру (логируется в console).
         async function submitChangePassword() {
-            var err = document.getElementById('chgpwdError');
+            var btn = document.getElementById('chgpwdSaveBtn');
             var oldP = document.getElementById('chgpwdOld').value;
             var newP = document.getElementById('chgpwdNew').value;
             var newP2 = document.getElementById('chgpwdNew2').value;
-            err.textContent = '';
-            if (!oldP) { err.textContent = 'Введите текущий пароль'; return; }
-            if (newP.length < 6) { err.textContent = 'Новый пароль не короче 6 символов'; return; }
-            if (newP !== newP2) { err.textContent = 'Новые пароли не совпадают'; return; }
-            if (oldP === newP) { err.textContent = 'Новый пароль должен отличаться от текущего'; return; }
+            setLoginError('chgpwdError', '');
+            if (!oldP) { setLoginError('chgpwdError', 'Введите текущий пароль'); return; }
+            if (newP.length < 6) { setLoginError('chgpwdError', 'Новый пароль не короче 6 символов'); return; }
+            if (newP !== newP2) { setLoginError('chgpwdError', 'Новые пароли не совпадают'); return; }
+            if (oldP === newP) { setLoginError('chgpwdError', 'Новый пароль должен отличаться от текущего'); return; }
             var token = getStoredToken();
-            if (!token) { err.textContent = 'Не авторизован'; return; }
+            if (!token) { setLoginError('chgpwdError', 'Не авторизован'); return; }
+            btn.disabled = true;
+            btn.textContent = 'Сохранение…';
             var data = await authApi({
                 action: 'change_password',
                 token: token,
@@ -1393,11 +1407,22 @@
                 new_password: newP,
             });
             if (data.response !== 'ok') {
-                err.textContent = data.error || 'Не удалось сменить пароль';
+                // Серверный data.error НЕ показываем — единый фиксированный текст
+                if (data.error) console.warn('change_password error:', data.error);
+                setLoginError('chgpwdError', 'Не удалось сменить пароль');
+                btn.disabled = false;
+                btn.textContent = 'Сохранить';
                 return;
             }
-            closeChgpwdModal();
-            alert('Пароль успешно изменён');
+            // Успех: зелёный бэйдж + автозакрытие модалки через 2 сек
+            showSuccessBadge('chgpwdError', 'Пароль изменён');
+            btn.textContent = 'Готово';
+            setTimeout(function () {
+                closeChgpwdModal();
+                setLoginError('chgpwdError', '');   // снимает gc-success
+                btn.disabled = false;
+                btn.textContent = 'Сохранить';
+            }, 2000);
         }
 
         // === Старт страницы: verify token → main UI или login screen ===
