@@ -1,0 +1,195 @@
+{
+  "name": "Планировщик — Sessions Meta. Поток",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "planner-meta",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 300],
+      "id": "planner-meta-webhook-0001",
+      "name": "Webhook Meta",
+      "webhookId": "planner-meta-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst action = String(body.action || 'list').trim();\nif (!['list','upsert','delete'].includes(action)) {\n  return [{ json: { valid: 0, error: 'Неизвестный action' } }];\n}\nconst token = String(body.token || '').trim();\nif (!/^[a-f0-9]{64}$/.test(token)) {\n  return [{ json: { valid: 0, error: 'unauthorized', auth_required: true } }];\n}\nconst out = { valid: 1, action, token };\nif (action === 'upsert' || action === 'delete') {\n  const sid = String(body.session_id || '').trim();\n  if (!sid || !/^[a-zA-Z0-9_-]+$/.test(sid)) {\n    return [{ json: { valid: 0, error: 'session_id обязательно' } }];\n  }\n  out.session_id = sid;\n  if (action === 'upsert') {\n    const name = String(body.name || '').trim().slice(0, 200);\n    if (!name) return [{ json: { valid: 0, error: 'name обязательно' } }];\n    out.name = name;\n    const so = parseInt(body.sort_order, 10);\n    out.sort_order = Number.isInteger(so) ? so : 0;\n  }\n}\nreturn [{ json: out }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 300],
+      "id": "planner-meta-validate-0002",
+      "name": "Валидация"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [{
+            "id": "cond-valid",
+            "leftValue": "={{ $json.valid }}",
+            "rightValue": 1,
+            "operator": {"type": "number", "operation": "equals"}
+          }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [560, 300],
+      "id": "planner-meta-if-valid-0003",
+      "name": "Валидно?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1 AND expires_at > NOW();\nSELECT s.user_id FROM planner_sessions s WHERE s.token = $1 AND s.expires_at > NOW();",
+        "options": {
+          "queryReplacement": "={{ [$json.token] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [840, 300],
+      "id": "planner-meta-verify-sql-0004",
+      "name": "SQL: Verify token",
+      "credentials": {
+        "postgres": {"id": "OYsyciMf7Eq9W4FS", "name": "Postgres"}
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('Валидация').first().json;\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "id": "planner-meta-token-result-0005",
+      "name": "Token result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [{
+            "id": "cond-token",
+            "leftValue": "={{ $json.token_valid }}",
+            "rightValue": true,
+            "operator": {"type": "boolean", "operation": "true"}
+          }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1400, 300],
+      "id": "planner-meta-if-token-ok-0006",
+      "name": "Token OK?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH upserted AS (INSERT INTO planner_session_meta (user_id, session_id, name, sort_order) SELECT $2::integer, $3::varchar, $4::text, COALESCE($5::integer, 0) WHERE $1 = 'upsert' AND COALESCE($3, '') != '' ON CONFLICT (user_id, session_id) DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order, updated_at = NOW() RETURNING 1), deleted AS (DELETE FROM planner_session_meta WHERE $1 = 'delete' AND user_id = $2::integer AND session_id = $3::varchar RETURNING 1) SELECT session_id, name, sort_order FROM planner_session_meta WHERE user_id = $2::integer AND ($1 = 'list' OR EXISTS (SELECT 1 FROM upserted) OR EXISTS (SELECT 1 FROM deleted)) ORDER BY sort_order, created_at",
+        "options": {
+          "queryReplacement": "={{ [$json.action, $json.user_id, $json.session_id || '', $json.name || '', $json.sort_order ?? 0] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1680, 200],
+      "id": "planner-meta-sql-0007",
+      "name": "SQL: meta op",
+      "credentials": {
+        "postgres": {"id": "OYsyciMf7Eq9W4FS", "name": "Postgres"}
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => (i && i.json) || {});\nconst first = items[0] || {};\nif (first.error) {\n  return [{ json: { response: 'error', error: String(first.error.message || first.error) } }];\n}\nconst sessions = items.filter(i => i && i.session_id).map(i => ({ session_id: i.session_id, name: i.name, sort_order: i.sort_order }));\nreturn [{ json: { response: 'ok', sessions } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 200],
+      "id": "planner-meta-format-0008",
+      "name": "Формат"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"},
+              {"name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS"}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [2240, 300],
+      "id": "planner-meta-resp-ok-0009",
+      "name": "Ответ: OK"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: 'error', error: $json.error || 'Ошибка', auth_required: $json.auth_required || false }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"},
+              {"name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS"}
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1680, 500],
+      "id": "planner-meta-resp-err-0010",
+      "name": "Ответ: ошибка"
+    }
+  ],
+  "connections": {
+    "Webhook Meta": {"main": [[{"node": "Валидация", "type": "main", "index": 0}]]},
+    "Валидация": {"main": [[{"node": "Валидно?", "type": "main", "index": 0}]]},
+    "Валидно?": {
+      "main": [
+        [{"node": "SQL: Verify token", "type": "main", "index": 0}],
+        [{"node": "Ответ: ошибка", "type": "main", "index": 0}]
+      ]
+    },
+    "SQL: Verify token": {"main": [[{"node": "Token result", "type": "main", "index": 0}]]},
+    "Token result": {"main": [[{"node": "Token OK?", "type": "main", "index": 0}]]},
+    "Token OK?": {
+      "main": [
+        [{"node": "SQL: meta op", "type": "main", "index": 0}],
+        [{"node": "Ответ: ошибка", "type": "main", "index": 0}]
+      ]
+    },
+    "SQL: meta op": {"main": [[{"node": "Формат", "type": "main", "index": 0}]]},
+    "Формат": {"main": [[{"node": "Ответ: OK", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "planner-meta-v1",
+  "meta": {"templateCredsSetupCompleted": true},
+  "id": "planner-meta-workflow",
+  "tags": []
+}
