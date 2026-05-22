@@ -966,7 +966,7 @@
                         <button type="button" onclick="logoutUser()">Выйти</button>
                     </div>
                 </div>
-                <button class="btn-export" onclick="exportChat()">Экспорт</button>
+                <button class="btn-export" id="btnExport" onclick="exportChat()">Экспорт</button>
             </div>
         </header>
 
@@ -1513,6 +1513,10 @@
             panel.classList.toggle('show', show);
             btn.classList.toggle('active', show);
             btn.textContent = show ? 'Чат' : 'Задачи';
+            // Кнопка «Экспорт» работает только с чатом — скрываем её при
+            // открытом окне задач (юзер видит задачи, экспорт чата бессмыслен).
+            var exportBtn = document.getElementById('btnExport');
+            if (exportBtn) exportBtn.style.display = show ? 'none' : '';
             if (show) {
                 // Обновляем список задач при открытии (могли добавиться через AI)
                 if (typeof loadTasks === 'function') loadTasks();
@@ -1581,6 +1585,9 @@
         var currentFilter = 'active';
         var currentTasks = [];           // последний загруженный массив с сервера
         var editingTaskId = null;        // null = создание новой, число = редактирование
+        var editingSessionId = null;     // session_id зафиксированный в момент openTaskModal —
+                                         // защита от race: юзер открыл модалку, переключил
+                                         // активный список, нажал Save → задача попадёт в исходный
         var plannerAgent = null;         // ссылка на результат createChatAgent — нужна для чтения sessionStore.state
 
         // Читаем activeSessionId напрямую из sessionStore. Раньше держали
@@ -1953,10 +1960,15 @@
         }
 
         function openTaskModal(taskId) {
-            if (!getCurrentSessionId()) {
+            var sid = getCurrentSessionId();
+            if (!sid) {
                 alert('Сначала создайте или выберите список задач');
                 return;
             }
+            // Фиксируем session_id на момент открытия модалки — если юзер
+            // переключит активную сессию в сайдбаре пока модалка открыта,
+            // задача всё равно попадёт в правильный список.
+            editingSessionId = sid;
             initPrioritySelect();
             initDatepicker();
             editingTaskId = (typeof taskId === 'number') ? taskId : null;
@@ -1988,11 +2000,15 @@
         function closeTaskModal() {
             document.getElementById('taskModal').classList.remove('show');
             editingTaskId = null;
+            editingSessionId = null;
         }
 
         async function saveTask() {
             var err = document.getElementById('taskModalError');
-            var sid = getCurrentSessionId();
+            // Используем session_id зафиксированный в openTaskModal (а не текущий),
+            // чтобы переключение активной сессии в сайдбаре не утащило задачу
+            // в другой список.
+            var sid = editingSessionId || getCurrentSessionId();
             if (!sid) {
                 err.textContent = 'Сессия не выбрана — создайте новый список задач слева';
                 return;
@@ -2031,6 +2047,10 @@
             if (!sid) return;
             var t = currentTasks.find(function (x) { return x.id === taskId; });
             if (!t) return;
+            // Защита от двойного клика: пока запрос летит — игнорируем повторные.
+            // Без этого быстрые клики могут рассинхронизировать локальное состояние и БД.
+            if (t._updating) return;
+            t._updating = true;
             var newStatus = t.status === 'completed' ? 'active' : 'completed';
             // Оптимистично обновляем UI до ответа сервера
             t.status = newStatus;
@@ -2039,6 +2059,7 @@
                 action: 'update', session_id: sid,
                 id: taskId, status: newStatus
             });
+            t._updating = false;
             if (data.response !== 'ok') {
                 t.status = newStatus === 'completed' ? 'active' : 'completed';
                 renderTasks();
