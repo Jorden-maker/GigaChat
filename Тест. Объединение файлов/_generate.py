@@ -169,6 +169,107 @@ def make_xlsx(filename, sheet_name, rows):
     print('  + ' + filename)
 
 
+# ============ Photo (PIL) ============
+# 5 визуально разных изображений: цвет, форма, размер, формат.
+# Намеренно разнообразные чтобы в склеенном Word'е было сразу видно где какое.
+
+def _font(size):
+    """Подбираем системный шрифт. Если ничего нет — fallback на default."""
+    try:
+        from PIL import ImageFont
+        for name in ('arial.ttf', 'segoeui.ttf', 'DejaVuSans.ttf'):
+            try:
+                return ImageFont.truetype(name, size)
+            except (OSError, IOError):
+                pass
+        return ImageFont.load_default()
+    except Exception:
+        return None
+
+
+def make_photos():
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        print('  (PIL не установлен — пропускаю фото; pip install Pillow)')
+        return
+
+    # 1. Логотип-плашка: тёмно-синий фон, белый круг с цифрой 1
+    img = Image.new('RGB', (800, 600), (40, 60, 100))
+    d = ImageDraw.Draw(img)
+    d.ellipse([280, 180, 520, 420], fill=(240, 240, 240))
+    f = _font(180)
+    if f:
+        d.text((360, 215), '1', fill=(40, 60, 100), font=f)
+    f2 = _font(36)
+    if f2:
+        d.text((180, 470), 'photo-1-логотип', fill=(220, 220, 220), font=f2)
+    img.save(TD / 'photo-1-логотип.png', 'PNG')
+    print('  + photo-1-логотип.png')
+
+    # 2. Bar chart: белый фон, цветные столбцы, подписи
+    img = Image.new('RGB', (900, 500), (255, 255, 255))
+    d = ImageDraw.Draw(img)
+    bars = [(120, 320, 'Q1', (180, 60, 60)),
+            (260, 200, 'Q2', (60, 180, 60)),
+            (400, 150, 'Q3', (60, 100, 200)),
+            (540, 240, 'Q4', (200, 160, 60))]
+    base_y = 420
+    for x, h, lbl, col in bars:
+        d.rectangle([x, base_y - h, x + 100, base_y], fill=col)
+        f3 = _font(28)
+        if f3:
+            d.text((x + 30, base_y + 10), lbl, fill=(40, 40, 40), font=f3)
+    d.line([60, base_y, 700, base_y], fill=(80, 80, 80), width=2)
+    f4 = _font(28)
+    if f4:
+        d.text((250, 30), 'Продажи 2024', fill=(20, 20, 20), font=f4)
+    img.save(TD / 'photo-2-график.jpg', 'JPEG', quality=88)
+    print('  + photo-2-график.jpg')
+
+    # 3. Градиент: portrait, синий → оранжевый
+    w, h = 600, 800
+    img = Image.new('RGB', (w, h))
+    px = img.load()
+    for y in range(h):
+        for x in range(w):
+            t = (x + y) / (w + h)
+            r = int(40 + (220 - 40) * t)
+            g = int(80 + (140 - 80) * t)
+            b = int(180 + (60 - 180) * t)
+            px[x, y] = (r, g, b)
+    d = ImageDraw.Draw(img)
+    f5 = _font(54)
+    if f5:
+        d.text((140, 360), 'Градиент', fill=(255, 255, 255), font=f5)
+    img.save(TD / 'photo-3-градиент.png', 'PNG')
+    print('  + photo-3-градиент.png')
+
+    # 4. Checkerboard pattern: квадратный, 5×5 клеток
+    img = Image.new('RGB', (500, 500), (240, 240, 240))
+    d = ImageDraw.Draw(img)
+    cell = 100
+    for r in range(5):
+        for c in range(5):
+            if (r + c) % 2 == 0:
+                d.rectangle([c * cell, r * cell, (c + 1) * cell, (r + 1) * cell],
+                            fill=(60, 120, 60))
+    img.save(TD / 'photo-4-шашки.png', 'PNG')
+    print('  + photo-4-шашки.png')
+
+    # 5. Wide banner: тёмный градиент с большим текстом
+    img = Image.new('RGB', (1600, 400), (20, 20, 30))
+    d = ImageDraw.Draw(img)
+    for x in range(1600):
+        col = (20 + x // 40, 30 + x // 60, 60 + x // 30)
+        d.line([x, 0, x, 400], fill=col)
+    f6 = _font(120)
+    if f6:
+        d.text((250, 110), 'WIDE PHOTO', fill=(255, 240, 200), font=f6)
+    img.save(TD / 'photo-5-баннер.jpg', 'JPEG', quality=90)
+    print('  + photo-5-баннер.jpg')
+
+
 # ============ Генерация ============
 
 def main():
@@ -268,8 +369,11 @@ def main():
         ['Среда', '09:00', '407', 'Кузнецов Д.П.', 'Информатика'],
     ])
 
+    print('== Photos ==')
+    make_photos()
+
     print('---')
-    print('Готово: 10 файлов в ' + str(TD))
+    print('Готово: файлы в ' + str(TD))
 
 
 if __name__ == '__main__':
