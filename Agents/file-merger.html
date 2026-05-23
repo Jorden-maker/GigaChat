@@ -228,9 +228,11 @@
             return (n / 1024 / 1024).toFixed(2) + ' МБ';
         }
         function addFiles(fileList) {
+            // B5: считаем сколько отбросили — раньше showError каждый раз перезаписывался.
+            var dropped = 0;
             for (var i = 0; i < fileList.length; i++) {
                 if (items.length >= MAX_FILES) {
-                    showError('Лимит ' + MAX_FILES + ' файлов на одну сборку. Лишние отброшены.');
+                    dropped = fileList.length - i;
                     break;
                 }
                 var f = fileList[i];
@@ -242,24 +244,29 @@
                     error: type === 'unknown' ? 'Неизвестный тип' : ''
                 });
             }
+            if (dropped > 0) {
+                showError('Лимит — ' + MAX_FILES + ' файлов на одну сборку. Отброшено: ' + dropped + '.');
+            } else {
+                hideError();
+            }
             renderList();
             updateBuildBtn();
         }
-        // Click on drop-zone → file picker (через label, событие штатное)
-        // Drag-over visual
+        // Click on drop-zone → file picker (через label, событие штатное).
+        // Drag-over visual + сам drop в одном handler (B8: убран дубликат 'drop').
         ['dragenter', 'dragover'].forEach(function (ev) {
             dropZone.addEventListener(ev, function (e) {
                 e.preventDefault();
                 dropZone.classList.add('dragging');
             });
         });
-        ['dragleave', 'drop'].forEach(function (ev) {
-            dropZone.addEventListener(ev, function (e) {
-                e.preventDefault();
-                dropZone.classList.remove('dragging');
-            });
+        dropZone.addEventListener('dragleave', function (e) {
+            e.preventDefault();
+            dropZone.classList.remove('dragging');
         });
         dropZone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            dropZone.classList.remove('dragging');
             if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
         });
         fileInput.addEventListener('change', function (e) {
@@ -330,9 +337,15 @@
                     e.dataTransfer.effectAllowed = 'move';
                 });
                 rows[j].addEventListener('dragend', function (e) {
+                    // B9: на dragend гарантированно снимаем .drag-over со ВСЕХ строк
+                    // (включая ту что под мышью — если dragleave не сработал чисто,
+                    // например при Esc-отмене drag'а в Chrome).
                     e.currentTarget.classList.remove('dragging');
                     var allRows = fileRows.querySelectorAll('.file-row');
-                    for (var x = 0; x < allRows.length; x++) allRows[x].classList.remove('drag-over');
+                    for (var x = 0; x < allRows.length; x++) {
+                        allRows[x].classList.remove('drag-over');
+                        allRows[x].classList.remove('dragging');
+                    }
                     draggingUid = null;
                 });
                 rows[j].addEventListener('dragover', function (e) {
@@ -363,6 +376,10 @@
         function updateBuildBtn() {
             var ok = items.filter(function (it) { return !it.error; });
             buildBtn.disabled = ok.length === 0;
+            // B6: если все файлы непригодны (есть items но ни одного ok) — подсказка.
+            if (items.length > 0 && ok.length === 0) {
+                showError('Все файлы не подходят для объединения. Нужны .docx, .xlsx или фото (.jpg/.png/.gif/.webp).');
+            }
         }
 
         function showError(msg) {
@@ -412,7 +429,12 @@
             if (!sheets.length) throw new Error('В .xlsx нет ни одного листа');
             var sheet = sheets[0];
             var grid = [];
-            if (sheet.headers && sheet.headers.length) grid.push(sheet.headers.slice());
+            // B3: header'ы приводим к строкам — иначе числовые headers (например год
+            // 2024 в первой строке) дальше попадут в paragraphXml как number и
+            // `text || ''` сделает их пустыми (0 → '').
+            if (sheet.headers && sheet.headers.length) {
+                grid.push(sheet.headers.map(function (h) { return h == null ? '' : String(h); }));
+            }
             var cols = sheet.headers.length;
             for (var i = 0; i < sheet.rows.length; i++) {
                 var row = sheet.rows[i]; // массив
@@ -444,19 +466,19 @@
         }
 
         // ============ Генерация Word XML ============
-        function escapeXml(s) {
-            return String(s).replace(/[&<>"']/g, function (c) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c];
-            });
-        }
+        // (escapeXml убран — используем общий escapeHtml: для XML апостроф через
+        // &#39; валиден, как и &amp; / &lt; / &gt; / &quot;.)
         // Текстовый параграф (использу­ется когда переводим текст Excel-ячейки в <w:p>)
         function paragraphXml(text) {
+            // B3 fix продолжение: text может быть числом 0 — у `text || ''` ловушка.
+            // Явно отличаем null/undefined от 0/'0'/false.
+            var s = (text === null || text === undefined) ? '' : String(text);
             // \n в ячейке → <w:br/>
-            var lines = String(text || '').split(/\r?\n/);
+            var lines = s.split(/\r?\n/);
             var runs = '';
             for (var i = 0; i < lines.length; i++) {
                 if (i > 0) runs += '<w:br/>';
-                if (lines[i]) runs += '<w:t xml:space="preserve">' + escapeXml(lines[i]) + '</w:t>';
+                if (lines[i]) runs += '<w:t xml:space="preserve">' + escapeHtml(lines[i]) + '</w:t>';
             }
             return '<w:p><w:r>' + runs + '</w:r></w:p>';
         }
@@ -739,7 +761,10 @@
             '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
                 '<w:docDefaults>' +
                     '<w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="ru-RU"/></w:rPr></w:rPrDefault>' +
-                    '<w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="259" w:lineRule="auto"/></w:pPr></w:pPrDefault>' +
+                    // B10: spacing уменьшен с 160/259 на 0/240 — обычный single-spacing,
+                    // без лишнего вертикального воздуха между параграфами. Юзер
+                    // явно жаловался что «расстояние между строчками большое».
+                    '<w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault>' +
                 '</w:docDefaults>' +
                 '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
                 '<w:style w:type="character" w:default="1" w:styleId="DefaultParagraphFont"><w:name w:val="Default Paragraph Font"/><w:uiPriority w:val="1"/><w:semiHidden/><w:unhideWhenUsed/></w:style>' +
