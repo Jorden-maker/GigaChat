@@ -396,8 +396,9 @@
 
         // ============ Парсинг входов ============
         // Docx: достаём <w:p> и <w:tbl> из word/document.xml В ПОРЯДКЕ их появления
-        // внутри <w:body>. Изображения внутри Word'а на v1 теряются (можно сохранить
-        // только через копирование media-файлов из source rels — отдельная задача).
+        // внутри <w:body>. B11: дополнительно копируем изображения из word/media/ +
+        // переписываем r:embed на placeholder, чтобы build pipeline мог зарегистрировать
+        // их с глобально уникальными rId.
         var WNS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
         async function parseDocx(file) {
             var zip = await JSZip.loadAsync(file);
@@ -408,18 +409,75 @@
             var bodies = doc.getElementsByTagNameNS(WNS, 'body');
             if (!bodies.length) throw new Error('Не найдено <w:body> в .docx');
             var body = bodies[0];
+
+            // B11: загружаем rels + media bytes для копирования картинок наружу.
+            var imageMap = {}; // origRId → { bytes, ext }
+            var relsFile = zip.file('word/_rels/document.xml.rels');
+            if (relsFile) {
+                var relsXml = await relsFile.async('string');
+                var relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml');
+                var relEls = relsDoc.getElementsByTagName('Relationship');
+                var IMG_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
+                for (var ri = 0; ri < relEls.length; ri++) {
+                    var rEl = relEls[ri];
+                    if (rEl.getAttribute('Type') !== IMG_TYPE) continue;
+                    var origId = rEl.getAttribute('Id');
+                    var target = rEl.getAttribute('Target') || '';
+                    // Target обычно "media/image1.png" относительно word/.
+                    var fullPath = target.indexOf('/') === 0 ? target.slice(1) : 'word/' + target;
+                    var mediaFile = zip.file(fullPath);
+                    if (!mediaFile) continue;
+                    var mbytes = new Uint8Array(await mediaFile.async('uint8array'));
+                    // Тип по magic bytes — расширение в pkg-target может быть .jpeg → нормализуем.
+                    var mext = detectImageTypeByMagic(mbytes) || (
+                        (target.match(/\.([a-zA-Z0-9]+)$/) || [, 'png'])[1].toLowerCase()
+                    );
+                    if (mext === 'jpeg') mext = 'jpg';
+                    imageMap[origId] = { bytes: mbytes, ext: mext };
+                }
+            }
+
+            // Placeholder'ы вместо origRId — build pipeline их заменит на globalRId.
+            // Если несколько <w:drawing> ссылаются на тот же origRId, реюзим placeholder.
+            var sourceImages = [];
+            var placeholderByOrigId = {};
+            function rewriteEmbeds(xmlStr) {
+                return xmlStr.replace(/r:embed="([^"]+)"/g, function (m, origRId) {
+                    if (!imageMap[origRId]) return m; // нет media — оставляем как есть
+                    var ph = placeholderByOrigId[origRId];
+                    if (!ph) {
+                        ph = '__GCEMBED_' + sourceImages.length + '__';
+                        placeholderByOrigId[origRId] = ph;
+                        sourceImages.push({
+                            placeholder: ph,
+                            bytes: imageMap[origRId].bytes,
+                            ext: imageMap[origRId].ext
+                        });
+                    }
+                    return 'r:embed="' + ph + '"';
+                });
+            }
+
             var blocks = [];
             var serializer = new XMLSerializer();
             for (var i = 0; i < body.children.length; i++) {
                 var n = body.children[i];
                 if (n.namespaceURI !== WNS) continue;
                 if (n.localName === 'p' || n.localName === 'tbl') {
-                    blocks.push({ kind: n.localName === 'p' ? 'paragraph' : 'table', xml: serializer.serializeToString(n) });
+                    var serialized = rewriteEmbeds(serializer.serializeToString(n));
+                    blocks.push({ kind: n.localName === 'p' ? 'paragraph' : 'table', xml: serialized });
                 }
                 // sectPr и прочее — игнорим, у выходного doc будет свой sectPr
             }
-            return blocks;
+            return { blocks: blocks, images: sourceImages };
         }
+        // Колонка A=1, B=2, ..., Z=26, AA=27...
+        function colLettersToNum(s) {
+            var n = 0;
+            for (var i = 0; i < s.length; i++) n = n * 26 + s.charCodeAt(i) - 64;
+            return n;
+        }
+
         async function parseXlsx(file) {
             // GigaChat.parseXlsxFile возвращает [{name, headers, rows}, ...].
             // headers — array of strings (первая непустая строка),
@@ -445,7 +503,59 @@
                 }
                 grid.push(arr);
             }
-            return { kind: 'xlsx-table', sheetName: sheet.name, grid: grid };
+
+            // B13: достаём mergeCells прямо из sheet1.xml (parseXlsxFile их не вернёт).
+            // Координаты mergeCells — в ОРИГИНАЛЬНЫХ row-номерах (1-based). А наш grid
+            // мог сдвинуться если parseXlsxFile скипнул пустые строки до headers
+            // (headerRowIdx > 0). Считаем offset = original row number первой
+            // непустой строки → вычитаем из координат.
+            var merges = [];
+            try {
+                var zip = await JSZip.loadAsync(file);
+                var sheetFile = zip.file('xl/worksheets/sheet1.xml');
+                if (sheetFile) {
+                    var sxml = await sheetFile.async('string');
+                    var sdoc = new DOMParser().parseFromString(sxml, 'application/xml');
+                    // Найдём offset = N первого <row r="N"> с непустыми ячейками
+                    var rowOffset = 1;
+                    var rowEls = sdoc.getElementsByTagName('row');
+                    for (var ri = 0; ri < rowEls.length; ri++) {
+                        var rEl = rowEls[ri];
+                        var hasContent = false;
+                        var cellsList = rEl.getElementsByTagName('c');
+                        for (var ci = 0; ci < cellsList.length; ci++) {
+                            if (cellsList[ci].getElementsByTagName('v').length ||
+                                cellsList[ci].getElementsByTagName('t').length) {
+                                hasContent = true; break;
+                            }
+                        }
+                        if (hasContent) {
+                            rowOffset = parseInt(rEl.getAttribute('r'), 10) || 1;
+                            break;
+                        }
+                    }
+                    var mcEls = sdoc.getElementsByTagName('mergeCell');
+                    for (var mi = 0; mi < mcEls.length; mi++) {
+                        var ref = mcEls[mi].getAttribute('ref') || '';
+                        var m = ref.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+                        if (!m) continue;
+                        var sr = parseInt(m[2], 10) - rowOffset;
+                        var er = parseInt(m[4], 10) - rowOffset;
+                        if (sr < 0 || er < 0) continue; // merge до headers — пропускаем
+                        merges.push({
+                            startCol: colLettersToNum(m[1]) - 1,
+                            startRow: sr,
+                            endCol: colLettersToNum(m[3]) - 1,
+                            endRow: er
+                        });
+                    }
+                }
+            } catch (e) {
+                // Ошибка чтения merges не должна ломать всю сборку
+                console.warn('Не удалось прочитать mergeCells:', e);
+            }
+
+            return { kind: 'xlsx-table', sheetName: sheet.name, grid: grid, merges: merges };
         }
         // B15: определяем реальный тип по magic bytes — расширение в имени может
         // врать (PNG переименованный в .jpg даст некорректный content-type в .docx
@@ -512,12 +622,36 @@
             }
             return '<w:p><w:r>' + runs + '</w:r></w:p>';
         }
-        // Конвертация Excel-таблицы в Word-таблицу с тонкими бордерами
+        // Конвертация Excel-таблицы в Word-таблицу с тонкими бордерами.
+        // B13: учитываем merged cells — Excel mergeCells → Word gridSpan/vMerge.
         function xlsxToWordTableXml(block) {
             var grid = block.grid;
+            var merges = block.merges || [];
             var maxCols = 0;
             for (var i = 0; i < grid.length; i++) maxCols = Math.max(maxCols, grid[i].length);
+            // merges могут расширять grid за рамки headers — добавим к maxCols
+            for (var mi = 0; mi < merges.length; mi++) {
+                if (merges[mi].endCol + 1 > maxCols) maxCols = merges[mi].endCol + 1;
+            }
             if (!maxCols) return paragraphXml('(пустая таблица)');
+
+            // Какая роль клетки (r, c) в merge'е, если она вообще в каком-то merge?
+            //   head  — левый-верхний угол: рендерим с gridSpan + (опц.) vMerge=restart
+            //   vcont — на той же col что head, но строкой ниже: рендерим с vMerge (continue), без содержимого
+            //   skip  — клетка внутри merge но не head и не vcont-start: НЕ рендерим
+            function mergeRole(r, c) {
+                for (var i = 0; i < merges.length; i++) {
+                    var m = merges[i];
+                    if (r < m.startRow || r > m.endRow || c < m.startCol || c > m.endCol) continue;
+                    var span = m.endCol - m.startCol + 1;
+                    var hasVMerge = m.endRow > m.startRow;
+                    if (r === m.startRow && c === m.startCol) return { role: 'head', span: span, vMerge: hasVMerge };
+                    if (c === m.startCol && r > m.startRow) return { role: 'vcont', span: span };
+                    return { role: 'skip' };
+                }
+                return null;
+            }
+
             var totalW = 9000;
             var colW = Math.floor(totalW / maxCols);
             var tblPr =
@@ -541,10 +675,25 @@
                 rowsXml += '<w:tr>';
                 for (var k = 0; k < maxCols; k++) {
                     var cell = k < row.length ? row[k] : '';
+                    var mr = mergeRole(r, k);
+                    if (mr && mr.role === 'skip') continue;
+                    var cellWidth = colW;
+                    var tcPrExtras = '';
+                    var cellContent = cell;
+                    if (mr) {
+                        cellWidth = colW * mr.span;
+                        if (mr.span > 1) tcPrExtras += '<w:gridSpan w:val="' + mr.span + '"/>';
+                        if (mr.role === 'head' && mr.vMerge) {
+                            tcPrExtras += '<w:vMerge w:val="restart"/>';
+                        } else if (mr.role === 'vcont') {
+                            tcPrExtras += '<w:vMerge/>';
+                            cellContent = ''; // content только в head-ячейке
+                        }
+                    }
                     rowsXml +=
                         '<w:tc>' +
-                            '<w:tcPr><w:tcW w:w="' + colW + '" w:type="dxa"/></w:tcPr>' +
-                            paragraphXml(cell) +
+                            '<w:tcPr><w:tcW w:w="' + cellWidth + '" w:type="dxa"/>' + tcPrExtras + '</w:tcPr>' +
+                            paragraphXml(cellContent) +
                         '</w:tc>';
                 }
                 rowsXml += '</w:tr>';
@@ -606,18 +755,21 @@
 
                 // Парсим каждый файл и СОХРАНЯЕМ группировку по источникам —
                 // пустая строка ставится между файлами, не между параграфами внутри Word'а.
-                var sources = []; // [{ blocks: [...] }, ...]
+                // source: { blocks: [...], images: [...] }
+                // images приходит только из docx (B11) — массив { placeholder, bytes, ext }
+                var sources = [];
                 for (var i = 0; i < validItems.length; i++) {
                     var it = validItems[i];
                     loadingText.textContent = 'Парсинг: ' + it.file.name;
                     progressFill.style.width = (5 + (i / validItems.length) * 50) + '%';
                     try {
                         if (it.type === 'docx') {
-                            sources.push({ blocks: await parseDocx(it.file) });
+                            var parsed = await parseDocx(it.file); // {blocks, images}
+                            sources.push({ blocks: parsed.blocks, images: parsed.images || [] });
                         } else if (it.type === 'xlsx') {
-                            sources.push({ blocks: [await parseXlsx(it.file)] });
+                            sources.push({ blocks: [await parseXlsx(it.file)], images: [] });
                         } else if (it.type === 'image') {
-                            sources.push({ blocks: [await parseImage(it.file)] });
+                            sources.push({ blocks: [await parseImage(it.file)], images: [] });
                         }
                     } catch (parseErr) {
                         throw new Error('Файл «' + it.file.name + '»: ' + (parseErr.message || parseErr));
@@ -637,27 +789,45 @@
                 var rIdCounter = 100;
                 var EMPTY_P = '<w:p/>';
 
+                // Хелпер: регистрация bytes как новой картинки — возвращает globalRId.
+                function registerImage(bytes, ext) {
+                    var idx = images.length + 1;
+                    var fname = 'image' + idx + '.' + ext;
+                    var ctype = ext === 'jpg' ? 'image/jpeg' :
+                                ext === 'gif' ? 'image/gif' :
+                                ext === 'webp' ? 'image/webp' : 'image/png';
+                    var rId = 'rId' + (rIdCounter++);
+                    images.push({ name: fname, bytes: bytes, contentType: ctype });
+                    rels.push({ id: rId, target: 'media/' + fname });
+                    return rId;
+                }
+
                 for (var s = 0; s < sources.length; s++) {
                     var src = sources[s];
+                    // B11: регистрируем все картинки источника заранее → placeholderMap.
+                    var placeholderMap = {};
+                    for (var im = 0; im < src.images.length; im++) {
+                        var srcImg = src.images[im];
+                        placeholderMap[srcImg.placeholder] = registerImage(srcImg.bytes, srcImg.ext);
+                    }
                     for (var b = 0; b < src.blocks.length; b++) {
                         var bl = src.blocks[b];
-                        if (bl.kind === 'paragraph') {
-                            bodyXml += bl.xml;
-                        } else if (bl.kind === 'table') {
-                            bodyXml += bl.xml;
+                        var xmlChunk = '';
+                        if (bl.kind === 'paragraph' || bl.kind === 'table') {
+                            // Заменяем placeholder'ы r:embed на globalRId. Picture id (wp:docPr/@id)
+                            // оставляем как есть — Word не требует глобальной уникальности.
+                            xmlChunk = bl.xml.replace(/__GCEMBED_\d+__/g, function (m) {
+                                return placeholderMap[m] || m;
+                            });
                         } else if (bl.kind === 'xlsx-table') {
-                            bodyXml += xlsxToWordTableXml(bl);
+                            xmlChunk = xlsxToWordTableXml(bl);
                         } else if (bl.kind === 'image') {
-                            var idx = images.length + 1;
-                            var fname = 'image' + idx + '.' + bl.ext;
-                            var ctype = bl.ext === 'jpg' || bl.ext === 'jpeg' ? 'image/jpeg' :
-                                        bl.ext === 'gif' ? 'image/gif' :
-                                        bl.ext === 'webp' ? 'image/webp' : 'image/png';
-                            var rId = 'rId' + (rIdCounter++);
-                            images.push({ name: fname, bytes: bl.bytes, contentType: ctype });
-                            rels.push({ id: rId, target: 'media/' + fname });
-                            bodyXml += imageParagraphXml(rId, bl.w, bl.h, idx);
+                            // Standalone image (drag-n-drop пришло как файл)
+                            var picIdx = images.length + 1;
+                            var rId = registerImage(bl.bytes, bl.ext);
+                            xmlChunk = imageParagraphXml(rId, bl.w, bl.h, picIdx);
                         }
+                        bodyXml += xmlChunk;
                     }
                     // Пустая строка только МЕЖДУ файлами (не внутри одного docx)
                     if (s < sources.length - 1) bodyXml += EMPTY_P;
