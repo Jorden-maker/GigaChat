@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Объединение файлов — GigaChat</title>
+    <style>
+        /* Pre-paint фон + базовый body — чтобы первый paint был в правильных
+           цветах и шрифтах, без серифного fallback. */
+        html { color-scheme: light; background: #fdfdfc; }
+        html[data-theme="dark"] { color-scheme: dark; background: #1f1f1e; }
+        body {
+            margin: 0; font-family: 'Segoe UI', Tahoma, sans-serif;
+            color: #1f1f1e; background: #fdfdfc;
+        }
+        html[data-theme="dark"] body { color: #d4d4d4; background: #1f1f1e; }
+    </style>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <style>
+        :root {
+            --bg-primary: #1f1f1e;
+            --bg-secondary: #1f1e1c;
+            --bg-input: #2c2c2a;
+            --bg-card: #1f1e1c;
+            --border: #363432;
+            --text-primary: #d4d4d4;
+            --text-secondary: #8a8a8a;
+            --text-muted: #5a5a5a;
+            --accent: #d4a574;
+            --accent-hover: #c08a5a;
+            --accent-light: rgba(212, 165, 116, 0.12);
+            --error: #ef4444;
+            --success: #10b981;
+        }
+        :root[data-theme="light"] {
+            --bg-primary: #fdfdfc;
+            --bg-secondary: #f3f1ec;
+            --bg-input: #fffffe;
+            --bg-card: #fffffe;
+            --border: #e3dfd5;
+            --text-primary: #1f1f1e;
+            --text-secondary: #6b6b68;
+            --text-muted: #a8a59f;
+            --accent: #b8895d;
+            --accent-hover: #a0764d;
+            --accent-light: rgba(184, 137, 93, 0.15);
+        }
+        html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        html::-webkit-scrollbar { width: 5px; }
+        html::-webkit-scrollbar-track { background: transparent; }
+        html::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* === Список файлов с drag-reorder === */
+        #fileList {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            overflow: hidden; margin-bottom: 16px; display: none;
+        }
+        #fileList.show { display: block; }
+        #fileList .file-list-header {
+            padding: 12px 18px; background: var(--bg-input);
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 12px; color: var(--text-secondary); letter-spacing: 0.5px;
+        }
+        #fileList .file-list-header .count { color: var(--accent); font-weight: 600; }
+        #fileList .file-list-header .clear-all {
+            color: var(--text-muted); cursor: pointer; font-size: 12px;
+            background: none; border: none; padding: 4px 8px; border-radius: 4px;
+            transition: all 0.15s; font-family: inherit;
+        }
+        #fileList .file-list-header .clear-all:hover { color: var(--error); background: rgba(239,68,68,0.08); }
+        .file-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 18px; border-bottom: 1px solid var(--border);
+            font-size: 13.5px; transition: background 0.15s;
+        }
+        .file-row:last-child { border-bottom: none; }
+        .file-row.dragging { opacity: 0.4; }
+        .file-row.drag-over { background: var(--accent-light); }
+        .file-row .drag-handle {
+            cursor: grab; color: var(--text-muted); user-select: none;
+            flex-shrink: 0; font-size: 14px; padding: 0 4px;
+        }
+        .file-row .drag-handle:active { cursor: grabbing; }
+        .file-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+        .file-row .badge {
+            background: var(--accent-light); color: var(--accent);
+            font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 500;
+            flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .file-row .badge.error-badge { background: rgba(239,68,68,0.12); color: var(--error); }
+        .file-row .size { color: var(--text-muted); font-size: 12px; font-family: Consolas, monospace; flex-shrink: 0; }
+        .file-row .remove {
+            width: 22px; height: 22px; border: none; background: transparent;
+            color: var(--text-muted); cursor: pointer; border-radius: 4px;
+            font-size: 16px; display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s; flex-shrink: 0;
+        }
+        .file-row .remove:hover { color: var(--error); background: rgba(239,68,68,0.08); }
+        .file-row .err-msg { color: var(--error); font-size: 11px; margin-left: 8px; }
+
+        /* === Theme toggle === */
+        .theme-toggle {
+            background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+            width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+        }
+        .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+        .theme-toggle svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+    <script src="_config.js"></script>
+    <script src="_shared.js"></script>
+    <script src="lib/jszip.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat">
+                <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            </a>
+            <h1>GigaChat Merger</h1>
+        </div>
+        <div class="header-right">
+            <button class="theme-toggle" id="themeToggle" aria-label="Сменить тему"></button>
+        </div>
+    </header>
+    <main>
+        <div class="intro">
+            <h2>Объединение файлов в один Word-документ</h2>
+            <p>Перетащи в зону ниже файлы <code>.docx</code>, <code>.xlsx</code> и/или изображения (<code>.jpg</code>, <code>.png</code>, <code>.gif</code>, <code>.webp</code>). Внутри Word — текст или таблицы, внутри Excel — таблицы.</p>
+            <p>Чипы файлов можно <b>перетаскивать</b> мышью чтобы изменить порядок в выходном документе. Между блоками автоматически добавляется пустая строка.</p>
+        </div>
+
+        <label class="drop-zone" id="dropZone" for="fileInput">
+            <input type="file" id="fileInput" multiple accept=".docx,.xlsx,.jpg,.jpeg,.png,.gif,.webp" style="display:none">
+            <div class="icon">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="title">Перетащи файлы сюда или нажми чтобы выбрать</div>
+            <div class="hint">Word (.docx), Excel (.xlsx), фото (.jpg/.png/.gif/.webp)</div>
+        </label>
+
+        <div id="fileList">
+            <div class="file-list-header">
+                <span><span id="fileCount" class="count">0</span> файлов</span>
+                <button class="clear-all" id="clearAllBtn">Очистить все</button>
+            </div>
+            <div id="fileRows"></div>
+        </div>
+
+        <button class="btn-primary" id="buildBtn" disabled>Собрать и скачать .docx</button>
+
+        <div class="loading" id="loading">
+            <span id="loadingText">Сборка...</span>
+            <div class="progress-bar show"><div class="fill" id="progressFill"></div></div>
+        </div>
+        <div class="error-box" id="errorBox"></div>
+        <div class="result-box" id="resultBox">
+            <div class="result-header">
+                <div class="result-meta">
+                    Готово. Размер: <b id="resultSize">—</b>, блоков: <b id="resultBlocks">—</b>
+                </div>
+                <div class="result-actions">
+                    <button class="btn-action" id="downloadBtn">⬇ Скачать .docx</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        GigaChat.injectToolCss();
+
+        // ============ Theme toggle ============
+        var themeToggle = document.getElementById('themeToggle');
+        var SUN_SVG = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+        var MOON_SVG = '<svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+        function applyThemeIcon() {
+            var t = document.documentElement.getAttribute('data-theme') || 'light';
+            themeToggle.innerHTML = t === 'dark' ? SUN_SVG : MOON_SVG;
+        }
+        themeToggle.addEventListener('click', function () {
+            var cur = document.documentElement.getAttribute('data-theme') || 'light';
+            var next = cur === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            document.documentElement.style.setProperty('background', next === 'dark' ? '#1f1f1e' : '#fdfdfc', 'important');
+            try { localStorage.setItem('giga_theme', next); } catch (e) {}
+            applyThemeIcon();
+        });
+        applyThemeIcon();
+
+        // ============ Конфиг ============
+        // Max width изображения в выходном Word'е — 14 см ≈ 5,040,000 EMU.
+        // 96 DPI: 1 пиксель = 9525 EMU. Считаем scale так чтобы width ≤ 14 см.
+        var IMG_MAX_W_EMU = 14 * 360000;
+        var EMU_PER_PX = 9525;
+        // Хард-лимит чтобы не пытаться зарендерить 50 файлов и не уронить браузер.
+        var MAX_FILES = 30;
+
+        // ============ DOM ============
+        var dropZone = document.getElementById('dropZone');
+        var fileInput = document.getElementById('fileInput');
+        var fileList = document.getElementById('fileList');
+        var fileRows = document.getElementById('fileRows');
+        var fileCount = document.getElementById('fileCount');
+        var buildBtn = document.getElementById('buildBtn');
+        var clearAllBtn = document.getElementById('clearAllBtn');
+        var loading = document.getElementById('loading');
+        var loadingText = document.getElementById('loadingText');
+        var progressFill = document.getElementById('progressFill');
+        var errorBox = document.getElementById('errorBox');
+        var resultBox = document.getElementById('resultBox');
+        var resultSize = document.getElementById('resultSize');
+        var resultBlocks = document.getElementById('resultBlocks');
+        var downloadBtn = document.getElementById('downloadBtn');
+
+        // items: [{file, type:'docx'|'xlsx'|'image'|'unknown', uid, error}]
+        var items = [];
+        var lastBlob = null;
+
+        // ============ Приём файлов ============
+        function detectType(file) {
+            var name = (file.name || '').toLowerCase();
+            if (name.endsWith('.docx')) return 'docx';
+            if (name.endsWith('.xlsx')) return 'xlsx';
+            if (/\.(jpg|jpeg|png|gif|webp)$/i.test(name)) return 'image';
+            return 'unknown';
+        }
+        function formatSize(n) {
+            if (n < 1024) return n + ' Б';
+            if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' КБ';
+            return (n / 1024 / 1024).toFixed(2) + ' МБ';
+        }
+        function addFiles(fileList) {
+            for (var i = 0; i < fileList.length; i++) {
+                if (items.length >= MAX_FILES) {
+                    showError('Лимит ' + MAX_FILES + ' файлов на одну сборку. Лишние отброшены.');
+                    break;
+                }
+                var f = fileList[i];
+                var type = detectType(f);
+                items.push({
+                    file: f,
+                    type: type,
+                    uid: 'f' + (Date.now() + Math.random()).toString(36),
+                    error: type === 'unknown' ? 'Неизвестный тип' : ''
+                });
+            }
+            renderList();
+            updateBuildBtn();
+        }
+        // Click on drop-zone → file picker (через label, событие штатное)
+        // Drag-over visual
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            dropZone.addEventListener(ev, function (e) {
+                e.preventDefault();
+                dropZone.classList.add('dragging');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (ev) {
+            dropZone.addEventListener(ev, function (e) {
+                e.preventDefault();
+                dropZone.classList.remove('dragging');
+            });
+        });
+        dropZone.addEventListener('drop', function (e) {
+            if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', function (e) {
+            if (e.target.files) addFiles(e.target.files);
+            fileInput.value = ''; // чтобы тот же файл можно было выбрать снова
+        });
+        clearAllBtn.addEventListener('click', function () {
+            items = [];
+            renderList();
+            updateBuildBtn();
+            hideResult();
+        });
+
+        // ============ Рендер списка с drag-reorder ============
+        function renderList() {
+            if (!items.length) {
+                fileList.classList.remove('show');
+                fileRows.innerHTML = '';
+                fileCount.textContent = '0';
+                return;
+            }
+            fileList.classList.add('show');
+            fileCount.textContent = String(items.length);
+            var html = '';
+            for (var i = 0; i < items.length; i++) {
+                var it = items[i];
+                var badgeClass = it.error ? 'badge error-badge' : 'badge';
+                var badgeText = it.error ? 'Ошибка' : (
+                    it.type === 'docx' ? 'WORD' :
+                    it.type === 'xlsx' ? 'EXCEL' :
+                    it.type === 'image' ? 'ФОТО' : '?'
+                );
+                html +=
+                    '<div class="file-row" draggable="true" data-uid="' + it.uid + '">' +
+                        '<span class="drag-handle" title="Перетащи чтобы переставить">⋮⋮</span>' +
+                        '<span class="badge ' + badgeClass + '">' + badgeText + '</span>' +
+                        '<span class="name">' + escapeHtml(it.file.name) + '</span>' +
+                        (it.error ? '<span class="err-msg">' + escapeHtml(it.error) + '</span>' : '') +
+                        '<span class="size">' + formatSize(it.file.size) + '</span>' +
+                        '<button class="remove" data-uid="' + it.uid + '" title="Убрать">×</button>' +
+                    '</div>';
+            }
+            fileRows.innerHTML = html;
+            attachRowHandlers();
+        }
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        function attachRowHandlers() {
+            var rows = fileRows.querySelectorAll('.file-row');
+            var removeBtns = fileRows.querySelectorAll('.remove');
+            for (var i = 0; i < removeBtns.length; i++) {
+                removeBtns[i].addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var uid = e.currentTarget.dataset.uid;
+                    items = items.filter(function (it) { return it.uid !== uid; });
+                    renderList();
+                    updateBuildBtn();
+                });
+            }
+            var draggingUid = null;
+            for (var j = 0; j < rows.length; j++) {
+                rows[j].addEventListener('dragstart', function (e) {
+                    draggingUid = e.currentTarget.dataset.uid;
+                    e.currentTarget.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                rows[j].addEventListener('dragend', function (e) {
+                    e.currentTarget.classList.remove('dragging');
+                    var allRows = fileRows.querySelectorAll('.file-row');
+                    for (var x = 0; x < allRows.length; x++) allRows[x].classList.remove('drag-over');
+                    draggingUid = null;
+                });
+                rows[j].addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+                rows[j].addEventListener('dragenter', function (e) {
+                    e.preventDefault();
+                    if (e.currentTarget.dataset.uid !== draggingUid) e.currentTarget.classList.add('drag-over');
+                });
+                rows[j].addEventListener('dragleave', function (e) {
+                    e.currentTarget.classList.remove('drag-over');
+                });
+                rows[j].addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var targetUid = e.currentTarget.dataset.uid;
+                    if (!draggingUid || draggingUid === targetUid) return;
+                    var fromIdx = items.findIndex(function (it) { return it.uid === draggingUid; });
+                    var toIdx = items.findIndex(function (it) { return it.uid === targetUid; });
+                    if (fromIdx < 0 || toIdx < 0) return;
+                    var moved = items.splice(fromIdx, 1)[0];
+                    items.splice(toIdx, 0, moved);
+                    renderList();
+                });
+            }
+        }
+        function updateBuildBtn() {
+            var ok = items.filter(function (it) { return !it.error; });
+            buildBtn.disabled = ok.length === 0;
+        }
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.style.display = 'block';
+        }
+        function hideError() { errorBox.style.display = 'none'; }
+        function showResult(sizeBytes, blockCount) {
+            resultBox.style.display = 'block';
+            resultSize.textContent = formatSize(sizeBytes);
+            resultBlocks.textContent = String(blockCount);
+        }
+        function hideResult() { resultBox.style.display = 'none'; lastBlob = null; }
+
+        // ============ Парсинг входов ============
+        // Docx: достаём <w:p> и <w:tbl> из word/document.xml В ПОРЯДКЕ их появления
+        // внутри <w:body>. Изображения внутри Word'а на v1 теряются (можно сохранить
+        // только через копирование media-файлов из source rels — отдельная задача).
+        var WNS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+        async function parseDocx(file) {
+            var zip = await JSZip.loadAsync(file);
+            var docFile = zip.file('word/document.xml');
+            if (!docFile) throw new Error('В .docx нет word/document.xml');
+            var xml = await docFile.async('string');
+            var doc = new DOMParser().parseFromString(xml, 'application/xml');
+            var bodies = doc.getElementsByTagNameNS(WNS, 'body');
+            if (!bodies.length) throw new Error('Не найдено <w:body> в .docx');
+            var body = bodies[0];
+            var blocks = [];
+            var serializer = new XMLSerializer();
+            for (var i = 0; i < body.children.length; i++) {
+                var n = body.children[i];
+                if (n.namespaceURI !== WNS) continue;
+                if (n.localName === 'p' || n.localName === 'tbl') {
+                    blocks.push({ kind: n.localName === 'p' ? 'paragraph' : 'table', xml: serializer.serializeToString(n) });
+                }
+                // sectPr и прочее — игнорим, у выходного doc будет свой sectPr
+            }
+            return blocks;
+        }
+        async function parseXlsx(file) {
+            // Используем готовый GigaChat.parseXlsxFile — возвращает [{name, headers, rows}, ...]
+            var sheets = await GigaChat.parseXlsxFile(file);
+            if (!sheets.length) throw new Error('В .xlsx нет ни одного листа');
+            // На v1 берём первый лист. Если нужно — позже можем дать выбор листа в UI.
+            var sheet = sheets[0];
+            // headers — массив строк (первая строка), rows — массив объектов { header → value }.
+            // Конвертим обратно в плоский grid: первая строка headers, дальше rows в порядке headers.
+            var grid = [];
+            if (sheet.headers && sheet.headers.length) {
+                grid.push(sheet.headers.slice());
+            }
+            for (var i = 0; i < sheet.rows.length; i++) {
+                var row = sheet.rows[i];
+                var arr = [];
+                for (var c = 0; c < sheet.headers.length; c++) {
+                    var v = row[sheet.headers[c]];
+                    arr.push(v == null ? '' : String(v));
+                }
+                grid.push(arr);
+            }
+            return { kind: 'xlsx-table', sheetName: sheet.name, grid: grid };
+        }
+        async function parseImage(file) {
+            var bytes = new Uint8Array(await file.arrayBuffer());
+            var url = URL.createObjectURL(file);
+            try {
+                var dims = await new Promise(function (resolve, reject) {
+                    var img = new Image();
+                    img.onload = function () { resolve({ w: img.naturalWidth, h: img.naturalHeight }); };
+                    img.onerror = function () { reject(new Error('Не удалось прочитать изображение')); };
+                    img.src = url;
+                });
+                var ext = (file.name.match(/\.([a-zA-Z0-9]+)$/) || [, 'png'])[1].toLowerCase();
+                if (ext === 'jpeg') ext = 'jpg';
+                return { kind: 'image', bytes: bytes, w: dims.w, h: dims.h, ext: ext };
+            } finally {
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        // ============ Генерация Word XML ============
+        function escapeXml(s) {
+            return String(s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c];
+            });
+        }
+        // Текстовый параграф (использу­ется когда переводим текст Excel-ячейки в <w:p>)
+        function paragraphXml(text) {
+            // \n в ячейке → <w:br/>
+            var lines = String(text || '').split(/\r?\n/);
+            var runs = '';
+            for (var i = 0; i < lines.length; i++) {
+                if (i > 0) runs += '<w:br/>';
+                if (lines[i]) runs += '<w:t xml:space="preserve">' + escapeXml(lines[i]) + '</w:t>';
+            }
+            return '<w:p><w:r>' + runs + '</w:r></w:p>';
+        }
+        // Конвертация Excel-таблицы в Word-таблицу с тонкими бордерами
+        function xlsxToWordTableXml(block) {
+            var grid = block.grid;
+            var maxCols = 0;
+            for (var i = 0; i < grid.length; i++) maxCols = Math.max(maxCols, grid[i].length);
+            if (!maxCols) return paragraphXml('(пустая таблица)');
+            var totalW = 9000;
+            var colW = Math.floor(totalW / maxCols);
+            var tblPr =
+                '<w:tblPr>' +
+                    '<w:tblW w:w="' + totalW + '" w:type="dxa"/>' +
+                    '<w:tblBorders>' +
+                        '<w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+                        '<w:left w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+                        '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+                        '<w:right w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+                        '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+                        '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>' +
+                    '</w:tblBorders>' +
+                '</w:tblPr>';
+            var tblGrid = '<w:tblGrid>';
+            for (var c = 0; c < maxCols; c++) tblGrid += '<w:gridCol w:w="' + colW + '"/>';
+            tblGrid += '</w:tblGrid>';
+            var rowsXml = '';
+            for (var r = 0; r < grid.length; r++) {
+                var row = grid[r];
+                rowsXml += '<w:tr>';
+                for (var k = 0; k < maxCols; k++) {
+                    var cell = k < row.length ? row[k] : '';
+                    rowsXml +=
+                        '<w:tc>' +
+                            '<w:tcPr><w:tcW w:w="' + colW + '" w:type="dxa"/></w:tcPr>' +
+                            paragraphXml(cell) +
+                        '</w:tc>';
+                }
+                rowsXml += '</w:tr>';
+            }
+            return '<w:tbl>' + tblPr + tblGrid + rowsXml + '</w:tbl>';
+        }
+        // Параграф с изображением (inline drawing).
+        // rId — relationship id, w/h — натуральные пиксели, picId — номер картинки.
+        function imageParagraphXml(rId, naturalW, naturalH, picId) {
+            // Scale так чтобы width не превышал IMG_MAX_W_EMU
+            var natWEmu = naturalW * EMU_PER_PX;
+            var natHEmu = naturalH * EMU_PER_PX;
+            var scale = natWEmu > IMG_MAX_W_EMU ? (IMG_MAX_W_EMU / natWEmu) : 1;
+            var w = Math.max(1, Math.round(natWEmu * scale));
+            var h = Math.max(1, Math.round(natHEmu * scale));
+            return (
+                '<w:p><w:r><w:drawing>' +
+                    '<wp:inline distT="0" distB="0" distL="0" distR="0">' +
+                        '<wp:extent cx="' + w + '" cy="' + h + '"/>' +
+                        '<wp:effectExtent l="0" t="0" r="0" b="0"/>' +
+                        '<wp:docPr id="' + picId + '" name="Picture ' + picId + '"/>' +
+                        '<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>' +
+                        '<a:graphic>' +
+                            '<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+                                '<pic:pic>' +
+                                    '<pic:nvPicPr>' +
+                                        '<pic:cNvPr id="' + picId + '" name="Picture ' + picId + '"/>' +
+                                        '<pic:cNvPicPr/>' +
+                                    '</pic:nvPicPr>' +
+                                    '<pic:blipFill>' +
+                                        '<a:blip r:embed="' + rId + '"/>' +
+                                        '<a:stretch><a:fillRect/></a:stretch>' +
+                                    '</pic:blipFill>' +
+                                    '<pic:spPr>' +
+                                        '<a:xfrm><a:off x="0" y="0"/><a:ext cx="' + w + '" cy="' + h + '"/></a:xfrm>' +
+                                        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+                                    '</pic:spPr>' +
+                                '</pic:pic>' +
+                            '</a:graphicData>' +
+                        '</a:graphic>' +
+                    '</wp:inline>' +
+                '</w:drawing></w:r></w:p>'
+            );
+        }
+
+        // ============ Сборка докомента ============
+        async function buildAndDownload() {
+            hideError();
+            hideResult();
+            buildBtn.disabled = true;
+            loading.style.display = 'block';
+            loadingText.textContent = 'Парсинг файлов...';
+            progressFill.style.width = '5%';
+
+            try {
+                // 1) Парс всех валидных файлов в IR
+                var validItems = items.filter(function (it) { return !it.error; });
+                if (!validItems.length) throw new Error('Нет файлов для сборки');
+
+                var blocks = [];
+                for (var i = 0; i < validItems.length; i++) {
+                    var it = validItems[i];
+                    loadingText.textContent = 'Парсинг: ' + it.file.name;
+                    progressFill.style.width = (5 + (i / validItems.length) * 50) + '%';
+                    try {
+                        if (it.type === 'docx') {
+                            var docBlocks = await parseDocx(it.file);
+                            for (var k = 0; k < docBlocks.length; k++) blocks.push(docBlocks[k]);
+                        } else if (it.type === 'xlsx') {
+                            blocks.push(await parseXlsx(it.file));
+                        } else if (it.type === 'image') {
+                            blocks.push(await parseImage(it.file));
+                        }
+                    } catch (parseErr) {
+                        throw new Error('Файл «' + it.file.name + '»: ' + (parseErr.message || parseErr));
+                    }
+                }
+
+                if (!blocks.length) throw new Error('Не получилось извлечь ни одного блока из выбранных файлов');
+
+                // 2) Превращаем IR в body XML, попутно собирая медиа и рилы для картинок
+                loadingText.textContent = 'Сборка документа...';
+                progressFill.style.width = '70%';
+
+                var bodyXml = '';
+                var images = []; // { name, bytes, contentType }
+                var rels = []; // { id, target }
+                var rIdCounter = 100;
+                var EMPTY_P = '<w:p/>';
+
+                for (var b = 0; b < blocks.length; b++) {
+                    var bl = blocks[b];
+                    if (bl.kind === 'paragraph') {
+                        bodyXml += bl.xml;
+                    } else if (bl.kind === 'table') {
+                        bodyXml += bl.xml;
+                    } else if (bl.kind === 'xlsx-table') {
+                        bodyXml += xlsxToWordTableXml(bl);
+                    } else if (bl.kind === 'image') {
+                        var idx = images.length + 1;
+                        var fname = 'image' + idx + '.' + bl.ext;
+                        var ctype = bl.ext === 'jpg' || bl.ext === 'jpeg' ? 'image/jpeg' :
+                                    bl.ext === 'gif' ? 'image/gif' :
+                                    bl.ext === 'webp' ? 'image/webp' : 'image/png';
+                        var rId = 'rId' + (rIdCounter++);
+                        images.push({ name: fname, bytes: bl.bytes, contentType: ctype });
+                        rels.push({ id: rId, target: 'media/' + fname });
+                        bodyXml += imageParagraphXml(rId, bl.w, bl.h, idx);
+                    }
+                    // Пустая строка между блоками
+                    if (b < blocks.length - 1) bodyXml += EMPTY_P;
+                }
+
+                // 3) Собираем .docx zip
+                var zip = new JSZip();
+                zip.file('[Content_Types].xml', contentTypesXml(images));
+                zip.file('_rels/.rels', MAIN_RELS);
+                zip.file('word/styles.xml', STYLES_XML);
+                zip.file('word/document.xml', documentXml(bodyXml));
+                zip.file('word/_rels/document.xml.rels', documentRelsXml(rels));
+                for (var m = 0; m < images.length; m++) {
+                    zip.file('word/media/' + images[m].name, images[m].bytes);
+                }
+
+                loadingText.textContent = 'Упаковка ZIP...';
+                progressFill.style.width = '90%';
+
+                var blob = await zip.generateAsync({
+                    type: 'blob',
+                    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                });
+
+                progressFill.style.width = '100%';
+                lastBlob = blob;
+                showResult(blob.size, blocks.length);
+                // Сразу триггерим скачивание
+                triggerDownload(blob, 'Объединение файлов.docx');
+            } catch (e) {
+                showError(e.message || String(e));
+            } finally {
+                buildBtn.disabled = false;
+                setTimeout(function () {
+                    loading.style.display = 'none';
+                    progressFill.style.width = '0%';
+                }, 400);
+            }
+        }
+        buildBtn.addEventListener('click', buildAndDownload);
+        downloadBtn.addEventListener('click', function () {
+            if (lastBlob) triggerDownload(lastBlob, 'Объединение файлов.docx');
+        });
+        function triggerDownload(blob, filename) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function () {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        }
+
+        // ============ Шаблоны OOXML ============
+        var MAIN_RELS =
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+            '</Relationships>';
+
+        function contentTypesXml(images) {
+            // Уникальные расширения изображений
+            var exts = {};
+            for (var i = 0; i < images.length; i++) {
+                var e = images[i].name.split('.').pop().toLowerCase();
+                if (!exts[e]) exts[e] = images[i].contentType;
+            }
+            var defaults =
+                '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+                '<Default Extension="xml" ContentType="application/xml"/>';
+            for (var k in exts) {
+                defaults += '<Default Extension="' + k + '" ContentType="' + exts[k] + '"/>';
+            }
+            return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+                '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+                    defaults +
+                    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+                    '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
+                '</Types>';
+        }
+
+        function documentRelsXml(rels) {
+            var inner =
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>';
+            for (var i = 0; i < rels.length; i++) {
+                inner += '<Relationship Id="' + rels[i].id + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="' + rels[i].target + '"/>';
+            }
+            return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + inner + '</Relationships>';
+        }
+
+        function documentXml(bodyXml) {
+            return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+                '<w:document ' +
+                    'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
+                    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
+                    'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
+                    'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ' +
+                    'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" ' +
+                    'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" ' +
+                    'xmlns:v="urn:schemas-microsoft-com:vml" ' +
+                    'xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+                    'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" ' +
+                    'xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" ' +
+                    'xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" ' +
+                    'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" ' +
+                    'xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"' +
+                '>' +
+                    '<w:body>' +
+                        bodyXml +
+                        '<w:sectPr>' +
+                            '<w:pgSz w:w="11906" w:h="16838"/>' +
+                            '<w:pgMar w:top="1134" w:right="850" w:bottom="1134" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/>' +
+                            '<w:cols w:space="708"/>' +
+                            '<w:docGrid w:linePitch="360"/>' +
+                        '</w:sectPr>' +
+                    '</w:body>' +
+                '</w:document>';
+        }
+
+        // Минимальный styles.xml — нужен потому что некоторые таблицы из source-docx
+        // ссылаются на pStyle / rStyle. Если стилей нет — Word откроет с warning'ом.
+        // Достаточно нескольких базовых стилей + дефолтный pPrDefault.
+        var STYLES_XML =
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+            '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+                '<w:docDefaults>' +
+                    '<w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="ru-RU"/></w:rPr></w:rPrDefault>' +
+                    '<w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="259" w:lineRule="auto"/></w:pPr></w:pPrDefault>' +
+                '</w:docDefaults>' +
+                '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
+                '<w:style w:type="character" w:default="1" w:styleId="DefaultParagraphFont"><w:name w:val="Default Paragraph Font"/><w:uiPriority w:val="1"/><w:semiHidden/><w:unhideWhenUsed/></w:style>' +
+                '<w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>' +
+                '<w:style w:type="numbering" w:default="1" w:styleId="NoList"><w:name w:val="No List"/><w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/></w:style>' +
+            '</w:styles>';
+    </script>
+</body>
+</html>

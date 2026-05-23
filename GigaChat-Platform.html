@@ -428,6 +428,14 @@
             <span class="card-tag">Word</span>
         </a>
 
+        <a class="card card-file-merger" href="Agents/file-merger.html" id="card-file-merger">
+            <div class="card-status checking" id="status-file-merger"></div>
+            <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
+            <div class="card-title">Объединение файлов</div>
+            <div class="card-desc">Word + Excel + фото в один Word-документ. Порядок задаёшь drag-n-drop.</div>
+            <span class="card-tag">Word, Excel, фото</span>
+        </a>
+
         <a class="card card-planner" href="Agents/planner.html" id="card-planner">
             <div class="card-status checking" id="status-planner"></div>
             <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5h-2a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"/><rect x="9" y="3" width="6" height="4" rx="1"/><polyline points="9 14 11 16 15 12"/></svg></div>
@@ -479,9 +487,12 @@
 
     document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-    // merger-word работает в браузере — статус ВСЕГДА online (никакой сервер не нужен).
+    // merger-word и file-merger работают в браузере — статус ВСЕГДА online
+    // (никакой сервер не нужен, JSZip и DOMParser всё делают локально).
     var mergerWordDot = document.getElementById('status-merger-word');
     if (mergerWordDot) mergerWordDot.className = 'card-status online';
+    var fileMergerDot = document.getElementById('status-file-merger');
+    if (fileMergerDot) fileMergerDot.className = 'card-status online';
 
     // Per-agent health-check: каждая карточка пингует СВОЙ webhook через
     // POST ?ping=1 с body {"message":"ping"}. Это покрывает оба варианта
