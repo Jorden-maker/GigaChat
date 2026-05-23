@@ -447,18 +447,48 @@
             }
             return { kind: 'xlsx-table', sheetName: sheet.name, grid: grid };
         }
+        // B15: определяем реальный тип по magic bytes — расширение в имени может
+        // врать (PNG переименованный в .jpg даст некорректный content-type в .docx
+        // и Word ругнётся). Возвращает 'jpg'/'png'/'gif'/'webp' или null.
+        function detectImageTypeByMagic(bytes) {
+            if (!bytes || bytes.length < 12) return null;
+            // JPEG: FF D8 FF
+            if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'jpg';
+            // PNG: 89 50 4E 47
+            if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png';
+            // GIF: 47 49 46 38 (GIF8)
+            if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return 'gif';
+            // WEBP: RIFF....WEBP
+            if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+                bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'webp';
+            return null;
+        }
+
         async function parseImage(file) {
             var bytes = new Uint8Array(await file.arrayBuffer());
+            // B15: настоящий тип по сигнатуре. Если magic не распознан — fallback
+            // на расширение (некоторые форматы которые browser ещё может отрисовать).
+            var ext = detectImageTypeByMagic(bytes);
+            if (!ext) {
+                ext = (file.name.match(/\.([a-zA-Z0-9]+)$/) || [, 'png'])[1].toLowerCase();
+                if (ext === 'jpeg') ext = 'jpg';
+            }
             var url = URL.createObjectURL(file);
             try {
                 var dims = await new Promise(function (resolve, reject) {
                     var img = new Image();
-                    img.onload = function () { resolve({ w: img.naturalWidth, h: img.naturalHeight }); };
+                    img.onload = function () {
+                        // B1: 0×0 → reject. Случается с битыми/обрезанными файлами,
+                        // браузер триггерит load, но naturalWidth/Height = 0.
+                        if (!img.naturalWidth || !img.naturalHeight) {
+                            reject(new Error('Изображение нулевого размера (повреждённый файл?)'));
+                            return;
+                        }
+                        resolve({ w: img.naturalWidth, h: img.naturalHeight });
+                    };
                     img.onerror = function () { reject(new Error('Не удалось прочитать изображение')); };
                     img.src = url;
                 });
-                var ext = (file.name.match(/\.([a-zA-Z0-9]+)$/) || [, 'png'])[1].toLowerCase();
-                if (ext === 'jpeg') ext = 'jpg';
                 return { kind: 'image', bytes: bytes, w: dims.w, h: dims.h, ext: ext };
             } finally {
                 URL.revokeObjectURL(url);
