@@ -41,5 +41,11 @@ ocr-server/_tmp_venv/
 # Содержит ID credentials с конкретной машины — на других машинах ID другие.
 credentials-cache.local.json
 
-# Plane — клонирован локально для разработки Plane-агента, не наш код
+# Plane — клонирован локально для разработки Plane-агента, не наш код.
+# Lowercase `plane/` — это локальный клон upstream-репозитория (97 МБ),
+# в репо не нужен. Заглавная `Plane/` — наша документация-хаб с README +
+# OFFICE-TESTING.md, она ДОЛЖНА коммититься. На case-insensitive ФС (Windows)
+# обе папки одинаково матчат `plane/`, поэтому нужен явный exception.
 plane/
+!Plane/
+!Plane/**
