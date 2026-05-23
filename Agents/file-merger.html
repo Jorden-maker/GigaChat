@@ -404,22 +404,21 @@
             return blocks;
         }
         async function parseXlsx(file) {
-            // Используем готовый GigaChat.parseXlsxFile — возвращает [{name, headers, rows}, ...]
+            // GigaChat.parseXlsxFile возвращает [{name, headers, rows}, ...].
+            // headers — array of strings (первая непустая строка),
+            // rows — array of ARRAYS (НЕ объектов): каждая row[i] — это массив значений
+            // в том же порядке что и headers.
             var sheets = await GigaChat.parseXlsxFile(file);
             if (!sheets.length) throw new Error('В .xlsx нет ни одного листа');
-            // На v1 берём первый лист. Если нужно — позже можем дать выбор листа в UI.
             var sheet = sheets[0];
-            // headers — массив строк (первая строка), rows — массив объектов { header → value }.
-            // Конвертим обратно в плоский grid: первая строка headers, дальше rows в порядке headers.
             var grid = [];
-            if (sheet.headers && sheet.headers.length) {
-                grid.push(sheet.headers.slice());
-            }
+            if (sheet.headers && sheet.headers.length) grid.push(sheet.headers.slice());
+            var cols = sheet.headers.length;
             for (var i = 0; i < sheet.rows.length; i++) {
-                var row = sheet.rows[i];
+                var row = sheet.rows[i]; // массив
                 var arr = [];
-                for (var c = 0; c < sheet.headers.length; c++) {
-                    var v = row[sheet.headers[c]];
+                for (var c = 0; c < cols; c++) {
+                    var v = (c < row.length) ? row[c] : '';
                     arr.push(v == null ? '' : String(v));
                 }
                 grid.push(arr);
@@ -553,26 +552,28 @@
                 var validItems = items.filter(function (it) { return !it.error; });
                 if (!validItems.length) throw new Error('Нет файлов для сборки');
 
-                var blocks = [];
+                // Парсим каждый файл и СОХРАНЯЕМ группировку по источникам —
+                // пустая строка ставится между файлами, не между параграфами внутри Word'а.
+                var sources = []; // [{ blocks: [...] }, ...]
                 for (var i = 0; i < validItems.length; i++) {
                     var it = validItems[i];
                     loadingText.textContent = 'Парсинг: ' + it.file.name;
                     progressFill.style.width = (5 + (i / validItems.length) * 50) + '%';
                     try {
                         if (it.type === 'docx') {
-                            var docBlocks = await parseDocx(it.file);
-                            for (var k = 0; k < docBlocks.length; k++) blocks.push(docBlocks[k]);
+                            sources.push({ blocks: await parseDocx(it.file) });
                         } else if (it.type === 'xlsx') {
-                            blocks.push(await parseXlsx(it.file));
+                            sources.push({ blocks: [await parseXlsx(it.file)] });
                         } else if (it.type === 'image') {
-                            blocks.push(await parseImage(it.file));
+                            sources.push({ blocks: [await parseImage(it.file)] });
                         }
                     } catch (parseErr) {
                         throw new Error('Файл «' + it.file.name + '»: ' + (parseErr.message || parseErr));
                     }
                 }
 
-                if (!blocks.length) throw new Error('Не получилось извлечь ни одного блока из выбранных файлов');
+                var totalBlocks = sources.reduce(function (acc, s) { return acc + s.blocks.length; }, 0);
+                if (!totalBlocks) throw new Error('Не получилось извлечь ни одного блока из выбранных файлов');
 
                 // 2) Превращаем IR в body XML, попутно собирая медиа и рилы для картинок
                 loadingText.textContent = 'Сборка документа...';
@@ -584,27 +585,30 @@
                 var rIdCounter = 100;
                 var EMPTY_P = '<w:p/>';
 
-                for (var b = 0; b < blocks.length; b++) {
-                    var bl = blocks[b];
-                    if (bl.kind === 'paragraph') {
-                        bodyXml += bl.xml;
-                    } else if (bl.kind === 'table') {
-                        bodyXml += bl.xml;
-                    } else if (bl.kind === 'xlsx-table') {
-                        bodyXml += xlsxToWordTableXml(bl);
-                    } else if (bl.kind === 'image') {
-                        var idx = images.length + 1;
-                        var fname = 'image' + idx + '.' + bl.ext;
-                        var ctype = bl.ext === 'jpg' || bl.ext === 'jpeg' ? 'image/jpeg' :
-                                    bl.ext === 'gif' ? 'image/gif' :
-                                    bl.ext === 'webp' ? 'image/webp' : 'image/png';
-                        var rId = 'rId' + (rIdCounter++);
-                        images.push({ name: fname, bytes: bl.bytes, contentType: ctype });
-                        rels.push({ id: rId, target: 'media/' + fname });
-                        bodyXml += imageParagraphXml(rId, bl.w, bl.h, idx);
+                for (var s = 0; s < sources.length; s++) {
+                    var src = sources[s];
+                    for (var b = 0; b < src.blocks.length; b++) {
+                        var bl = src.blocks[b];
+                        if (bl.kind === 'paragraph') {
+                            bodyXml += bl.xml;
+                        } else if (bl.kind === 'table') {
+                            bodyXml += bl.xml;
+                        } else if (bl.kind === 'xlsx-table') {
+                            bodyXml += xlsxToWordTableXml(bl);
+                        } else if (bl.kind === 'image') {
+                            var idx = images.length + 1;
+                            var fname = 'image' + idx + '.' + bl.ext;
+                            var ctype = bl.ext === 'jpg' || bl.ext === 'jpeg' ? 'image/jpeg' :
+                                        bl.ext === 'gif' ? 'image/gif' :
+                                        bl.ext === 'webp' ? 'image/webp' : 'image/png';
+                            var rId = 'rId' + (rIdCounter++);
+                            images.push({ name: fname, bytes: bl.bytes, contentType: ctype });
+                            rels.push({ id: rId, target: 'media/' + fname });
+                            bodyXml += imageParagraphXml(rId, bl.w, bl.h, idx);
+                        }
                     }
-                    // Пустая строка между блоками
-                    if (b < blocks.length - 1) bodyXml += EMPTY_P;
+                    // Пустая строка только МЕЖДУ файлами (не внутри одного docx)
+                    if (s < sources.length - 1) bodyXml += EMPTY_P;
                 }
 
                 // 3) Собираем .docx zip
@@ -630,7 +634,7 @@
 
                 progressFill.style.width = '100%';
                 lastBlob = blob;
-                showResult(blob.size, blocks.length);
+                showResult(blob.size, totalBlocks);
                 // Сразу триггерим скачивание
                 triggerDownload(blob, 'Объединение файлов.docx');
             } catch (e) {
