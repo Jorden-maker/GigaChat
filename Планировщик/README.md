@@ -62,30 +62,22 @@ PostgreSQL
 База PostgreSQL — общая с остальными агентами GigaChat (`ai_agent` по
 умолчанию). Таблица `planner_tasks` нужна только этому инструменту.
 
-### Если БД уже работает (n8n использует chat_memory и др.)
-
-Достаточно прогнать одну миграцию — добавить таблицы планировщика:
-
-**Если сервер на Linux + PostgreSQL в Docker:**
-```bash
-# Перенести planner-schema.sql на сервер (scp/rsync через флэшку,
-# см. Linux/README.md общий поток обновлений).
-# Имя контейнера Postgres подставь своё (узнать: `docker ps`).
-cat "База данных/planner-schema.sql" | docker exec -i <postgres-container> psql -U postgres -d ai_agent
-```
-
-**Если PostgreSQL на Windows напрямую (без Docker):**
-```powershell
-psql -U postgres -d ai_agent -f "База данных/planner-schema.sql"
-```
-
-После выполнения должна вывестись строка `planner-schema v3 готов`.
-
-### Если БД ещё не создана
+### Развёртывание БД
 
 Используй [`База данных/init-db.sql`](../База%20данных/README.md) — он
 одним прогоном собирает ВСЮ БД проекта (все таблицы всех агентов +
 планировщика + алгоритма обращений + расширения + тестовые данные).
+
+**Если сервер на Linux + PostgreSQL в Docker:**
+```bash
+cat "База данных/init-db.sql" | docker exec -i <postgres-container> psql -U postgres -d ai_agent
+```
+
+**Если PostgreSQL на Windows напрямую (без Docker):**
+```powershell
+psql -U postgres -d ai_agent -f "База данных/init-db.sql"
+```
+
 Подробно — в [`База данных/README.md`](../База%20данных/README.md).
 
 ### Схема таблицы (v2 — multi-user)
@@ -227,32 +219,6 @@ DELETE FROM planner_sessions
 DELETE FROM planner_users WHERE username = 'Иванов';
 -- ON DELETE CASCADE удалит все его задачи и сессии автоматически
 ```
-
-### Миграция со старой версии (identity-flow без паролей)
-
-Если у тебя стояла **v2** (multi-user через имя без паролей) — запусти
-миграцию v3:
-
-```bash
-# Linux + Postgres в Docker:
-cat "База данных/migration-v3-auth.sql" | docker exec -i <postgres-container> psql -U postgres -d ai_agent
-
-# Windows + Postgres напрямую:
-psql -U postgres -d ai_agent -f "База данных/migration-v3-auth.sql"
-```
-
-**⚠ Важно:** миграция v3 **удаляет все существующие задачи** в `planner_tasks`
-(старая схема user_id была VARCHAR с именем, новая — INTEGER FK на
-planner_users.id; преобразование невозможно без ручного создания юзеров).
-Если задачи важны — экспортируй их вручную ДО запуска миграции:
-
-```sql
-COPY planner_tasks TO '/tmp/planner_tasks_backup.csv' CSV HEADER;
-```
-
-После миграции — re-import оба workflow в n8n:
-- `Workflow/planner-auth.json` (новый) — импортнуть как новый workflow → Activate
-- `Workflow/planner.json` (обновлён) — Replace existing → Activate
 
 ## Как работает workflow
 
@@ -462,7 +428,7 @@ DELETE FROM planner_tasks WHERE id = $1 AND session_id = $2 RETURNING id
 | Цвет приоритетов | `Agents/planner.html` CSS | переменные `--priority-high/medium/low` |
 | Лимит задач в AI-контексте | `Workflow/planner.json` | в SELECT для query — `LIMIT 100` |
 | Сортировка задач в списке | `Workflow/planner.json` | ORDER BY в action=list |
-| Доступные приоритеты | `Workflow/planner.json` + `Agents/planner.html` + `База данных/planner-schema.sql` | три места: CHECK constraint в SQL, валидация в workflow, options в HTML |
+| Доступные приоритеты | `Workflow/planner.json` + `Agents/planner.html` + `База данных/init-db.sql` | три места: CHECK constraint в SQL, валидация в workflow, options в HTML |
 | LLM-температура для AI-запросов | `Workflow/planner.json` | нода «LLM: ответ» → options.temperature (по умолчанию 0.3) |
 | Системный промпт AI | `Workflow/planner.json` | нода «Собрать промпт», переменная `systemPrompt` |
 | Текст пустого состояния | `Agents/planner.html` | `emptyChatHtml`, `tasks-empty` |
@@ -479,8 +445,8 @@ respondToWebhook, фронт получает пустой body.
 ```sql
 \dt planner_tasks
 ```
-Если пусто — запусти миграцию (`psql ... -f "База данных/planner-schema.sql"`,
-см. раздел [Настройка БД](#настройка-бд)).
+Если пусто — запусти `psql ... -f "База данных/init-db.sql"`,
+см. раздел [Настройка БД](#настройка-бд).
 
 Другие причины:
 - Workflow не активирован в n8n (открой `http://server:5678/`, проверь)

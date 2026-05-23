@@ -9,8 +9,6 @@
 | **[`init-db.sql`](init-db.sql)** | ⚡ **Главный файл** — одним прогоном собирает ВСЮ БД проекта (11 таблиц + 2 расширения + тестовые данные) |
 | [`PostgreSQL-Guide.md`](PostgreSQL-Guide.md) | Полный гайд: установка Postgres, pgvector, доступ из LAN, частые запросы, бэкап/восстановление |
 | [`OrgAppeal-Setup.md`](OrgAppeal-Setup.md) | Детально про таблицы алгоритма «Организация обращения» + 10 тест-сценариев |
-| [`planner-schema.sql`](planner-schema.sql) | Только таблицы планировщика (если ставится отдельно от остального) |
-| [`migration-v3-auth.sql`](migration-v3-auth.sql) | Миграция планировщика v2 → v3 (добавляет auth) |
 
 ---
 

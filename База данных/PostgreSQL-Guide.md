@@ -205,20 +205,19 @@ SELECT 'Готово!' AS result;
 ALTER TABLE chat_memory ADD COLUMN IF NOT EXISTS extras JSONB;
 ```
 
-### Если БД уже существует — добавить таблицу `planner_tasks`
+### Полная инициализация БД с нуля
 
-Если планировщик добавлен после первичной установки — отдельной миграцией:
+Используй `База данных/init-db.sql` (см. [`README.md`](README.md)). Один файл,
+все таблицы проекта (включая `planner_*`, `chat_memory`, `documents`,
+`appeal_*` и прочие), все расширения (pgvector, pgcrypto), тестовые данные.
 
 ```sql
 \c ai_agent
-\i /path/to/GigaChat/База данных/planner-schema.sql
+\i /path/to/GigaChat/База данных/init-db.sql
 ```
 
-Или просто скопировать содержимое `База данных/planner-schema.sql` в `psql`.
-
-> ⚡ **Проще:** если делаешь полную инициализацию БД с нуля — используй
-> `База данных/init-db.sql` (см. [`README.md`](README.md)). Один файл,
-> все таблицы проекта (включая planner_*), все расширения, тестовые данные.
+Если БД уже существует и нужны только таблицы планировщика — извлеки нужные
+блоки `CREATE TABLE planner_*` из `init-db.sql` и запусти их вручную.
 
 ### Размерность вектора
 
