@@ -581,6 +581,10 @@
                 }
             }
             renderList();
+            // КРИТИЧНО: updateUI ПОСЛЕ парсинга, иначе settings/opts-панели не покажутся.
+            // hasOk проверяет `it.parsed` — при первом updateUI (в addFiles) parsed
+            // ещё null → панели скрыты. Тут наконец видим что парсинг успешен.
+            updateUI();
             recomputePreview();
         }
 
