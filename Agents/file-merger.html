@@ -706,11 +706,9 @@
             }
         }
 
-        function showError(msg) {
-            errorBox.textContent = msg;
-            errorBox.style.display = 'block';
-        }
-        function hideError() { errorBox.style.display = 'none'; }
+        // showError / hideError определены выше (через toasts) — здесь дубликат
+        // со ссылкой на удалённый errorBox удалён. Function hoisting иначе
+        // переписывал новые определения старыми (errorBox is not defined).
         function showResult(sizeBytes, blockCount) {
             resultBox.style.display = 'block';
             resultSize.textContent = formatSize(sizeBytes);
