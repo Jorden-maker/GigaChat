@@ -97,16 +97,6 @@
         .file-row .remove:hover { color: var(--error); background: rgba(239,68,68,0.08); }
         .file-row .err-msg { color: var(--error); font-size: 11px; margin-left: 8px; }
 
-        /* === Theme toggle === */
-        .theme-toggle {
-            background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
-            width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: all 0.15s;
-        }
-        .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
-        .theme-toggle svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
         /* === «или выбрать папку» — линк под drop-zone === */
         .or-folder {
             text-align: center; margin: -8px 0 16px;
@@ -264,7 +254,7 @@
             <h1>Объединение файлов</h1>
         </div>
         <div class="header-right">
-            <button class="theme-toggle" id="themeToggle" aria-label="Сменить тему"></button>
+            <!-- theme-toggle добавляется автоматически из _shared.js (injectToolCss) -->
         </div>
     </header>
     <main>
@@ -356,24 +346,8 @@
 
     <script>
         GigaChat.injectToolCss();
-
-        // ============ Theme toggle ============
-        var themeToggle = document.getElementById('themeToggle');
-        var SUN_SVG = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
-        var MOON_SVG = '<svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-        function applyThemeIcon() {
-            var t = document.documentElement.getAttribute('data-theme') || 'light';
-            themeToggle.innerHTML = t === 'dark' ? SUN_SVG : MOON_SVG;
-        }
-        themeToggle.addEventListener('click', function () {
-            var cur = document.documentElement.getAttribute('data-theme') || 'light';
-            var next = cur === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', next);
-            document.documentElement.style.setProperty('background', next === 'dark' ? '#1f1f1e' : '#fdfdfc', 'important');
-            try { localStorage.setItem('giga_theme', next); } catch (e) {}
-            applyThemeIcon();
-        });
-        applyThemeIcon();
+        // Theme toggle инжектится автоматически из _shared.js (через injectToolCss),
+        // своя кнопка тут не нужна — раньше создавала визуальный дубль.
 
         // ============ Конфиг ============
         // Max width изображения в выходном Word'е — 14 см ≈ 5,040,000 EMU.
