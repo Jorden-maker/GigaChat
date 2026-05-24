@@ -92,7 +92,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        280,
+        740,
         300
       ],
       "id": "dl-0002-0002-0002-000000000002",
@@ -126,7 +126,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        560,
+        1020,
         300
       ],
       "id": "dl-0003-0003-0003-000000000003",
@@ -160,7 +160,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        840,
+        1300,
         500
       ],
       "id": "dl-0004-0004-0004-000000000004",
@@ -188,7 +188,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1120,
+        1580,
         400
       ],
       "id": "dl-0005-0005-0005-000000000005",
@@ -203,7 +203,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1400,
+        1860,
         400
       ],
       "id": "dl-0006-0006-0006-000000000006",
@@ -237,7 +237,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1680,
+        2140,
         400
       ],
       "id": "dl-0007-0007-0007-000000000007",
@@ -250,7 +250,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2000,
+        2460,
         200
       ],
       "id": "dl-0008-0008-0008-000000000008",
@@ -279,7 +279,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2280,
+        2740,
         200
       ],
       "id": "dl-0009-0009-0009-000000000009",
@@ -294,7 +294,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2560,
+        3020,
         200
       ],
       "id": "dl-0010-0010-0010-000000000010",
@@ -311,7 +311,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2840,
+        3300,
         200
       ],
       "id": "dl-0011-0011-0011-000000000011",
@@ -332,7 +332,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3120,
+        3580,
         200
       ],
       "id": "dl-0012-0012-0012-000000000012",
@@ -364,7 +364,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3400,
+        3860,
         200
       ],
       "id": "dl-0013-0013-0013-000000000013",
@@ -396,7 +396,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1120,
+        1580,
         700
       ],
       "id": "dl-0014-0014-0014-000000000014",
@@ -428,7 +428,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1960,
+        2420,
         600
       ],
       "id": "dl-0015-0015-0015-000000000015",
@@ -441,7 +441,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        390,
+        280,
         300
       ],
       "id": "doc-loader-sso-auth-check-V1__SSO_AUTH_CHECK_V1",
@@ -474,7 +474,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        640,
+        510,
         300
       ],
       "id": "doc-loader-sso-auth-ok-V1",
@@ -506,8 +506,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        890,
-        450
+        510,
+        500
       ],
       "id": "doc-loader-sso-auth-resp-V1",
       "name": "SSO: Ответ auth_required"

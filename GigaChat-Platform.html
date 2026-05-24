@@ -19,8 +19,14 @@
             color: #d4d4d4;
             background: #1f1f1e;
         }
+        /* Анти-FOUC mask на время verify-токена. Дашборд = протектед страница:
+           без токена редиректим на /login.html, до завершения verify прячем
+           container, чтобы юзер не успел увидеть карточки до редиректа. */
+        html.gc-pending-auth .container,
+        html.gc-pending-auth .bg-dots,
+        html.gc-pending-auth #gcAuthWidget { display: none !important; }
     </style>
-    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');document.documentElement.classList.add('gc-pending-auth');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -348,20 +354,8 @@
         .gc-auth-dropdown a:hover {
             background: var(--bg-card-hover); color: var(--accent);
         }
-        /* Logged-out: жёлтая ссылка «Войти» */
-        .gc-auth-login {
-            display: inline-flex; align-items: center;
-            height: 32px;
-            padding: 0 14px;
-            background: var(--accent); color: #fff;
-            border-radius: 16px; border: 1px solid var(--accent);
-            text-decoration: none;
-            font-family: inherit; font-size: 13px; font-weight: 500;
-            transition: background 0.15s, border-color 0.15s;
-        }
-        .gc-auth-login:hover {
-            background: var(--accent-hover); border-color: var(--accent-hover);
-        }
+        /* «Войти»-кнопка убрана: дашборд теперь = протектед страница
+           (без токена редирект на /login.html). Login living separately. */
 
         /* Responsive */
         @media (max-width: 1100px) {
@@ -639,73 +633,47 @@
     window.addEventListener('pageshow', startDashboardHealth);
     startDashboardHealth();
 
-    // === Auth widget (top-right) ============================================
-    // Сначала пытаемся определить локальное состояние (есть/нет токена) и
-    // показываем что-то СРАЗУ (логин-кнопку или pill с именем из localStorage),
-    // без ожидания verify. Параллельно делаем verify в фоне — если сервер
-    // ответит «токена нет» (auth_required), переключаем на login-кнопку.
-    // Это убирает мигание (пустой widget → kit → имя).
-    (function initAuthWidget() {
+    // === Auth-gate + widget (top-right) =====================================
+    // Дашборд — протектед страница. Без токена сразу редирект на /login.html.
+    // После успешного verify: снимаем gc-pending-auth (показываем cards) и
+    // рендерим pill «Привет, X ▾» с dropdown «Открыть планировщик / Выйти».
+    GigaChat.auth.requireAuth({ onOk: function (username) {
+        document.documentElement.classList.remove('gc-pending-auth');
+
         var widget = document.getElementById('gcAuthWidget');
         if (!widget) return;
+        widget.innerHTML =
+            '<button class="gc-auth-pill" type="button" id="gcAuthPill" aria-haspopup="menu" aria-expanded="false">' +
+                '<span class="gc-auth-name"></span>' +
+                '<span class="gc-auth-arrow" aria-hidden="true"></span>' +
+            '</button>' +
+            '<div class="gc-auth-dropdown" role="menu">' +
+                '<a href="Agents/planner.html" role="menuitem">Открыть планировщик</a>' +
+                '<button type="button" id="gcAuthLogout" role="menuitem">Выйти</button>' +
+            '</div>';
+        // textContent — защита от XSS (имя приходит от сервера, но всё равно)
+        widget.querySelector('.gc-auth-name').textContent = 'Привет, ' + username;
+        widget.classList.add('gc-ready');
 
-        function renderLoggedIn(name) {
-            widget.classList.remove('open');
-            widget.innerHTML =
-                '<button class="gc-auth-pill" type="button" id="gcAuthPill" aria-haspopup="menu" aria-expanded="false">' +
-                    '<span class="gc-auth-name"></span>' +
-                    '<span class="gc-auth-arrow" aria-hidden="true"></span>' +
-                '</button>' +
-                '<div class="gc-auth-dropdown" role="menu">' +
-                    '<a href="Agents/planner.html" role="menuitem">Открыть планировщик</a>' +
-                    '<button type="button" id="gcAuthLogout" role="menuitem">Выйти</button>' +
-                '</div>';
-            // textContent — защита от XSS (имя приходит от сервера, но всё равно)
-            widget.querySelector('.gc-auth-name').textContent = 'Привет, ' + name;
-            widget.classList.add('gc-ready');
-
-            var pill = document.getElementById('gcAuthPill');
-            var logoutBtn = document.getElementById('gcAuthLogout');
-            function setOpen(open) {
-                widget.classList.toggle('open', open);
-                pill.setAttribute('aria-expanded', open ? 'true' : 'false');
-            }
-            pill.addEventListener('click', function (e) {
-                e.stopPropagation();
-                setOpen(!widget.classList.contains('open'));
-            });
-            document.addEventListener('click', function (e) {
-                if (!widget.contains(e.target)) setOpen(false);
-            });
-            logoutBtn.addEventListener('click', function () {
-                GigaChat.auth.logout({ redirectTo: 'GigaChat-Platform.html' });
-            });
+        var pill = document.getElementById('gcAuthPill');
+        var logoutBtn = document.getElementById('gcAuthLogout');
+        function setOpen(open) {
+            widget.classList.toggle('open', open);
+            pill.setAttribute('aria-expanded', open ? 'true' : 'false');
         }
-        function renderLoggedOut() {
-            widget.classList.remove('open');
-            widget.innerHTML = '<a class="gc-auth-login" href="login.html">Войти</a>';
-            widget.classList.add('gc-ready');
-        }
-
-        var token = GigaChat.auth.getToken();
-        var name = GigaChat.auth.getUsername();
-        if (token && name) {
-            // Оптимистический рендер по localStorage — мгновенно
-            renderLoggedIn(name);
-            // Параллельно verify: если сервер отказал — переключаемся
-            GigaChat.auth.verifyToken().then(function (res) {
-                if (!res.ok && !res.network) {
-                    GigaChat.auth.clearAuth();
-                    renderLoggedOut();
-                } else if (res.ok && res.username && res.username !== name) {
-                    // Username на сервере изменился — обновляем
-                    renderLoggedIn(res.username);
-                }
-            });
-        } else {
-            renderLoggedOut();
-        }
-    })();
+        pill.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setOpen(!widget.classList.contains('open'));
+        });
+        document.addEventListener('click', function (e) {
+            if (!widget.contains(e.target)) setOpen(false);
+        });
+        logoutBtn.addEventListener('click', function () {
+            // После logout → login.html (а не на сам дашборд, иначе бесконечный
+            // редирект: dashboard → no token → login → success → dashboard).
+            GigaChat.auth.logout({ redirectTo: 'login.html' });
+        });
+    }});
 
 </script>
 </body>

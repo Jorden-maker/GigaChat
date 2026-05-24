@@ -69,34 +69,69 @@
         }
         #__gc-bootloader.gc-hide { opacity: 0; }
 
-        /* Центральная компоновка — модалка по центру вертикали и горизонтали */
-        .gc-login-page {
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding-top: 18vh;
-            padding-bottom: 40px;
+        /* Точечный фон — лифтнут из GigaChat-Platform.html, чтобы login
+           визуально был частью платформы (а не отдельной чужой страницей). */
+        .bg-dots {
+            position: fixed; inset: 0; z-index: 0;
+            pointer-events: none;
+            background-image:
+                radial-gradient(circle, rgba(212,165,116,0.22) 1.5px, transparent 2px),
+                radial-gradient(circle, rgba(212,165,116,0.12) 1px, transparent 1.5px);
+            background-size: 60px 60px, 30px 30px;
+            background-position: 0 0, 15px 15px;
+        }
+        :root[data-theme="light"] .bg-dots {
+            background-image:
+                radial-gradient(circle, rgba(120,85,45,0.32) 1.5px, transparent 2px),
+                radial-gradient(circle, rgba(120,85,45,0.18) 1px, transparent 1.5px);
         }
 
-        /* Кнопка «Назад к GigaChat» — fixed в левом верхнем углу */
-        .gc-login-back {
-            position: fixed; top: 10px; left: 14px; z-index: 50;
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 36px; height: 36px;
-            background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 8px; color: var(--text-secondary);
-            text-decoration: none;
-            transition: background .15s, color .15s, border-color .15s;
+        /* Центральная компоновка — заголовок + модалка по центру */
+        .gc-login-page {
+            position: relative; z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px 20px 40px;
+            gap: 36px;
         }
-        .gc-login-back:hover {
-            background: var(--bg-input); color: var(--text-primary);
-            border-color: var(--text-muted);
+
+        /* Заголовок «GigaChat / ПЛАТФОРМА» — лифт из дашборда (.header) */
+        .gc-login-brand { text-align: center; }
+        .gc-login-brand h1 {
+            margin: 0;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 42px;
+            font-weight: 700;
+            letter-spacing: 6px;
+            background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-        .gc-login-back svg {
-            width: 16px; height: 16px;
-            stroke: currentColor; fill: none;
-            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        :root[data-theme="light"] .gc-login-brand h1 {
+            background: linear-gradient(135deg, #1f1f1e 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+        .gc-login-brand .gc-login-sub {
+            color: var(--text-secondary);
+            font-size: 14px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-top: 8px;
+        }
+        .gc-login-brand .gc-login-line {
+            width: 120px;
+            height: 2px;
+            margin: 20px auto 0;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            border-radius: 1px;
+        }
+        @media (max-width: 500px) {
+            .gc-login-brand h1 { font-size: 26px; letter-spacing: 3px; }
         }
 
         /* Кнопка переключения тем — fixed в правом верхнем углу.
@@ -139,14 +174,9 @@
             to   { opacity: 1; transform: translateY(0)  scale(1);     }
         }
 
-        .gc-login-header {
-            padding: 22px 24px 6px; font-size: 18px; font-weight: 600;
-            color: var(--text-primary); text-align: center;
-            letter-spacing: 0.5px;
-        }
         .gc-login-tabs {
             display: flex; gap: 4px;
-            margin: 4px 22px 14px;
+            margin: 18px 22px 14px;  /* top увеличен — заголовок «Вход в GigaChat» убран */
             padding: 4px;
             background: var(--bg-input); border-radius: 8px;
         }
@@ -182,10 +212,13 @@
             border-color: var(--accent); background: var(--bg-secondary);
         }
 
-        /* Кастомный чекбокс «Запомнить меня» — лифт из planner.html. */
+        /* Кастомный чекбокс «Запомнить меня» — лифт из planner.html.
+           !important нужен потому что .gc-login-form label выше задаёт
+           flex-direction:column — без override чекбокс ушёл бы в столбец. */
         .gc-checkbox-row {
-            display: flex; flex-direction: row; align-items: center;
-            gap: 10px; user-select: none; padding: 2px 0;
+            display: flex !important; flex-direction: row !important;
+            align-items: center !important;
+            gap: 10px !important; user-select: none; padding: 2px 0;
         }
         .gc-checkbox-row input[type="checkbox"] {
             position: absolute; opacity: 0; pointer-events: none;
@@ -268,18 +301,20 @@
     <!-- Анти-FOUC заставка — снимается JS-кодом в конце <body>. -->
     <div id="__gc-bootloader"></div>
 
-    <a class="gc-login-back" href="GigaChat-Platform.html" aria-label="Назад к GigaChat">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-            <line x1="19" y1="12" x2="5" y2="12"/>
-            <polyline points="12 19 5 12 12 5"/>
-        </svg>
-    </a>
+    <!-- Точечный фон — визуально объединяет login с дашбордом -->
+    <div class="bg-dots"></div>
 
     <button class="gc-login-theme" id="loginThemeToggle" type="button" onclick="loginToggleTheme()" aria-label="Переключить тему"></button>
 
     <div class="gc-login-page">
+        <!-- Заголовок «GigaChat / ПЛАТФОРМА» — один-в-один как на дашборде. -->
+        <div class="gc-login-brand">
+            <h1>GigaChat</h1>
+            <div class="gc-login-sub">ПЛАТФОРМА</div>
+            <div class="gc-login-line"></div>
+        </div>
+
         <div class="gc-login-modal">
-            <div class="gc-login-header">Вход в GigaChat</div>
             <div class="gc-login-tabs">
                 <button class="gc-login-tab active" data-tab="login" type="button" onclick="switchLoginTab('login')">Вход</button>
                 <button class="gc-login-tab" data-tab="register" type="button" onclick="switchLoginTab('register')">Регистрация</button>
@@ -294,11 +329,11 @@
                     <input type="password" id="loginPassword" maxlength="200" autocomplete="current-password"
                            placeholder="••••••••" data-next="loginSubmitBtn">
                 </label>
-                <label class="gc-checkbox-row">
+                <div class="gc-checkbox-row">
                     <input type="checkbox" id="loginRemember" checked>
                     <span class="gc-checkbox-box" aria-hidden="true" onclick="document.getElementById('loginRemember').click()"></span>
                     <span class="gc-checkbox-label">Запомнить меня</span>
-                </label>
+                </div>
                 <div class="gc-login-error" id="loginError"></div>
             </form>
 

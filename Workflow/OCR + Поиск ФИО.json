@@ -90,7 +90,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        280,
+        740,
         300
       ],
       "id": "a1b2c3d4-0002-4000-8000-000000000002",
@@ -123,7 +123,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        560,
+        1020,
         300
       ],
       "id": "a1b2c3d4-0003-4000-8000-000000000003",
@@ -151,7 +151,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        840,
+        1300,
         80
       ],
       "id": "a1b2c3d4-0004-4000-8000-000000000004",
@@ -166,7 +166,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
+        1580,
         80
       ],
       "id": "a1b2c3d4-0005-4000-8000-000000000005",
@@ -199,7 +199,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1400,
+        1860,
         80
       ],
       "id": "a1b2c3d4-0006-4000-8000-000000000006",
@@ -231,7 +231,7 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        1680,
+        2140,
         -140
       ],
       "id": "a1b2c3d4-0007-4000-8000-000000000007",
@@ -251,7 +251,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1960,
+        2420,
         -140
       ],
       "id": "a1b2c3d4-0008-4000-8000-000000000008",
@@ -283,7 +283,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2240,
+        2700,
         -140
       ],
       "id": "a1b2c3d4-0009-4000-8000-000000000009",
@@ -315,7 +315,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        840,
+        1300,
         520
       ],
       "id": "a1b2c3d4-0010-4000-8000-000000000010",
@@ -347,7 +347,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1680,
+        2140,
         300
       ],
       "id": "a1b2c3d4-0011-4000-8000-000000000011",
@@ -360,7 +360,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        390,
+        280,
         300
       ],
       "id": "ocr-sso-auth-check-V1__SSO_AUTH_CHECK_V1",
@@ -393,7 +393,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        640,
+        510,
         300
       ],
       "id": "ocr-sso-auth-ok-V1",
@@ -425,8 +425,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        890,
-        450
+        510,
+        500
       ],
       "id": "ocr-sso-auth-resp-V1",
       "name": "SSO: Ответ auth_required"

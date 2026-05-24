@@ -90,7 +90,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        280,
+        740,
         300
       ],
       "id": "te-0002-validate",
@@ -123,7 +123,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        560,
+        1020,
         300
       ],
       "id": "te-0003-if-valid",
@@ -229,7 +229,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        840,
+        1300,
         80
       ],
       "id": "te-0004-route",
@@ -257,7 +257,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1120,
+        1580,
         -140
       ],
       "id": "te-0005-ocr",
@@ -272,7 +272,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1400,
+        1860,
         -140
       ],
       "id": "te-0006-ocr-extract",
@@ -285,7 +285,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
+        1580,
         200
       ],
       "id": "te-0007-text-read",
@@ -304,7 +304,7 @@
       "type": "n8n-nodes-base.spreadsheetFile",
       "typeVersion": 2,
       "position": [
-        1120,
+        1580,
         520
       ],
       "id": "te-0008-spreadsheet",
@@ -319,7 +319,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1400,
+        1860,
         520
       ],
       "id": "te-0009-table-format",
@@ -332,7 +332,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
+        2140,
         200
       ],
       "id": "te-0010-finalize",
@@ -364,7 +364,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1960,
+        2420,
         200
       ],
       "id": "te-0011-respond-ok",
@@ -396,7 +396,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        840,
+        1300,
         520
       ],
       "id": "te-0012-respond-err",
@@ -409,7 +409,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
+        1580,
         800
       ],
       "id": "te-0013-csv-parse",
@@ -422,7 +422,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        390,
+        280,
         300
       ],
       "id": "text-extr-sso-auth-check-V1__SSO_AUTH_CHECK_V1",
@@ -455,7 +455,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        640,
+        510,
         300
       ],
       "id": "text-extr-sso-auth-ok-V1",
@@ -487,8 +487,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        890,
-        450
+        510,
+        500
       ],
       "id": "text-extr-sso-auth-resp-V1",
       "name": "SSO: Ответ auth_required"

@@ -113,7 +113,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        520,
+        980,
         300
       ],
       "id": "oa-source-if-0001",
@@ -126,7 +126,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        800,
+        1260,
         100
       ],
       "id": "oa-text-body-0001",
@@ -139,7 +139,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        800,
+        1260,
         500
       ],
       "id": "oa-validate-0001",
@@ -172,7 +172,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1080,
+        1540,
         500
       ],
       "id": "oa-validate-if-0001",
@@ -204,7 +204,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1360,
+        1820,
         700
       ],
       "id": "oa-error-file-0001",
@@ -239,7 +239,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1360,
+        1820,
         500
       ],
       "id": "oa-ocr-0001",
@@ -253,7 +253,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1640,
+        2100,
         500
       ],
       "id": "oa-extract-text-0001",
@@ -286,7 +286,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1920,
+        2380,
         300
       ],
       "id": "oa-text-if-0001",
@@ -318,7 +318,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1920,
+        2380,
         500
       ],
       "id": "oa-error-ocr-0001",
@@ -350,7 +350,7 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        2200,
+        2660,
         300
       ],
       "id": "oa-llm-extract-0001",
@@ -370,7 +370,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2480,
+        2940,
         300
       ],
       "id": "oa-parse-data-0001",
@@ -403,7 +403,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2760,
+        3220,
         300
       ],
       "id": "oa-parsed-if-0001",
@@ -435,7 +435,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2760,
+        3220,
         500
       ],
       "id": "oa-error-parse-0001",
@@ -448,7 +448,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3040,
+        3500,
         300
       ],
       "id": "oa-phase1-0001",
@@ -481,7 +481,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        3320,
+        3780,
         300
       ],
       "id": "oa-phase1-if-0001",
@@ -513,7 +513,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3600,
+        4060,
         500
       ],
       "id": "oa-respond-phase1-0001",
@@ -530,7 +530,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3600,
+        4060,
         200
       ],
       "id": "oa-db1-0001",
@@ -551,7 +551,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3880,
+        4340,
         200
       ],
       "id": "oa-phase2-0001",
@@ -584,7 +584,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        4160,
+        4620,
         200
       ],
       "id": "oa-phase2-if-0001",
@@ -616,7 +616,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        4160,
+        4620,
         400
       ],
       "id": "oa-respond-phase2-0001",
@@ -633,7 +633,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4440,
+        4900,
         200
       ],
       "id": "oa-db2-0001",
@@ -654,7 +654,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4720,
+        5180,
         200
       ],
       "id": "oa-phase3-0001",
@@ -687,7 +687,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        5000,
+        5460,
         200
       ],
       "id": "oa-phase3-if-0001",
@@ -719,7 +719,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        5000,
+        5460,
         400
       ],
       "id": "oa-respond-phase3-0001",
@@ -736,7 +736,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        5280,
+        5740,
         200
       ],
       "id": "oa-db3-0001",
@@ -757,7 +757,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5560,
+        6020,
         200
       ],
       "id": "oa-phase4-0001",
@@ -789,7 +789,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        5840,
+        6300,
         200
       ],
       "id": "oa-final-respond-0001",
@@ -802,8 +802,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        490,
-        500
+        520,
+        300
       ],
       "id": "org-appeal-sso-auth-check-V1__SSO_AUTH_CHECK_V1",
       "name": "SSO: Auth check"
@@ -835,8 +835,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        740,
-        500
+        750,
+        300
       ],
       "id": "org-appeal-sso-auth-ok-V1",
       "name": "SSO: Auth OK?"
@@ -867,8 +867,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        990,
-        650
+        750,
+        500
       ],
       "id": "org-appeal-sso-auth-resp-V1",
       "name": "SSO: Ответ auth_required"
