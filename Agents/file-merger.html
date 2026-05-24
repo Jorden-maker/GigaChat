@@ -250,6 +250,12 @@
     <script src="_config.js"></script>
     <script src="_shared.js"></script>
     <script src="lib/jszip.min.js"></script>
+    <!-- #1: PDF.js (Mozilla, 3.11.174 legacy build) — для парсинга .pdf на вход.
+         Файлы lib/pdf.min.js и lib/pdf.worker.min.js не в git'е (артефакты ~3 МБ
+         каждый), их нужно скачать вручную с
+         https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/.
+         Если файлы отсутствуют — PDF будет недоступен, остальные форматы работают. -->
+    <script src="lib/pdf.min.js"></script>
 </head>
 <body>
     <header>
@@ -265,16 +271,16 @@
     </header>
     <main>
         <div class="intro">
-            <p>Перетащи в зону ниже файлы <code>.docx</code>, <code>.xlsx</code> и/или изображения (<code>.jpg</code>, <code>.png</code>, <code>.gif</code>, <code>.webp</code>). Внутри Word — текст или таблицы, внутри Excel — таблицы.</p>
+            <p>Перетащи в зону ниже файлы <code>.docx</code>, <code>.xlsx</code>, <code>.pdf</code>, <code>.csv</code>/<code>.tsv</code> и/или изображения (<code>.jpg</code>, <code>.png</code>, <code>.gif</code>, <code>.webp</code>). Внутри Word — текст или таблицы, внутри Excel — таблицы.</p>
         </div>
 
         <label class="drop-zone" id="dropZone" for="fileInput">
-            <input type="file" id="fileInput" multiple accept=".docx,.xlsx,.csv,.tsv,.jpg,.jpeg,.png,.gif,.webp" style="display:none">
+            <input type="file" id="fileInput" multiple accept=".docx,.xlsx,.pdf,.csv,.tsv,.jpg,.jpeg,.png,.gif,.webp" style="display:none">
             <div class="icon">
                 <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             </div>
             <div class="title">Перетащи файлы сюда или нажми чтобы выбрать</div>
-            <div class="hint">Word (.docx), Excel (.xlsx), CSV/TSV, фото (.jpg/.png/.gif/.webp)</div>
+            <div class="hint">Word (.docx), Excel (.xlsx), PDF, CSV/TSV, фото (.jpg/.png/.gif/.webp)</div>
         </label>
         <!-- #10: webkitdirectory отдельным input'ом (один input не может быть и files и directory) -->
         <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none">
@@ -461,6 +467,7 @@
             var name = (file.name || '').toLowerCase();
             if (name.endsWith('.docx')) return 'docx';
             if (name.endsWith('.xlsx')) return 'xlsx';
+            if (name.endsWith('.pdf')) return 'pdf';
             if (name.endsWith('.csv')) return 'csv';
             if (name.endsWith('.tsv')) return 'csv'; // обрабатываем тем же парсером, разделитель детектим
             if (/\.(jpg|jpeg|png|gif|webp)$/i.test(name)) return 'image';
@@ -557,7 +564,7 @@
         // #12: сортировка по кнопкам. 'manual' — порядок добавления + drag-n-drop.
         function applySort() {
             if (sortMode === 'manual') return; // оставляем как есть
-            var typePriority = { docx: 0, xlsx: 1, csv: 2, image: 3, unknown: 4 };
+            var typePriority = { docx: 0, xlsx: 1, csv: 2, pdf: 3, image: 4, unknown: 5 };
             items.sort(function (a, b) {
                 if (sortMode === 'name') return a.file.name.localeCompare(b.file.name, 'ru');
                 if (sortMode === 'type') {
@@ -599,6 +606,7 @@
                 var badgeText = it.error ? 'Ошибка' : (
                     it.type === 'docx' ? 'WORD' :
                     it.type === 'xlsx' ? 'EXCEL' :
+                    it.type === 'pdf' ? 'PDF' :
                     it.type === 'csv' ? 'CSV' :
                     it.type === 'image' ? 'ФОТО' : '?'
                 );
@@ -951,6 +959,61 @@
             }
         }
 
+        // ============ PDF (#1) ============
+        // pdf.js парсит PDF страницу за страницей через getTextContent.
+        // Каждая страница → один параграф; между страницами вставляется
+        // page-break (чтобы пагинация исходника сохранилась).
+        // Картинки / шрифты / layout НЕ сохраняются — только текст. Для
+        // OCR-нужных PDF (сканы) текст будет пустой — это известное ограничение.
+        async function parsePdf(file) {
+            if (typeof pdfjsLib === 'undefined') {
+                throw new Error('PDF-библиотека не загружена. Скачай lib/pdf.min.js + lib/pdf.worker.min.js с cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/.');
+            }
+            // worker source ставим тут (один раз) — pdf.js требует чтобы он
+            // был указан до открытия первого документа.
+            if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+            }
+            var bytes = await file.arrayBuffer();
+            var pdf;
+            try {
+                pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+            } catch (e) {
+                throw new Error('Не удалось прочитать PDF: ' + (e.message || e));
+            }
+            var blocks = [];
+            var PAGE_BREAK = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+            for (var pn = 1; pn <= pdf.numPages; pn++) {
+                var page = await pdf.getPage(pn);
+                var content = await page.getTextContent();
+                // Группируем по Y-координате — items одной строки имеют близкие Y.
+                // Если Y-разница > 5pt → новая строка. Кроме того, hasEOL у item тоже
+                // означает конец строки.
+                var text = '';
+                var lastY = null;
+                for (var i = 0; i < content.items.length; i++) {
+                    var item = content.items[i];
+                    var y = item.transform ? item.transform[5] : null;
+                    if (y !== null && lastY !== null && Math.abs(lastY - y) > 5) {
+                        text += '\n';
+                    }
+                    text += item.str || '';
+                    if (item.hasEOL) text += '\n';
+                    if (y !== null) lastY = y;
+                }
+                // Каждый параграф (separated by 1+ newlines) → отдельный <w:p>.
+                var paragraphs = text.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+                for (var pi = 0; pi < paragraphs.length; pi++) {
+                    blocks.push({ kind: 'paragraph', xml: paragraphXml(paragraphs[pi]) });
+                }
+                // Между страницами — разрыв страницы (без него все страницы слипнутся)
+                if (pn < pdf.numPages) {
+                    blocks.push({ kind: 'paragraph', xml: PAGE_BREAK });
+                }
+            }
+            return blocks;
+        }
+
         // ============ CSV / TSV (#2) ============
         // Минимальный CSV-парсер: автодетект разделителя по содержимому первой
         // строки (запятая / точка-с-запятой / табуляция), поддержка кавычек "..."
@@ -1185,6 +1248,9 @@
                             parsedSrc = { blocks: await parseXlsx(it.file), images: [], srcName: it.file.name };
                         } else if (it.type === 'csv') {
                             parsedSrc = { blocks: [await parseCsv(it.file)], images: [], srcName: it.file.name };
+                        } else if (it.type === 'pdf') {
+                            // #1: PDF возвращает массив параграфов + page-break'и между страницами
+                            parsedSrc = { blocks: await parsePdf(it.file), images: [], srcName: it.file.name };
                         } else if (it.type === 'image') {
                             parsedSrc = { blocks: [await parseImage(it.file)], images: [], srcName: it.file.name };
                         }
@@ -1348,7 +1414,7 @@
             var totalImages = 0;
             for (var i = 0; i < validItems.length; i++) {
                 var it = validItems[i];
-                var badgeText = it.type === 'docx' ? 'WORD' : it.type === 'xlsx' ? 'EXCEL' : it.type === 'csv' ? 'CSV' : 'ФОТО';
+                var badgeText = it.type === 'docx' ? 'WORD' : it.type === 'xlsx' ? 'EXCEL' : it.type === 'pdf' ? 'PDF' : it.type === 'csv' ? 'CSV' : 'ФОТО';
                 var statsHtml = '';
                 try {
                     if (it.type === 'docx') {
@@ -1381,6 +1447,14 @@
                         var csvCols = csvRows ? csvBlock.grid[0].length : 0;
                         statsHtml = 'Таблица: <code>' + csvRows + '×' + csvCols + '</code>';
                         totalBlocks += 1;
+                    } else if (it.type === 'pdf') {
+                        var pdfBlocks = await parsePdf(it.file);
+                        // Считаем уникальные параграфы (не page-break'и)
+                        var paraCount = pdfBlocks.filter(function (b) {
+                            return b.kind === 'paragraph' && b.xml.indexOf('w:br w:type="page"') < 0;
+                        }).length;
+                        statsHtml = 'Параграфов из PDF: <code>' + paraCount + '</code>. <i>Только текст — картинки и стили не сохраняются.</i>';
+                        totalBlocks += pdfBlocks.length;
                     } else if (it.type === 'image') {
                         var img = await parseImage(it.file);
                         statsHtml = 'Размер: <code>' + img.w + '×' + img.h + '</code> пикс, формат <code>' + img.ext + '</code>';
