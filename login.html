@@ -215,13 +215,16 @@
             border-color: var(--accent); background: var(--bg-secondary);
         }
 
-        /* Wrapper + кнопка глазка для password-полей. Input получает доп.
-           правый padding под кнопку (44px), кнопка absolute по правому краю. */
+        /* Wrapper + кнопка глазка для password-полей. Input оставляет ту же
+           ширину что у поля Имя (width:100% потому что в span не растягивается
+           автоматически, в отличие от flex-item в label). Глаз позиционируется
+           absolute поверх input по правому краю — ВНУТРИ поля. Padding на input
+           не меняем — текст пароля (••••) под глазом нормально, видно курсор. */
         .gc-pw-wrap { position: relative; display: block; }
-        .gc-pw-wrap input { padding-right: 44px !important; }
+        .gc-pw-wrap input { width: 100% !important; }
         .gc-pw-toggle {
             position: absolute;
-            right: 6px;
+            right: 8px;
             top: 50%;
             transform: translateY(-50%);
             background: transparent; border: none;
