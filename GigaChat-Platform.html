@@ -292,12 +292,13 @@
         }
 
         /* === Auth-виджет в правом верхнем углу =============================
-           Показывает текущего юзера + dropdown «Сменить пароль / Выйти», либо
-           кнопку «Войти» (когда токена нет). Position fixed, слева от
-           gc-theme-toggle из _shared.js (которая на right:14px ширина 32px).
-           top:10px подобран под центр theme-toggle для оптической ровности. */
+           Показывает текущего юзера + dropdown «Сменить пароль / Выйти».
+           position: absolute (не fixed) — виджет стоит на том же визуальном
+           месте при загрузке, но УЕЗЖАЕТ ВВЕРХ при scroll вниз вместе с
+           контентом (не «прилипает» к viewport). top:10px подобран под центр
+           theme-toggle из _shared.js (она fixed — это by design на агентах). */
         .gc-auth-widget {
-            position: fixed; top: 10px; right: 58px; z-index: 9998;
+            position: absolute; top: 10px; right: 58px; z-index: 9998;
             display: none;
         }
         .gc-auth-widget.gc-ready { display: block; }
