@@ -418,21 +418,35 @@
                 var raw = localStorage.getItem(LS_KEY);
                 if (raw) {
                     var p = JSON.parse(raw);
-                    if (p && p.outputFormat === 'docx') settings.outputFormat = 'docx';
-                    if (p && p.outputName) settings.outputName = p.outputName;
+                    // B6: whitelist — иначе мусор в LS (старая версия / ручная правка)
+                    // мог положить непредусмотренное значение.
+                    if (p && ['xlsx', 'docx'].indexOf(p.outputFormat) >= 0) settings.outputFormat = p.outputFormat;
+                    if (p && typeof p.outputName === 'string' && p.outputName) settings.outputName = p.outputName;
                 }
             } catch (e) {}
             document.querySelector('input[name=outFmt][value=' + settings.outputFormat + ']').checked = true;
             setOutputName.value = settings.outputName;
             updateOutSuffix();
         }
+        // C2: убираем символы запрещённые в filename'ах (Win: \/:*?"<>|, Mac/Linux: /).
+        // Заменяем на _, схлопываем подряд идущие, обрезаем пробелы по краям.
+        function sanitizeFilename(s) {
+            return String(s || '').replace(/[\\/:*?"<>|]+/g, '_').replace(/_+/g, '_').trim() || 'Объединение таблиц';
+        }
         function saveSettings() { try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) {} }
         function updateOutSuffix() { outSuffix.textContent = '.' + settings.outputFormat; }
 
         // ============ Toasts ============
+        // B4: дедуп — если один и тот же текст уже показан в последний 1 сек,
+        // не плодим копии. Иначе быстрый дроп 10 файлов вне лимита создаёт 10
+        // одинаковых тостов столбиком.
+        var _toastRecent = {}; // text → timestamp
         function showToast(msg, type, ttl) {
             type = type || 'info';
             ttl = ttl || (type === 'error' ? 6000 : 4000);
+            var now = Date.now();
+            if (_toastRecent[msg] && now - _toastRecent[msg] < 1000) return;
+            _toastRecent[msg] = now;
             var div = document.createElement('div');
             div.className = 'toast ' + type;
             div.textContent = msg;
@@ -635,21 +649,39 @@
             parseAllAndRecompute();
         }
 
+        // A1 + B5: parseAllAndRecompute с защитой от параллельных запусков.
+        // _parsingInflight: если уже идёт — ставим pending=true, текущий по
+        // окончании сам перезапустит цикл. Это: (а) предотвращает race на item.parsed
+        // (б) даёт clearAllBtn возможность отменить — мы каждую iter перечитываем
+        // items.length, если массив очистился, цикл сам выйдет.
+        // _parseCancelled: флаг для skipping side-effects от устаревшего запуска
+        // (toasts, updateUI) — иначе toast про неверный файл может выскочить
+        // ПОСЛЕ того как юзер уже его удалил.
+        var _parsingInflight = false;
+        var _parsingPending = false;
         async function parseAllAndRecompute() {
-            for (var i = 0; i < items.length; i++) {
-                var it = items[i];
-                if (it.error || it.parsed) continue;
-                try {
-                    it.parsed = await parseFile(it);
-                } catch (e) {
-                    it.error = e.message || String(e);
-                    showToast('Файл «' + it.file.name + '»: ' + it.error, 'error');
+            if (_parsingInflight) { _parsingPending = true; return; }
+            _parsingInflight = true;
+            updateUI(); // покажет «парсинг идёт»-индикатор
+            do {
+                _parsingPending = false;
+                for (var i = 0; i < items.length; i++) {
+                    var it = items[i];
+                    if (!it || it.error || it.parsed) continue;
+                    try {
+                        it.parsed = await parseFile(it);
+                    } catch (e) {
+                        // Если за время await юзер удалил этот item — не плюём тостом
+                        if (items.indexOf(it) >= 0) {
+                            it.error = e.message || String(e);
+                            showToast('Файл «' + it.file.name + '»: ' + it.error, 'error');
+                        }
+                    }
                 }
-            }
+            } while (_parsingPending); // если за время цикла прилетели новые файлы — обработаем
+            _parsingInflight = false;
             renderList();
             // КРИТИЧНО: updateUI ПОСЛЕ парсинга, иначе settings/opts-панели не покажутся.
-            // hasOk проверяет `it.parsed` — при первом updateUI (в addFiles) parsed
-            // ещё null → панели скрыты. Тут наконец видим что парсинг успешен.
             updateUI();
             recomputePreview();
         }
@@ -715,6 +747,13 @@
             var hasOk = items.some(function (it) { return !it.error && it.parsed; });
             optsPanel.classList.toggle('show', hasOk);
             settingsPanel.classList.toggle('show', hasOk);
+            // B1: индикатор что парсинг ещё идёт — показываем простой текст в
+            // file-list-header, чтобы юзер видел: панели опций пока не финальные.
+            if (_parsingInflight) {
+                fileCount.innerHTML = String(items.length) + ' <span style="color:var(--text-muted);font-weight:normal;font-size:11px">(парсинг...)</span>';
+            } else {
+                fileCount.textContent = String(items.length);
+            }
         }
 
         // ============ Merge + preview ============
@@ -728,19 +767,23 @@
             return flat;
         }
 
+        // A2: запоминаем сигнатуру headers предыдущего merged → если структура
+        // меняется (добавили/удалили файл, normalizeHeaders дал другой union)
+        // — сбрасываем ignoredCols. Иначе idx=3 = «Email» вчера, сегодня = «Дата»,
+        // юзер видит «Дату» как игнорируемую без своего на то согласия.
+        var _lastHeadersSig = null;
+        function headersSig(headers) { return (headers || []).join(''); }
+
         function recomputePreview() {
             allTables = collectAllTables();
             if (!allTables.length) {
                 mergedResult = null;
+                _lastHeadersSig = null;
                 hidePreview();
                 downloadBtn.disabled = true;
                 return;
             }
             try {
-                // ignoreColumns в mergeTables НЕ передаём — иначе merged физически
-                // удалит колонки и renderIgnoreList перестанет видеть исчезнувшие
-                // pill'ы (юзер не сможет вернуть ignored обратно). Делаем фильтр
-                // на уровне renderPreview + doDownload через visibleCols.
                 var opts = {
                     dedup: optDedup.checked,
                     sortColumn: parseInt(sortColDropdown.getValue(), 10),
@@ -754,11 +797,24 @@
                 downloadBtn.disabled = true;
                 return;
             }
+            // A2: если набор headers поменялся — сбрасываем ignored.
+            var newSig = headersSig(mergedResult.headers);
+            if (_lastHeadersSig !== null && _lastHeadersSig !== newSig) {
+                ignoredCols.clear();
+            }
+            _lastHeadersSig = newSig;
+            // A3: запретить скачивание если merged пустой (0 колонок или 0 строк).
+            var hasContent = mergedResult.headers && mergedResult.headers.length > 0;
+            if (hasContent) {
+                var visibleCount = 0;
+                for (var c = 0; c < mergedResult.headers.length; c++) if (!ignoredCols.has(c)) visibleCount++;
+                if (visibleCount === 0) hasContent = false;
+            }
             renderPreview();
             updateSortDropdownItems();
             renderIgnoreList();
             renderDedupInfo();
-            downloadBtn.disabled = false;
+            downloadBtn.disabled = !hasContent;
         }
 
         function renderPreview() {
@@ -881,8 +937,8 @@
                     blob = await buildDocxBlob(outHeaders, outRows);
                 }
                 progressFill.style.width = '100%';
-                var name = (settings.outputName || 'Объединение таблиц').replace(/\.(xlsx|docx)$/i, '') + '.' + settings.outputFormat;
-                triggerDownload(blob, name);
+                var safe = sanitizeFilename(settings.outputName).replace(/\.(xlsx|docx)$/i, '');
+                triggerDownload(blob, safe + '.' + settings.outputFormat);
                 showToast('Файл собран и скачан', 'success');
             } catch (e) {
                 showToast('Ошибка сборки: ' + (e.message || e), 'error');
