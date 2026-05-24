@@ -167,15 +167,22 @@
             border-radius: 12px;
             width: min(420px, 92vw);
             flex-shrink: 0;
-            display: flex; flex-direction: column;
-            /* overflow:hidden убран: во время transition новая форма (opacity:0,
-               но в DOM) занимает место → общий контент больше fromHeight,
-               margin-top:auto footer выталкивается за overflow и обрезается.
-               Когда height доезжает до toHeight — footer «выезжает» с задержкой,
-               не синхронно с низом модалки. Без overflow:hidden footer всегда
-               виден и плывёт ровно с нижней границей. */
-            transition: height 0.18s ease;
+            /* НЕ flex-column с margin-top:auto на footer и НЕ height transition
+               на самой модалке — это давало рассинхрон (footer прыгал к финальной
+               позиции мгновенно через margin-auto, низ модалки догонял 180мс).
+               Теперь анимируем только form-area; footer естественно идёт сразу
+               за ней; модалка ресайзится автоматически. */
+            display: block;
             animation: gcModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        /* Контейнер форм: единственное что анимируется. Старая форма исчезает
+           через display:none (классом .hidden), новая занимает её место. Height
+           transition даёт плавное «сжатие/расширение» только этой области.
+           overflow:hidden — чтобы при переключении содержимое скрытой формы
+           не торчало в момент полу-открытой высоты. */
+        .gc-login-form-area {
+            overflow: hidden;
+            transition: height 0.18s ease;
         }
         @keyframes gcModalSlide {
             from { opacity: 0; transform: translateY(8px) scale(0.985); }
@@ -324,7 +331,7 @@
             transform: rotate(45deg) translate(-1px, -1px);
         }
 
-        .gc-login-footer { margin-top: auto; padding: 14px 22px 22px; }
+        .gc-login-footer { padding: 14px 22px 22px; }
         .gc-login-footer button {
             width: 100%; padding: 10px 18px; border-radius: 6px;
             background: var(--accent); color: #fff; border: none; cursor: pointer;
@@ -361,6 +368,7 @@
                 <button class="gc-login-tab" data-tab="register" type="button" onclick="switchLoginTab('register')">Регистрация</button>
             </div>
 
+            <div class="gc-login-form-area" id="gcLoginFormArea">
             <form class="gc-login-form" data-form="login" onsubmit="event.preventDefault(); submitLogin()">
                 <label>Имя
                     <input type="text" id="loginUsername" maxlength="100" autocomplete="username"
@@ -402,6 +410,7 @@
                 </label>
                 <div class="gc-login-error" id="regError"></div>
             </form>
+            </div><!-- /.gc-login-form-area -->
 
             <div class="gc-login-footer">
                 <button id="loginSubmitBtn" type="button" onclick="document.querySelector('.gc-login-form:not(.hidden)').requestSubmit()">Войти</button>
@@ -497,33 +506,42 @@
                 if (target) target.focus();
             }
 
-            if (!isSameTab && modal && currentActive) {
-                if (modal._switchTimers) modal._switchTimers.forEach(clearTimeout);
-                modal._switchTimers = [];
+            var area = document.getElementById('gcLoginFormArea');
+            if (!isSameTab && area && currentActive) {
+                if (area._switchTimers) area._switchTimers.forEach(clearTimeout);
+                area._switchTimers = [];
 
                 var oldForm = document.querySelector('.gc-login-form:not(.hidden)');
                 if (oldForm) oldForm.style.opacity = '0';
 
-                modal._switchTimers.push(setTimeout(function () {
-                    var fromHeight = modal.offsetHeight;
-                    modal.style.height = fromHeight + 'px';
-                    modal.offsetHeight;
+                area._switchTimers.push(setTimeout(function () {
+                    // 1) Зафиксировать текущую высоту form-area (со старой формой)
+                    var fromHeight = area.offsetHeight;
+                    area.style.height = fromHeight + 'px';
+                    area.offsetHeight; // reflow
+
+                    // 2) Подменить контент (новая форма становится visible)
                     applySwap();
                     var newForm = document.querySelector('.gc-login-form:not(.hidden)');
                     if (newForm) newForm.style.opacity = '0';
-                    modal.style.height = 'auto';
-                    var toHeight = modal.offsetHeight;
-                    modal.style.height = fromHeight + 'px';
-                    modal.offsetHeight;
-                    modal.style.height = toHeight + 'px';
 
-                    modal._switchTimers.push(setTimeout(function () {
-                        modal.style.height = '';
+                    // 3) Измерить целевую высоту с новой формой
+                    area.style.height = 'auto';
+                    var toHeight = area.offsetHeight;
+                    area.style.height = fromHeight + 'px';
+                    area.offsetHeight; // reflow
+
+                    // 4) Запустить transition height на form-area; footer и низ
+                    //    модалки естественно следуют за её нижней границей.
+                    area.style.height = toHeight + 'px';
+
+                    area._switchTimers.push(setTimeout(function () {
+                        area.style.height = '';  // вернуть auto
                         if (oldForm) oldForm.style.opacity = '';
                         if (newForm) newForm.style.opacity = '1';
-                        modal._switchTimers.push(setTimeout(function () {
+                        area._switchTimers.push(setTimeout(function () {
                             if (newForm) newForm.style.opacity = '';
-                            modal._switchTimers = [];
+                            area._switchTimers = [];
                             focusTarget();
                         }, 100));
                     }, 210));
