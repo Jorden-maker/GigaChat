@@ -1749,8 +1749,30 @@
       '<sheets><sheet name="' + escXml(sheetName) + '" sheetId="1" r:id="rId1"/></sheets>' +
       '</workbook>');
 
+    // Авто-расчёт ширины колонок по максимальной длине контента (включая
+    // header). Excel меряет ширину в characters (~ кол-во цифр '0' что
+    // помещаются + padding). Берём max(header.length, max(row[col].length)),
+    // ограничиваем 8..60 чтобы не было микро- или гипер-широких колонок.
+    var colsXml = '<cols>';
+    for (var ci = 0; ci < headers.length; ci++) {
+      var maxLen = String(headers[ci] || '').length;
+      for (var ri = 0; ri < rows.length; ri++) {
+        var cellStr = String(rows[ri][ci] == null ? '' : rows[ri][ci]);
+        // Если в ячейке многострочный текст — берём самую длинную строку.
+        var lines = cellStr.split(/\r?\n/);
+        for (var li = 0; li < lines.length; li++) {
+          if (lines[li].length > maxLen) maxLen = lines[li].length;
+        }
+      }
+      // +2 для небольшого padding; clamp 8..60
+      var w = Math.min(60, Math.max(8, maxLen + 2));
+      colsXml += '<col min="' + (ci + 1) + '" max="' + (ci + 1) + '" width="' + w.toFixed(2) + '" customWidth="1"/>';
+    }
+    colsXml += '</cols>';
+
     var sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
       '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      colsXml +
       '<sheetData>';
     sheetXml += '<row r="1">';
     for (var i = 0; i < headers.length; i++) {
