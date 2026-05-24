@@ -215,11 +215,36 @@
         .gc-dropdown-menu li.selected::before { content: '✓ '; color: var(--accent); margin-right: 4px; }
 
         /* === Preview === */
-        #previewSection { display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+        /* Растянут на всю ширину viewport, 50px отступ с краёв (через negative
+           margin trick — выходит за пределы 900px-max main без изменения flow).
+           transition: width — будет плавной если когда-то сделаем adaptive width. */
+        #previewSection {
+            display: none;
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 14px 18px; margin-bottom: 16px;
+            position: relative;
+            width: calc(100vw - 100px);
+            left: 50%; margin-left: calc(-50vw + 50px);
+            box-sizing: border-box;
+            transition: width 0.3s ease, margin-left 0.3s ease;
+        }
         #previewSection.show { display: block; }
-        .preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .preview-header {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; margin-bottom: 10px; flex-wrap: wrap;
+        }
         .preview-header h3 { margin: 0; font-size: 14px; color: var(--text-primary); }
+        .preview-header-left { display: flex; align-items: baseline; gap: 12px; flex: 1; min-width: 0; }
         .preview-meta { font-size: 12px; color: var(--text-secondary); }
+        /* Кнопка «Скачать» теперь в шапке превью справа — отдельный .actions блок убран. */
+        .preview-header .btn-download {
+            background: var(--accent); color: #0a0e15; border: none;
+            padding: 8px 22px; border-radius: 8px; font-size: 13.5px; font-weight: 600;
+            cursor: pointer; font-family: inherit; white-space: nowrap;
+            transition: background 0.15s;
+        }
+        .preview-header .btn-download:hover:not(:disabled) { background: var(--accent-hover); }
+        .preview-header .btn-download:disabled { opacity: 0.4; cursor: not-allowed; }
         .preview-scroll { max-height: 400px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
         #previewTable { border-collapse: collapse; width: 100%; font-size: 12px; }
         #previewTable th, #previewTable td {
@@ -332,15 +357,14 @@
 
         <div id="previewSection">
             <div class="preview-header">
-                <h3>Превью результата</h3>
-                <span class="preview-meta">Строк: <b id="previewRowCount">0</b> · Столбцов: <b id="previewColCount">0</b></span>
+                <div class="preview-header-left">
+                    <h3>Превью результата</h3>
+                    <span class="preview-meta">Строк: <b id="previewRowCount">0</b> · Столбцов: <b id="previewColCount">0</b></span>
+                </div>
+                <button class="btn-download" id="downloadBtn" disabled>Скачать</button>
             </div>
             <div class="preview-scroll"><table id="previewTable"></table></div>
             <div class="preview-footer" id="previewFooter"></div>
-        </div>
-
-        <div class="actions">
-            <button class="btn-primary" id="downloadBtn" disabled>Скачать</button>
         </div>
 
         <div class="loading" id="loading">
