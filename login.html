@@ -86,16 +86,19 @@
                 radial-gradient(circle, rgba(120,85,45,0.18) 1px, transparent 1.5px);
         }
 
-        /* Центральная компоновка — заголовок + модалка по центру */
+        /* Центральная компоновка — заголовок + модалка прибиты к верху.
+           flex-start + padding-top (не center) — чтобы при смене вкладок
+           ВЕРХ модалки не двигался. Низ модалки ездит через height-transition,
+           footer прижат margin-top:auto → кнопка движется синхронно с нижним краем. */
         .gc-login-page {
             position: relative; z-index: 1;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
-            padding: 60px 20px 40px;
-            gap: 36px;
+            padding: 12vh 20px 40px;
+            gap: 32px;
         }
 
         /* Заголовок «GigaChat / ПЛАТФОРМА» — лифт из дашборда (.header) */
@@ -212,6 +215,36 @@
             border-color: var(--accent); background: var(--bg-secondary);
         }
 
+        /* Wrapper + кнопка глазка для password-полей. Input получает доп.
+           правый padding под кнопку (44px), кнопка absolute по правому краю. */
+        .gc-pw-wrap { position: relative; display: block; }
+        .gc-pw-wrap input { padding-right: 44px !important; }
+        .gc-pw-toggle {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent; border: none;
+            cursor: pointer; padding: 6px;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--text-secondary);
+            border-radius: 4px;
+            transition: color .15s ease, background .15s ease;
+        }
+        .gc-pw-toggle:hover {
+            color: var(--accent);
+            background: var(--bg-hover);
+        }
+        .gc-pw-toggle:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+        .gc-pw-toggle svg {
+            width: 18px; height: 18px;
+            stroke: currentColor; fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
+
         /* Кастомный чекбокс «Запомнить меня» — лифт из planner.html.
            !important нужен потому что .gc-login-form label выше задаёт
            flex-direction:column — без override чекбокс ушёл бы в столбец. */
@@ -326,8 +359,11 @@
                            placeholder="Иванов" data-next="loginPassword">
                 </label>
                 <label>Пароль
-                    <input type="password" id="loginPassword" maxlength="200" autocomplete="current-password"
-                           placeholder="••••••••" data-next="loginSubmitBtn">
+                    <span class="gc-pw-wrap">
+                        <input type="password" id="loginPassword" maxlength="200" autocomplete="current-password"
+                               placeholder="••••••••" data-next="loginSubmitBtn">
+                        <button type="button" class="gc-pw-toggle" aria-label="Показать пароль" onclick="togglePassword(this)"></button>
+                    </span>
                 </label>
                 <div class="gc-checkbox-row">
                     <input type="checkbox" id="loginRemember" checked>
@@ -343,12 +379,18 @@
                            placeholder="Иванов" data-next="regPassword">
                 </label>
                 <label>Пароль
-                    <input type="password" id="regPassword" maxlength="200" autocomplete="new-password"
-                           placeholder="••••••••" data-next="regPassword2">
+                    <span class="gc-pw-wrap">
+                        <input type="password" id="regPassword" maxlength="200" autocomplete="new-password"
+                               placeholder="••••••••" data-next="regPassword2">
+                        <button type="button" class="gc-pw-toggle" aria-label="Показать пароль" onclick="togglePassword(this)"></button>
+                    </span>
                 </label>
                 <label>Повтор пароля
-                    <input type="password" id="regPassword2" maxlength="200" autocomplete="new-password"
-                           placeholder="ещё раз" data-next="loginSubmitBtn">
+                    <span class="gc-pw-wrap">
+                        <input type="password" id="regPassword2" maxlength="200" autocomplete="new-password"
+                               placeholder="ещё раз" data-next="loginSubmitBtn">
+                        <button type="button" class="gc-pw-toggle" aria-label="Показать пароль" onclick="togglePassword(this)"></button>
+                    </span>
                 </label>
                 <div class="gc-login-error" id="regError"></div>
             </form>
@@ -363,6 +405,32 @@
         // === Theme toggle ===
         var LOGIN_SUN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>';
         var LOGIN_MOON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+        // === Eye / Eye-off для кнопки показа пароля (Feather icons) ===
+        var EYE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+        var EYE_OFF_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+        // Переключает type password ↔ text + иконку eye ↔ eye-off.
+        // Пароль скрыт (type=password) → показываем EYE (тыкни — увидишь).
+        // Пароль виден (type=text)      → показываем EYE_OFF (тыкни — скроется).
+        function togglePassword(btn) {
+            var inp = btn.parentNode.querySelector('input[type="password"], input[type="text"]');
+            if (!inp) return;
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                btn.innerHTML = EYE_OFF_SVG;
+                btn.setAttribute('aria-label', 'Скрыть пароль');
+            } else {
+                inp.type = 'password';
+                btn.innerHTML = EYE_SVG;
+                btn.setAttribute('aria-label', 'Показать пароль');
+            }
+        }
+        // Начальные иконки на всех кнопках глазков
+        (function initEyeIcons() {
+            var btns = document.querySelectorAll('.gc-pw-toggle');
+            for (var i = 0; i < btns.length; i++) btns[i].innerHTML = EYE_SVG;
+        })();
 
         function updateLoginThemeIcon() {
             var btn = document.getElementById('loginThemeToggle');
