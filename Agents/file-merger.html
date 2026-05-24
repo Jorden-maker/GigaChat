@@ -106,6 +106,97 @@
         }
         .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
         .theme-toggle svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* === «или выбрать папку» — линк под drop-zone === */
+        .or-folder {
+            text-align: center; margin: -8px 0 16px;
+            font-size: 13px; color: var(--text-secondary);
+        }
+        .or-folder a {
+            color: var(--accent); cursor: pointer; text-decoration: none;
+            border-bottom: 1px dashed var(--accent); padding-bottom: 1px;
+        }
+        .or-folder a:hover { color: var(--accent-hover); border-color: var(--accent-hover); }
+
+        /* === Sort bar над списком === */
+        .sort-bar {
+            display: flex; gap: 6px; align-items: center;
+            font-size: 11px; color: var(--text-muted);
+            padding-right: 10px;
+        }
+        .sort-bar .sort-label { letter-spacing: 0.3px; }
+        .sort-btn {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--text-secondary); padding: 3px 9px;
+            border-radius: 5px; font-size: 11px; cursor: pointer;
+            font-family: inherit; transition: all 0.15s;
+        }
+        .sort-btn:hover { color: var(--text-primary); border-color: var(--accent); }
+        .sort-btn.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+
+        /* === Прогресс/статус в карточке файла (#9) === */
+        .file-row .row-status {
+            flex-shrink: 0; width: 14px; height: 14px; display: none;
+            align-items: center; justify-content: center;
+        }
+        .file-row .row-status.show { display: inline-flex; }
+        .file-row .row-status.parsing {
+            border: 2px solid var(--border); border-top-color: var(--accent);
+            border-radius: 50%; animation: gc-spin 0.7s linear infinite;
+        }
+        .file-row .row-status.done { color: var(--success, #10b981); font-size: 14px; line-height: 14px; }
+        .file-row .row-status.failed { color: var(--error); font-size: 14px; line-height: 14px; }
+        @keyframes gc-spin { to { transform: rotate(360deg); } }
+
+        /* === Settings panel (разделитель, имя выхода) === */
+        .settings-panel {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;
+            display: none;
+        }
+        .settings-panel.show { display: block; }
+        .settings-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        .settings-row:last-child { margin-bottom: 0; }
+        .settings-row label {
+            flex-shrink: 0; min-width: 180px;
+            font-size: 13px; color: var(--text-secondary);
+        }
+        .settings-row select, .settings-row input[type=text] {
+            flex: 1; padding: 7px 12px; border-radius: 7px;
+            border: 1px solid var(--border); background: var(--bg-input);
+            color: var(--text-primary); font-size: 13px; font-family: inherit; outline: none;
+        }
+        .settings-row select:focus, .settings-row input:focus { border-color: var(--accent); }
+        .settings-row .suffix {
+            color: var(--text-muted); font-size: 13px; font-family: Consolas, monospace;
+        }
+
+        /* === Toasts (#11) — заменяют error-box === */
+        .toast-container {
+            position: fixed; top: 16px; right: 16px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 8px;
+            max-width: 360px; pointer-events: none;
+        }
+        .toast {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 10px; padding: 10px 14px;
+            color: var(--text-primary); font-size: 13.5px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            pointer-events: auto;
+            animation: gc-toast-in 0.22s ease;
+            line-height: 1.4;
+        }
+        .toast.error { border-color: var(--error); color: var(--error); background: rgba(239,68,68,0.08); }
+        .toast.success { border-color: var(--success, #10b981); color: var(--success, #10b981); background: rgba(16,185,129,0.08); }
+        .toast.info { border-left: 3px solid var(--accent); }
+        .toast.fading { animation: gc-toast-out 0.25s ease forwards; }
+        @keyframes gc-toast-in {
+            from { opacity: 0; transform: translateX(20px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes gc-toast-out {
+            to { opacity: 0; transform: translateX(20px); }
+        }
     </style>
     <script src="_config.js"></script>
     <script src="_shared.js"></script>
@@ -129,20 +220,49 @@
         </div>
 
         <label class="drop-zone" id="dropZone" for="fileInput">
-            <input type="file" id="fileInput" multiple accept=".docx,.xlsx,.jpg,.jpeg,.png,.gif,.webp" style="display:none">
+            <input type="file" id="fileInput" multiple accept=".docx,.xlsx,.csv,.tsv,.jpg,.jpeg,.png,.gif,.webp" style="display:none">
             <div class="icon">
                 <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             </div>
             <div class="title">Перетащи файлы сюда или нажми чтобы выбрать</div>
-            <div class="hint">Word (.docx), Excel (.xlsx), фото (.jpg/.png/.gif/.webp)</div>
+            <div class="hint">Word (.docx), Excel (.xlsx), CSV/TSV, фото (.jpg/.png/.gif/.webp)</div>
         </label>
+        <!-- #10: webkitdirectory отдельным input'ом (один input не может быть и files и directory) -->
+        <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none">
+        <div class="or-folder">или <a id="pickFolderLink">выбрать папку целиком</a></div>
 
         <div id="fileList">
             <div class="file-list-header">
                 <span><span id="fileCount" class="count">0</span> файлов</span>
+                <!-- #12: кнопки сортировки -->
+                <span class="sort-bar">
+                    <span class="sort-label">Сортировка:</span>
+                    <button class="sort-btn" data-sort="manual" title="Ручной порядок (drag-n-drop)">Ручная</button>
+                    <button class="sort-btn" data-sort="name" title="По имени файла A→Z">Имя</button>
+                    <button class="sort-btn" data-sort="type" title="Word → Excel → CSV → фото">Тип</button>
+                    <button class="sort-btn" data-sort="size" title="По размеру (от меньшего к большему)">Размер</button>
+                </span>
                 <button class="clear-all" id="clearAllBtn">Очистить все</button>
             </div>
             <div id="fileRows"></div>
+        </div>
+
+        <!-- #4 + #6 + #7: настройки сборки. Появляется когда есть хотя бы один валидный файл. -->
+        <div class="settings-panel" id="settingsPanel">
+            <div class="settings-row">
+                <label for="setSeparator">Между файлами:</label>
+                <select id="setSeparator">
+                    <option value="empty-line">Пустая строка</option>
+                    <option value="page-break">Новая страница</option>
+                    <option value="filename-heading">Заголовок с именем файла</option>
+                    <option value="none">Без разделителя</option>
+                </select>
+            </div>
+            <div class="settings-row">
+                <label for="setOutputName">Имя файла:</label>
+                <input type="text" id="setOutputName" placeholder="Объединение файлов" maxlength="100">
+                <span class="suffix">.docx</span>
+            </div>
         </div>
 
         <button class="btn-primary" id="buildBtn" disabled>Собрать и скачать .docx</button>
@@ -151,7 +271,6 @@
             <span id="loadingText">Сборка...</span>
             <div class="progress-bar show"><div class="fill" id="progressFill"></div></div>
         </div>
-        <div class="error-box" id="errorBox"></div>
         <div class="result-box" id="resultBox">
             <div class="result-header">
                 <div class="result-meta">
@@ -163,6 +282,9 @@
             </div>
         </div>
     </main>
+
+    <!-- #11: тосты — заменили error-box. -->
+    <div class="toast-container" id="toastContainer"></div>
 
     <script>
         GigaChat.injectToolCss();
@@ -196,6 +318,8 @@
         // ============ DOM ============
         var dropZone = document.getElementById('dropZone');
         var fileInput = document.getElementById('fileInput');
+        var folderInput = document.getElementById('folderInput');
+        var pickFolderLink = document.getElementById('pickFolderLink');
         var fileList = document.getElementById('fileList');
         var fileRows = document.getElementById('fileRows');
         var fileCount = document.getElementById('fileCount');
@@ -204,21 +328,76 @@
         var loading = document.getElementById('loading');
         var loadingText = document.getElementById('loadingText');
         var progressFill = document.getElementById('progressFill');
-        var errorBox = document.getElementById('errorBox');
         var resultBox = document.getElementById('resultBox');
         var resultSize = document.getElementById('resultSize');
         var resultBlocks = document.getElementById('resultBlocks');
         var downloadBtn = document.getElementById('downloadBtn');
+        var settingsPanel = document.getElementById('settingsPanel');
+        var setSeparator = document.getElementById('setSeparator');
+        var setOutputName = document.getElementById('setOutputName');
+        var toastContainer = document.getElementById('toastContainer');
 
-        // items: [{file, type:'docx'|'xlsx'|'image'|'unknown', uid, error}]
+        // items: [{file, type:'docx'|'xlsx'|'csv'|'image'|'unknown', uid, error, status}]
+        // status: '' | 'parsing' | 'done' | 'failed'  (B9 progress per file)
         var items = [];
         var lastBlob = null;
+        var sortMode = 'manual'; // 'manual'|'name'|'type'|'size'
+
+        // ============ Settings (#7 localStorage) ============
+        var LS_KEY = 'gc_filemerger_settings_v1';
+        var settings = { separator: 'empty-line', outputName: 'Объединение файлов' };
+        function loadSettings() {
+            try {
+                var raw = localStorage.getItem(LS_KEY);
+                if (raw) {
+                    var parsed = JSON.parse(raw);
+                    if (parsed && typeof parsed === 'object') {
+                        if (parsed.separator) settings.separator = parsed.separator;
+                        if (parsed.outputName) settings.outputName = parsed.outputName;
+                    }
+                }
+            } catch (e) {}
+            setSeparator.value = settings.separator;
+            setOutputName.value = settings.outputName;
+        }
+        function saveSettings() {
+            try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) {}
+        }
+        setSeparator.addEventListener('change', function () {
+            settings.separator = setSeparator.value || 'empty-line';
+            saveSettings();
+        });
+        setOutputName.addEventListener('input', function () {
+            settings.outputName = (setOutputName.value || '').trim() || 'Объединение файлов';
+            saveSettings();
+        });
+        loadSettings();
+
+        // ============ Тосты (#11) ============
+        function showToast(msg, type, ttlMs) {
+            type = type || 'info';
+            ttlMs = ttlMs || (type === 'error' ? 6000 : 4000);
+            var div = document.createElement('div');
+            div.className = 'toast ' + type;
+            div.textContent = msg;
+            toastContainer.appendChild(div);
+            setTimeout(function () {
+                div.classList.add('fading');
+                setTimeout(function () { if (div.parentNode) div.parentNode.removeChild(div); }, 260);
+            }, ttlMs);
+            return div;
+        }
+        // Совместимые алиасы: оставшиеся showError() call'ы продолжают работать.
+        function showError(msg) { showToast(msg, 'error'); }
+        function hideError() { /* тосты сами исчезают — no-op */ }
 
         // ============ Приём файлов ============
         function detectType(file) {
             var name = (file.name || '').toLowerCase();
             if (name.endsWith('.docx')) return 'docx';
             if (name.endsWith('.xlsx')) return 'xlsx';
+            if (name.endsWith('.csv')) return 'csv';
+            if (name.endsWith('.tsv')) return 'csv'; // обрабатываем тем же парсером, разделитель детектим
             if (/\.(jpg|jpeg|png|gif|webp)$/i.test(name)) return 'image';
             return 'unknown';
         }
@@ -241,16 +420,22 @@
                     file: f,
                     type: type,
                     uid: 'f' + (Date.now() + Math.random()).toString(36),
-                    error: type === 'unknown' ? 'Неизвестный тип' : ''
+                    error: type === 'unknown' ? 'Неизвестный тип' : '',
+                    status: '' // #9: '' | 'parsing' | 'done' | 'failed'
                 });
             }
             if (dropped > 0) {
-                showError('Лимит — ' + MAX_FILES + ' файлов на одну сборку. Отброшено: ' + dropped + '.');
-            } else {
-                hideError();
+                showToast('Лимит — ' + MAX_FILES + ' файлов на сборку. Отброшено: ' + dropped + '.', 'error');
             }
+            applySort();
             renderList();
             updateBuildBtn();
+            updateSettingsVisibility();
+        }
+        function updateSettingsVisibility() {
+            // Показываем settings-панель когда есть хотя бы один валидный файл.
+            var hasOk = items.some(function (it) { return !it.error; });
+            settingsPanel.classList.toggle('show', hasOk);
         }
         // Click on drop-zone → file picker (через label, событие штатное).
         // Drag-over visual + сам drop в одном handler (B8: убран дубликат 'drop').
@@ -273,12 +458,64 @@
             if (e.target.files) addFiles(e.target.files);
             fileInput.value = ''; // чтобы тот же файл можно было выбрать снова
         });
+        // #10: загрузка папки целиком (webkitdirectory). Браузер выдаст все файлы
+        // рекурсивно — но мы фильтруем через detectType, всё что не подходит
+        // получит badge «Ошибка» и не помешает сборке.
+        pickFolderLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            folderInput.click();
+        });
+        folderInput.addEventListener('change', function (e) {
+            if (e.target.files && e.target.files.length) {
+                // Сразу отфильтруем явный мусор чтобы не забивать UI 200 пунктами
+                var supported = [];
+                for (var i = 0; i < e.target.files.length; i++) {
+                    if (detectType(e.target.files[i]) !== 'unknown') supported.push(e.target.files[i]);
+                }
+                if (!supported.length) {
+                    showToast('В папке нет поддерживаемых файлов.', 'error');
+                } else {
+                    showToast('Из папки добавлено: ' + supported.length + ' файлов.', 'success');
+                    addFiles(supported);
+                }
+            }
+            folderInput.value = '';
+        });
         clearAllBtn.addEventListener('click', function () {
             items = [];
             renderList();
             updateBuildBtn();
+            updateSettingsVisibility();
             hideResult();
         });
+
+        // #12: сортировка по кнопкам. 'manual' — порядок добавления + drag-n-drop.
+        function applySort() {
+            if (sortMode === 'manual') return; // оставляем как есть
+            var typePriority = { docx: 0, xlsx: 1, csv: 2, image: 3, unknown: 4 };
+            items.sort(function (a, b) {
+                if (sortMode === 'name') return a.file.name.localeCompare(b.file.name, 'ru');
+                if (sortMode === 'type') {
+                    var d = (typePriority[a.type] || 9) - (typePriority[b.type] || 9);
+                    if (d !== 0) return d;
+                    return a.file.name.localeCompare(b.file.name, 'ru');
+                }
+                if (sortMode === 'size') return a.file.size - b.file.size;
+                return 0;
+            });
+        }
+        document.querySelectorAll('.sort-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                sortMode = btn.dataset.sort;
+                document.querySelectorAll('.sort-btn').forEach(function (b) {
+                    b.classList.toggle('active', b.dataset.sort === sortMode);
+                });
+                applySort();
+                renderList();
+            });
+        });
+        // По умолчанию подсвечиваем 'manual'
+        document.querySelector('.sort-btn[data-sort="manual"]').classList.add('active');
 
         // ============ Рендер списка с drag-reorder ============
         function renderList() {
@@ -297,14 +534,21 @@
                 var badgeText = it.error ? 'Ошибка' : (
                     it.type === 'docx' ? 'WORD' :
                     it.type === 'xlsx' ? 'EXCEL' :
+                    it.type === 'csv' ? 'CSV' :
                     it.type === 'image' ? 'ФОТО' : '?'
                 );
+                // #9: статус парсинга — спиннер / галочка / крестик
+                var statusHtml = '';
+                if (it.status === 'parsing') statusHtml = '<span class="row-status parsing show"></span>';
+                else if (it.status === 'done')   statusHtml = '<span class="row-status done show" title="Готов">✓</span>';
+                else if (it.status === 'failed') statusHtml = '<span class="row-status failed show" title="Ошибка">×</span>';
                 html +=
                     '<div class="file-row" draggable="true" data-uid="' + it.uid + '">' +
                         '<span class="drag-handle" title="Перетащи чтобы переставить">⋮⋮</span>' +
                         '<span class="badge ' + badgeClass + '">' + badgeText + '</span>' +
                         '<span class="name">' + escapeHtml(it.file.name) + '</span>' +
                         (it.error ? '<span class="err-msg">' + escapeHtml(it.error) + '</span>' : '') +
+                        statusHtml +
                         '<span class="size">' + formatSize(it.file.size) + '</span>' +
                         '<button class="remove" data-uid="' + it.uid + '" title="Убрать">×</button>' +
                     '</div>';
@@ -327,6 +571,7 @@
                     items = items.filter(function (it) { return it.uid !== uid; });
                     renderList();
                     updateBuildBtn();
+                    updateSettingsVisibility();
                 });
             }
             var draggingUid = null;
@@ -369,6 +614,13 @@
                     if (fromIdx < 0 || toIdx < 0) return;
                     var moved = items.splice(fromIdx, 1)[0];
                     items.splice(toIdx, 0, moved);
+                    // Ручной drag → переключаем режим сортировки на 'manual'
+                    if (sortMode !== 'manual') {
+                        sortMode = 'manual';
+                        document.querySelectorAll('.sort-btn').forEach(function (b) {
+                            b.classList.toggle('active', b.dataset.sort === 'manual');
+                        });
+                    }
                     renderList();
                 });
             }
@@ -376,9 +628,9 @@
         function updateBuildBtn() {
             var ok = items.filter(function (it) { return !it.error; });
             buildBtn.disabled = ok.length === 0;
-            // B6: если все файлы непригодны (есть items но ни одного ok) — подсказка.
+            // B6: если все файлы непригодны (есть items но ни одного ok) — подсказка тостом.
             if (items.length > 0 && ok.length === 0) {
-                showError('Все файлы не подходят для объединения. Нужны .docx, .xlsx или фото (.jpg/.png/.gif/.webp).');
+                showToast('Все файлы не подходят. Нужны .docx, .xlsx, .csv/.tsv или фото (.jpg/.png/.gif/.webp).', 'error');
             }
         }
 
@@ -605,6 +857,61 @@
             }
         }
 
+        // ============ CSV / TSV (#2) ============
+        // Минимальный CSV-парсер: автодетект разделителя по содержимому первой
+        // строки (запятая / точка-с-запятой / табуляция), поддержка кавычек "..."
+        // с экранированием "" внутри. Подходит для большинства экспорта Excel/google.
+        async function parseCsv(file) {
+            var text = await file.text();
+            // Detect delimiter — самый частый из ;/,/tab в первой непустой строке.
+            var firstLine = '';
+            for (var i = 0; i < text.length; i++) {
+                if (text.charCodeAt(i) === 10) break;
+                if (text.charCodeAt(i) !== 13) firstLine += text[i];
+            }
+            var counts = { ',': 0, ';': 0, '\t': 0 };
+            // Простой подсчёт ВНЕ кавычек — для autodetect достаточно.
+            var inQuote = false;
+            for (var j = 0; j < firstLine.length; j++) {
+                var ch = firstLine[j];
+                if (ch === '"') inQuote = !inQuote;
+                else if (!inQuote && counts.hasOwnProperty(ch)) counts[ch]++;
+            }
+            var delim = ',';
+            if (counts['\t'] > counts[','] && counts['\t'] >= counts[';']) delim = '\t';
+            else if (counts[';'] > counts[',']) delim = ';';
+            // Для .tsv явно ставим tab если детект не сработал
+            if ((file.name || '').toLowerCase().endsWith('.tsv') && counts['\t'] > 0) delim = '\t';
+
+            // Парсер строк/полей с учётом кавычек.
+            var rows = [];
+            var cur = '';
+            var row = [];
+            var inQ = false;
+            for (var p = 0; p < text.length; p++) {
+                var c = text[p];
+                if (inQ) {
+                    if (c === '"') {
+                        if (text[p + 1] === '"') { cur += '"'; p++; } // escaped ""
+                        else inQ = false;
+                    } else cur += c;
+                } else {
+                    if (c === '"') inQ = true;
+                    else if (c === delim) { row.push(cur); cur = ''; }
+                    else if (c === '\n') { row.push(cur); rows.push(row); cur = ''; row = []; }
+                    else if (c === '\r') { /* skip — \n обработает */ }
+                    else cur += c;
+                }
+            }
+            // Финальное значение/строка если не было trailing newline
+            if (cur.length > 0 || row.length > 0) { row.push(cur); rows.push(row); }
+            // Уберём полностью пустые trailing rows
+            while (rows.length && rows[rows.length - 1].every(function (v) { return !v; })) rows.pop();
+            if (!rows.length) throw new Error('CSV пустой');
+            // Возвращаем как xlsx-table — будет та же отрисовка через xlsxToWordTableXml.
+            return { kind: 'xlsx-table', sheetName: '(CSV)', grid: rows, merges: [] };
+        }
+
         // ============ Генерация Word XML ============
         // (escapeXml убран — используем общий escapeHtml: для XML апостроф через
         // &#39; валиден, как и &amp; / &lt; / &gt; / &quot;.)
@@ -757,21 +1064,36 @@
                 // пустая строка ставится между файлами, не между параграфами внутри Word'а.
                 // source: { blocks: [...], images: [...] }
                 // images приходит только из docx (B11) — массив { placeholder, bytes, ext }
+                // Сбрасываем статусы перед парсингом
+                items.forEach(function (it) { it.status = ''; });
+                renderList();
+
                 var sources = [];
                 for (var i = 0; i < validItems.length; i++) {
                     var it = validItems[i];
                     loadingText.textContent = 'Парсинг: ' + it.file.name;
                     progressFill.style.width = (5 + (i / validItems.length) * 50) + '%';
+                    // #9: помечаем 'parsing' и перерисовываем → крутится спиннер
+                    it.status = 'parsing';
+                    renderList();
                     try {
+                        var parsedSrc;
                         if (it.type === 'docx') {
                             var parsed = await parseDocx(it.file); // {blocks, images}
-                            sources.push({ blocks: parsed.blocks, images: parsed.images || [] });
+                            parsedSrc = { blocks: parsed.blocks, images: parsed.images || [], srcName: it.file.name };
                         } else if (it.type === 'xlsx') {
-                            sources.push({ blocks: [await parseXlsx(it.file)], images: [] });
+                            parsedSrc = { blocks: [await parseXlsx(it.file)], images: [], srcName: it.file.name };
+                        } else if (it.type === 'csv') {
+                            parsedSrc = { blocks: [await parseCsv(it.file)], images: [], srcName: it.file.name };
                         } else if (it.type === 'image') {
-                            sources.push({ blocks: [await parseImage(it.file)], images: [] });
+                            parsedSrc = { blocks: [await parseImage(it.file)], images: [], srcName: it.file.name };
                         }
+                        sources.push(parsedSrc);
+                        it.status = 'done';
+                        renderList();
                     } catch (parseErr) {
+                        it.status = 'failed';
+                        renderList();
                         throw new Error('Файл «' + it.file.name + '»: ' + (parseErr.message || parseErr));
                     }
                 }
@@ -788,6 +1110,22 @@
                 var rels = []; // { id, target }
                 var rIdCounter = 100;
                 var EMPTY_P = '<w:p/>';
+                // #4: разделитель между файлами — из settings.
+                var PAGE_BREAK = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+                function filenameHeadingXml(name) {
+                    // Жирный + чуть крупнее, с небольшим отступом сверху и снизу.
+                    return '<w:p>' +
+                        '<w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr>' +
+                        '<w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>' +
+                        '<w:t xml:space="preserve">' + escapeHtml(name) + '</w:t></w:r>' +
+                        '</w:p>';
+                }
+                function separatorBetweenFiles() {
+                    if (settings.separator === 'page-break') return PAGE_BREAK;
+                    if (settings.separator === 'none') return '';
+                    // filename-heading обрабатывается отдельно (перед КАЖДЫМ файлом, не «между»)
+                    return EMPTY_P;
+                }
 
                 // Хелпер: регистрация bytes как новой картинки — возвращает globalRId.
                 function registerImage(bytes, ext) {
@@ -804,6 +1142,10 @@
 
                 for (var s = 0; s < sources.length; s++) {
                     var src = sources[s];
+                    // #4: filename-heading режим — перед КАЖДЫМ источником (включая первый)
+                    if (settings.separator === 'filename-heading' && src.srcName) {
+                        bodyXml += filenameHeadingXml(src.srcName);
+                    }
                     // B11: регистрируем все картинки источника заранее → placeholderMap.
                     var placeholderMap = {};
                     for (var im = 0; im < src.images.length; im++) {
@@ -829,8 +1171,11 @@
                         }
                         bodyXml += xmlChunk;
                     }
-                    // Пустая строка только МЕЖДУ файлами (не внутри одного docx)
-                    if (s < sources.length - 1) bodyXml += EMPTY_P;
+                    // #4: separator между файлами (только между, не после последнего).
+                    // filename-heading сам играет роль разделителя — между файлами ничего не добавляем.
+                    if (s < sources.length - 1 && settings.separator !== 'filename-heading') {
+                        bodyXml += separatorBetweenFiles();
+                    }
                 }
 
                 // 3) Собираем .docx zip
@@ -857,8 +1202,9 @@
                 progressFill.style.width = '100%';
                 lastBlob = blob;
                 showResult(blob.size, totalBlocks);
-                // Сразу триггерим скачивание
-                triggerDownload(blob, 'Объединение файлов.docx');
+                // #6: имя файла из settings, с принудительным .docx суффиксом.
+                var dlName = (settings.outputName || 'Объединение файлов').replace(/\.docx$/i, '') + '.docx';
+                triggerDownload(blob, dlName);
             } catch (e) {
                 showError(e.message || String(e));
             } finally {
@@ -871,7 +1217,10 @@
         }
         buildBtn.addEventListener('click', buildAndDownload);
         downloadBtn.addEventListener('click', function () {
-            if (lastBlob) triggerDownload(lastBlob, 'Объединение файлов.docx');
+            if (lastBlob) {
+                var n = (settings.outputName || 'Объединение файлов').replace(/\.docx$/i, '') + '.docx';
+                triggerDownload(lastBlob, n);
+            }
         });
         function triggerDownload(blob, filename) {
             var url = URL.createObjectURL(blob);
