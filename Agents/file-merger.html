@@ -197,6 +197,55 @@
         @keyframes gc-toast-out {
             to { opacity: 0; transform: translateX(20px); }
         }
+
+        /* === Preview modal (#8) === */
+        .preview-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000;
+            display: none; align-items: flex-start; justify-content: center;
+            padding: 60px 20px;
+        }
+        .preview-backdrop.open { display: flex; }
+        .preview-box {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 22px 24px;
+            width: 100%; max-width: 720px; max-height: 80vh;
+            display: flex; flex-direction: column;
+            font-family: Segoe UI, Tahoma, sans-serif;
+        }
+        .preview-box h3 { margin: 0 0 14px; font-size: 16px; color: var(--text-primary); }
+        .preview-list { flex: 1; overflow-y: auto; }
+        .preview-source {
+            border: 1px solid var(--border); border-radius: 8px;
+            padding: 10px 14px; margin-bottom: 10px;
+            background: var(--bg-input);
+        }
+        .preview-source .src-head {
+            font-size: 13px; color: var(--text-primary); font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .preview-source .src-head .badge {
+            background: var(--accent-light); color: var(--accent);
+            font-size: 11px; padding: 2px 7px; border-radius: 6px; margin-right: 8px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .preview-source .src-stats {
+            font-size: 12px; color: var(--text-secondary); line-height: 1.6;
+        }
+        .preview-source .src-stats code {
+            background: var(--bg-card); padding: 1px 6px; border-radius: 4px;
+            font-family: Consolas, monospace; font-size: 11px; color: var(--accent);
+        }
+        .preview-footer {
+            margin-top: 14px; display: flex; justify-content: space-between;
+            align-items: center; gap: 10px;
+        }
+        .preview-footer .summary { font-size: 12px; color: var(--text-muted); }
+        .preview-footer button {
+            padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--bg-input); color: var(--text-primary);
+            cursor: pointer; font-size: 13px; font-family: inherit; transition: all 0.2s;
+        }
+        .preview-footer button:hover { border-color: var(--accent); color: var(--accent); }
     </style>
     <script src="_config.js"></script>
     <script src="_shared.js"></script>
@@ -265,7 +314,10 @@
             </div>
         </div>
 
-        <button class="btn-primary" id="buildBtn" disabled>Собрать и скачать .docx</button>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-primary" id="buildBtn" disabled style="flex:1;">Собрать и скачать .docx</button>
+            <button class="btn-primary" id="previewBtn" disabled style="flex:0 0 auto; background:transparent; color:var(--accent); border:1px solid var(--accent);">Превью</button>
+        </div>
 
         <div class="loading" id="loading">
             <span id="loadingText">Сборка...</span>
@@ -285,6 +337,18 @@
 
     <!-- #11: тосты — заменили error-box. -->
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- #8: модалка превью -->
+    <div class="preview-backdrop" id="previewBackdrop" onclick="if(event.target===this)closePreview()">
+        <div class="preview-box">
+            <h3>Превью результата</h3>
+            <div class="preview-list" id="previewList">Анализирую файлы...</div>
+            <div class="preview-footer">
+                <span class="summary" id="previewSummary">—</span>
+                <button onclick="closePreview()">Закрыть</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         GigaChat.injectToolCss();
@@ -324,6 +388,7 @@
         var fileRows = document.getElementById('fileRows');
         var fileCount = document.getElementById('fileCount');
         var buildBtn = document.getElementById('buildBtn');
+        var previewBtn = document.getElementById('previewBtn');
         var clearAllBtn = document.getElementById('clearAllBtn');
         var loading = document.getElementById('loading');
         var loadingText = document.getElementById('loadingText');
@@ -628,6 +693,7 @@
         function updateBuildBtn() {
             var ok = items.filter(function (it) { return !it.error; });
             buildBtn.disabled = ok.length === 0;
+            previewBtn.disabled = ok.length === 0;
             // B6: если все файлы непригодны (есть items но ни одного ok) — подсказка тостом.
             if (items.length > 0 && ok.length === 0) {
                 showToast('Все файлы не подходят. Нужны .docx, .xlsx, .csv/.tsv или фото (.jpg/.png/.gif/.webp).', 'error');
@@ -721,7 +787,15 @@
                 }
                 // sectPr и прочее — игнорим, у выходного doc будет свой sectPr
             }
-            return { blocks: blocks, images: sourceImages };
+            // #5: достаём styles.xml исходного документа — сохранится в выходной docx
+            // если build-pipeline не найдёт более раннего источника со стилями.
+            var stylesXml = null;
+            var stylesFile = zip.file('word/styles.xml');
+            if (stylesFile) {
+                try { stylesXml = await stylesFile.async('string'); } catch (_) {}
+            }
+
+            return { blocks: blocks, images: sourceImages, stylesXml: stylesXml };
         }
         // Колонка A=1, B=2, ..., Z=26, AA=27...
         function colLettersToNum(s) {
@@ -730,14 +804,8 @@
             return n;
         }
 
-        async function parseXlsx(file) {
-            // GigaChat.parseXlsxFile возвращает [{name, headers, rows}, ...].
-            // headers — array of strings (первая непустая строка),
-            // rows — array of ARRAYS (НЕ объектов): каждая row[i] — это массив значений
-            // в том же порядке что и headers.
-            var sheets = await GigaChat.parseXlsxFile(file);
-            if (!sheets.length) throw new Error('В .xlsx нет ни одного листа');
-            var sheet = sheets[0];
+        // Превращает один лист Excel в блок xlsx-table (с грид + merges).
+        async function xlsxSheetToBlock(sheet, file, sheetIdx) {
             var grid = [];
             // B3: header'ы приводим к строкам — иначе числовые headers (например год
             // 2024 в первой строке) дальше попадут в paragraphXml как number и
@@ -764,7 +832,8 @@
             var merges = [];
             try {
                 var zip = await JSZip.loadAsync(file);
-                var sheetFile = zip.file('xl/worksheets/sheet1.xml');
+                // sheetIdx 0-based → sheet1.xml / sheet2.xml / etc.
+                var sheetFile = zip.file('xl/worksheets/sheet' + (sheetIdx + 1) + '.xml');
                 if (sheetFile) {
                     var sxml = await sheetFile.async('string');
                     var sdoc = new DOMParser().parseFromString(sxml, 'application/xml');
@@ -809,6 +878,31 @@
 
             return { kind: 'xlsx-table', sheetName: sheet.name, grid: grid, merges: merges };
         }
+
+        // #3: parseXlsx возвращает массив блоков — по одному на каждый лист.
+        // Если листов больше одного, перед каждой таблицей вставляется
+        // подзаголовок-параграф с именем листа (жирный 12pt).
+        async function parseXlsx(file) {
+            var sheets = await GigaChat.parseXlsxFile(file);
+            if (!sheets.length) throw new Error('В .xlsx нет ни одного листа');
+            var blocks = [];
+            for (var i = 0; i < sheets.length; i++) {
+                if (sheets.length > 1) {
+                    // Подзаголовок с именем листа
+                    blocks.push({
+                        kind: 'paragraph',
+                        xml: '<w:p>' +
+                            '<w:pPr><w:spacing w:before="160" w:after="80"/></w:pPr>' +
+                            '<w:r><w:rPr><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>' +
+                            '<w:t xml:space="preserve">Лист: ' + escapeHtml(sheets[i].name || ('Sheet' + (i + 1))) + '</w:t></w:r>' +
+                            '</w:p>'
+                    });
+                }
+                blocks.push(await xlsxSheetToBlock(sheets[i], file, i));
+            }
+            return blocks;
+        }
+
         // B15: определяем реальный тип по magic bytes — расширение в имени может
         // врать (PNG переименованный в .jpg даст некорректный content-type в .docx
         // и Word ругнётся). Возвращает 'jpg'/'png'/'gif'/'webp' или null.
@@ -1079,10 +1173,16 @@
                     try {
                         var parsedSrc;
                         if (it.type === 'docx') {
-                            var parsed = await parseDocx(it.file); // {blocks, images}
-                            parsedSrc = { blocks: parsed.blocks, images: parsed.images || [], srcName: it.file.name };
+                            var parsed = await parseDocx(it.file); // {blocks, images, stylesXml}
+                            parsedSrc = {
+                                blocks: parsed.blocks,
+                                images: parsed.images || [],
+                                stylesXml: parsed.stylesXml || null,
+                                srcName: it.file.name
+                            };
                         } else if (it.type === 'xlsx') {
-                            parsedSrc = { blocks: [await parseXlsx(it.file)], images: [], srcName: it.file.name };
+                            // #3: parseXlsx теперь возвращает массив (по блоку на лист, опц. с heading)
+                            parsedSrc = { blocks: await parseXlsx(it.file), images: [], srcName: it.file.name };
                         } else if (it.type === 'csv') {
                             parsedSrc = { blocks: [await parseCsv(it.file)], images: [], srcName: it.file.name };
                         } else if (it.type === 'image') {
@@ -1182,7 +1282,13 @@
                 var zip = new JSZip();
                 zip.file('[Content_Types].xml', contentTypesXml(images));
                 zip.file('_rels/.rels', MAIN_RELS);
-                zip.file('word/styles.xml', STYLES_XML);
+                // #5: если хоть один из docx-источников вернул styles.xml — берём его
+                // (первый ненулевой). Иначе fallback на минимальный default.
+                var stylesToUse = STYLES_XML;
+                for (var si = 0; si < sources.length; si++) {
+                    if (sources[si].stylesXml) { stylesToUse = sources[si].stylesXml; break; }
+                }
+                zip.file('word/styles.xml', stylesToUse);
                 zip.file('word/document.xml', documentXml(bodyXml));
                 zip.file('word/_rels/document.xml.rels', documentRelsXml(rels));
                 for (var m = 0; m < images.length; m++) {
@@ -1216,6 +1322,98 @@
             }
         }
         buildBtn.addEventListener('click', buildAndDownload);
+
+        // ============ Превью (#8) ============
+        // Текстовое описание того, что попадёт в выходной docx — без полной
+        // сборки. Прогоняем те же parse-функции, считаем статистику.
+        function openPreview() {
+            document.getElementById('previewBackdrop').classList.add('open');
+            document.getElementById('previewList').innerHTML = 'Анализирую файлы...';
+            document.getElementById('previewSummary').textContent = '—';
+            renderPreview();
+        }
+        function closePreview() {
+            document.getElementById('previewBackdrop').classList.remove('open');
+        }
+        async function renderPreview() {
+            var listEl = document.getElementById('previewList');
+            var summaryEl = document.getElementById('previewSummary');
+            var validItems = items.filter(function (it) { return !it.error; });
+            if (!validItems.length) {
+                listEl.textContent = 'Нет файлов для превью.';
+                return;
+            }
+            var html = '';
+            var totalBlocks = 0;
+            var totalImages = 0;
+            for (var i = 0; i < validItems.length; i++) {
+                var it = validItems[i];
+                var badgeText = it.type === 'docx' ? 'WORD' : it.type === 'xlsx' ? 'EXCEL' : it.type === 'csv' ? 'CSV' : 'ФОТО';
+                var statsHtml = '';
+                try {
+                    if (it.type === 'docx') {
+                        var p = await parseDocx(it.file);
+                        var pCount = p.blocks.filter(function (b) { return b.kind === 'paragraph'; }).length;
+                        var tCount = p.blocks.filter(function (b) { return b.kind === 'table'; }).length;
+                        var imgCount = p.images.length;
+                        statsHtml = 'Параграфов: <code>' + pCount + '</code>, таблиц: <code>' + tCount + '</code>';
+                        if (imgCount) statsHtml += ', картинок: <code>' + imgCount + '</code>';
+                        if (p.stylesXml) statsHtml += '. <i>Стили будут сохранены.</i>';
+                        totalBlocks += p.blocks.length;
+                        totalImages += imgCount;
+                    } else if (it.type === 'xlsx') {
+                        var sheets = await GigaChat.parseXlsxFile(it.file);
+                        if (sheets.length === 1) {
+                            var sh = sheets[0];
+                            var cols = sh.headers.length;
+                            var rows = sh.rows.length + (sh.headers.length ? 1 : 0);
+                            statsHtml = 'Один лист: <code>' + rows + '×' + cols + '</code>';
+                        } else {
+                            statsHtml = 'Листов: <code>' + sheets.length + '</code> — ' +
+                                sheets.map(function (s) {
+                                    return escapeHtml(s.name) + ' <code>' + (s.rows.length + (s.headers.length ? 1 : 0)) + '×' + s.headers.length + '</code>';
+                                }).join(', ');
+                        }
+                        totalBlocks += sheets.length;
+                    } else if (it.type === 'csv') {
+                        var csvBlock = await parseCsv(it.file);
+                        var csvRows = csvBlock.grid.length;
+                        var csvCols = csvRows ? csvBlock.grid[0].length : 0;
+                        statsHtml = 'Таблица: <code>' + csvRows + '×' + csvCols + '</code>';
+                        totalBlocks += 1;
+                    } else if (it.type === 'image') {
+                        var img = await parseImage(it.file);
+                        statsHtml = 'Размер: <code>' + img.w + '×' + img.h + '</code> пикс, формат <code>' + img.ext + '</code>';
+                        totalBlocks += 1;
+                        totalImages += 1;
+                    }
+                } catch (e) {
+                    statsHtml = '<span style="color:var(--error)">Ошибка анализа: ' + escapeHtml(e.message || String(e)) + '</span>';
+                }
+                html +=
+                    '<div class="preview-source">' +
+                        '<div class="src-head"><span class="badge">' + badgeText + '</span>' + escapeHtml(it.file.name) + '</div>' +
+                        '<div class="src-stats">' + statsHtml + '</div>' +
+                    '</div>';
+            }
+            listEl.innerHTML = html;
+            var sepLabel = settings.separator === 'page-break' ? 'разрыв страницы' :
+                settings.separator === 'filename-heading' ? 'заголовок с именем файла' :
+                settings.separator === 'none' ? 'без разделителя' : 'пустая строка';
+            summaryEl.textContent = 'Источников: ' + validItems.length +
+                ', блоков всего: ' + totalBlocks +
+                (totalImages ? ', картинок: ' + totalImages : '') +
+                '. Между файлами: ' + sepLabel + '.';
+        }
+        previewBtn.addEventListener('click', openPreview);
+        // ESC закрывает превью
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.getElementById('previewBackdrop').classList.contains('open')) {
+                closePreview();
+            }
+        });
+        // Делаем closePreview доступным глобально для onclick в HTML
+        window.closePreview = closePreview;
         downloadBtn.addEventListener('click', function () {
             if (lastBlob) {
                 var n = (settings.outputName || 'Объединение файлов').replace(/\.docx$/i, '') + '.docx';
