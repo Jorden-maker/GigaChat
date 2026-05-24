@@ -1,28 +1,28 @@
 {
-  "name": "Планировщик — Sessions Meta. Поток",
+  "name": "Sessions Sync. Поток",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "planner-meta",
+        "path": "sessions-sync",
         "responseMode": "responseNode",
         "options": {}
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [0, 300],
-      "id": "planner-meta-webhook-0001",
-      "name": "Webhook Meta",
-      "webhookId": "planner-meta-webhook-001"
+      "id": "sessions-sync-webhook-0001",
+      "name": "Webhook Sessions Sync",
+      "webhookId": "sessions-sync-webhook-001"
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst action = String(body.action || 'list').trim();\nif (!['list','upsert','delete'].includes(action)) {\n  return [{ json: { valid: 0, error: 'Неизвестный action' } }];\n}\nconst token = String(body.token || '').trim();\nif (!/^[a-f0-9]{64}$/.test(token)) {\n  return [{ json: { valid: 0, error: 'unauthorized', auth_required: true } }];\n}\nconst out = { valid: 1, action, token };\nif (action === 'upsert' || action === 'delete') {\n  const sid = String(body.session_id || '').trim();\n  if (!sid || !/^[a-zA-Z0-9_-]+$/.test(sid)) {\n    return [{ json: { valid: 0, error: 'session_id обязательно' } }];\n  }\n  out.session_id = sid;\n  if (action === 'upsert') {\n    const name = String(body.name || '').trim().slice(0, 200);\n    if (!name) return [{ json: { valid: 0, error: 'name обязательно' } }];\n    out.name = name;\n    const so = parseInt(body.sort_order, 10);\n    out.sort_order = Number.isInteger(so) ? so : 0;\n  }\n}\nreturn [{ json: out }];"
+        "jsCode": "// Универсальный sessions sync для всех агентов.\n// Body: { action, token, agent, session_id?, name?, sort_order? }\n//   action  = 'list' | 'upsert' | 'delete'\n//   agent   = 'planner' | 'chat' | 'sql' | 'rag' | 'math' | 'prompt' | 'plane' | ...\nconst body = $input.first().json.body || {};\nconst action = String(body.action || 'list').trim();\nif (!['list','upsert','delete'].includes(action)) {\n  return [{ json: { valid: 0, error: 'Неизвестный action' } }];\n}\nconst token = String(body.token || '').trim();\nif (!/^[a-f0-9]{64}$/.test(token)) {\n  return [{ json: { valid: 0, error: 'unauthorized', auth_required: true } }];\n}\nconst agent = String(body.agent || '').trim().toLowerCase();\nif (!agent || !/^[a-z0-9_-]{1,32}$/.test(agent)) {\n  return [{ json: { valid: 0, error: 'agent обязателен (1-32 alphanum)' } }];\n}\nconst out = { valid: 1, action, token, agent };\nif (action === 'upsert' || action === 'delete') {\n  const sid = String(body.session_id || '').trim();\n  if (!sid || !/^[a-zA-Z0-9_-]{1,128}$/.test(sid)) {\n    return [{ json: { valid: 0, error: 'session_id обязательно (alphanum_-, max 128)' } }];\n  }\n  out.session_id = sid;\n  if (action === 'upsert') {\n    const name = String(body.name || '').trim().slice(0, 200);\n    if (!name) return [{ json: { valid: 0, error: 'name обязательно' } }];\n    out.name = name;\n    const so = parseInt(body.sort_order, 10);\n    out.sort_order = Number.isInteger(so) ? so : 0;\n  }\n}\nreturn [{ json: out }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [280, 300],
-      "id": "planner-meta-validate-0002",
+      "id": "sessions-sync-validate-0002",
       "name": "Валидация"
     },
     {
@@ -42,7 +42,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [560, 300],
-      "id": "planner-meta-if-valid-0003",
+      "id": "sessions-sync-if-valid-0003",
       "name": "Валидно?"
     },
     {
@@ -57,7 +57,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [840, 300],
-      "id": "planner-meta-verify-sql-0004",
+      "id": "sessions-sync-verify-sql-0004",
       "name": "SQL: Verify token",
       "credentials": {
         "postgres": {"id": "OYsyciMf7Eq9W4FS", "name": "Postgres"}
@@ -72,7 +72,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1120, 300],
-      "id": "planner-meta-token-result-0005",
+      "id": "sessions-sync-token-result-0005",
       "name": "Token result"
     },
     {
@@ -92,23 +92,23 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [1400, 300],
-      "id": "planner-meta-if-token-ok-0006",
+      "id": "sessions-sync-if-token-ok-0006",
       "name": "Token OK?"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH upserted AS (INSERT INTO planner_session_meta (user_id, session_id, name, sort_order) SELECT $2::integer, $3::varchar, $4::text, COALESCE($5::integer, 0) WHERE $1 = 'upsert' AND COALESCE($3, '') != '' ON CONFLICT (user_id, session_id) DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order, updated_at = NOW() RETURNING 1), deleted AS (DELETE FROM planner_session_meta WHERE $1 = 'delete' AND user_id = $2::integer AND session_id = $3::varchar RETURNING 1) SELECT session_id, name, sort_order FROM planner_session_meta WHERE user_id = $2::integer AND ($1 = 'list' OR EXISTS (SELECT 1 FROM upserted) OR EXISTS (SELECT 1 FROM deleted)) ORDER BY sort_order, created_at",
+        "query": "WITH upserted AS (\n  INSERT INTO agent_sessions (user_id, agent, session_id, name, sort_order)\n  SELECT $2::integer, $3::varchar, $4::varchar, $5::text, COALESCE($6::integer, 0)\n  WHERE $1 = 'upsert' AND COALESCE($4, '') != ''\n  ON CONFLICT (user_id, agent, session_id)\n  DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order, updated_at = NOW()\n  RETURNING 1\n),\ndeleted AS (\n  DELETE FROM agent_sessions\n  WHERE $1 = 'delete' AND user_id = $2::integer AND agent = $3::varchar AND session_id = $4::varchar\n  RETURNING 1\n)\nSELECT session_id, name, sort_order, EXTRACT(EPOCH FROM updated_at)::bigint AS updated_ts\nFROM agent_sessions\nWHERE user_id = $2::integer AND agent = $3::varchar\n  AND ($1 = 'list' OR EXISTS (SELECT 1 FROM upserted) OR EXISTS (SELECT 1 FROM deleted))\nORDER BY sort_order, created_at",
         "options": {
-          "queryReplacement": "={{ [$json.action, $json.user_id, $json.session_id || '', $json.name || '', $json.sort_order ?? 0] }}"
+          "queryReplacement": "={{ [$json.action, $json.user_id, $json.agent, $json.session_id || '', $json.name || '', $json.sort_order ?? 0] }}"
         },
         "alwaysOutputData": true
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [1680, 200],
-      "id": "planner-meta-sql-0007",
-      "name": "SQL: meta op",
+      "id": "sessions-sync-sql-op-0007",
+      "name": "SQL: sessions op",
       "credentials": {
         "postgres": {"id": "OYsyciMf7Eq9W4FS", "name": "Postgres"}
       },
@@ -117,12 +117,12 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all().map(i => (i && i.json) || {});\nconst first = items[0] || {};\nif (first.error) {\n  return [{ json: { response: 'error', error: String(first.error.message || first.error) } }];\n}\nconst sessions = items.filter(i => i && i.session_id).map(i => ({ session_id: i.session_id, name: i.name, sort_order: i.sort_order }));\nreturn [{ json: { response: 'ok', sessions } }];"
+        "jsCode": "const items = $input.all().map(i => (i && i.json) || {});\nconst first = items[0] || {};\nif (first.error) {\n  return [{ json: { response: 'error', error: String(first.error.message || first.error) } }];\n}\nconst sessions = items\n  .filter(i => i && i.session_id)\n  .map(i => ({\n    session_id: i.session_id,\n    name: i.name,\n    sort_order: i.sort_order,\n    updated_ts: i.updated_ts\n  }));\nreturn [{ json: { response: 'ok', sessions } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1960, 200],
-      "id": "planner-meta-format-0008",
+      "id": "sessions-sync-format-0008",
       "name": "Формат"
     },
     {
@@ -141,8 +141,8 @@
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [2240, 300],
-      "id": "planner-meta-resp-ok-0009",
+      "position": [2240, 200],
+      "id": "sessions-sync-resp-ok-0009",
       "name": "Ответ: OK"
     },
     {
@@ -162,12 +162,12 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [1680, 500],
-      "id": "planner-meta-resp-err-0010",
+      "id": "sessions-sync-resp-err-0010",
       "name": "Ответ: ошибка"
     }
   ],
   "connections": {
-    "Webhook Meta": {"main": [[{"node": "Валидация", "type": "main", "index": 0}]]},
+    "Webhook Sessions Sync": {"main": [[{"node": "Валидация", "type": "main", "index": 0}]]},
     "Валидация": {"main": [[{"node": "Валидно?", "type": "main", "index": 0}]]},
     "Валидно?": {
       "main": [
@@ -179,17 +179,17 @@
     "Token result": {"main": [[{"node": "Token OK?", "type": "main", "index": 0}]]},
     "Token OK?": {
       "main": [
-        [{"node": "SQL: meta op", "type": "main", "index": 0}],
+        [{"node": "SQL: sessions op", "type": "main", "index": 0}],
         [{"node": "Ответ: ошибка", "type": "main", "index": 0}]
       ]
     },
-    "SQL: meta op": {"main": [[{"node": "Формат", "type": "main", "index": 0}]]},
+    "SQL: sessions op": {"main": [[{"node": "Формат", "type": "main", "index": 0}]]},
     "Формат": {"main": [[{"node": "Ответ: OK", "type": "main", "index": 0}]]}
   },
   "active": false,
   "settings": {"executionOrder": "v1"},
-  "versionId": "planner-meta-v1",
+  "versionId": "sessions-sync-v1",
   "meta": {"templateCredsSetupCompleted": true},
-  "id": "planner-meta-workflow",
+  "id": "sessions-sync-workflow",
   "tags": []
 }

@@ -119,6 +119,23 @@ CREATE TABLE IF NOT EXISTS planner_session_meta (
     PRIMARY KEY (user_id, session_id)
 );
 
+-- agent_sessions: общая для всех агентов (sync per user_id+agent через
+-- /webhook/sessions-sync). Заменяет planner_session_meta — у юзера один
+-- аккаунт, видит свои сессии на любом ПК.
+\echo '== agent_sessions: единый стор сессий всех агентов =='
+CREATE TABLE IF NOT EXISTS agent_sessions (
+    session_id  VARCHAR(255) NOT NULL,
+    user_id     INTEGER NOT NULL REFERENCES planner_users(id) ON DELETE CASCADE,
+    agent       VARCHAR(32)  NOT NULL,
+    name        TEXT         NOT NULL,
+    sort_order  INTEGER      NOT NULL DEFAULT 0,
+    created_at  TIMESTAMP    NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMP    NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, agent, session_id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_user_agent_sorted
+    ON agent_sessions (user_id, agent, sort_order, updated_at DESC);
+
 \echo '== Тестовые данные для SQL-агента =='
 INSERT INTO clients (name, city, email, revenue) VALUES
 ('ООО Ромашка', 'Москва', 'romashka@mail.ru', 1500000.00),

@@ -2191,6 +2191,12 @@
     var sessionList = opts.sessionList;
     var renderMessages = opts.renderMessages || function () {};
     var loadHistory = opts.loadHistory || null;
+    // Backend-синхронизация sessions через /webhook/sessions-sync.
+    // syncWithBackend — флаг включения, agentKey — значение поля agent в БД
+    // (одно из: chat, sql, rag, math, prompt, planner, plane). Один аккаунт
+    // на разных ПК → все ПК видят одни сессии (LS — кеш, сервер — truth).
+    var syncWithBackend = opts.syncWithBackend === true;
+    var agentKey = opts.agentKey || prefix;
     // isProcessing определяется per-session через getInflight маркер.
     // Опция-callback можно переопределить для legacy-кода, но дефолт смотрит
     // в localStorage — единый источник правды «идёт ли в сессии обработка».
@@ -2564,10 +2570,89 @@
       return null;
     }
 
+    // ============== Backend sync (sessions-sync.json workflow) ==============
+    // Все мутации (create/rename/delete) уходят туда fire-and-forget.
+    // Сетевые ошибки игнорируются — LS остаётся source-of-truth для UI.
+    // При логине на новом ПК — pullFromBackend() подтянет сессии аккаунта.
+    async function _syncPost(payload) {
+      if (!syncWithBackend) return null;
+      var token = (window.GigaChat && GigaChat.auth) ? GigaChat.auth.getToken() : '';
+      if (!token) return null;
+      payload.token = token;
+      payload.agent = agentKey;
+      try {
+        var res = await fetch(webhookUrl('sessions-sync'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) return null;
+        var data = await res.json();
+        // auth_required при синхронизации — НЕ редиректим (вторичный feature).
+        if (data && data.auth_required) return null;
+        return data;
+      } catch (e) {
+        return null;
+      }
+    }
+    function syncCreate(id, name, sortOrder) {
+      _syncPost({ action: 'upsert', session_id: id, name: name, sort_order: sortOrder || 0 });
+    }
+    function syncRename(id, newName) {
+      var s = findSession(id);
+      if (!s) return;
+      _syncPost({ action: 'upsert', session_id: id, name: newName, sort_order: 0 });
+    }
+    function syncDelete(id) {
+      _syncPost({ action: 'delete', session_id: id });
+    }
+    // pullFromBackend — на init после загрузки из LS. Сливает серверный
+    // список с LS: серверные id отсутствующие локально → добавляем (с правильным
+    // name). LS-only id (юзер создал офлайн) → пушим на сервер upsert.
+    async function pullFromBackend() {
+      if (!syncWithBackend) return;
+      var data = await _syncPost({ action: 'list' });
+      if (!data || data.response !== 'ok' || !Array.isArray(data.sessions)) return;
+      var server = data.sessions;
+      var serverIds = {};
+      var changed = false;
+      // 1. Сервер → LS: добавляем то чего нет локально
+      server.forEach(function (srv) {
+        serverIds[srv.session_id] = true;
+        var local = findSession(srv.session_id);
+        if (!local) {
+          store.sessions.push({ id: srv.session_id, name: srv.name });
+          changed = true;
+        } else if (local.name !== srv.name) {
+          // Server wins при расхождении имени
+          local.name = srv.name;
+          changed = true;
+        }
+      });
+      // 2. LS → сервер: пушим то что было создано до включения sync
+      store.sessions.forEach(function (loc) {
+        if (!serverIds[loc.id]) {
+          _syncPost({ action: 'upsert', session_id: loc.id, name: loc.name, sort_order: 0 });
+        }
+      });
+      if (changed) {
+        save();
+        renderList();
+      }
+    }
+    // Триггерим pullFromBackend через микротаск, чтобы createSessionStore вернулся
+    // синхронно (caller сразу получает store). Сессии подтягиваются и сайдбар
+    // обновляется в фоне.
+    if (syncWithBackend) {
+      setTimeout(function () { pullFromBackend(); }, 0);
+    }
+
     function createNew() {
       store.sessionCounter++;
       var id = idPrefix + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-      store.sessions.push({ id: id, name: namePrefix + store.sessionCounter });
+      var name = namePrefix + store.sessionCounter;
+      store.sessions.push({ id: id, name: name });
+      syncCreate(id, name, 0);
       // Сбрасываем фильтр поиска — иначе новая сессия может быть скрыта
       // существующим фильтром, юзер увидит чат но не сессию в сайдбаре.
       if (searchInput) {
@@ -2649,6 +2734,7 @@
       if (ctrl) { try { ctrl.abort(); } catch (e) {} }
       unregisterSendController(id);
       store.sessions = store.sessions.filter(function (s) { return s.id !== id; });
+      syncDelete(id);  // fire-and-forget удаление с сервера
       clearSnapshot(id);
       clearInflight(id);
       clearDraft(id);
@@ -2678,7 +2764,10 @@
     function finishRename(id, newName) {
       if (store.editingSessionId !== id) return;
       var s = findSession(id);
-      if (s && newName && newName.trim()) s.name = newName.trim();
+      if (s && newName && newName.trim()) {
+        s.name = newName.trim();
+        syncRename(id, s.name);  // fire-and-forget upsert на сервер
+      }
       store.editingSessionId = null;
       save();
       renderList();
@@ -3475,11 +3564,17 @@
     // будут одинаковы для разных юзеров (router_1, router_2), и backend chat-memory
     // (ключ = session_id) даст коллизию. Принудительно basePrefix-based ID,
     // т.е. session ID = router_<userPrefix>_1 — уникальный per-user.
+    //
+    // syncWithBackend (userScoped) → cross-device sync через /webhook/sessions-sync.
+    // agentKey = opts.prefix (без user-префикса) — это значение поля agent в БД,
+    // одно и то же для всех ПК одного аккаунта.
     var sessionStore = createSessionStore({
       prefix: basePrefix,
       idPrefix: userScoped ? (basePrefix + '_') : (opts.idPrefix || (basePrefix + '_')),
       namePrefix: opts.namePrefix || (opts.prefix + '-'),
       sessionList: sessionListEl,
+      syncWithBackend: userScoped,
+      agentKey: opts.prefix,
       renderMessages: function () { renderChat(); },
       onAttachmentClear: function () {
         if (attachment) { attachment.cancel(); attachment.clear(); attachment.setDisabled(false); }

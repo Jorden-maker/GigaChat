@@ -540,7 +540,9 @@
 <script>
     GigaChat.injectStatusDotCss(); // .card-status цвета + @keyframes gcPulse
     var AGENTS = [
-        { id: 'router', webhook: GigaChat.webhookUrl('router') },
+        // router убран из health-check: backend workflow «Поток (Роутер)» удалён
+        // (только pong'ал, реальный routing делается во фронте по AGENT_LABELS).
+        // Карточка GigaChat Auto всегда «online» — статус ставится ниже.
         { id: 'sql',    webhook: GigaChat.webhookUrl('sql') },
         { id: 'rag',    webhook: GigaChat.webhookUrl('rag') },
         { id: 'math',   webhook: GigaChat.webhookUrl('math') },
@@ -564,6 +566,10 @@
     if (tableMergerDot) tableMergerDot.className = 'card-status online';
     var fileMergerDot = document.getElementById('status-file-merger');
     if (fileMergerDot) fileMergerDot.className = 'card-status online';
+    // router (GigaChat Auto) тоже always-online: backend workflow удалён,
+    // routing делается во фронте → нет смысла пинговать.
+    var routerDot = document.getElementById('status-router');
+    if (routerDot) routerDot.className = 'card-status online';
 
     // Per-agent health-check: каждая карточка пингует СВОЙ webhook через
     // POST ?ping=1 с body {"message":"ping"}. Это покрывает оба варианта

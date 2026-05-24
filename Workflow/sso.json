@@ -1,5 +1,5 @@
 {
-  "name": "Планировщик — Auth. Поток",
+  "name": "SSO. Поток",
   "nodes": [
     {
       "parameters": {

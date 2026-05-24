@@ -987,30 +987,10 @@
         function setStoredAuth(token, username) { GigaChat.auth.setAuth(token, username); }
         function clearStoredAuth() { GigaChat.auth.clearAuth(); }
 
-        // Уникальный ASCII-prefix для localStorage по имени юзера.
-        // ВАЖНО: для кириллицы старая версия (replace [^A-Za-z0-9_] → '_')
-        // давала ОДИНАКОВЫЙ prefix для двух русских имён одинаковой длины
-        // ('Иванов' и 'Петров' оба → '______') — юзеры видели и удаляли
-        // чужие списки. Используем btoa(UTF-8 bytes) — гарантия уникальности.
-        function sanitizeUserForPrefix(name) {
-            var s = String(name || '');
-            try {
-                var bytes = new TextEncoder().encode(s);
-                var bin = '';
-                for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-                var b64 = btoa(bin).replace(/[^A-Za-z0-9]/g, '');
-                if (b64) return b64;
-            } catch (e) { /* fallback ниже */ }
-            return 'user_' + Math.abs(hashString(s));
-        }
-        function hashString(s) {
-            var h = 0;
-            for (var i = 0; i < s.length; i++) {
-                h = ((h << 5) - h) + s.charCodeAt(i);
-                h |= 0;
-            }
-            return h;
-        }
+        // sanitizeUserForPrefix перенесён в _shared.js как GigaChat.auth.userPrefix.
+        // Используется внутри createChatAgent при userScoped:true для префиксации
+        // sessionStore и session_id.
+
 
         // HTTP-обёртка для auth endpoint'а — единая, из _shared.js.
         // Возвращает {response:'ok'|'error', ...} или {response:'error', network:true}.
@@ -1411,107 +1391,10 @@
             renderTasks();
         }
 
-        // ========== Multi-device sync: имена списков в БД ==========
-        // localStorage остаётся primary (быстро, offline). При init подтягиваем
-        // имена списков с сервера; при изменениях через MutationObserver на
-        // #sessionList — diff push (upsert новых, delete пропавших).
-        function getSessionsKey() {
-            return 'planner_' + sanitizeUserForPrefix(CURRENT_USER) + '_sessions';
-        }
-        function getLocalSessions() {
-            try { return JSON.parse(localStorage.getItem(getSessionsKey()) || '[]'); }
-            catch (e) { return []; }
-        }
-        function setLocalSessions(arr) {
-            try { localStorage.setItem(getSessionsKey(), JSON.stringify(arr)); }
-            catch (e) {}
-        }
-        // Sync метаданных НЕ должен выкидывать юзера на login при любых ошибках —
-        // это вторичный feature, primary остаётся localStorage. Просто игнорим
-        // auth_required и сетевые сбои.
-        async function plannerMetaApi(payload) {
-            payload.token = getStoredToken();
-            try {
-                var res = await fetch(GigaChat.webhookUrl('planner-meta'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-                    body: JSON.stringify(payload)
-                });
-                if (!res.ok) return { response: 'error' };
-                var data = await res.json();
-                // НЕ делаем clearAuth/reload даже если auth_required — это не критично
-                if (data && data.auth_required) return { response: 'error', skipped: true };
-                return data;
-            } catch (e) { return { response: 'error', network: true }; }
-        }
-        async function syncSessionsAtInit() {
-            var data = await plannerMetaApi({ action: 'list' });
-            if (data.response !== 'ok') return;
-            var server = (data.sessions || []).map(function (s) {
-                return { id: s.session_id, name: s.name };
-            });
-            var local = getLocalSessions();
-            var localIds = {};
-            local.forEach(function (s) { localIds[s.id] = true; });
-            var serverIds = {};
-            server.forEach(function (s) { serverIds[s.id] = true; });
-            // Добавляем серверные что отсутствуют локально
-            var merged = local.slice();
-            var addedFromServer = false;
-            server.forEach(function (s) {
-                if (!localIds[s.id]) { merged.push(s); addedFromServer = true; }
-            });
-            if (addedFromServer) setLocalSessions(merged);
-            // Локальные что отсутствуют на сервере → upsert на сервер
-            for (var i = 0; i < local.length; i++) {
-                if (!serverIds[local[i].id]) {
-                    await plannerMetaApi({
-                        action: 'upsert',
-                        session_id: local[i].id,
-                        name: local[i].name,
-                        sort_order: i
-                    });
-                }
-            }
-        }
-        // Diff-sync при изменении состава sessions в localStorage.
-        // null = ещё не инициализирован snapshot. На первом вызове только
-        // сохраняем snapshot, без diff (чтобы не дубль-пушить при загрузке).
-        var prevSessionsSnapshot = null;
-        var _diffInFlight = false;
-        async function diffPushSessions() {
-            if (_diffInFlight) return;  // re-entrance guard
-            _diffInFlight = true;
-            try {
-                var cur = getLocalSessions();
-                if (prevSessionsSnapshot === null) {
-                    // Первый вызов — просто фиксируем snapshot без push
-                    prevSessionsSnapshot = cur.slice();
-                    return;
-                }
-                var prev = prevSessionsSnapshot;
-                var curIds = {}, prevByMap = {};
-                prev.forEach(function (s) { prevByMap[s.id] = s; });
-                cur.forEach(function (s) { curIds[s.id] = true; });
-                // Удалённые
-                for (var i = 0; i < prev.length; i++) {
-                    if (!curIds[prev[i].id]) {
-                        await plannerMetaApi({ action: 'delete', session_id: prev[i].id });
-                    }
-                }
-                // Добавленные или переименованные
-                for (var j = 0; j < cur.length; j++) {
-                    var s = cur[j];
-                    var prevS = prevByMap[s.id];
-                    if (!prevS || prevS.name !== s.name) {
-                        await plannerMetaApi({ action: 'upsert', session_id: s.id, name: s.name, sort_order: j });
-                    }
-                }
-                prevSessionsSnapshot = cur.slice();
-            } finally {
-                _diffInFlight = false;
-            }
-        }
+        // Multi-device sync sessions переехал в _shared.js (createChatAgent
+        // с userScoped:true автоматически синхронизирует через
+        // /webhook/sessions-sync). Старый planner-meta workflow удалён —
+        // sessions-sync универсальный для всех агентов.
 
         // ========== Импорт / экспорт в Excel ==========
         // Колонки: Название, Описание, Приоритет, Дедлайн, Статус.
@@ -2197,24 +2080,23 @@
         // списки задач (sessions в localStorage) изолированы между юзерами
         // на одном браузере. Иванов вошёл → видит свои списки; вышел, Петров
         // вошёл → видит свои. Имена сессий безопасно живут в plain ASCII
-        // (sanitizeUserForPrefix транслитерирует кириллицу в _).
+        // (GigaChat.auth.userPrefix транслитерирует кириллицу в base64-ASCII).
         //
         // Эта функция вызывается из initAuthenticatedUI ПОСЛЕ успешного
         // verify-токена — раньше делать нельзя, потому что createChatAgent
         // создаёт sessionStore с user-зависимым префиксом, а сменить его
         // после без полного релоада нельзя.
         async function initPlannerMainUI() {
-        var USER_PREFIX = sanitizeUserForPrefix(CURRENT_USER);
-        // Multi-device sync: до createChatAgent подтягиваем имена списков
-        // с сервера — если на другом устройстве были созданы, увидим их.
-        // Best-effort: если сервер недоступен — продолжаем с локальным.
-        try { await syncSessionsAtInit(); } catch (e) { console.warn('Sessions sync failed:', e); }
-        prevSessionsSnapshot = getLocalSessions().slice();
+        // userScoped:true → _shared.js делает:
+        //   • префикс sessionStore = 'planner_<userPrefix>' → изоляция в LS
+        //   • idPrefix = тот же базовый → session ID уникальный per-user
+        //   • token автоматически в extraBody
+        //   • sync через /webhook/sessions-sync (cross-device для одного аккаунта)
         plannerAgent = GigaChat.createChatAgent({
+            userScoped: true,
             webhookPath: 'planner',
             historyPath: 'history',
-            prefix: 'planner_' + USER_PREFIX,
-            idPrefix: 'planner_' + USER_PREFIX + '_',
+            prefix: 'planner',
             namePrefix: 'Список-',
             inflightLabel: 'Думаю',
             exportAgentName: 'GigaChat Планировщик',
@@ -2229,13 +2111,6 @@
                     extras: {}
                 };
             },
-            // CRUD-операции идут через plannerApi() который сам подмешивает token.
-            // Но чат — через createChatAgent.sendMsg, который без extraBody шлёт
-            // только {message, session_id}. Workflow без token → unauthorized.
-            // Прокидываем токен в каждый чат-запрос.
-            extraBody: function () {
-                return { token: getStoredToken() };
-            },
             onSwitchExtra: function (sid) {
                 // sid здесь — id новой активной сессии. Прямо его не сохраняем,
                 // источник истины — sessionStore.state.activeSessionId (читается
@@ -2247,17 +2122,13 @@
             }
         });
 
-        // Отслеживаем удаление сессий через DOM-изменения сайдбара. _shared.js
-        // при удалении ПОСЛЕДНЕЙ сессии не зовёт onSwitch (и значит не зовёт
-        // наш onSwitchExtra) — только onEmpty. Этот колбэк хардкодится в
-        // createChatAgent, расширить его нельзя. MutationObserver на
-        // #sessionList — единственный надёжный сигнал что состав сессий изменился.
+        // Отслеживаем удаление ПОСЛЕДНЕЙ сессии: _shared.js при empty не зовёт
+        // onSwitchExtra (только onEmpty, который мы переопределить не можем).
+        // MutationObserver на #sessionList — единственный надёжный сигнал.
+        // Diff-push на бэкенд теперь делает сам _shared.js (sessions-sync).
         (function () {
             var sl = document.getElementById('sessionList');
             if (!sl) return;
-            // Debounce diffPushSessions — много мутаций подряд (rename input
-            // focus+blur, drag&drop) могут вызывать каскад вызовов
-            var diffDebounceTimer = null;
             new MutationObserver(function () {
                 updateTasksAddBtnState();
                 if (!getCurrentSessionId()) {
@@ -2265,12 +2136,6 @@
                     document.getElementById('tasks-list').innerHTML = '';
                     var ns = document.getElementById('tasksNoSession');
                     if (ns) ns.classList.remove('hidden');
-                }
-                // Diff-sync с дебаунсом (500мс) и ТОЛЬКО на childList event
-                // (не на characterData → не триггерится при typing в rename)
-                if (typeof diffPushSessions === 'function') {
-                    if (diffDebounceTimer) clearTimeout(diffDebounceTimer);
-                    diffDebounceTimer = setTimeout(diffPushSessions, 500);
                 }
             }).observe(sl, { childList: true, subtree: false });
         })();
