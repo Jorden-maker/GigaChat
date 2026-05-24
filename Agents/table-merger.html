@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Объединение таблиц — GigaChat</title>
+    <style>
+        /* Pre-paint фон + базовый body */
+        html { color-scheme: light; background: #fdfdfc; }
+        html[data-theme="dark"] { color-scheme: dark; background: #1f1f1e; }
+        body {
+            margin: 0; font-family: 'Segoe UI', Tahoma, sans-serif;
+            color: #1f1f1e; background: #fdfdfc;
+        }
+        html[data-theme="dark"] body { color: #d4d4d4; background: #1f1f1e; }
+    </style>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <style>
+        :root {
+            --bg-primary: #1f1f1e;
+            --bg-secondary: #1f1e1c;
+            --bg-input: #2c2c2a;
+            --bg-card: #1f1e1c;
+            --border: #363432;
+            --text-primary: #d4d4d4;
+            --text-secondary: #8a8a8a;
+            --text-muted: #5a5a5a;
+            --accent: #d4a574;
+            --accent-hover: #c08a5a;
+            --accent-light: rgba(212, 165, 116, 0.12);
+            --error: #ef4444;
+            --success: #10b981;
+        }
+        :root[data-theme="light"] {
+            --bg-primary: #fdfdfc;
+            --bg-secondary: #f3f1ec;
+            --bg-input: #fffffe;
+            --bg-card: #fffffe;
+            --border: #e3dfd5;
+            --text-primary: #1f1f1e;
+            --text-secondary: #6b6b68;
+            --text-muted: #a8a59f;
+            --accent: #b8895d;
+            --accent-hover: #a0764d;
+            --accent-light: rgba(184, 137, 93, 0.15);
+        }
+        html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        html::-webkit-scrollbar { width: 5px; }
+        html::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* === File list === */
+        #fileList { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; display: none; }
+        #fileList.show { display: block; }
+        #fileList .file-list-header {
+            padding: 12px 18px; background: var(--bg-input);
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 12px; color: var(--text-secondary); letter-spacing: 0.5px;
+        }
+        #fileList .file-list-header .count { color: var(--accent); font-weight: 600; }
+        #fileList .file-list-header .clear-all {
+            color: var(--text-muted); cursor: pointer; font-size: 12px;
+            background: none; border: none; padding: 4px 8px; border-radius: 4px;
+            font-family: inherit;
+        }
+        #fileList .file-list-header .clear-all:hover { color: var(--error); background: rgba(239,68,68,0.08); }
+        .file-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 13.5px;
+        }
+        .file-row:last-child { border-bottom: none; }
+        .file-row .badge {
+            background: var(--accent-light); color: var(--accent);
+            font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 500;
+            flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .file-row .badge.err-b { background: rgba(239,68,68,0.12); color: var(--error); }
+        .file-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+        .file-row .size { color: var(--text-muted); font-size: 12px; font-family: Consolas, monospace; flex-shrink: 0; }
+        .file-row .remove {
+            width: 22px; height: 22px; border: none; background: transparent;
+            color: var(--text-muted); cursor: pointer; border-radius: 4px; font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .file-row .remove:hover { color: var(--error); background: rgba(239,68,68,0.08); }
+        .file-row .err-msg { color: var(--error); font-size: 11px; margin-left: 8px; }
+
+        /* === Options panel === */
+        .opts-panel {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 14px 18px; margin-bottom: 16px; display: none;
+        }
+        .opts-panel.show { display: block; }
+        .opts-panel h3 { margin: 0 0 12px; font-size: 14px; color: var(--text-primary); font-weight: 600; }
+        .opts-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+        .opts-row:last-child { margin-bottom: 0; }
+        .opts-row label.cb { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: var(--text-primary); }
+        .opts-row label.cb input[type=checkbox] { cursor: pointer; }
+        .opts-row .lbl { font-size: 13px; color: var(--text-secondary); }
+        .dedup-info { color: var(--text-muted); font-size: 12px; margin-left: 6px; }
+        .ignore-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .pill {
+            display: inline-block; padding: 4px 12px; border-radius: 14px;
+            font-size: 12px; cursor: pointer; user-select: none;
+            background: var(--bg-input); color: var(--text-primary);
+            border: 1px solid var(--border); transition: all 0.15s;
+        }
+        .pill:hover { border-color: var(--accent); }
+        .pill.ignored {
+            background: rgba(239,68,68,0.10); color: var(--error);
+            border-color: rgba(239,68,68,0.4); text-decoration: line-through;
+        }
+
+        /* === Settings panel (output format + name) === */
+        .settings-panel {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 14px 18px; margin-bottom: 16px; display: none;
+        }
+        .settings-panel.show { display: block; }
+        .settings-row {
+            display: grid; grid-template-columns: 180px 1fr 50px;
+            align-items: center; gap: 0 12px; margin-bottom: 10px;
+        }
+        .settings-row:last-child { margin-bottom: 0; }
+        .settings-row > label { font-size: 13px; color: var(--text-secondary); }
+        .settings-row input[type=text] {
+            width: 100%; padding: 7px 12px; border-radius: 7px;
+            border: 1px solid var(--border); background: var(--bg-input);
+            color: var(--text-primary); font-size: 13px; font-family: inherit; outline: none;
+        }
+        .settings-row input:focus { border-color: var(--accent); }
+        .settings-row .suffix { color: var(--text-muted); font-size: 13px; font-family: Consolas, monospace; }
+        .fmt-radio { display: flex; gap: 14px; }
+        .fmt-radio label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-primary); cursor: pointer; }
+        .fmt-radio label input { cursor: pointer; }
+
+        /* === Custom dropdown === */
+        .gc-dropdown { position: relative; display: inline-block; }
+        .gc-dropdown-trigger {
+            display: inline-flex; align-items: center; justify-content: space-between; gap: 8px;
+            min-width: 200px; padding: 7px 12px 7px 14px;
+            background: var(--bg-input); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 7px;
+            font-family: inherit; font-size: 13px; cursor: pointer;
+        }
+        .gc-dropdown-trigger:hover { border-color: var(--accent); }
+        .gc-dropdown.open .gc-dropdown-trigger { border-color: var(--accent); }
+        .gc-dropdown-label { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gc-dropdown-arrow {
+            width: 7px; height: 7px;
+            border-right: 1.5px solid var(--text-secondary);
+            border-bottom: 1.5px solid var(--text-secondary);
+            transform: translateY(-3px) rotate(45deg);
+            transition: transform 0.2s, border-color 0.15s;
+        }
+        .gc-dropdown.open .gc-dropdown-arrow { transform: translateY(2px) rotate(-135deg); border-color: var(--accent); }
+        .gc-dropdown-menu {
+            position: absolute; top: calc(100% + 4px); left: 0;
+            min-width: 100%; max-height: 320px; overflow-y: auto;
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+            padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            list-style: none; margin: 0; z-index: 50;
+            opacity: 0; visibility: hidden; transform: translateY(-4px);
+            transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+        }
+        .gc-dropdown.open .gc-dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+        .gc-dropdown-menu li {
+            padding: 8px 12px; cursor: pointer; border-radius: 6px;
+            font-size: 13px; color: var(--text-primary);
+        }
+        .gc-dropdown-menu li:hover { background: var(--accent-light); color: var(--accent); }
+        .gc-dropdown-menu li.selected { background: var(--accent-light); color: var(--accent); font-weight: 500; }
+        .gc-dropdown-menu li.selected::before { content: '✓ '; color: var(--accent); margin-right: 4px; }
+
+        /* === Preview === */
+        #previewSection { display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+        #previewSection.show { display: block; }
+        .preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .preview-header h3 { margin: 0; font-size: 14px; color: var(--text-primary); }
+        .preview-meta { font-size: 12px; color: var(--text-secondary); }
+        .preview-scroll { max-height: 400px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+        #previewTable { border-collapse: collapse; width: 100%; font-size: 12px; }
+        #previewTable th, #previewTable td {
+            border: 1px solid var(--border); padding: 5px 9px;
+            text-align: left; color: var(--text-primary);
+            white-space: nowrap; max-width: 250px; overflow: hidden; text-overflow: ellipsis;
+        }
+        #previewTable th { background: var(--bg-input); font-weight: 600; position: sticky; top: 0; z-index: 1; }
+        #previewTable tbody tr:nth-child(even) { background: var(--bg-secondary); }
+        .preview-footer { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+
+        /* === Toasts === */
+        .toast-container { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; max-width: 360px; pointer-events: none; }
+        .toast {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+            padding: 10px 14px; color: var(--text-primary); font-size: 13.5px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25); pointer-events: auto;
+            animation: gc-toast-in 0.22s ease; line-height: 1.4;
+        }
+        .toast.error { border-color: var(--error); color: var(--error); background: rgba(239,68,68,0.08); }
+        .toast.success { border-color: var(--success); color: var(--success); background: rgba(16,185,129,0.08); }
+        .toast.fading { animation: gc-toast-out 0.25s ease forwards; }
+        @keyframes gc-toast-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes gc-toast-out { to { opacity: 0; transform: translateX(20px); } }
+
+        /* === Actions === */
+        .actions { display: flex; gap: 10px; margin-bottom: 16px; }
+        .actions > button { flex: 1; padding: 12px 22px; border-radius: 10px; font-size: 14.5px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; }
+        .actions .btn-secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+        .actions .btn-secondary:hover:not(:disabled) { background: var(--accent-light); }
+        .actions .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+        .actions .btn-primary { background: var(--accent); color: #0a0e15; border: none; }
+        .actions .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+        .actions .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    </style>
+    <script src="_config.js"></script>
+    <script src="_shared.js"></script>
+    <script src="lib/jszip.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat">
+                <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            </a>
+            <h1>Объединение таблиц</h1>
+        </div>
+        <div class="header-right"></div>
+    </header>
+    <main>
+        <div class="intro">
+            <p>Перетащи в зону ниже несколько файлов <code>.docx</code>, <code>.xlsx</code>, <code>.csv</code>/<code>.tsv</code> — у всех таблицы должны иметь <b>одну структуру колонок</b>. Инструмент склеит их в одну итоговую таблицу с возможностью дедупликации, сортировки и игнора отдельных столбцов.</p>
+        </div>
+
+        <label class="drop-zone" id="dropZone" for="fileInput">
+            <input type="file" id="fileInput" multiple accept=".docx,.xlsx,.csv,.tsv" style="display:none">
+            <div class="icon">
+                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+            </div>
+            <div class="title">Перетащи файлы сюда или нажми чтобы выбрать</div>
+            <div class="hint">Word (.docx), Excel (.xlsx), CSV/TSV</div>
+        </label>
+
+        <div id="fileList">
+            <div class="file-list-header">
+                <span><span id="fileCount" class="count">0</span> файлов</span>
+                <button class="clear-all" id="clearAllBtn">Очистить все</button>
+            </div>
+            <div id="fileRows"></div>
+        </div>
+
+        <div class="opts-panel" id="optsPanel">
+            <h3>Опции объединения</h3>
+            <div class="opts-row">
+                <label class="cb"><input type="checkbox" id="optDedup"> Удалить дубликаты строк</label>
+                <span class="dedup-info" id="dedupInfo"></span>
+            </div>
+            <div class="opts-row">
+                <span class="lbl">Сортировка:</span>
+                <div class="gc-dropdown" id="sortColDropdown" data-value="-1">
+                    <button type="button" class="gc-dropdown-trigger"><span class="gc-dropdown-label">Без сортировки</span><span class="gc-dropdown-arrow"></span></button>
+                    <ul class="gc-dropdown-menu"></ul>
+                </div>
+                <div class="gc-dropdown" id="sortDirDropdown" data-value="asc" title="Возрастание: числа 1→9, текст А→Я, даты старая→новая.">
+                    <button type="button" class="gc-dropdown-trigger"><span class="gc-dropdown-label">По возрастанию</span><span class="gc-dropdown-arrow"></span></button>
+                    <ul class="gc-dropdown-menu"></ul>
+                </div>
+            </div>
+            <div class="opts-row" id="ignoreRow" style="display:none">
+                <span class="lbl" style="width:100%;margin-bottom:4px">Игнорировать столбцы (клик включает/выключает):</span>
+                <div class="ignore-list" id="optIgnoreList"></div>
+            </div>
+        </div>
+
+        <div class="settings-panel" id="settingsPanel">
+            <div class="settings-row">
+                <label>Формат файла:</label>
+                <div class="fmt-radio">
+                    <label><input type="radio" name="outFmt" value="xlsx" checked> Excel (.xlsx)</label>
+                    <label><input type="radio" name="outFmt" value="docx"> Word (.docx)</label>
+                </div>
+                <span></span>
+            </div>
+            <div class="settings-row">
+                <label for="setOutputName">Имя файла:</label>
+                <input type="text" id="setOutputName" placeholder="Объединение таблиц" maxlength="100">
+                <span class="suffix" id="outSuffix">.xlsx</span>
+            </div>
+        </div>
+
+        <div id="previewSection">
+            <div class="preview-header">
+                <h3>Превью результата</h3>
+                <span class="preview-meta">Строк: <b id="previewRowCount">0</b> · Столбцов: <b id="previewColCount">0</b></span>
+            </div>
+            <div class="preview-scroll"><table id="previewTable"></table></div>
+            <div class="preview-footer" id="previewFooter"></div>
+        </div>
+
+        <div class="actions">
+            <button class="btn-secondary" id="mergeBtn" disabled>Построить превью</button>
+            <button class="btn-primary" id="downloadBtn" disabled>Скачать</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <span id="loadingText">Обработка...</span>
+            <div class="progress-bar show"><div class="fill" id="progressFill"></div></div>
+        </div>
+    </main>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        GigaChat.injectToolCss();
+
+        // ============ DOM ============
+        var dropZone = document.getElementById('dropZone');
+        var fileInput = document.getElementById('fileInput');
+        var fileList = document.getElementById('fileList');
+        var fileRows = document.getElementById('fileRows');
+        var fileCount = document.getElementById('fileCount');
+        var clearAllBtn = document.getElementById('clearAllBtn');
+        var optsPanel = document.getElementById('optsPanel');
+        var settingsPanel = document.getElementById('settingsPanel');
+        var optDedup = document.getElementById('optDedup');
+        var dedupInfo = document.getElementById('dedupInfo');
+        var ignoreRow = document.getElementById('ignoreRow');
+        var optIgnoreList = document.getElementById('optIgnoreList');
+        var setOutputName = document.getElementById('setOutputName');
+        var outSuffix = document.getElementById('outSuffix');
+        var previewSection = document.getElementById('previewSection');
+        var previewTable = document.getElementById('previewTable');
+        var previewRowCount = document.getElementById('previewRowCount');
+        var previewColCount = document.getElementById('previewColCount');
+        var previewFooter = document.getElementById('previewFooter');
+        var mergeBtn = document.getElementById('mergeBtn');
+        var downloadBtn = document.getElementById('downloadBtn');
+        var loading = document.getElementById('loading');
+        var loadingText = document.getElementById('loadingText');
+        var progressFill = document.getElementById('progressFill');
+        var toastContainer = document.getElementById('toastContainer');
+
+        // ============ State ============
+        var MAX_FILES = 30;
+        var items = []; // { file, type, uid, error, parsed }
+        var allTables = []; // [{ name, headers, rows }] — flat from all items
+        var mergedResult = null; // { headers, rows, sourceMap }
+        var ignoredCols = new Set();
+        var settings = { outputFormat: 'xlsx', outputName: 'Объединение таблиц' };
+
+        var LS_KEY = 'gc_tablemerger_settings_v1';
+        function loadSettings() {
+            try {
+                var raw = localStorage.getItem(LS_KEY);
+                if (raw) {
+                    var p = JSON.parse(raw);
+                    if (p && p.outputFormat === 'docx') settings.outputFormat = 'docx';
+                    if (p && p.outputName) settings.outputName = p.outputName;
+                }
+            } catch (e) {}
+            document.querySelector('input[name=outFmt][value=' + settings.outputFormat + ']').checked = true;
+            setOutputName.value = settings.outputName;
+            updateOutSuffix();
+        }
+        function saveSettings() { try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) {} }
+        function updateOutSuffix() { outSuffix.textContent = '.' + settings.outputFormat; }
+
+        // ============ Toasts ============
+        function showToast(msg, type, ttl) {
+            type = type || 'info';
+            ttl = ttl || (type === 'error' ? 6000 : 4000);
+            var div = document.createElement('div');
+            div.className = 'toast ' + type;
+            div.textContent = msg;
+            toastContainer.appendChild(div);
+            setTimeout(function () {
+                div.classList.add('fading');
+                setTimeout(function () { if (div.parentNode) div.parentNode.removeChild(div); }, 260);
+            }, ttl);
+        }
+
+        // ============ Custom dropdown ============
+        function createDropdown(rootId, items, value, onChange) {
+            var root = document.getElementById(rootId);
+            var trigger = root.querySelector('.gc-dropdown-trigger');
+            var labelEl = root.querySelector('.gc-dropdown-label');
+            var menu = root.querySelector('.gc-dropdown-menu');
+            var state = { items: items.slice(), value: value };
+            function rebuild() {
+                var html = '';
+                for (var i = 0; i < state.items.length; i++) {
+                    var it = state.items[i];
+                    var cls = String(it.value) === String(state.value) ? ' class="selected"' : '';
+                    html += '<li data-value="' + escapeHtml(String(it.value)) + '"' + cls + '>' + escapeHtml(it.label) + '</li>';
+                }
+                menu.innerHTML = html;
+                var lis = menu.querySelectorAll('li');
+                for (var k = 0; k < lis.length; k++) {
+                    lis[k].addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        var v = e.currentTarget.dataset.value;
+                        var opened = document.querySelectorAll('.gc-dropdown.open');
+                        for (var x = 0; x < opened.length; x++) opened[x].classList.remove('open');
+                        setValue(v, true);
+                    });
+                }
+                var found = state.items.find(function (it) { return String(it.value) === String(state.value); });
+                labelEl.textContent = found ? found.label : '';
+                root.dataset.value = String(state.value);
+            }
+            function setValue(v, fireChange) {
+                state.value = v;
+                rebuild();
+                if (fireChange && onChange) onChange(v);
+            }
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var others = document.querySelectorAll('.gc-dropdown.open');
+                for (var i = 0; i < others.length; i++) if (others[i] !== root) others[i].classList.remove('open');
+                root.classList.toggle('open');
+            });
+            rebuild();
+            return {
+                getValue: function () { return state.value; },
+                setValue: function (v) { setValue(v, false); },
+                setItems: function (newItems, newValue) {
+                    state.items = newItems.slice();
+                    if (newValue !== undefined) state.value = newValue;
+                    rebuild();
+                }
+            };
+        }
+        // Один глобальный listener закрывает все dropdown'ы
+        document.addEventListener('click', function () {
+            var opened = document.querySelectorAll('.gc-dropdown.open');
+            for (var i = 0; i < opened.length; i++) opened[i].classList.remove('open');
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            var opened = document.querySelectorAll('.gc-dropdown.open');
+            for (var i = 0; i < opened.length; i++) opened[i].classList.remove('open');
+        });
+
+        var sortColDropdown = createDropdown('sortColDropdown', [{ value: '-1', label: 'Без сортировки' }], '-1', recomputePreview);
+        var sortDirDropdown = createDropdown('sortDirDropdown',
+            [{ value: 'asc', label: 'По возрастанию' }, { value: 'desc', label: 'По убыванию' }],
+            'asc', recomputePreview);
+
+        // ============ Helpers ============
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        function formatSize(n) {
+            if (n < 1024) return n + ' Б';
+            if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' КБ';
+            return (n / 1024 / 1024).toFixed(2) + ' МБ';
+        }
+        function detectType(file) {
+            var name = (file.name || '').toLowerCase();
+            if (name.endsWith('.docx')) return 'docx';
+            if (name.endsWith('.xlsx')) return 'xlsx';
+            if (name.endsWith('.csv') || name.endsWith('.tsv')) return 'csv';
+            return 'unknown';
+        }
+
+        // ============ CSV parser (из file-merger.html) ============
+        async function parseCsv(file) {
+            var text = await file.text();
+            var firstLine = '';
+            for (var i = 0; i < text.length; i++) {
+                if (text.charCodeAt(i) === 10) break;
+                if (text.charCodeAt(i) !== 13) firstLine += text[i];
+            }
+            var counts = { ',': 0, ';': 0, '\t': 0 };
+            var inQuote = false;
+            for (var j = 0; j < firstLine.length; j++) {
+                var ch = firstLine[j];
+                if (ch === '"') {
+                    if (inQuote && firstLine[j + 1] === '"') j++;
+                    else inQuote = !inQuote;
+                } else if (!inQuote && counts.hasOwnProperty(ch)) counts[ch]++;
+            }
+            var delim = ',';
+            if (counts['\t'] > counts[','] && counts['\t'] >= counts[';']) delim = '\t';
+            else if (counts[';'] > counts[',']) delim = ';';
+            if ((file.name || '').toLowerCase().endsWith('.tsv') && counts['\t'] > 0) delim = '\t';
+
+            var rows = [];
+            var cur = '', row = [], inQ = false;
+            for (var p = 0; p < text.length; p++) {
+                var c = text[p];
+                if (inQ) {
+                    if (c === '"') {
+                        if (text[p + 1] === '"') { cur += '"'; p++; }
+                        else inQ = false;
+                    } else cur += c;
+                } else {
+                    if (c === '"' && cur.length === 0) inQ = true;
+                    else if (c === delim) { row.push(cur); cur = ''; }
+                    else if (c === '\n') { row.push(cur); rows.push(row); cur = ''; row = []; }
+                    else if (c === '\r') {}
+                    else cur += c;
+                }
+            }
+            if (cur.length > 0 || row.length > 0) { row.push(cur); rows.push(row); }
+            while (rows.length && rows[rows.length - 1].every(function (v) { return !v; })) rows.pop();
+            return rows;
+        }
+
+        // ============ Парсинг файла → массив таблиц ============
+        async function parseFile(item) {
+            if (item.type === 'xlsx') {
+                var sheets = await GigaChat.parseXlsxFile(item.file);
+                return sheets.filter(function (s) { return s.headers && s.headers.length; })
+                    .map(function (s) {
+                        return {
+                            name: item.file.name + (sheets.length > 1 ? ' [' + s.name + ']' : ''),
+                            headers: s.headers,
+                            rows: s.rows
+                        };
+                    });
+            }
+            if (item.type === 'docx') {
+                var parsed = await GigaChat.parseDocxAllTables(item.file);
+                if (!parsed.tables || !parsed.tables.length) {
+                    throw new Error('В .docx не найдено ни одной таблицы');
+                }
+                // Сохраняем docx-template (zip, doc, tablesEls) — пригодится для выхода в docx.
+                item._docxParsed = parsed;
+                return parsed.tables.map(function (t, i) {
+                    return {
+                        name: item.file.name + (parsed.tables.length > 1 ? ' [Таблица ' + (i + 1) + ']' : ''),
+                        headers: t.headers,
+                        rows: t.rows
+                    };
+                });
+            }
+            if (item.type === 'csv') {
+                var grid = await parseCsv(item.file);
+                if (!grid.length) throw new Error('CSV пустой');
+                return [{
+                    name: item.file.name,
+                    headers: grid[0],
+                    rows: grid.slice(1)
+                }];
+            }
+            return [];
+        }
+
+        // ============ Приём файлов ============
+        function addFiles(fileList) {
+            var dropped = 0;
+            for (var i = 0; i < fileList.length; i++) {
+                if (items.length >= MAX_FILES) { dropped = fileList.length - i; break; }
+                var f = fileList[i];
+                var type = detectType(f);
+                items.push({
+                    file: f,
+                    type: type,
+                    uid: 'f' + (Date.now() + Math.random()).toString(36),
+                    error: type === 'unknown' ? 'Неизвестный тип' : '',
+                    parsed: null
+                });
+            }
+            if (dropped > 0) showToast('Лимит ' + MAX_FILES + ' файлов. Отброшено: ' + dropped, 'error');
+            renderList();
+            updateUI();
+            // Парсим новые файлы и обновляем превью
+            parseAllAndRecompute();
+        }
+
+        async function parseAllAndRecompute() {
+            for (var i = 0; i < items.length; i++) {
+                var it = items[i];
+                if (it.error || it.parsed) continue;
+                try {
+                    it.parsed = await parseFile(it);
+                } catch (e) {
+                    it.error = e.message || String(e);
+                    showToast('Файл «' + it.file.name + '»: ' + it.error, 'error');
+                }
+            }
+            renderList();
+            recomputePreview();
+        }
+
+        // Drop-zone
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            dropZone.addEventListener(ev, function (e) { e.preventDefault(); dropZone.classList.add('dragging'); });
+        });
+        dropZone.addEventListener('dragleave', function (e) { e.preventDefault(); dropZone.classList.remove('dragging'); });
+        dropZone.addEventListener('drop', function (e) {
+            e.preventDefault(); dropZone.classList.remove('dragging');
+            if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', function (e) {
+            if (e.target.files) addFiles(e.target.files);
+            fileInput.value = '';
+        });
+        clearAllBtn.addEventListener('click', function () {
+            items = []; mergedResult = null; allTables = []; ignoredCols = new Set();
+            renderList(); updateUI(); hidePreview();
+        });
+
+        function renderList() {
+            if (!items.length) {
+                fileList.classList.remove('show');
+                fileRows.innerHTML = '';
+                fileCount.textContent = '0';
+                return;
+            }
+            fileList.classList.add('show');
+            fileCount.textContent = String(items.length);
+            var html = '';
+            for (var i = 0; i < items.length; i++) {
+                var it = items[i];
+                var badgeText = it.error ? 'Ошибка' :
+                    it.type === 'docx' ? 'WORD' :
+                    it.type === 'xlsx' ? 'EXCEL' :
+                    it.type === 'csv' ? 'CSV/TSV' : '?';
+                var badgeClass = it.error ? 'badge err-b' : 'badge';
+                html +=
+                    '<div class="file-row" data-uid="' + it.uid + '">' +
+                        '<span class="' + badgeClass + '">' + badgeText + '</span>' +
+                        '<span class="name">' + escapeHtml(it.file.name) + '</span>' +
+                        (it.error ? '<span class="err-msg">' + escapeHtml(it.error) + '</span>' : '') +
+                        '<span class="size">' + formatSize(it.file.size) + '</span>' +
+                        '<button class="remove" data-uid="' + it.uid + '">×</button>' +
+                    '</div>';
+            }
+            fileRows.innerHTML = html;
+            var removes = fileRows.querySelectorAll('.remove');
+            for (var r = 0; r < removes.length; r++) {
+                removes[r].addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var uid = e.currentTarget.dataset.uid;
+                    items = items.filter(function (it) { return it.uid !== uid; });
+                    renderList(); updateUI();
+                    recomputePreview();
+                });
+            }
+        }
+
+        function updateUI() {
+            var hasOk = items.some(function (it) { return !it.error && it.parsed; });
+            optsPanel.classList.toggle('show', hasOk);
+            settingsPanel.classList.toggle('show', hasOk);
+            mergeBtn.disabled = !hasOk;
+        }
+
+        // ============ Merge + preview ============
+        function collectAllTables() {
+            var flat = [];
+            for (var i = 0; i < items.length; i++) {
+                var it = items[i];
+                if (it.error || !it.parsed) continue;
+                for (var j = 0; j < it.parsed.length; j++) flat.push(it.parsed[j]);
+            }
+            return flat;
+        }
+
+        function recomputePreview() {
+            allTables = collectAllTables();
+            if (!allTables.length) {
+                mergedResult = null;
+                hidePreview();
+                downloadBtn.disabled = true;
+                return;
+            }
+            try {
+                var opts = {
+                    dedup: optDedup.checked,
+                    sortColumn: parseInt(sortColDropdown.getValue(), 10),
+                    sortDir: sortDirDropdown.getValue(),
+                    ignoreColumns: ignoredCols
+                };
+                mergedResult = GigaChat.mergeTables(allTables, opts);
+            } catch (e) {
+                showToast('Ошибка мерджа: ' + (e.message || e), 'error');
+                mergedResult = null;
+                hidePreview();
+                downloadBtn.disabled = true;
+                return;
+            }
+            renderPreview();
+            updateSortDropdownItems();
+            renderIgnoreList();
+            renderDedupInfo();
+            downloadBtn.disabled = false;
+        }
+
+        function renderPreview() {
+            if (!mergedResult || !mergedResult.headers || !mergedResult.headers.length) {
+                hidePreview();
+                return;
+            }
+            previewSection.classList.add('show');
+            var headers = mergedResult.headers;
+            var rows = mergedResult.rows;
+            previewRowCount.textContent = String(rows.length);
+            previewColCount.textContent = String(headers.length);
+            var visibleCols = [];
+            for (var c = 0; c < headers.length; c++) if (!ignoredCols.has(c)) visibleCols.push(c);
+            var html = '<thead><tr>';
+            for (var ci = 0; ci < visibleCols.length; ci++) html += '<th>' + escapeHtml(headers[visibleCols[ci]]) + '</th>';
+            html += '</tr></thead><tbody>';
+            var PREVIEW_LIMIT = 200;
+            var shown = Math.min(rows.length, PREVIEW_LIMIT);
+            for (var r = 0; r < shown; r++) {
+                html += '<tr>';
+                for (var ci2 = 0; ci2 < visibleCols.length; ci2++) {
+                    html += '<td>' + escapeHtml(rows[r][visibleCols[ci2]] || '') + '</td>';
+                }
+                html += '</tr>';
+            }
+            html += '</tbody>';
+            previewTable.innerHTML = html;
+            previewFooter.textContent = shown < rows.length
+                ? 'Показано ' + shown + ' из ' + rows.length + ' строк (превью обрезано — в файл попадут все).'
+                : 'Показаны все ' + rows.length + ' строк.';
+        }
+
+        function hidePreview() { previewSection.classList.remove('show'); }
+
+        function updateSortDropdownItems() {
+            if (!mergedResult) return;
+            var items = [{ value: '-1', label: 'Без сортировки' }];
+            for (var c = 0; c < mergedResult.headers.length; c++) {
+                items.push({ value: String(c), label: mergedResult.headers[c] || '(колонка ' + (c + 1) + ')' });
+            }
+            var curVal = sortColDropdown.getValue();
+            // Если выбранная колонка больше не существует — сбросим на -1
+            var validValues = items.map(function (it) { return String(it.value); });
+            if (validValues.indexOf(String(curVal)) < 0) curVal = '-1';
+            sortColDropdown.setItems(items, curVal);
+        }
+
+        function renderIgnoreList() {
+            if (!mergedResult || !mergedResult.headers.length) {
+                ignoreRow.style.display = 'none';
+                return;
+            }
+            ignoreRow.style.display = 'flex';
+            var html = '';
+            for (var c = 0; c < mergedResult.headers.length; c++) {
+                var ignored = ignoredCols.has(c);
+                html += '<span class="pill ' + (ignored ? 'ignored' : '') + '" data-col="' + c + '">' + escapeHtml(mergedResult.headers[c]) + '</span>';
+            }
+            optIgnoreList.innerHTML = html;
+            var pills = optIgnoreList.querySelectorAll('.pill');
+            for (var p = 0; p < pills.length; p++) {
+                pills[p].addEventListener('click', function (e) {
+                    var col = parseInt(e.currentTarget.dataset.col, 10);
+                    if (ignoredCols.has(col)) ignoredCols.delete(col);
+                    else ignoredCols.add(col);
+                    recomputePreview();
+                });
+            }
+        }
+
+        function renderDedupInfo() {
+            if (!optDedup.checked || !mergedResult) {
+                dedupInfo.textContent = '';
+                return;
+            }
+            // Подсчитаем удалённые: до dedup и после
+            var totalIn = 0;
+            for (var i = 0; i < allTables.length; i++) totalIn += allTables[i].rows.length;
+            var removed = totalIn - mergedResult.rows.length;
+            dedupInfo.textContent = removed > 0 ? '(убрано дубликатов: ' + removed + ')' : '';
+        }
+
+        // Event listeners
+        optDedup.addEventListener('change', recomputePreview);
+        mergeBtn.addEventListener('click', recomputePreview);
+
+        // ============ Output settings ============
+        document.querySelectorAll('input[name=outFmt]').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                settings.outputFormat = radio.value;
+                updateOutSuffix();
+                saveSettings();
+            });
+        });
+        setOutputName.addEventListener('input', function () {
+            settings.outputName = (setOutputName.value || '').trim() || 'Объединение таблиц';
+            saveSettings();
+        });
+        loadSettings();
+
+        // ============ Download ============
+        downloadBtn.addEventListener('click', doDownload);
+        async function doDownload() {
+            if (!mergedResult) { showToast('Сначала построй превью', 'error'); return; }
+            var visibleCols = [];
+            for (var c = 0; c < mergedResult.headers.length; c++) if (!ignoredCols.has(c)) visibleCols.push(c);
+            var outHeaders = visibleCols.map(function (c) { return mergedResult.headers[c]; });
+            var outRows = mergedResult.rows.map(function (r) {
+                return visibleCols.map(function (c) { return r[c] || ''; });
+            });
+            downloadBtn.disabled = true;
+            loading.style.display = 'block';
+            loadingText.textContent = 'Сборка файла...';
+            progressFill.style.width = '50%';
+            try {
+                var blob;
+                if (settings.outputFormat === 'xlsx') {
+                    blob = await GigaChat.buildXlsxBlob(outHeaders, outRows, 'Объединение');
+                } else {
+                    blob = await buildDocxBlob(outHeaders, outRows);
+                }
+                progressFill.style.width = '100%';
+                var name = (settings.outputName || 'Объединение таблиц').replace(/\.(xlsx|docx)$/i, '') + '.' + settings.outputFormat;
+                triggerDownload(blob, name);
+                showToast('Файл собран и скачан', 'success');
+            } catch (e) {
+                showToast('Ошибка сборки: ' + (e.message || e), 'error');
+            } finally {
+                downloadBtn.disabled = false;
+                setTimeout(function () {
+                    loading.style.display = 'none';
+                    progressFill.style.width = '0%';
+                }, 300);
+            }
+        }
+
+        // ============ DOCX build ============
+        // Используем первый docx-источник как ТЕМПЛЕЙТ — сохраняются стили, шрифты,
+        // ширины колонок. Если на входе НЕТ docx — собираем минимальный с нуля.
+        var WNS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+        function buildDocxRow(xmlDoc, cells, isHeader) {
+            var tr = xmlDoc.createElementNS(WNS, 'w:tr');
+            for (var i = 0; i < cells.length; i++) {
+                var tc = xmlDoc.createElementNS(WNS, 'w:tc');
+                var tcPr = xmlDoc.createElementNS(WNS, 'w:tcPr');
+                var tcW = xmlDoc.createElementNS(WNS, 'w:tcW');
+                tcW.setAttributeNS(WNS, 'w:w', '2200');
+                tcW.setAttributeNS(WNS, 'w:type', 'dxa');
+                tcPr.appendChild(tcW);
+                tc.appendChild(tcPr);
+                var p = xmlDoc.createElementNS(WNS, 'w:p');
+                var r = xmlDoc.createElementNS(WNS, 'w:r');
+                if (isHeader) {
+                    var rPr = xmlDoc.createElementNS(WNS, 'w:rPr');
+                    rPr.appendChild(xmlDoc.createElementNS(WNS, 'w:b'));
+                    r.appendChild(rPr);
+                }
+                var t = xmlDoc.createElementNS(WNS, 'w:t');
+                t.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
+                t.textContent = String(cells[i] == null ? '' : cells[i]);
+                r.appendChild(t);
+                p.appendChild(r);
+                tc.appendChild(p);
+                tr.appendChild(tc);
+            }
+            return tr;
+        }
+
+        async function buildDocxBlob(headers, rows) {
+            // Ищем первый docx-источник в items
+            var docxItem = items.find(function (it) { return it._docxParsed; });
+            if (docxItem) {
+                // Темплейт-режим: заменяем первую таблицу в исходном docx
+                var template = docxItem._docxParsed;
+                var xmlDoc = template.doc;
+                var origTbl = template.tablesEls[0];
+                var tblPr = origTbl.getElementsByTagName('w:tblPr')[0];
+                var newTbl = xmlDoc.createElementNS(WNS, 'w:tbl');
+                if (tblPr) {
+                    var tblPrClone = tblPr.cloneNode(true);
+                    var tblWs = tblPrClone.getElementsByTagName('w:tblW');
+                    for (var w = tblWs.length - 1; w >= 0; w--) {
+                        if (tblWs[w].parentNode) tblWs[w].parentNode.removeChild(tblWs[w]);
+                    }
+                    newTbl.appendChild(tblPrClone);
+                }
+                var tblGrid = xmlDoc.createElementNS(WNS, 'w:tblGrid');
+                for (var gi = 0; gi < headers.length; gi++) {
+                    var gc = xmlDoc.createElementNS(WNS, 'w:gridCol');
+                    gc.setAttributeNS(WNS, 'w:w', '2200');
+                    tblGrid.appendChild(gc);
+                }
+                newTbl.appendChild(tblGrid);
+                newTbl.appendChild(buildDocxRow(xmlDoc, headers, true));
+                for (var ri = 0; ri < rows.length; ri++) {
+                    newTbl.appendChild(buildDocxRow(xmlDoc, rows[ri], false));
+                }
+                origTbl.parentNode.replaceChild(newTbl, origTbl);
+                for (var ti = template.tablesEls.length - 1; ti >= 1; ti--) {
+                    var el = template.tablesEls[ti];
+                    if (el.parentNode) el.parentNode.removeChild(el);
+                }
+                var newXml = new XMLSerializer().serializeToString(xmlDoc);
+                if (newXml.indexOf('<?xml') !== 0) {
+                    newXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + newXml;
+                }
+                template.zip.file('word/document.xml', newXml);
+                return template.zip.generateAsync({
+                    type: 'blob',
+                    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    compression: 'DEFLATE'
+                });
+            }
+            // Нет docx-источника → минимальный docx с нуля
+            return buildMinimalDocx(headers, rows);
+        }
+
+        async function buildMinimalDocx(headers, rows) {
+            var tblPr =
+                '<w:tblPr><w:tblBorders>' +
+                    ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(function (s) {
+                        return '<w:' + s + ' w:val="single" w:sz="4" w:space="0" w:color="auto"/>';
+                    }).join('') +
+                '</w:tblBorders></w:tblPr>';
+            var colW = Math.floor(9000 / Math.max(1, headers.length));
+            var tblGrid = '<w:tblGrid>' + headers.map(function () { return '<w:gridCol w:w="' + colW + '"/>'; }).join('') + '</w:tblGrid>';
+
+            function cellXml(text, isHead) {
+                var rPr = isHead ? '<w:rPr><w:b/></w:rPr>' : '';
+                var safe = String(text == null ? '' : text).replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c];
+                });
+                return '<w:tc><w:tcPr><w:tcW w:w="' + colW + '" w:type="dxa"/></w:tcPr>' +
+                    '<w:p><w:r>' + rPr + '<w:t xml:space="preserve">' + safe + '</w:t></w:r></w:p>' +
+                    '</w:tc>';
+            }
+            var headerRow = '<w:tr>' + headers.map(function (h) { return cellXml(h, true); }).join('') + '</w:tr>';
+            var dataRows = rows.map(function (r) {
+                return '<w:tr>' + headers.map(function (_, c) { return cellXml(r[c] || '', false); }).join('') + '</w:tr>';
+            }).join('');
+
+            var documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+                '<w:document xmlns:w="' + WNS + '"><w:body><w:tbl>' + tblPr + tblGrid + headerRow + dataRows + '</w:tbl>' +
+                '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="850" w:bottom="1134" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>' +
+                '</w:body></w:document>';
+
+            var ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+                '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+                '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+                '<Default Extension="xml" ContentType="application/xml"/>' +
+                '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+                '</Types>';
+            var mainRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+                '</Relationships>';
+
+            var zip = new JSZip();
+            zip.file('[Content_Types].xml', ct);
+            zip.file('_rels/.rels', mainRels);
+            zip.file('word/document.xml', documentXml);
+            return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', compression: 'DEFLATE' });
+        }
+
+        function triggerDownload(blob, filename) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click();
+            setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+        }
+    </script>
+</body>
+</html>

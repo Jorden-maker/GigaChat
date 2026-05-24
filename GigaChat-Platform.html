@@ -412,20 +412,12 @@
     </div>
     <div class="cards-grid-tools-2">
 
-        <a class="card card-merger-excel" href="Agents/table-merger-excel.html" id="card-merger-excel">
-            <div class="card-status checking" id="status-merger-excel"></div>
+        <a class="card card-table-merger" href="Agents/table-merger.html" id="card-table-merger">
+            <div class="card-status checking" id="status-table-merger"></div>
             <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></div>
-            <div class="card-title">Объединение таблиц Excel</div>
-            <div class="card-desc">Объединяет несколько файлов Excel с одинаковыми таблицами в один итоговый файл.</div>
-            <span class="card-tag">Excel</span>
-        </a>
-
-        <a class="card card-merger-word" href="Agents/table-merger-word.html" id="card-merger-word">
-            <div class="card-status checking" id="status-merger-word"></div>
-            <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></div>
-            <div class="card-title">Объединение таблиц Word</div>
-            <div class="card-desc">Объединяет несколько файлов Word с одинаковыми таблицами в один итоговый файл.</div>
-            <span class="card-tag">Word</span>
+            <div class="card-title">Объединение таблиц</div>
+            <div class="card-desc">Объединяет таблицы из Word, Excel и CSV/TSV в один итоговый файл — формат на выбор.</div>
+            <span class="card-tag">Word, Excel, CSV</span>
         </a>
 
         <a class="card card-file-merger" href="Agents/file-merger.html" id="card-file-merger">
@@ -477,7 +469,6 @@
         { id: 'ocr',    webhook: GigaChat.webhookUrl('ocr') },
         { id: 'docs',   webhook: GigaChat.webhookUrl('upload-doc') },
         { id: 'extract', webhook: GigaChat.webhookUrl('extract-text') },
-        { id: 'merger-excel', webhook: GigaChat.webhookUrl('table-merger-excel') },
         { id: 'planner',    webhook: GigaChat.webhookUrl('planner') },
         { id: 'plane',      webhook: GigaChat.webhookUrl('plane-agent') },
         { id: 'org-appeal', webhook: GigaChat.webhookUrl('organization-appeal') }
@@ -487,10 +478,10 @@
 
     document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-    // merger-word и file-merger работают в браузере — статус ВСЕГДА online
+    // table-merger и file-merger работают в браузере — статус ВСЕГДА online
     // (никакой сервер не нужен, JSZip и DOMParser всё делают локально).
-    var mergerWordDot = document.getElementById('status-merger-word');
-    if (mergerWordDot) mergerWordDot.className = 'card-status online';
+    var tableMergerDot = document.getElementById('status-table-merger');
+    if (tableMergerDot) tableMergerDot.className = 'card-status online';
     var fileMergerDot = document.getElementById('status-file-merger');
     if (fileMergerDot) fileMergerDot.className = 'card-status online';
 
