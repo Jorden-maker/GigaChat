@@ -207,12 +207,17 @@
             list-style: none; margin: 0;
             z-index: 50;
             scrollbar-width: thin; scrollbar-color: var(--border) transparent;
-            opacity: 0; visibility: hidden;
+            opacity: 0;
+            visibility: hidden;
             transform: translateY(-4px);
-            transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+            /* Closing: opacity и transform плавно за 180мс, visibility ПОСЛЕ
+               (delay = длительности fade'а) — иначе элемент успевает мигнуть. */
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
         }
         .gc-dropdown.open .gc-dropdown-menu {
             opacity: 1; visibility: visible; transform: translateY(0);
+            /* Opening: visibility сразу видимо (delay=0), потом fade'имся в 180мс. */
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0s;
         }
         .gc-dropdown-menu li {
             padding: 8px 12px; cursor: pointer; border-radius: 6px;
