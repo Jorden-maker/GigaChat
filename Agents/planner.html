@@ -606,204 +606,17 @@
             padding: 8px 22px 0; color: var(--priority-high); font-size: 12px; min-height: 14px;
         }
 
-        /* === Login-screen (первый заход юзера) =============================
-           Полноэкранный экран в фирменной теме (var(--bg-primary)). НЕ overlay
-           поверх UI — UI за ним не должен просвечивать (раньше через rgba
-           viден был сайдбар+main). Body получает overflow:hidden когда
-           login активен, чтобы не было scrollbar справа от страницы. */
-        .gc-login-overlay {
-            position: fixed; inset: 0; z-index: 1000;
-            background: var(--bg-primary);
-            /* Flex: горизонтальное центрирование (без конфликта с
-               animation transform на модалке), верх прибит к padding-top.
-               align-items: flex-start → при изменении высоты растёт только вниз. */
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding-top: 18vh;
-            opacity: 1;
-            transition: opacity 0.25s ease;
-            overflow-y: auto;
-        }
-        /* Плавное растворение overlay после успешного login/register */
-        .gc-login-overlay.gc-fade-out { opacity: 0; pointer-events: none; }
-        /* Пока auth не разрешён (bootstrap проверяет токен или показывает
-           login) — основной UI скрыт. Это убирает FOUC «проскока чужого UI»
-           между login-формой и планировщиком. Класс ставится в inline-скрипте
-           в <head> ДО парсинга CSS, снимается в hideLoginScreen(). */
+        /* === Login-overlay стили удалены — login/register живёт в /login.html.
+           На этой странице остаётся только chgpwd-модалка + общие success-styles. */
+        /* Пока auth не разрешён (bootstrap делает verify токена) — основной UI
+           скрыт. Это убирает FOUC «проскока чужого UI» между серверным verify и
+           первым рендером планировщика. Класс ставится в inline-скрипте в <head>
+           ДО парсинга CSS, снимается в onOk колбэке requireAuth. */
         html.gc-pending-auth .sidebar,
         html.gc-pending-auth .main { display: none !important; }
-        /* Кнопка «Назад к GigaChat» в левом верхнем углу login-экрана.
-           Визуально идентична .btn-home из _shared.js (та же — в сайдбаре после
-           логина), но fixed-позиционирование, чтобы поверх overlay'а. */
-        .gc-login-back {
-            position: fixed; top: 10px; left: 14px; z-index: 1001;
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 36px; height: 36px;
-            background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 8px; color: var(--text-secondary);
-            text-decoration: none;
-            transition: background .15s, color .15s, border-color .15s;
-        }
-        .gc-login-back:hover {
-            background: var(--bg-input); color: var(--text-primary);
-            border-color: var(--text-muted);
-        }
-        .gc-login-back svg {
-            width: 16px; height: 16px;
-            stroke: currentColor; fill: none;
-            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
-        }
-        /* Кнопка переключения тем в правом верхнем углу login-экрана.
-           Не полагаемся на #gc-theme-toggle из _shared.js — он может быть
-           перекрыт overlay в некоторых браузерах. Своя кнопка — надёжнее.
-           Стиль скопирован один-в-один из _shared.js (круглая, иконка-луна/солнце). */
-        .gc-login-theme {
-            position: fixed; top: 10px; right: 14px; z-index: 1001;
-            /* Размер 32×32 — точно как у #gc-theme-toggle из _shared.js
-               (на других страницах). Не путать с .btn-home (36×36). */
-            width: 32px; height: 32px;
-            display: inline-flex; align-items: center; justify-content: center;
-            background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 50%; color: var(--text-secondary);
-            cursor: pointer; padding: 0; font-family: inherit;
-            transition: background .15s, color .15s, border-color .15s, transform .15s;
-        }
-        .gc-login-theme:hover {
-            background: var(--bg-hover, rgba(255,255,255,0.06));
-            color: var(--accent); border-color: var(--accent);
-            transform: rotate(15deg);
-        }
-        .gc-login-theme svg {
-            width: 16px; height: 16px;
-            stroke: currentColor; fill: none;
-            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
-        }
-        .gc-login-modal {
-            background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 12px;
-            width: min(420px, 92vw);
-            flex-shrink: 0;
-            /* Flex column: footer прижат margin-top:auto к нижней границе.
-               При transition height (рост вниз) footer движется синхронно
-               с нижней границей модалки — не «прыгает». */
-            display: flex; flex-direction: column;
-            overflow: hidden;  /* контент не торчит за границу при swap */
-            transition: height 0.18s ease;
-            animation: plannerModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        /* Footer всегда прижат к низу модалки */
-        .gc-login-footer { margin-top: auto; }
-        /* Плавный fade форм при смене вкладки — fade-out до движения рамки,
-           fade-in после. 90мс — быстро, но различимо. */
-        .gc-login-form { transition: opacity 0.09s ease; }
-        .gc-login-header {
-            padding: 22px 24px 6px; font-size: 18px; font-weight: 600;
-            color: var(--text-primary); text-align: center;
-            letter-spacing: 0.5px;
-        }
-        .gc-login-subtitle {
-            padding: 0 24px 18px; font-size: 13px; color: var(--text-secondary);
-            line-height: 1.5; text-align: center;
-        }
-        /* Tabs Вход / Регистрация */
-        .gc-login-tabs {
-            display: flex; gap: 4px;
-            margin: 4px 22px 14px;
-            padding: 4px;
-            background: var(--bg-input); border-radius: 8px;
-        }
-        .gc-login-tab {
-            flex: 1; background: transparent; border: none; cursor: pointer;
-            padding: 8px 12px; border-radius: 6px;
-            font-family: inherit; font-size: 13px; font-weight: 500;
-            color: var(--text-secondary);
-            transition: background 0.18s ease, color 0.18s ease;
-        }
-        .gc-login-tab:hover { color: var(--text-primary); }
-        .gc-login-tab.active {
-            background: var(--accent); color: #fff;
-        }
 
-        /* Формы вход/регистрация */
-        .gc-login-form { padding: 0 22px; display: flex; flex-direction: column; gap: 10px; }
-        .gc-login-form.hidden { display: none; }
-        .gc-login-form label {
-            display: flex; flex-direction: column; gap: 4px;
-            font-size: 12px; color: var(--text-secondary); font-weight: 500;
-        }
-        .gc-login-form input[type="text"],
-        .gc-login-form input[type="password"] {
-            background: var(--bg-input); border: 1px solid var(--border);
-            border-radius: 6px; padding: 10px 14px; color: var(--text-primary);
-            font-family: inherit; font-size: 14px; outline: none;
-            transition: border-color 0.18s ease, background 0.18s ease;
-        }
-        .gc-login-form input:hover { border-color: var(--text-secondary); }
-        .gc-login-form input:focus {
-            border-color: var(--accent); background: var(--bg-secondary);
-        }
-        /* Кастомный чекбокс: нативный input спрятан, визуальный квадрат —
-           span.gc-checkbox-box. Hover/click только на самом квадрате —
-           клик по тексту не переключает чекбокс. Tab→input, Space→toggle. */
-        .gc-checkbox-row {
-            display: flex !important; flex-direction: row !important;
-            align-items: center; gap: 10px !important;
-            user-select: none; padding: 2px 0;
-            /* cursor на row НЕ ставим — кликабелен только сам box */
-        }
-        .gc-checkbox-row input[type="checkbox"] {
-            /* Прячем нативный visually-hidden способом — фокус сохраняется,
-               accessibility tree не теряет элемент. Pointer-events:none —
-               клик по box идёт в JS (см. onclick на span) или native через Tab+Space. */
-            position: absolute; opacity: 0; pointer-events: none;
-            width: 1px; height: 1px; margin: -1px;
-            clip: rect(0 0 0 0); clip-path: inset(50%);
-            overflow: hidden; white-space: nowrap;
-        }
-        .gc-checkbox-box {
-            flex-shrink: 0;
-            width: 18px; height: 18px;
-            border: 1.5px solid var(--border);
-            border-radius: 4px;
-            background: var(--bg-input);
-            display: inline-flex; align-items: center; justify-content: center;
-            position: relative;
-            cursor: pointer;
-            transition: border-color 0.18s ease, background 0.18s ease;
-        }
-        /* Подсветка только при наведении на сам квадрат */
-        .gc-checkbox-box:hover {
-            border-color: var(--accent);
-        }
-        .gc-checkbox-row input[type="checkbox"]:focus-visible + .gc-checkbox-box {
-            outline: 2px solid var(--accent);
-            outline-offset: 2px;
-        }
-        .gc-checkbox-row input[type="checkbox"]:checked + .gc-checkbox-box {
-            background: var(--accent);
-            border-color: var(--accent);
-        }
-        .gc-checkbox-row input[type="checkbox"]:checked + .gc-checkbox-box::after {
-            content: '';
-            width: 5px; height: 9px;
-            border: solid #fff;
-            border-width: 0 2px 2px 0;
-            transform: rotate(45deg) translate(-1px, -1px);
-        }
-        .gc-checkbox-row .gc-checkbox-label {
-            font-size: 14px; color: var(--text-primary); font-weight: 500;
-            letter-spacing: 0.2px; line-height: 1;
-            cursor: default;
-        }
-        .gc-login-error {
-            min-height: 16px; font-size: 12px; color: var(--priority-high);
-            text-align: center; margin-top: 4px;
-        }
-        /* Success-стейт (после регистрации/смены пароля): зелёный бэйдж с
-           белой галочкой слева + текст справа. Один стиль для login-экрана
-           и chgpwd-модалки. setLoginError снимает класс при следующей ошибке. */
-        .gc-login-error.gc-success,
+        /* Success-стейт (после смены пароля): зелёный бэйдж с галочкой + текст.
+           Раньше совмещался с .gc-login-error — теперь только chgpwd. */
         .gc-chgpwd-error.gc-success {
             display: flex; align-items: center; justify-content: center;
             gap: 8px;
@@ -816,27 +629,12 @@
             background: #4caf50; border-radius: 50%;
             position: relative;
         }
-        /* Галочка внутри — тот же приём что в чекбоксе .gc-checkbox-box */
         .gc-success-badge::before {
             content: '';
             width: 5px; height: 9px;
             border: solid #fff;
             border-width: 0 2px 2px 0;
             transform: rotate(45deg) translate(-1px, -1px);
-        }
-        .gc-login-footer {
-            padding: 14px 22px 22px;
-        }
-        .gc-login-footer button {
-            width: 100%; padding: 10px 18px; border-radius: 6px;
-            background: var(--accent); color: #fff; border: none; cursor: pointer;
-            font-family: inherit; font-size: 14px; font-weight: 600;
-            transition: background 0.18s ease, transform 0.1s ease, opacity 0.18s ease;
-        }
-        .gc-login-footer button:hover { background: var(--accent-hover); }
-        .gc-login-footer button:active { transform: scale(0.98); }
-        .gc-login-footer button:disabled {
-            opacity: 0.5; cursor: not-allowed;
         }
 
         /* Change-password модалка — отдельная overlay поверх основного UI */
@@ -962,62 +760,9 @@
     <div id="__gc-bootloader" style="position:fixed;inset:0;background:#1f1f1e;z-index:99999;pointer-events:none"></div>
     <script>(function(){var t=document.documentElement.getAttribute('data-theme');if(t!=='dark'){var el=document.getElementById('__gc-bootloader');if(el)el.style.background='#fdfdfc';}})();</script>
 
-    <!-- Login-screen: показывается если в localStorage нет валидного planner_token
-         либо verify-токена вернул auth_required. Tabs Вход/Регистрация. -->
-    <div class="gc-login-overlay" id="loginOverlay" style="display:none">
-        <!-- Кнопка возврата в дашборд (визуально как .btn-home в сайдбаре) -->
-        <a class="gc-login-back" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
-        <!-- Кнопка переключения тем (как #gc-theme-toggle на остальных страницах) -->
-        <button class="gc-login-theme" id="loginThemeToggle" type="button" onclick="loginToggleTheme()" aria-label="Переключить тему"></button>
-        <div class="gc-login-modal">
-            <div class="gc-login-header">Планировщик</div>
-            <div class="gc-login-tabs">
-                <button class="gc-login-tab active" data-tab="login" onclick="switchLoginTab('login')">Вход</button>
-                <button class="gc-login-tab" data-tab="register" onclick="switchLoginTab('register')">Регистрация</button>
-            </div>
-
-            <!-- Login form. data-next — id поля, на которое перейти при Enter.
-                 Пустой data-next или его отсутствие = native submit.
-                 title= намеренно НЕ ставим — юзер запретил все тултипы на login. -->
-            <form class="gc-login-form" data-form="login" onsubmit="event.preventDefault(); submitLogin()">
-                <label>Имя
-                    <input type="text" id="loginUsername" maxlength="100" autocomplete="username"
-                           placeholder="Иванов" data-next="loginPassword">
-                </label>
-                <label>Пароль
-                    <input type="password" id="loginPassword" maxlength="200" autocomplete="current-password"
-                           placeholder="••••••••" data-next="loginSubmitBtn">
-                </label>
-                <div class="gc-checkbox-row">
-                    <input type="checkbox" id="loginRemember" checked>
-                    <span class="gc-checkbox-box" aria-hidden="true" onclick="document.getElementById('loginRemember').click()"></span>
-                    <span class="gc-checkbox-label">Запомнить меня</span>
-                </div>
-                <div class="gc-login-error" id="loginError"></div>
-            </form>
-
-            <!-- Register form -->
-            <form class="gc-login-form hidden" data-form="register" onsubmit="event.preventDefault(); submitRegister()">
-                <label>Имя
-                    <input type="text" id="regUsername" maxlength="100" autocomplete="username"
-                           placeholder="Иванов" data-next="regPassword">
-                </label>
-                <label>Пароль
-                    <input type="password" id="regPassword" maxlength="200" autocomplete="new-password"
-                           placeholder="не менее 6 символов" data-next="regPassword2">
-                </label>
-                <label>Подтвердите пароль
-                    <input type="password" id="regPassword2" maxlength="200" autocomplete="new-password"
-                           placeholder="ещё раз" data-next="loginSubmitBtn">
-                </label>
-                <div class="gc-login-error" id="regError"></div>
-            </form>
-
-            <div class="gc-login-footer">
-                <button id="loginSubmitBtn" onclick="document.querySelector('.gc-login-form:not(.hidden)').requestSubmit()">Войти</button>
-            </div>
-        </div>
-    </div>
+    <!-- Login/register перенесены в /login.html (single-source-of-truth для всей
+         платформы). При отсутствии токена/auth_required делаем редирект через
+         GigaChat.auth.requireAuth() из _shared.js. -->
 
     <!-- Change-password модалка — вызывается из user-menu после login -->
     <div class="gc-chgpwd-overlay" id="chgpwdOverlay" onclick="if(event.target===this)closeChgpwdModal()">
@@ -1225,36 +970,22 @@
     <script>
         var escapeHtml = GigaChat.escapeHtml;
         var PLANNER_URL = GigaChat.webhookUrl('planner');
-        var AUTH_URL = GigaChat.webhookUrl('planner-auth');
+        // AUTH_URL/AUTH endpoint вызывается из _shared.js (GigaChat.auth.apiCall),
+        // прямого использования здесь больше нет — login/register живёт в /login.html.
 
         // ========== Полноценная аутентификация ==========
         // localStorage хранит:
-        //   planner_token    — session-токен (64 hex символа)
-        //   planner_username — имя юзера (для отображения в header'е)
-        // При старте страницы делаем verify(token). Если ОК — main UI.
-        // Если нет/протух — login-форма. Запросы к /webhook/planner шлют token,
-        // workflow проверяет в SQL Verify token и подставляет user_id.
-        var TOKEN_KEY = 'planner_token';
-        var USERNAME_KEY = 'planner_username';
+        //   gigachat_token    — session-токен (64 hex символа)
+        //   gigachat_username — имя юзера (для отображения в header'е)
+        // Хранение/чтение — через GigaChat.auth (см. _shared.js). При отсутствии
+        // токена ИЛИ протухшем токене редиректим на /login.html?return=<url>.
+        // Запросы к /webhook/planner шлют token, workflow проверяет SQL Verify
+        // и подставляет user_id.
 
-        function getStoredToken() {
-            try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
-        }
-        function getStoredUsername() {
-            try { return localStorage.getItem(USERNAME_KEY) || ''; } catch (e) { return ''; }
-        }
-        function setStoredAuth(token, username) {
-            try {
-                localStorage.setItem(TOKEN_KEY, token);
-                localStorage.setItem(USERNAME_KEY, username);
-            } catch (e) {}
-        }
-        function clearStoredAuth() {
-            try {
-                localStorage.removeItem(TOKEN_KEY);
-                localStorage.removeItem(USERNAME_KEY);
-            } catch (e) {}
-        }
+        function getStoredToken()    { return GigaChat.auth.getToken(); }
+        function getStoredUsername() { return GigaChat.auth.getUsername(); }
+        function setStoredAuth(token, username) { GigaChat.auth.setAuth(token, username); }
+        function clearStoredAuth() { GigaChat.auth.clearAuth(); }
 
         // Уникальный ASCII-prefix для localStorage по имени юзера.
         // ВАЖНО: для кириллицы старая версия (replace [^A-Za-z0-9_] → '_')
@@ -1281,167 +1012,16 @@
             return h;
         }
 
-        // HTTP-обёртка для auth endpoint'а.
-        // network: true — отличает сетевую ошибку от серверного отказа.
-        // Тексты сообщений намеренно не формируем здесь — caller (submitLogin/
-        // submitRegister) сам выбирает фиксированный текст из разрешённого списка.
-        async function authApi(payload) {
-            try {
-                var res = await fetch(AUTH_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-                    body: JSON.stringify(payload),
-                });
-                if (!res.ok) return { response: 'error' };
-                return await res.json();
-            } catch (e) {
-                console.error('Auth API error:', e);
-                return { response: 'error', network: true };
-            }
-        }
-
-        // === Login screen UI ===
-        function showLoginScreen(activeTab) {
-            var overlay = document.getElementById('loginOverlay');
-            overlay.style.display = 'flex';
-            overlay.classList.remove('gc-fade-out');
-            document.documentElement.style.overflow = 'hidden';
-            document.body.style.overflow = 'hidden';
-            // Скрываем стандартный #gc-theme-toggle из _shared.js на login —
-            // в overlay есть своя .gc-login-theme. Возвращаем в hideLoginScreen.
-            var stdToggle = document.getElementById('gc-theme-toggle');
-            if (stdToggle) stdToggle.style.display = 'none';
-            updateLoginThemeIcon();
-            switchLoginTab(activeTab || 'login');
-        }
-        // Плавно прячет login-overlay (opacity transition 250 мс) и снимает
-        // класс gc-pending-auth → main UI становится visible под overlay,
-        // успевает отрендериться, потом overlay уходит. Без reload.
-        function hideLoginScreen() {
-            var overlay = document.getElementById('loginOverlay');
-            // Сразу делаем main UI visible (был спрятан через .gc-pending-auth)
-            document.documentElement.classList.remove('gc-pending-auth');
-            document.documentElement.style.overflow = '';
-            document.body.style.overflow = '';
-            // Возвращаем стандартную theme-toggle (на overlay'е была своя)
-            var stdToggle = document.getElementById('gc-theme-toggle');
-            if (stdToggle) stdToggle.style.display = '';
-            if (!overlay) return;
-            overlay.classList.add('gc-fade-out');
-            setTimeout(function () {
-                overlay.style.display = 'none';
-                overlay.classList.remove('gc-fade-out');
-            }, 260);
-        }
-
-        // === Кнопка переключения тем на login-экране ========================
-        // Используем GigaChat.toggleTheme если доступен (sync hljs, иконка
-        // стандартной кнопки, cross-tab sync), иначе локальный fallback.
-        var LOGIN_SUN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>';
-        var LOGIN_MOON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-
-        function updateLoginThemeIcon() {
-            var btn = document.getElementById('loginThemeToggle');
-            if (!btn) return;
-            var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-            // На тёмной теме показываем солнце (переключатель на светлую) и наоборот.
-            btn.innerHTML = dark ? LOGIN_SUN_SVG : LOGIN_MOON_SVG;
-            // title= НЕ ставим — тултипы на login-экране запрещены.
-            // aria-label оставляем для скринридеров (не показывается визуально).
-            btn.setAttribute('aria-label', dark ? 'Светлая тема' : 'Тёмная тема');
-        }
-        function loginToggleTheme() {
-            if (window.GigaChat && typeof window.GigaChat.toggleTheme === 'function') {
-                window.GigaChat.toggleTheme();
-            } else {
-                // Fallback: переключаем data-theme + сохраняем в localStorage
-                var html = document.documentElement;
-                var cur = html.getAttribute('data-theme') || 'light';
-                var next = cur === 'dark' ? 'light' : 'dark';
-                html.setAttribute('data-theme', next);
-                try { localStorage.setItem('giga_theme', next); } catch (e) {}
-            }
-            updateLoginThemeIcon();
-        }
-
-        // Переключение вкладки: ширина и верх модалки фиксированы, плавно
-        // меняется только высота (рост/убывание снизу). Содержимое формы
-        // переключается мгновенно. options.focusFieldId — id поля для фокуса.
-        function switchLoginTab(tab, options) {
-            options = options || {};
-            var currentActive = document.querySelector('.gc-login-tab.active');
-            var isSameTab = currentActive && currentActive.dataset.tab === tab;
-            var modal = document.querySelector('.gc-login-modal');
-
-            function applySwap() {
-                var tabs = document.querySelectorAll('.gc-login-tab');
-                var forms = document.querySelectorAll('.gc-login-form');
-                for (var i = 0; i < tabs.length; i++) {
-                    tabs[i].classList.toggle('active', tabs[i].dataset.tab === tab);
-                }
-                for (var i = 0; i < forms.length; i++) {
-                    forms[i].classList.toggle('hidden', forms[i].dataset.form !== tab);
-                }
-                var btn = document.getElementById('loginSubmitBtn');
-                if (btn) btn.textContent = tab === 'register' ? 'Зарегистрироваться' : 'Войти';
-                setLoginError('loginError', '');
-                setLoginError('regError', '');
-            }
-
-            function focusTarget() {
-                var target = options.focusFieldId
-                    ? document.getElementById(options.focusFieldId)
-                    : document.querySelector('.gc-login-form:not(.hidden) input');
-                if (target) target.focus();
-            }
-
-            if (!isSameTab && modal && currentActive) {
-                // 3-фазная анимация (≈400мс полный цикл):
-                //   Фаза 1 (90мс): opacity текущей формы → 0
-                //   Фаза 2 (200мс): swap + height transition, footer движется
-                //                   синхронно с нижней границей (flex column)
-                //   Фаза 3 (90мс): opacity новой формы → 1
-                if (modal._switchTimers) modal._switchTimers.forEach(clearTimeout);
-                modal._switchTimers = [];
-
-                var oldForm = document.querySelector('.gc-login-form:not(.hidden)');
-                if (oldForm) oldForm.style.opacity = '0';
-
-                modal._switchTimers.push(setTimeout(function () {
-                    var fromHeight = modal.offsetHeight;
-                    modal.style.height = fromHeight + 'px';
-                    modal.offsetHeight; // force reflow
-                    applySwap();
-                    var newForm = document.querySelector('.gc-login-form:not(.hidden)');
-                    if (newForm) newForm.style.opacity = '0';
-                    modal.style.height = 'auto';
-                    var toHeight = modal.offsetHeight;
-                    modal.style.height = fromHeight + 'px';
-                    modal.offsetHeight; // force reflow
-                    modal.style.height = toHeight + 'px';
-
-                    modal._switchTimers.push(setTimeout(function () {
-                        modal.style.height = '';
-                        if (oldForm) oldForm.style.opacity = '';
-                        if (newForm) newForm.style.opacity = '1';
-
-                        modal._switchTimers.push(setTimeout(function () {
-                            if (newForm) newForm.style.opacity = '';
-                            modal._switchTimers = [];
-                            focusTarget();
-                        }, 100));
-                    }, 210));
-                }, 100));
-            } else {
-                // Первое отображение или тот же tab — без анимации
-                applySwap();
-                setTimeout(focusTarget, 50);
-            }
-        }
+        // HTTP-обёртка для auth endpoint'а — единая, из _shared.js.
+        // Возвращает {response:'ok'|'error', ...} или {response:'error', network:true}.
+        // Используется только для submitChangePassword (и опосредованно — через
+        // GigaChat.auth.* для verify/logout). Login/register живёт в /login.html.
+        var authApi = GigaChat.auth.apiCall;
 
         // Установка inline-ошибки с авто-очисткой через 5 секунд.
         // Если text пустой — очищает мгновенно и отменяет старый таймер.
-        // Также сбрасывает success-стейт (зелёный бэйдж после регистрации).
+        // Также сбрасывает success-стейт (зелёный бэйдж).
+        // Используется в chgpwd-модалке (после удаления login/register оттуда же).
         function setLoginError(elId, text) {
             var el = document.getElementById(elId);
             if (!el) return;
@@ -1475,82 +1055,13 @@
             el.lastElementChild.textContent = text;
         }
 
-        // submitLogin/submitRegister — единственное место, где формируется
-        // текст inline-ошибки. Список разрешённых сообщений фиксирован,
-        // серверный текст data.error НЕ показывается юзеру (только в console).
-        async function submitLogin() {
-            var btn = document.getElementById('loginSubmitBtn');
-            var username = document.getElementById('loginUsername').value.trim();
-            var password = document.getElementById('loginPassword').value;
-            var remember = document.getElementById('loginRemember').checked;
-            setLoginError('loginError', '');
-            if (!username) { setLoginError('loginError', 'Введите имя'); return; }
-            if (!password) { setLoginError('loginError', 'Введите пароль'); return; }
-            btn.disabled = true;
-            btn.textContent = 'Вход…';
-            try {
-                var data = await authApi({ action: 'login', username: username, password: password, remember: remember });
-                if (data.response !== 'ok') {
-                    // Сеть упала → «Сеть недоступна», иначе сервер отказал → «Не удалось войти»
-                    setLoginError('loginError', data.network ? 'Сеть недоступна' : 'Не удалось войти');
-                    return;
-                }
-                // Без reload: ставим стейт, инициализируем UI, плавно прячем overlay.
-                setStoredAuth(data.token, data.username);
-                CURRENT_TOKEN = data.token;
-                CURRENT_USER = data.username;
-                AUTH_READY = true;
-                initAuthenticatedUI();
-                hideLoginScreen();
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Войти';
-            }
-        }
+        // submitLogin/submitRegister жили здесь — перенесены в /login.html.
+        // Эти страница (планировщик) их больше НЕ показывает, при отсутствии
+        // токена редиректит на /login.html?return=<url>.
 
-        async function submitRegister() {
-            var btn = document.getElementById('loginSubmitBtn');
-            var username = document.getElementById('regUsername').value.trim();
-            var password = document.getElementById('regPassword').value;
-            var password2 = document.getElementById('regPassword2').value;
-            setLoginError('regError', '');
-            if (!username) { setLoginError('regError', 'Введите имя'); return; }
-            if (password.length < 6) { setLoginError('regError', 'Пароль не короче 6 символов'); return; }
-            if (password !== password2) { setLoginError('regError', 'Пароли не совпадают'); return; }
-            btn.disabled = true;
-            btn.textContent = 'Регистрация…';
-            var data = await authApi({ action: 'register', username: username, password: password });
-            if (data.response !== 'ok') {
-                setLoginError('regError', 'Не удалось зарегистрироваться');
-                btn.disabled = false;
-                btn.textContent = 'Зарегистрироваться';
-                return;
-            }
-            // Регистрация прошла — показываем зелёный бэйдж «Вы зарегистрированы»
-            // на 2 секунды, потом плавный переход на «Вход» с предзаполненным
-            // именем. Сессия НЕ создаётся, юзер логинится явно. Кнопку
-            // оставляем disabled чтобы повторно не нажал в эти 2 секунды.
-            showSuccessBadge('regError', 'Вы зарегистрированы');
-            btn.textContent = 'Готово';
-            setTimeout(function () {
-                document.getElementById('loginUsername').value = username;
-                document.getElementById('loginPassword').value = '';
-                document.getElementById('regUsername').value = '';
-                document.getElementById('regPassword').value = '';
-                document.getElementById('regPassword2').value = '';
-                // switchLoginTab внутри вызовет setLoginError('regError','')
-                // — это снимет gc-success класс и innerHTML бэйджа.
-                switchLoginTab('login', { focusFieldId: 'loginPassword' });
-                btn.disabled = false;
-            }, 2000);
-        }
-
-        // === Enter-цепочка в login/register формах =========================
-        // Поведение: Enter в input'е НЕ сабмитит форму, а переводит фокус
-        // на следующее поле (data-next=id). Если data-next указывает на
-        // кнопку (loginSubmitBtn) — Enter триггерит её клик (= submit).
-        // Чекбоксы остаются с нативным поведением (Space переключает,
-        // Enter не нужен — это последнее поле перед submit).
+        // === Enter-цепочка в change-password модалке =======================
+        // Enter в input'е переводит фокус на следующее поле (data-next=id).
+        // Если data-next указывает на кнопку (chgpwdSaveBtn) — клик = submit.
         function handleLoginEnterChain(e) {
             if (e.key !== 'Enter') return;
             var inp = e.target;
@@ -1568,24 +1079,19 @@
                 nextEl.focus();
             }
         }
-        (function bindLoginEnterChain() {
-            // Login/register формы + change-password модалка используют одну
-            // и ту же логику data-next (handleLoginEnterChain). Биндим разом.
-            var inputs = document.querySelectorAll('.gc-login-form input, .gc-chgpwd-body input');
+        (function bindChgpwdEnterChain() {
+            // Change-password модалка использует data-next (handleLoginEnterChain).
+            var inputs = document.querySelectorAll('.gc-chgpwd-body input');
             for (var i = 0; i < inputs.length; i++) {
                 inputs[i].addEventListener('keydown', handleLoginEnterChain);
             }
         })();
 
         // === Logout / Change-password ===
+        // Logout — через GigaChat.auth.logout: invalidate сессии на сервере +
+        // localStorage cleanup + редирект на дашборд (юзер увидит «Войти»).
         async function logoutUser() {
-            var token = getStoredToken();
-            // Fire-and-forget — если сеть упала, всё равно очищаем локально.
-            if (token) {
-                try { await authApi({ action: 'logout', token: token }); } catch (e) {}
-            }
-            clearStoredAuth();
-            location.reload();
+            await GigaChat.auth.logout();
         }
 
         function openChgpwdModal() {
@@ -1668,42 +1174,28 @@
             }
         }
 
-        // === Старт страницы: verify token → main UI или login screen ===
+        // === Старт страницы: verify token → main UI или редирект на /login.html ===
         var CURRENT_USER = '';
         var CURRENT_TOKEN = getStoredToken();
         var AUTH_READY = false;  // true когда verify прошёл успешно
 
         (function bootstrap() {
-            if (!CURRENT_TOKEN) {
-                // Нет токена — сразу login
-                showLoginScreen('login');
-                return;
-            }
-            // Проверяем токен у сервера. Делаем sync-ish через async IIFE.
-            (async function verify() {
-                var data = await authApi({ action: 'verify', token: CURRENT_TOKEN });
-                if (data.response !== 'ok' || data.auth_required) {
-                    clearStoredAuth();
-                    showLoginScreen('login');
-                    return;
+            // GigaChat.auth.requireAuth() сам вызовет onOk при успехе,
+            // или сделает location.replace('../login.html?return=...') при провале.
+            GigaChat.auth.requireAuth({
+                onOk: function (username) {
+                    CURRENT_TOKEN = getStoredToken();
+                    CURRENT_USER = username;
+                    AUTH_READY = true;
+                    // verify прошёл — снимаем gc-pending-auth, main UI становится visible
+                    document.documentElement.classList.remove('gc-pending-auth');
+                    initAuthenticatedUI();
                 }
-                // Токен валиден — обновляем username (может изменился на сервере)
-                CURRENT_USER = data.username;
-                setStoredAuth(CURRENT_TOKEN, data.username);
-                AUTH_READY = true;
-                // verify прошёл — снимаем gc-pending-auth, main UI становится visible
-                // (login-overlay тут даже не показывали, скрывать нечего).
-                document.documentElement.classList.remove('gc-pending-auth');
-                initAuthenticatedUI();
-            })();
+            });
         })();
 
         function initAuthenticatedUI() {
-            // Возвращаем стандартный #gc-theme-toggle (мы прятали его на login-экране,
-            // там работала своя .gc-login-theme).
-            var stdToggle = document.getElementById('gc-theme-toggle');
-            if (stdToggle) stdToggle.style.display = '';
-            // User-menu в шапке: показываем имя + dropdown
+            // User-menu в шапке: показываем имя + dropdown («Сменить пароль / Выйти»)
             var menu = document.getElementById('userMenu');
             var trigger = document.getElementById('userMenuTrigger');
             var label = document.getElementById('userMenuLabel');
@@ -1772,10 +1264,10 @@
                 if (!res.ok) throw new Error('Сервер вернул ' + res.status);
                 var data = await res.json();
                 // Если сервер сказал unauthorized — токен протух/невалиден.
-                // Чистим локально и перенаправляем на login.
+                // Чистим локально и редиректим на /login.html (с return на эту страницу).
                 if (data && data.auth_required) {
-                    clearStoredAuth();
-                    location.reload();
+                    GigaChat.auth.clearAuth();
+                    GigaChat.auth.redirectToLogin();
                     return { response: 'error', error: 'Сессия истекла' };
                 }
                 return data;

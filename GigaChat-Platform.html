@@ -285,6 +285,84 @@
             text-decoration: none;
         }
 
+        /* === Auth-виджет в правом верхнем углу =============================
+           Показывает текущего юзера + dropdown «Сменить пароль / Выйти», либо
+           кнопку «Войти» (когда токена нет). Position fixed, слева от
+           gc-theme-toggle из _shared.js (которая на right:14px ширина 32px).
+           top:10px подобран под центр theme-toggle для оптической ровности. */
+        .gc-auth-widget {
+            position: fixed; top: 10px; right: 58px; z-index: 9998;
+            display: none;
+        }
+        .gc-auth-widget.gc-ready { display: block; }
+        .gc-auth-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px;
+            height: 32px;
+            padding: 0 12px 0 14px;
+            color: var(--text-primary); font-family: inherit; font-size: 13px;
+            cursor: pointer; outline: none;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .gc-auth-pill:hover { border-color: var(--accent); }
+        .gc-auth-widget.open .gc-auth-pill { border-color: var(--accent); background: var(--bg-card-hover); }
+        .gc-auth-pill .gc-auth-name {
+            max-width: 160px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .gc-auth-pill .gc-auth-arrow {
+            width: 6px; height: 6px;
+            border-right: 1.5px solid var(--text-secondary);
+            border-bottom: 1.5px solid var(--text-secondary);
+            transform: translateY(-2px) rotate(45deg);
+            transition: transform 0.18s ease, border-color 0.18s ease;
+        }
+        .gc-auth-widget.open .gc-auth-arrow {
+            transform: translateY(2px) rotate(-135deg);
+            border-color: var(--accent);
+        }
+        .gc-auth-dropdown {
+            position: absolute; top: calc(100% + 6px); right: 0;
+            min-width: 180px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 8px; padding: 4px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            opacity: 0; visibility: hidden; transform: translateY(-4px);
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+        }
+        .gc-auth-widget.open .gc-auth-dropdown {
+            opacity: 1; visibility: visible; transform: translateY(0);
+        }
+        .gc-auth-dropdown button,
+        .gc-auth-dropdown a {
+            display: block; width: 100%;
+            background: none; border: none; cursor: pointer;
+            padding: 8px 12px; border-radius: 5px;
+            font-family: inherit; font-size: 13px;
+            color: var(--text-primary); text-align: left;
+            text-decoration: none;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .gc-auth-dropdown button:hover,
+        .gc-auth-dropdown a:hover {
+            background: var(--bg-card-hover); color: var(--accent);
+        }
+        /* Logged-out: жёлтая ссылка «Войти» */
+        .gc-auth-login {
+            display: inline-flex; align-items: center;
+            height: 32px;
+            padding: 0 14px;
+            background: var(--accent); color: #fff;
+            border-radius: 16px; border: 1px solid var(--accent);
+            text-decoration: none;
+            font-family: inherit; font-size: 13px; font-weight: 500;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .gc-auth-login:hover {
+            background: var(--accent-hover); border-color: var(--accent-hover);
+        }
+
         /* Responsive */
         @media (max-width: 1100px) {
             .cards-grid { grid-template-columns: repeat(3, 1fr); }
@@ -299,6 +377,8 @@
         @media (max-width: 500px) {
             .cards-grid { grid-template-columns: 1fr; }
             .header h1 { font-size: 26px; }
+            .gc-auth-widget { right: 54px; }
+            .gc-auth-pill .gc-auth-name { max-width: 90px; }
         }
 
     </style>
@@ -310,6 +390,12 @@
 <div class="bg-layers"></div>
 <div class="bg-dots"></div>
 <div class="bg-noise"></div>
+
+<!-- Auth-виджет (top-right). Содержимое подменяется в JS:
+     - logged-in: pill «<имя> ▾» с dropdown «Сменить пароль / Выйти»
+     - logged-out: «Войти» → login.html
+     Класс .gc-ready выставляется после verify (анти-FOUC). -->
+<div class="gc-auth-widget" id="gcAuthWidget"></div>
 
 <div class="container">
 
@@ -552,6 +638,74 @@
     window.addEventListener('pagehide', stopDashboardHealth);
     window.addEventListener('pageshow', startDashboardHealth);
     startDashboardHealth();
+
+    // === Auth widget (top-right) ============================================
+    // Сначала пытаемся определить локальное состояние (есть/нет токена) и
+    // показываем что-то СРАЗУ (логин-кнопку или pill с именем из localStorage),
+    // без ожидания verify. Параллельно делаем verify в фоне — если сервер
+    // ответит «токена нет» (auth_required), переключаем на login-кнопку.
+    // Это убирает мигание (пустой widget → kit → имя).
+    (function initAuthWidget() {
+        var widget = document.getElementById('gcAuthWidget');
+        if (!widget) return;
+
+        function renderLoggedIn(name) {
+            widget.classList.remove('open');
+            widget.innerHTML =
+                '<button class="gc-auth-pill" type="button" id="gcAuthPill" aria-haspopup="menu" aria-expanded="false">' +
+                    '<span class="gc-auth-name"></span>' +
+                    '<span class="gc-auth-arrow" aria-hidden="true"></span>' +
+                '</button>' +
+                '<div class="gc-auth-dropdown" role="menu">' +
+                    '<a href="Agents/planner.html" role="menuitem">Открыть планировщик</a>' +
+                    '<button type="button" id="gcAuthLogout" role="menuitem">Выйти</button>' +
+                '</div>';
+            // textContent — защита от XSS (имя приходит от сервера, но всё равно)
+            widget.querySelector('.gc-auth-name').textContent = 'Привет, ' + name;
+            widget.classList.add('gc-ready');
+
+            var pill = document.getElementById('gcAuthPill');
+            var logoutBtn = document.getElementById('gcAuthLogout');
+            function setOpen(open) {
+                widget.classList.toggle('open', open);
+                pill.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            pill.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setOpen(!widget.classList.contains('open'));
+            });
+            document.addEventListener('click', function (e) {
+                if (!widget.contains(e.target)) setOpen(false);
+            });
+            logoutBtn.addEventListener('click', function () {
+                GigaChat.auth.logout({ redirectTo: 'GigaChat-Platform.html' });
+            });
+        }
+        function renderLoggedOut() {
+            widget.classList.remove('open');
+            widget.innerHTML = '<a class="gc-auth-login" href="login.html">Войти</a>';
+            widget.classList.add('gc-ready');
+        }
+
+        var token = GigaChat.auth.getToken();
+        var name = GigaChat.auth.getUsername();
+        if (token && name) {
+            // Оптимистический рендер по localStorage — мгновенно
+            renderLoggedIn(name);
+            // Параллельно verify: если сервер отказал — переключаемся
+            GigaChat.auth.verifyToken().then(function (res) {
+                if (!res.ok && !res.network) {
+                    GigaChat.auth.clearAuth();
+                    renderLoggedOut();
+                } else if (res.ok && res.username && res.username !== name) {
+                    // Username на сервере изменился — обновляем
+                    renderLoggedIn(res.username);
+                }
+            });
+        } else {
+            renderLoggedOut();
+        }
+    })();
 
 </script>
 </body>

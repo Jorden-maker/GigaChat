@@ -35,6 +35,187 @@
     return cfg.N8N_BASE.replace(/\/$/, '') + '/webhook/' + path.replace(/^\//, '');
   }
 
+  // ============================================================
+  // AUTH — единая аутентификация для всех агентов платформы
+  // ============================================================
+  // Архитектура: одна отдельная страница /login.html выдаёт session-token
+  // (workflow planner-auth, таблица planner_sessions). Все защищённые агенты
+  // (planner, plane-agent) на bootstrap'е вызывают GigaChat.auth.requireAuth():
+  //   - токен есть и verify прошёл → запускают свой UI
+  //   - токена нет ИЛИ verify провалился → редирект на login.html?return=<url>
+  //
+  // Ключи в localStorage:
+  //   gigachat_token    — session-token (64 hex символа)
+  //   gigachat_username — имя юзера (для отображения в header'е)
+  //
+  // Миграция со старых ключей planner_token/planner_username делается
+  // прозрачно — при первом чтении старые значения копируются под новыми
+  // именами, дальше работа идёт только с gigachat_*.
+  var AUTH_TOKEN_KEY = 'gigachat_token';
+  var AUTH_USERNAME_KEY = 'gigachat_username';
+  var AUTH_LEGACY_TOKEN_KEY = 'planner_token';
+  var AUTH_LEGACY_USERNAME_KEY = 'planner_username';
+  var _authMigrated = false;
+
+  function _migrateLegacyAuthKeys() {
+    if (_authMigrated) return;
+    _authMigrated = true;
+    try {
+      var newTok = localStorage.getItem(AUTH_TOKEN_KEY);
+      if (!newTok) {
+        var oldTok = localStorage.getItem(AUTH_LEGACY_TOKEN_KEY);
+        if (oldTok) localStorage.setItem(AUTH_TOKEN_KEY, oldTok);
+      }
+      var newName = localStorage.getItem(AUTH_USERNAME_KEY);
+      if (!newName) {
+        var oldName = localStorage.getItem(AUTH_LEGACY_USERNAME_KEY);
+        if (oldName) localStorage.setItem(AUTH_USERNAME_KEY, oldName);
+      }
+    } catch (e) {}
+  }
+
+  function authGetToken() {
+    _migrateLegacyAuthKeys();
+    try { return localStorage.getItem(AUTH_TOKEN_KEY) || ''; } catch (e) { return ''; }
+  }
+  function authGetUsername() {
+    _migrateLegacyAuthKeys();
+    try { return localStorage.getItem(AUTH_USERNAME_KEY) || ''; } catch (e) { return ''; }
+  }
+  function authSetAuth(token, username) {
+    try {
+      localStorage.setItem(AUTH_TOKEN_KEY, token || '');
+      localStorage.setItem(AUTH_USERNAME_KEY, username || '');
+      // Legacy-ключи синхронизируем для обратной совместимости со страницами,
+      // которые ещё могут читать planner_token напрямую (на случай если что-то
+      // не отрефакторено). Когда все агенты переедут — можно удалить.
+      localStorage.setItem(AUTH_LEGACY_TOKEN_KEY, token || '');
+      localStorage.setItem(AUTH_LEGACY_USERNAME_KEY, username || '');
+    } catch (e) {}
+  }
+  function authClearAuth() {
+    try {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_USERNAME_KEY);
+      localStorage.removeItem(AUTH_LEGACY_TOKEN_KEY);
+      localStorage.removeItem(AUTH_LEGACY_USERNAME_KEY);
+    } catch (e) {}
+  }
+
+  // POST в /webhook/planner-auth. payload — {action, ...}. Не бросает.
+  // Возвращает {response:'ok'|'error', ...} или {response:'error', network:true}.
+  async function authApiCall(payload) {
+    try {
+      var res = await fetch(webhookUrl('planner-auth'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        body: JSON.stringify(payload || {}),
+      });
+      if (!res.ok) return { response: 'error' };
+      return await res.json();
+    } catch (e) {
+      if (console && console.warn) console.warn('[auth] api error', e);
+      return { response: 'error', network: true };
+    }
+  }
+
+  async function authVerifyToken(token) {
+    var t = token || authGetToken();
+    if (!t) return { ok: false, reason: 'no_token' };
+    var data = await authApiCall({ action: 'verify', token: t });
+    if (data.response !== 'ok' || data.auth_required) {
+      return { ok: false, reason: 'invalid', network: !!data.network };
+    }
+    return { ok: true, username: data.username || authGetUsername() };
+  }
+
+  // Считает путь до login.html относительно текущей страницы.
+  // login.html лежит в корне проекта (рядом с GigaChat-Platform.html).
+  // Дашборд и login.html — оба в корне → 'login.html'.
+  // Агенты в Agents/ → '../login.html'.
+  function _loginHref() {
+    var p = location.pathname.replace(/\\/g, '/');
+    if (p.indexOf('/Agents/') !== -1) return '../login.html';
+    return 'login.html';
+  }
+
+  function authRedirectToLogin(opts) {
+    opts = opts || {};
+    var url = _loginHref();
+    var ret = opts.returnTo || location.href;
+    url += '?return=' + encodeURIComponent(ret);
+    if (opts.replace) location.replace(url);
+    else location.href = url;
+  }
+
+  // Главный auth-gate для защищённых страниц.
+  // opts.onOk(username) — вызывается если верификация прошла.
+  // opts.onFail — вызывается перед редиректом (можно отменить, вернув false).
+  // opts.allowOffline — true: при network-ошибке НЕ редиректить, дать onOk
+  //                     (рассчитываем, что серверные запросы потом сами 401-нут).
+  async function authRequireAuth(opts) {
+    opts = opts || {};
+    var res = await authVerifyToken();
+    if (res.ok) {
+      // Обновим username если сервер вернул свежий
+      if (res.username) {
+        try { localStorage.setItem(AUTH_USERNAME_KEY, res.username); } catch (e) {}
+      }
+      if (typeof opts.onOk === 'function') opts.onOk(res.username || authGetUsername());
+      return true;
+    }
+    // Сеть отвалилась — если страница допускает offline-режим, не редиректим
+    if (res.network && opts.allowOffline) {
+      if (typeof opts.onOk === 'function') opts.onOk(authGetUsername());
+      return true;
+    }
+    if (res.reason === 'invalid') authClearAuth();
+    if (typeof opts.onFail === 'function') {
+      var ret = opts.onFail(res);
+      if (ret === false) return false; // caller сам разобрался
+    }
+    authRedirectToLogin({ replace: true });
+    return false;
+  }
+
+  // Logout — серверный invalidate сессии + локальная очистка + редирект.
+  async function authLogout(opts) {
+    opts = opts || {};
+    var token = authGetToken();
+    if (token) {
+      // Fire-and-forget — даже если сеть упала, всё равно чистим локально
+      try { await authApiCall({ action: 'logout', token: token }); } catch (e) {}
+    }
+    authClearAuth();
+    if (opts.redirect === false) return;
+    // По умолчанию редиректим на дашборд (юзер всё равно увидит «Войти»)
+    var dashHref = location.pathname.replace(/\\/g, '/').indexOf('/Agents/') !== -1
+      ? '../GigaChat-Platform.html'
+      : 'GigaChat-Platform.html';
+    location.href = opts.redirectTo || dashHref;
+  }
+
+  // Безопасный return-url из query (?return=...). Принимаем ТОЛЬКО относительные
+  // или same-origin абсолютные. Иначе — фолбэк на дашборд (защита от open-redirect).
+  function authParseReturnUrl(fallback) {
+    var fb = fallback || 'GigaChat-Platform.html';
+    try {
+      var qs = new URLSearchParams(location.search);
+      var raw = qs.get('return');
+      if (!raw) return fb;
+      // Абсолютный URL — должен быть same-origin
+      try {
+        var u = new URL(raw, location.href);
+        if (u.origin !== location.origin) return fb;
+        return u.pathname + u.search + u.hash;
+      } catch (e) {
+        // Относительный — отдаём как есть, но без protocol-relative //evil.com
+        if (raw.charAt(0) === '/' && raw.charAt(1) === '/') return fb;
+        return raw;
+      }
+    } catch (e) { return fb; }
+  }
+
   function escapeHtml(text) {
     if (text == null) return '';
     var div = document.createElement('div');
@@ -3707,6 +3888,20 @@
   global.GigaChat = {
     config: cfg,
     webhookUrl: webhookUrl,
+    auth: {
+      getToken: authGetToken,
+      getUsername: authGetUsername,
+      setAuth: authSetAuth,
+      clearAuth: authClearAuth,
+      verifyToken: authVerifyToken,
+      requireAuth: authRequireAuth,
+      redirectToLogin: authRedirectToLogin,
+      logout: authLogout,
+      parseReturnUrl: authParseReturnUrl,
+      apiCall: authApiCall,
+      TOKEN_KEY: AUTH_TOKEN_KEY,
+      USERNAME_KEY: AUTH_USERNAME_KEY
+    },
     escapeHtml: escapeHtml,
     copyToClipboard: copyTextToClipboard,
     fetchWithRetry: fetchWithRetry,

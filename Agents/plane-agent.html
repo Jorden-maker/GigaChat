@@ -18,8 +18,11 @@
             color: #d4d4d4;
             background: #1f1f1e;
         }
+        html.gc-pending-auth, html.gc-pending-auth body { background: inherit !important }
+        html.gc-pending-auth .sidebar,
+        html.gc-pending-auth .main { display: none !important; }
     </style>
-    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');document.documentElement.classList.add('gc-pending-auth');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -169,21 +172,12 @@
         }
         .dt-result.show { display: block; }
         .dt-result.err { border-color: #dc2626; color: #dc2626; }
-        /* Auth-gate: блок поверх всего при отсутствии planner_token */
-        .auth-gate {
-            position: fixed; inset: 0; background: var(--bg-primary); z-index: 999;
-            display: none; align-items: center; justify-content: center;
-            flex-direction: column; text-align: center; padding: 20px;
-        }
-        .auth-gate.show { display: flex; }
-        .auth-gate h2 { color: var(--text-primary); font-size: 20px; margin-bottom: 8px; font-weight: 500; }
-        .auth-gate p { color: var(--text-secondary); font-size: 15px; max-width: 420px; line-height: 1.5; }
-        .auth-gate a {
-            margin-top: 18px; padding: 10px 22px; background: var(--accent); color: #fff;
-            border-radius: 8px; text-decoration: none; font-size: 14px;
-            transition: background 0.2s;
-        }
-        .auth-gate a:hover { background: var(--accent-hover); }
+        /* Анти-FOUC: основной UI скрыт до завершения verify (см. inline-script
+           в <head>). После onOk колбэка requireAuth — класс снимается, UI виден.
+           При провале verify — редирект на /login.html?return=..., UI вообще
+           не показывается, чтобы юзер не успел увидеть пустой чат-сайдбар. */
+        html.gc-pending-auth .sidebar,
+        html.gc-pending-auth .main { display: none !important; }
     </style>
     <script src="_config.js"></script>
     <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark">
@@ -192,11 +186,6 @@
     <script src="_shared.js"></script>
 </head>
 <body>
-    <div class="auth-gate" id="authGate">
-        <h2>Требуется вход</h2>
-        <p>Plane-агент использует учётную запись GigaChat. Войдите через Планировщик — токен сессии будет автоматически подхвачен здесь.</p>
-        <a href="planner.html">Перейти в Планировщик</a>
-    </div>
     <div class="sidebar">
         <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
         <div class="sidebar-header"><h3>Сессии</h3></div>
@@ -362,19 +351,14 @@
     <script>
         var escapeHtml = GigaChat.escapeHtml;
 
-        // ============ Auth: используем planner_token из localStorage ============
+        // ============ Auth: единая через GigaChat.auth (см. _shared.js) ============
         // Plane-агент работает поверх той же auth-инфраструктуры что и Планировщик
-        // (таблица planner_sessions). Юзер заходит один раз в planner.html, а
-        // все остальные агенты подтягивают токен из localStorage. При отсутствии
-        // токена показываем auth-gate с предложением перейти в Планировщик.
-        var PLANNER_TOKEN_KEY = 'planner_token';
-        var PLANNER_USERNAME_KEY = 'planner_username';
-        function getAuthToken() {
-            try { return localStorage.getItem(PLANNER_TOKEN_KEY) || ''; } catch (e) { return ''; }
-        }
-        function getAuthUsername() {
-            try { return localStorage.getItem(PLANNER_USERNAME_KEY) || ''; } catch (e) { return ''; }
-        }
+        // (таблица planner_sessions). Юзер один раз логинится на /login.html и
+        // получает gigachat_token, который автоматически используется всеми
+        // защищёнными агентами. При отсутствии/протухшем токене — редирект
+        // на /login.html?return=<plane-agent-url>.
+        function getAuthToken()    { return GigaChat.auth.getToken(); }
+        function getAuthUsername() { return GigaChat.auth.getUsername(); }
 
         // ============ Plane settings: workspace_slug + plane_url + plane_token ============
         // Хранятся per-user (префикс — base64 от имени, как в Планировщике).
@@ -554,15 +538,16 @@
         }
 
         // ============ Auth gate ============
-        // Если planner_token отсутствует — показываем заглушку с кнопкой в Планировщик.
-        // Иначе — поднимаем чат-агент.
+        // Через GigaChat.auth.requireAuth: при отсутствии/протухшем токене
+        // делает location.replace('../login.html?return=<plane-agent-url>'),
+        // при успехе вызывает onOk → bootAgent() и снимает gc-pending-auth.
         (function authBoot() {
-            var token = getAuthToken();
-            if (!token) {
-                document.getElementById('authGate').classList.add('show');
-                return;
-            }
-            bootAgent();
+            GigaChat.auth.requireAuth({
+                onOk: function () {
+                    document.documentElement.classList.remove('gc-pending-auth');
+                    bootAgent();
+                }
+            });
         })();
 
         // ============ Рендер bot-сообщений ============
@@ -634,13 +619,12 @@
                     if (data && data.plane_setup_required) {
                         setTimeout(openSettings, 100);
                     }
-                    // Если auth_required — сбрасываем токен и показываем auth-gate.
+                    // Если auth_required (сервер ответил «не авторизован») —
+                    // чистим токен и редиректим на /login.html. Это покрывает
+                    // случай «сессия протухла в фоне между запросами».
                     if (data && data.auth_required) {
-                        try {
-                            localStorage.removeItem(PLANNER_TOKEN_KEY);
-                            localStorage.removeItem(PLANNER_USERNAME_KEY);
-                        } catch (e) {}
-                        document.getElementById('authGate').classList.add('show');
+                        GigaChat.auth.clearAuth();
+                        GigaChat.auth.redirectToLogin();
                     }
                     var extras = (data && data.data) ? data.data : {};
                     return {
