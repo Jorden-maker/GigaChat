@@ -270,6 +270,208 @@ def make_photos():
     print('  + photo-5-баннер.jpg')
 
 
+# ============ CSV / TSV ============
+
+def make_csv(filename, rows, delimiter=','):
+    # Простая запись CSV/TSV. Кавычки используются если ячейка содержит
+    # delimiter, кавычку или переводы строк.
+    def esc_cell(v):
+        s = '' if v is None else str(v)
+        if delimiter in s or '"' in s or '\n' in s or '\r' in s:
+            return '"' + s.replace('"', '""') + '"'
+        return s
+    lines = []
+    for row in rows:
+        lines.append(delimiter.join(esc_cell(c) for c in row))
+    text = '\n'.join(lines) + '\n'
+    (TD / filename).write_text(text, encoding='utf-8')
+    print('  + ' + filename)
+
+
+# ============ PDF (через reportlab) ============
+
+def make_pdf_simple(filename, paragraphs):
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    import os as _os
+    # Регистрируем системный шрифт с кириллицей (Arial из Windows)
+    try:
+        for font_path in ('C:/Windows/Fonts/arial.ttf', 'C:/Windows/Fonts/segoeui.ttf'):
+            if _os.path.exists(font_path):
+                pdfmetrics.registerFont(TTFont('Cyr', font_path))
+                break
+        else:
+            pdfmetrics.registerFont(TTFont('Cyr', 'Helvetica'))
+    except Exception:
+        pass
+    c = canvas.Canvas(str(TD / filename), pagesize=A4)
+    c.setFont('Cyr', 12)
+    w, h = A4
+    margin = 50
+    y = h - margin
+    for para in paragraphs:
+        # Перенос длинных строк ~80 символов на строку
+        lines = []
+        for ln in para.split('\n'):
+            while len(ln) > 80:
+                lines.append(ln[:80])
+                ln = ln[80:]
+            lines.append(ln)
+        for ln in lines:
+            if y < margin + 20:
+                c.showPage()
+                c.setFont('Cyr', 12)
+                y = h - margin
+            c.drawString(margin, y, ln)
+            y -= 18
+        y -= 10  # отступ между параграфами
+    c.save()
+    print('  + ' + filename)
+
+
+def make_pdf_multipage(filename, pages):
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    import os as _os
+    try:
+        for font_path in ('C:/Windows/Fonts/arial.ttf', 'C:/Windows/Fonts/segoeui.ttf'):
+            if _os.path.exists(font_path):
+                pdfmetrics.registerFont(TTFont('Cyr', font_path))
+                break
+    except Exception:
+        pass
+    c = canvas.Canvas(str(TD / filename), pagesize=A4)
+    w, h = A4
+    margin = 50
+    for page_idx, paragraphs in enumerate(pages):
+        c.setFont('Cyr', 14)
+        c.drawString(margin, h - margin, f'Страница {page_idx + 1} из {len(pages)}')
+        c.setFont('Cyr', 11)
+        y = h - margin - 30
+        for para in paragraphs:
+            for ln in para.split('\n'):
+                while len(ln) > 90:
+                    if y < margin + 20: break
+                    c.drawString(margin, y, ln[:90])
+                    y -= 16
+                    ln = ln[90:]
+                if y < margin + 20: break
+                c.drawString(margin, y, ln)
+                y -= 16
+            y -= 8
+        if page_idx < len(pages) - 1:
+            c.showPage()
+    c.save()
+    print('  + ' + filename)
+
+
+# ============ Расширенные DOCX (через python-docx) ============
+
+def make_docx_with_image(filename, image_path):
+    from docx import Document
+    from docx.shared import Cm
+    doc = Document()
+    doc.add_heading('Документ со встроенной картинкой', level=1)
+    doc.add_paragraph('Этот Word содержит изображение прямо внутри документа. '
+                      'Проверяет фикс B11 — file-merger должен скопировать его в выходной .docx.')
+    doc.add_picture(str(image_path), width=Cm(10))
+    doc.add_paragraph('Текст после картинки. Просто чтобы был контекст с двух сторон.')
+    doc.save(str(TD / filename))
+    print('  + ' + filename)
+
+
+def make_docx_with_styles(filename):
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+    doc = Document()
+    h1 = doc.add_heading('Раздел: Большой заголовок (H1)', level=1)
+    doc.add_paragraph('Это обычный параграф под H1. Шрифт и интервалы должны сохраниться '
+                      'в выходном Word\'е (тест фичи #5).')
+    doc.add_heading('Подзаголовок (H2)', level=2)
+    p = doc.add_paragraph()
+    p.add_run('Это ').bold = False
+    p.add_run('жирный текст').bold = True
+    p.add_run(' посередине параграфа, и ')
+    p.add_run('курсив').italic = True
+    p.add_run('. Должны сохраниться в результате.')
+    doc.add_heading('Список (для проверки numbering)', level=2)
+    doc.add_paragraph('Первый пункт', style='List Number')
+    doc.add_paragraph('Второй пункт', style='List Number')
+    doc.add_paragraph('Третий пункт', style='List Number')
+    doc.add_paragraph('Маркированный пункт', style='List Bullet')
+    doc.add_paragraph('Ещё маркированный', style='List Bullet')
+    # Цветной текст
+    p = doc.add_paragraph()
+    run = p.add_run('Цветной текст (красный)')
+    run.font.color.rgb = RGBColor(0xC0, 0x40, 0x40)
+    run.font.size = Pt(14)
+    doc.save(str(TD / filename))
+    print('  + ' + filename)
+
+
+# ============ Расширенные XLSX (через openpyxl) ============
+
+def make_xlsx_multisheet(filename):
+    from openpyxl import Workbook
+    wb = Workbook()
+    # Лист 1: Сотрудники
+    ws1 = wb.active
+    ws1.title = 'Сотрудники'
+    ws1.append(['Имя', 'Отдел', 'Зарплата'])
+    ws1.append(['Иванов И.И.', 'IT', 80000])
+    ws1.append(['Петров П.П.', 'Продажи', 65000])
+    ws1.append(['Сидорова С.С.', 'Маркетинг', 70000])
+    # Лист 2: Продажи
+    ws2 = wb.create_sheet('Продажи')
+    ws2.append(['Месяц', 'Сумма', 'Кол-во сделок'])
+    ws2.append(['Январь', 1200000, 15])
+    ws2.append(['Февраль', 1450000, 18])
+    ws2.append(['Март', 1780000, 22])
+    # Лист 3: Контакты
+    ws3 = wb.create_sheet('Контакты клиентов')
+    ws3.append(['Клиент', 'Телефон', 'Email'])
+    ws3.append(['ООО Ромашка', '+7(495)111-22-33', 'romashka@example.ru'])
+    ws3.append(['ИП Иванов', '+7(812)444-55-66', 'ivanov@example.ru'])
+    wb.save(str(TD / filename))
+    print('  + ' + filename)
+
+
+def make_xlsx_merged(filename):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Отчёт'
+    # Merged заголовок над двумя колонками
+    ws['A1'] = 'Квартальный отчёт 2024'
+    ws.merge_cells('A1:D1')
+    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    # Шапка таблицы
+    ws.append([])  # empty row
+    ws.append(['Месяц', 'Доход', 'Расход', 'Прибыль'])
+    # Merged ячейка для Q1 (3 строки в первой колонке)
+    ws.append(['Q1', 250000, 180000, 70000])
+    ws.append([None, 280000, 195000, 85000])  # будет merged
+    ws.append([None, 310000, 200000, 110000])  # будет merged
+    ws.merge_cells('A4:A6')
+    ws['A4'].alignment = Alignment(horizontal='center', vertical='center')
+    # Аналогично Q2
+    ws.append(['Q2', 295000, 210000, 85000])
+    ws.append([None, 320000, 220000, 100000])
+    ws.append([None, 340000, 230000, 110000])
+    ws.merge_cells('A7:A9')
+    ws['A7'].alignment = Alignment(horizontal='center', vertical='center')
+    # Итого через merged
+    ws.append(['Итого за полугодие', 1795000, 1235000, 560000])
+    ws.merge_cells('A10:A10')  # тут не merged, но для теста
+    wb.save(str(TD / filename))
+    print('  + ' + filename)
+
+
 # ============ Генерация ============
 
 def main():
@@ -371,6 +573,53 @@ def main():
 
     print('== Photos ==')
     make_photos()
+
+    print('== CSV / TSV ==')
+    make_csv('csv-1-простой.csv', [
+        ['Имя', 'Возраст', 'Город'],
+        ['Иван', 30, 'Москва'],
+        ['Мария', 25, 'Санкт-Петербург'],
+        ['Алексей', 35, 'Казань'],
+    ])
+    make_csv('csv-2-с-кавычками.csv', [
+        ['Описание', 'Цена', 'Комментарий'],
+        ['Книга "Война и мир"', 850, 'Классика, 4 тома'],
+        ['Цитата: "Быть или не быть"', 0, 'Из Гамлета;\nШекспир'],
+        ['Простой товар', 1200, 'Без специальных символов'],
+    ])
+    make_csv('tsv-1-табы.tsv', [
+        ['Дата', 'Событие', 'Участников'],
+        ['2024-01-15', 'Совещание отдела', 12],
+        ['2024-02-01', 'Презентация продукта', 50],
+        ['2024-03-10', 'Тренинг для новичков', 8],
+    ], delimiter='\t')
+
+    print('== PDF ==')
+    make_pdf_simple('pdf-1-простой.pdf', [
+        'Это простой PDF-документ с текстом на русском языке.',
+        'Второй параграф для проверки извлечения текста через pdf.js.',
+        'Третий параграф. Все три должны попасть в выходной Word отдельными абзацами.',
+    ])
+    make_pdf_multipage('pdf-2-многостраничный.pdf', [
+        ['Содержимое первой страницы.', 'Несколько коротких параграфов для теста.'],
+        ['Это вторая страница.', 'Между страницами PDF в выходном Word должен быть разрыв страницы.'],
+        ['Третья и последняя страница.', 'Чтобы проверить что page-break срабатывает между всеми.'],
+    ])
+    make_pdf_simple('pdf-3-длинный.pdf', [
+        'Глава 1. Введение в тему. ' * 5,
+        'Раздел 1.1. Постановка задачи. ' * 4,
+        'Раздел 1.2. Методология. ' * 4,
+        'Глава 2. Основная часть. ' * 5,
+        'Заключение. ' * 3,
+    ])
+
+    print('== Word (расширенные) ==')
+    make_docx_with_image('word-6-с-картинкой.docx', TD / 'photo-1-логотип.png')
+    make_docx_with_styles('word-7-со-стилями.docx')
+
+    print('== Excel (расширенные) ==')
+    make_xlsx_multisheet('excel-6-многолистовой.xlsx')
+    make_xlsx_merged('excel-7-merged-cells.xlsx')
 
     print('---')
     print('Готово: файлы в ' + str(TD))
