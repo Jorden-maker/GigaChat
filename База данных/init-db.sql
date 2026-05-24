@@ -109,19 +109,10 @@ CREATE INDEX IF NOT EXISTS idx_planner_tasks_sort
 CREATE INDEX IF NOT EXISTS idx_planner_tasks_parent
     ON planner_tasks (parent_id) WHERE parent_id IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS planner_session_meta (
-    user_id INTEGER NOT NULL REFERENCES planner_users(id) ON DELETE CASCADE,
-    session_id VARCHAR(255) NOT NULL,
-    name TEXT NOT NULL,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    PRIMARY KEY (user_id, session_id)
-);
-
--- agent_sessions: общая для всех агентов (sync per user_id+agent через
--- /webhook/sessions-sync). Заменяет planner_session_meta — у юзера один
--- аккаунт, видит свои сессии на любом ПК.
+-- agent_sessions: общая для всех агентов. Sync через /webhook/sessions-sync,
+-- ключ (user_id, agent, session_id) — один аккаунт видит свои сессии на
+-- любом ПК, разные аккаунты на одном ПК изолированы. agent ∈ {planner, chat,
+-- sql, rag, math, prompt, plane}.
 \echo '== agent_sessions: единый стор сессий всех агентов =='
 CREATE TABLE IF NOT EXISTS agent_sessions (
     session_id  VARCHAR(255) NOT NULL,
