@@ -13,7 +13,10 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [0, 300],
+      "position": [
+        0,
+        300
+      ],
       "id": "oa-webhook-0001",
       "name": "Webhook OrgAppeal",
       "webhookId": "organization-appeal-webhook-001"
@@ -21,13 +24,20 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-ping-oa",
               "leftValue": "={{ $json.query?.ping || $json.body?.ping || ($json.body?.message === 'ping' ? '1' : '') }}",
               "rightValue": "1",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -37,7 +47,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "id": "oa-ping-if-0001",
       "name": "Ping?"
     },
@@ -48,29 +61,48 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" },
-              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
-              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [520, 100],
+      "position": [
+        520,
+        100
+      ],
       "id": "oa-ping-resp-0001",
       "name": "Ответ: pong"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-source-text",
               "leftValue": "={{ ($json.body?.text || '').trim().length > 0 ? '1' : '' }}",
               "rightValue": "1",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -80,7 +112,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 300],
+      "position": [
+        520,
+        300
+      ],
       "id": "oa-source-if-0001",
       "name": "Источник: текст?"
     },
@@ -90,7 +125,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [800, 100],
+      "position": [
+        800,
+        100
+      ],
       "id": "oa-text-body-0001",
       "name": "Текст из body"
     },
@@ -100,16 +138,31 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [800, 500],
+      "position": [
+        800,
+        500
+      ],
       "id": "oa-validate-0001",
       "name": "Валидация файла"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
-            { "id": "cond-valid-oa", "leftValue": "={{ $json.valid }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
+            {
+              "id": "cond-valid-oa",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -118,7 +171,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1080, 500],
+      "position": [
+        1080,
+        500
+      ],
       "id": "oa-validate-if-0001",
       "name": "Файл валиден?"
     },
@@ -129,16 +185,28 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" },
-              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
-              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1360, 700],
+      "position": [
+        1360,
+        700
+      ],
       "id": "oa-error-file-0001",
       "name": "Ответ: ошибка файла"
     },
@@ -152,17 +220,28 @@
         "contentType": "multipart-form-data",
         "bodyParameters": {
           "parameters": [
-            { "parameterType": "formBinaryData", "name": "file", "inputDataFieldName": "={{ $json.binaryKey }}" }
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "={{ $json.binaryKey }}"
+            }
           ]
         },
         "options": {
-          "response": { "response": { "fullResponse": false } },
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          },
           "timeout": 120000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1360, 500],
+      "position": [
+        1360,
+        500
+      ],
       "id": "oa-ocr-0001",
       "name": "OCR (text extraction)",
       "onError": "continueRegularOutput"
@@ -173,16 +252,31 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1640, 500],
+      "position": [
+        1640,
+        500
+      ],
       "id": "oa-extract-text-0001",
       "name": "Извлечь текст"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
-            { "id": "cond-has-text-oa", "leftValue": "={{ $json.has_text }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
+            {
+              "id": "cond-has-text-oa",
+              "leftValue": "={{ $json.has_text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -191,7 +285,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1920, 300],
+      "position": [
+        1920,
+        300
+      ],
       "id": "oa-text-if-0001",
       "name": "Текст найден?"
     },
@@ -202,22 +299,38 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" },
-              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
-              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1920, 500],
+      "position": [
+        1920,
+        500
+      ],
       "id": "oa-error-ocr-0001",
       "name": "Ответ: OCR не распознал"
     },
     {
       "parameters": {
-        "modelId": { "__rl": true, "value": ".", "mode": "id" },
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
         "responses": {
           "values": [
             {
@@ -230,15 +343,23 @@
           ]
         },
         "builtInTools": {},
-        "options": { "timeout": 120000 }
+        "options": {
+          "timeout": 120000
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
-      "position": [2200, 300],
+      "position": [
+        2200,
+        300
+      ],
       "id": "oa-llm-extract-0001",
       "name": "LLM извлечь данные",
       "credentials": {
-        "openAiApi": { "id": "Qwyuj8GrADL2wlnl", "name": "GigaChat" }
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
       },
       "onError": "continueRegularOutput"
     },
@@ -248,16 +369,31 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2480, 300],
+      "position": [
+        2480,
+        300
+      ],
       "id": "oa-parse-data-0001",
       "name": "Парсинг данных"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
-            { "id": "cond-parsed-oa", "leftValue": "={{ $json.parsed_ok }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
+            {
+              "id": "cond-parsed-oa",
+              "leftValue": "={{ $json.parsed_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -266,7 +402,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [2760, 300],
+      "position": [
+        2760,
+        300
+      ],
       "id": "oa-parsed-if-0001",
       "name": "Данные извлечены?"
     },
@@ -277,16 +416,28 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" },
-              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
-              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [2760, 500],
+      "position": [
+        2760,
+        500
+      ],
       "id": "oa-error-parse-0001",
       "name": "Ответ: данные не извлечены"
     },
@@ -296,16 +447,31 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3040, 300],
+      "position": [
+        3040,
+        300
+      ],
       "id": "oa-phase1-0001",
       "name": "Фаза 1: проверка полей"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
-            { "id": "cond-phase1-ok", "leftValue": "={{ $json.phase1_ok }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
+            {
+              "id": "cond-phase1-ok",
+              "leftValue": "={{ $json.phase1_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -314,7 +480,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [3320, 300],
+      "position": [
+        3320,
+        300
+      ],
       "id": "oa-phase1-if-0001",
       "name": "Фаза 1 OK?"
     },
@@ -325,16 +494,28 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" },
-              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
-              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [3600, 500],
+      "position": [
+        3600,
+        500
+      ],
       "id": "oa-respond-phase1-0001",
       "name": "Ответ: Фаза 1 не пройдена"
     },
@@ -348,11 +529,17 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [3600, 200],
+      "position": [
+        3600,
+        200
+      ],
       "id": "oa-db1-0001",
       "name": "БД №1: appeal_employees",
       "credentials": {
-        "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" }
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
@@ -363,16 +550,31 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3880, 200],
+      "position": [
+        3880,
+        200
+      ],
       "id": "oa-phase2-0001",
       "name": "Фаза 2: классификация"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
-            { "id": "cond-phase2-ok", "leftValue": "={{ $json.phase2_ok }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
+            {
+              "id": "cond-phase2-ok",
+              "leftValue": "={{ $json.phase2_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -381,7 +583,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [4160, 200],
+      "position": [
+        4160,
+        200
+      ],
       "id": "oa-phase2-if-0001",
       "name": "Фаза 2 OK?"
     },
@@ -392,16 +597,28 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" },
-              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
-              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [4160, 400],
+      "position": [
+        4160,
+        400
+      ],
       "id": "oa-respond-phase2-0001",
       "name": "Ответ: Фаза 2 не пройдена"
     },
@@ -415,11 +632,17 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [4440, 200],
+      "position": [
+        4440,
+        200
+      ],
       "id": "oa-db2-0001",
       "name": "БД №2: appeal_event1",
       "credentials": {
-        "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" }
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
@@ -430,16 +653,31 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [4720, 200],
+      "position": [
+        4720,
+        200
+      ],
       "id": "oa-phase3-0001",
       "name": "Фаза 3: классификация"
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
-            { "id": "cond-phase3-ok", "leftValue": "={{ $json.phase3_ok }}", "rightValue": "", "operator": { "type": "boolean", "operation": "true" } }
+            {
+              "id": "cond-phase3-ok",
+              "leftValue": "={{ $json.phase3_ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
           ],
           "combinator": "and"
         },
@@ -448,7 +686,10 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [5000, 200],
+      "position": [
+        5000,
+        200
+      ],
       "id": "oa-phase3-if-0001",
       "name": "Фаза 3 OK?"
     },
@@ -459,16 +700,28 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" },
-              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
-              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [5000, 400],
+      "position": [
+        5000,
+        400
+      ],
       "id": "oa-respond-phase3-0001",
       "name": "Ответ: Фаза 3 не пройдена"
     },
@@ -482,11 +735,17 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [5280, 200],
+      "position": [
+        5280,
+        200
+      ],
       "id": "oa-db3-0001",
       "name": "БД №3: appeal_event2",
       "credentials": {
-        "postgres": { "id": "OYsyciMf7Eq9W4FS", "name": "Postgres" }
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
@@ -497,7 +756,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [5560, 200],
+      "position": [
+        5560,
+        200
+      ],
       "id": "oa-phase4-0001",
       "name": "Фаза 4: классификация"
     },
@@ -508,71 +770,444 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" },
-              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
-              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [5840, 200],
+      "position": [
+        5840,
+        200
+      ],
       "id": "oa-final-respond-0001",
       "name": "Финальный ответ"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === SSO Phase 3: token presence check ===\n// Token может быть в body (JSON request) ИЛИ form-data (file upload).\n// Для form-data n8n кладёт поля в корень $json (не в .body).\nconst item = $input.first();\nconst j = item && item.json ? item.json : {};\nconst body = j.body || j;\nconst token = String((body && body.token) || j.token || '').trim();\nif (!token) {\n  return [{ json: { __auth_required: true } }];\n}\n// Прокидываем все исходные поля + binary data дальше (binary не теряется\n// автоматически при возврате json — n8n сохраняет binary поле item.binary\n// если мы возвращаем СОДЕРЖИМОЕ $json, но не если возвращаем новый объект.\n// Используем item.binary в выходе явно.\nreturn [{ json: { ...j, __auth_ok: true }, binary: item.binary || {} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        490,
+        500
+      ],
+      "id": "org-appeal-sso-auth-check-V1__SSO_AUTH_CHECK_V1",
+      "name": "SSO: Auth check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-sso-auth-ok",
+              "leftValue": "={{ !!$json.__auth_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        740,
+        500
+      ],
+      "id": "org-appeal-sso-auth-ok-V1",
+      "name": "SSO: Auth OK?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({response: 'unauthorized', auth_required: true}) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        990,
+        650
+      ],
+      "id": "org-appeal-sso-auth-resp-V1",
+      "name": "SSO: Ответ auth_required"
     }
   ],
   "pinData": {},
   "connections": {
-    "Webhook OrgAppeal":      { "main": [[{ "node": "Ping?", "type": "main", "index": 0 }]] },
-    "Ping?":                  { "main": [
-      [{ "node": "Ответ: pong", "type": "main", "index": 0 }],
-      [{ "node": "Источник: текст?", "type": "main", "index": 0 }]
-    ] },
-    "Источник: текст?":       { "main": [
-      [{ "node": "Текст из body", "type": "main", "index": 0 }],
-      [{ "node": "Валидация файла", "type": "main", "index": 0 }]
-    ] },
-    "Текст из body":          { "main": [[{ "node": "Текст найден?", "type": "main", "index": 0 }]] },
-    "Валидация файла":        { "main": [[{ "node": "Файл валиден?", "type": "main", "index": 0 }]] },
-    "Файл валиден?":          { "main": [
-      [{ "node": "OCR (text extraction)", "type": "main", "index": 0 }],
-      [{ "node": "Ответ: ошибка файла", "type": "main", "index": 0 }]
-    ] },
-    "OCR (text extraction)":  { "main": [[{ "node": "Извлечь текст", "type": "main", "index": 0 }]] },
-    "Извлечь текст":          { "main": [[{ "node": "Текст найден?", "type": "main", "index": 0 }]] },
-    "Текст найден?":          { "main": [
-      [{ "node": "LLM извлечь данные", "type": "main", "index": 0 }],
-      [{ "node": "Ответ: OCR не распознал", "type": "main", "index": 0 }]
-    ] },
-    "LLM извлечь данные":     { "main": [[{ "node": "Парсинг данных", "type": "main", "index": 0 }]] },
-    "Парсинг данных":         { "main": [[{ "node": "Данные извлечены?", "type": "main", "index": 0 }]] },
-    "Данные извлечены?":      { "main": [
-      [{ "node": "Фаза 1: проверка полей", "type": "main", "index": 0 }],
-      [{ "node": "Ответ: данные не извлечены", "type": "main", "index": 0 }]
-    ] },
-    "Фаза 1: проверка полей": { "main": [[{ "node": "Фаза 1 OK?", "type": "main", "index": 0 }]] },
-    "Фаза 1 OK?":             { "main": [
-      [{ "node": "БД №1: appeal_employees", "type": "main", "index": 0 }],
-      [{ "node": "Ответ: Фаза 1 не пройдена", "type": "main", "index": 0 }]
-    ] },
-    "БД №1: appeal_employees":{ "main": [[{ "node": "Фаза 2: классификация", "type": "main", "index": 0 }]] },
-    "Фаза 2: классификация":  { "main": [[{ "node": "Фаза 2 OK?", "type": "main", "index": 0 }]] },
-    "Фаза 2 OK?":             { "main": [
-      [{ "node": "БД №2: appeal_event1", "type": "main", "index": 0 }],
-      [{ "node": "Ответ: Фаза 2 не пройдена", "type": "main", "index": 0 }]
-    ] },
-    "БД №2: appeal_event1":   { "main": [[{ "node": "Фаза 3: классификация", "type": "main", "index": 0 }]] },
-    "Фаза 3: классификация":  { "main": [[{ "node": "Фаза 3 OK?", "type": "main", "index": 0 }]] },
-    "Фаза 3 OK?":             { "main": [
-      [{ "node": "БД №3: appeal_event2", "type": "main", "index": 0 }],
-      [{ "node": "Ответ: Фаза 3 не пройдена", "type": "main", "index": 0 }]
-    ] },
-    "БД №3: appeal_event2":   { "main": [[{ "node": "Фаза 4: классификация", "type": "main", "index": 0 }]] },
-    "Фаза 4: классификация":  { "main": [[{ "node": "Финальный ответ", "type": "main", "index": 0 }]] }
+    "Webhook OrgAppeal": {
+      "main": [
+        [
+          {
+            "node": "Ping?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ping?": {
+      "main": [
+        [
+          {
+            "node": "Ответ: pong",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SSO: Auth check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Источник: текст?": {
+      "main": [
+        [
+          {
+            "node": "Текст из body",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Валидация файла",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Текст из body": {
+      "main": [
+        [
+          {
+            "node": "Текст найден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация файла": {
+      "main": [
+        [
+          {
+            "node": "Файл валиден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Файл валиден?": {
+      "main": [
+        [
+          {
+            "node": "OCR (text extraction)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка файла",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR (text extraction)": {
+      "main": [
+        [
+          {
+            "node": "Извлечь текст",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Извлечь текст": {
+      "main": [
+        [
+          {
+            "node": "Текст найден?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Текст найден?": {
+      "main": [
+        [
+          {
+            "node": "LLM извлечь данные",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: OCR не распознал",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM извлечь данные": {
+      "main": [
+        [
+          {
+            "node": "Парсинг данных",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Парсинг данных": {
+      "main": [
+        [
+          {
+            "node": "Данные извлечены?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Данные извлечены?": {
+      "main": [
+        [
+          {
+            "node": "Фаза 1: проверка полей",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: данные не извлечены",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Фаза 1: проверка полей": {
+      "main": [
+        [
+          {
+            "node": "Фаза 1 OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Фаза 1 OK?": {
+      "main": [
+        [
+          {
+            "node": "БД №1: appeal_employees",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: Фаза 1 не пройдена",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "БД №1: appeal_employees": {
+      "main": [
+        [
+          {
+            "node": "Фаза 2: классификация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Фаза 2: классификация": {
+      "main": [
+        [
+          {
+            "node": "Фаза 2 OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Фаза 2 OK?": {
+      "main": [
+        [
+          {
+            "node": "БД №2: appeal_event1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: Фаза 2 не пройдена",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "БД №2: appeal_event1": {
+      "main": [
+        [
+          {
+            "node": "Фаза 3: классификация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Фаза 3: классификация": {
+      "main": [
+        [
+          {
+            "node": "Фаза 3 OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Фаза 3 OK?": {
+      "main": [
+        [
+          {
+            "node": "БД №3: appeal_event2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: Фаза 3 не пройдена",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "БД №3: appeal_event2": {
+      "main": [
+        [
+          {
+            "node": "Фаза 4: классификация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Фаза 4: классификация": {
+      "main": [
+        [
+          {
+            "node": "Финальный ответ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SSO: Auth check": {
+      "main": [
+        [
+          {
+            "node": "SSO: Auth OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SSO: Auth OK?": {
+      "main": [
+        [
+          {
+            "node": "Источник: текст?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SSO: Ответ auth_required",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "versionId": "org-appeal-v2",
   "meta": {
     "templateCredsSetupCompleted": true,
