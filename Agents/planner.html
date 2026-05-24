@@ -615,134 +615,9 @@
         html.gc-pending-auth .sidebar,
         html.gc-pending-auth .main { display: none !important; }
 
-        /* Success-стейт (после смены пароля): зелёный бэйдж с галочкой + текст.
-           Раньше совмещался с .gc-login-error — теперь только chgpwd. */
-        .gc-chgpwd-error.gc-success {
-            display: flex; align-items: center; justify-content: center;
-            gap: 8px;
-            color: var(--text-primary); font-size: 13px;
-        }
-        .gc-success-badge {
-            flex-shrink: 0;
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 18px; height: 18px;
-            background: #4caf50; border-radius: 50%;
-            position: relative;
-        }
-        .gc-success-badge::before {
-            content: '';
-            width: 5px; height: 9px;
-            border: solid #fff;
-            border-width: 0 2px 2px 0;
-            transform: rotate(45deg) translate(-1px, -1px);
-        }
-
-        /* Change-password модалка — отдельная overlay поверх основного UI */
-        .gc-chgpwd-overlay {
-            position: fixed; inset: 0; z-index: 800;
-            background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(3px);
-            display: none; align-items: center; justify-content: center;
-        }
-        .gc-chgpwd-overlay.show { display: flex; }
-        .gc-chgpwd-modal {
-            background: var(--bg-primary); border: 1px solid var(--border);
-            border-radius: 12px; width: min(420px, 92vw);
-            /* Без тени в обоих темах. Модалка отделяется только border'ом
-               и контрастом bg-primary vs backdrop overlay. */
-            animation: plannerModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .gc-chgpwd-header {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 18px 22px; border-bottom: 1px solid var(--border);
-            font-size: 15px; font-weight: 600; color: var(--text-primary);
-        }
-        .gc-chgpwd-close {
-            background: none; border: none; color: var(--text-secondary);
-            font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px;
-        }
-        .gc-chgpwd-close:hover { color: var(--text-primary); }
-        .gc-chgpwd-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; }
-        .gc-chgpwd-body label {
-            display: flex; flex-direction: column; gap: 4px;
-            font-size: 12px; color: var(--text-secondary); font-weight: 500;
-        }
-        .gc-chgpwd-body input {
-            background: var(--bg-input); border: 1px solid var(--border);
-            border-radius: 6px; padding: 9px 12px; color: var(--text-primary);
-            font-family: inherit; font-size: 14px; outline: none;
-            transition: border-color 0.18s ease, background 0.18s ease;
-        }
-        .gc-chgpwd-body input:focus { border-color: var(--accent); background: var(--bg-secondary); }
-        .gc-chgpwd-error { padding: 0 22px; min-height: 14px; color: var(--priority-high); font-size: 12px; }
-        .gc-chgpwd-footer {
-            display: flex; justify-content: flex-end; gap: 8px;
-            padding: 14px 22px 20px;
-        }
-        .gc-chgpwd-footer button {
-            padding: 8px 18px; border-radius: 6px;
-            font-family: inherit; font-size: 13px; cursor: pointer;
-            border: 1px solid var(--border); background: transparent;
-            color: var(--text-secondary); transition: all 0.18s ease;
-        }
-        .gc-chgpwd-footer button:hover { color: var(--text-primary); }
-        .gc-chgpwd-footer .primary {
-            background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600;
-        }
-        .gc-chgpwd-footer .primary:hover { opacity: 0.85; color: #fff; }
-
-        /* === User menu в шапке ============================================
-           «Иванов ▼» с dropdown'ом «Сменить имя / Выйти». Стиль — как
-           gc-select trigger из модалки задач, единая визуальная семья. */
-        /* z-index создаёт stacking context для всего user-menu, чтобы
-           dropdown поднимался поверх #tasks-panel (z-index:5). */
-        .gc-user-menu { position: relative; z-index: 50; }
-        .gc-user-menu-trigger {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: transparent; border: 1px solid var(--border);
-            border-radius: 6px; padding: 6px 10px;
-            color: var(--text-primary); font-family: inherit; font-size: 13px;
-            cursor: pointer; outline: none;
-            transition: border-color 0.18s ease, background 0.18s ease;
-        }
-        .gc-user-menu-trigger:hover { border-color: var(--text-secondary); }
-        .gc-user-menu.open .gc-user-menu-trigger {
-            border-color: var(--accent); background: var(--bg-secondary);
-        }
-        .gc-user-menu-arrow {
-            width: 6px; height: 6px;
-            border-right: 1.5px solid var(--text-secondary);
-            border-bottom: 1.5px solid var(--text-secondary);
-            transform: translateY(-2px) rotate(45deg);
-            transition: transform 0.18s ease, border-color 0.18s ease;
-        }
-        .gc-user-menu.open .gc-user-menu-arrow {
-            transform: translateY(2px) rotate(-135deg);
-            border-color: var(--accent);
-        }
-        .gc-user-menu-dropdown {
-            position: absolute; top: calc(100% + 4px); right: 0;
-            min-width: 160px;
-            background: var(--bg-input); border: 1px solid var(--border);
-            border-radius: 8px; padding: 4px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-            z-index: 90;
-            opacity: 0; visibility: hidden; transform: translateY(-4px);
-            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
-        }
-        .gc-user-menu.open .gc-user-menu-dropdown {
-            opacity: 1; visibility: visible; transform: translateY(0);
-        }
-        .gc-user-menu-dropdown button {
-            display: block; width: 100%;
-            background: none; border: none; cursor: pointer;
-            padding: 8px 12px; border-radius: 5px;
-            font-family: inherit; font-size: 13px;
-            color: var(--text-primary); text-align: left;
-            transition: background 0.15s ease, color 0.15s ease;
-        }
-        .gc-user-menu-dropdown button:hover {
-            background: var(--bg-secondary); color: var(--accent);
-        }
+        /* User-menu и change-password модалка перенесены на дашборд.
+           Здесь — только pre-paint mask для FOUC + auth-redirect логика
+           (см. GigaChat.auth.requireAuth в JS блоке внизу). */
     </style>
     <script src="_config.js"></script>
     <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark">
@@ -764,34 +639,8 @@
          платформы). При отсутствии токена/auth_required делаем редирект через
          GigaChat.auth.requireAuth() из _shared.js. -->
 
-    <!-- Change-password модалка — вызывается из user-menu после login -->
-    <div class="gc-chgpwd-overlay" id="chgpwdOverlay" onclick="if(event.target===this)closeChgpwdModal()">
-        <div class="gc-chgpwd-modal">
-            <div class="gc-chgpwd-header">
-                Сменить пароль
-                <button class="gc-chgpwd-close" onclick="closeChgpwdModal()" aria-label="Закрыть">&times;</button>
-            </div>
-            <div class="gc-chgpwd-body">
-                <label>Текущий пароль
-                    <input type="password" id="chgpwdOld" autocomplete="current-password"
-                           data-next="chgpwdNew">
-                </label>
-                <label>Новый пароль
-                    <input type="password" id="chgpwdNew" autocomplete="new-password"
-                           placeholder="не менее 6 символов" data-next="chgpwdNew2">
-                </label>
-                <label>Подтвердите новый пароль
-                    <input type="password" id="chgpwdNew2" autocomplete="new-password"
-                           data-next="chgpwdSaveBtn">
-                </label>
-            </div>
-            <div class="gc-chgpwd-error" id="chgpwdError"></div>
-            <div class="gc-chgpwd-footer">
-                <button onclick="closeChgpwdModal()">Отмена</button>
-                <button class="primary" id="chgpwdSaveBtn" onclick="submitChangePassword()">Сохранить</button>
-            </div>
-        </div>
-    </div>
+    <!-- Change-password модалка перенесена на дашборд (GigaChat-Platform.html) —
+         единая точка управления аккаунтом. -->
 
     <div class="sidebar">
         <div class="sidebar-top-bar">
@@ -814,18 +663,8 @@
                     <span class="dot checking" id="statusDot"></span>
                     <span id="statusText">проверка...</span>
                 </div>
-                <!-- User-menu: имя текущего юзера + dropdown «Сменить/Выйти».
-                     Заполняется JS при инициализации (берёт имя из localStorage). -->
-                <div class="gc-user-menu" id="userMenu" style="display:none">
-                    <button class="gc-user-menu-trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false">
-                        <span id="userMenuLabel">—</span>
-                        <span class="gc-user-menu-arrow" aria-hidden="true"></span>
-                    </button>
-                    <div class="gc-user-menu-dropdown" role="menu">
-                        <button type="button" onclick="openChgpwdModal()">Сменить пароль</button>
-                        <button type="button" onclick="logoutUser()">Выйти</button>
-                    </div>
-                </div>
+                <!-- User-menu (Сменить пароль / Выйти) теперь живёт на дашборде —
+                     единая точка управления аккаунтом для всей платформы. -->
                 <button class="btn-export" id="btnExport" onclick="exportChat()">Экспорт</button>
             </div>
         </header>
@@ -992,146 +831,11 @@
         // sessionStore и session_id.
 
 
-        // HTTP-обёртка для auth endpoint'а — единая, из _shared.js.
-        // Возвращает {response:'ok'|'error', ...} или {response:'error', network:true}.
-        // Используется только для submitChangePassword (и опосредованно — через
-        // GigaChat.auth.* для verify/logout). Login/register живёт в /login.html.
-        var authApi = GigaChat.auth.apiCall;
-
-        // Установка inline-ошибки с авто-очисткой через 5 секунд.
-        // Если text пустой — очищает мгновенно и отменяет старый таймер.
-        // Также сбрасывает success-стейт (зелёный бэйдж).
-        // Используется в chgpwd-модалке (после удаления login/register оттуда же).
-        function setLoginError(elId, text) {
-            var el = document.getElementById(elId);
-            if (!el) return;
-            if (el._clearTimer) {
-                clearTimeout(el._clearTimer);
-                el._clearTimer = null;
-            }
-            el.classList.remove('gc-success');
-            el.textContent = text || '';
-            if (text) {
-                el._clearTimer = setTimeout(function () {
-                    el.textContent = '';
-                    el._clearTimer = null;
-                }, 5000);
-            }
-        }
-
-        // Показ success-бэйджа в области ошибки (regError или chgpwdError).
-        // Зелёный кружок с белой галочкой + произвольный текст справа.
-        // Очищается при следующем setLoginError(elId, ...).
-        function showSuccessBadge(elId, text) {
-            var el = document.getElementById(elId);
-            if (!el) return;
-            if (el._clearTimer) {
-                clearTimeout(el._clearTimer);
-                el._clearTimer = null;
-            }
-            el.classList.add('gc-success');
-            // Текст вставляем через textContent второго span — защита от XSS
-            el.innerHTML = '<span class="gc-success-badge" aria-hidden="true"></span><span></span>';
-            el.lastElementChild.textContent = text;
-        }
-
-        // submitLogin/submitRegister жили здесь — перенесены в /login.html.
-        // Эти страница (планировщик) их больше НЕ показывает, при отсутствии
-        // токена редиректит на /login.html?return=<url>.
-
-        // === Enter-цепочка в change-password модалке =======================
-        // Enter в input'е переводит фокус на следующее поле (data-next=id).
-        // Если data-next указывает на кнопку (chgpwdSaveBtn) — клик = submit.
-        function handleLoginEnterChain(e) {
-            if (e.key !== 'Enter') return;
-            var inp = e.target;
-            if (!inp || inp.tagName !== 'INPUT') return;
-            if (inp.type === 'checkbox') return;  // native — на checkbox Enter ничего не делает
-            var nextId = inp.getAttribute('data-next');
-            if (!nextId) return;  // нет data-next → native submit формы
-            var nextEl = document.getElementById(nextId);
-            if (!nextEl) return;
-            e.preventDefault();
-            if (nextEl.tagName === 'BUTTON') {
-                // Последнее поле — Enter кликает «Войти» / «Зарегистрироваться»
-                nextEl.click();
-            } else {
-                nextEl.focus();
-            }
-        }
-        (function bindChgpwdEnterChain() {
-            // Change-password модалка использует data-next (handleLoginEnterChain).
-            var inputs = document.querySelectorAll('.gc-chgpwd-body input');
-            for (var i = 0; i < inputs.length; i++) {
-                inputs[i].addEventListener('keydown', handleLoginEnterChain);
-            }
-        })();
-
-        // === Logout / Change-password ===
-        // Logout — через GigaChat.auth.logout: invalidate сессии на сервере +
-        // localStorage cleanup + редирект на дашборд (юзер увидит «Войти»).
-        async function logoutUser() {
-            await GigaChat.auth.logout();
-        }
-
-        function openChgpwdModal() {
-            document.getElementById('chgpwdOverlay').classList.add('show');
-            document.getElementById('chgpwdOld').value = '';
-            document.getElementById('chgpwdNew').value = '';
-            document.getElementById('chgpwdNew2').value = '';
-            document.getElementById('chgpwdError').textContent = '';
-            setTimeout(function () { document.getElementById('chgpwdOld').focus(); }, 50);
-        }
-        function closeChgpwdModal() {
-            document.getElementById('chgpwdOverlay').classList.remove('show');
-        }
-        // Список разрешённых inline-сообщений в этой модалке:
-        //   1) «Введите текущий пароль»
-        //   2) «Новый пароль не короче 6 символов»
-        //   3) «Новые пароли не совпадают»
-        //   4) «Новый пароль должен отличаться от текущего»
-        //   5) «Не авторизован»            (нет токена в localStorage)
-        //   6) «Не удалось сменить пароль» (любая ошибка сервера/сети)
-        //   + success-бэйдж «Пароль изменён»
-        // Серверный data.error НЕ показывается юзеру (логируется в console).
-        async function submitChangePassword() {
-            var btn = document.getElementById('chgpwdSaveBtn');
-            var oldP = document.getElementById('chgpwdOld').value;
-            var newP = document.getElementById('chgpwdNew').value;
-            var newP2 = document.getElementById('chgpwdNew2').value;
-            setLoginError('chgpwdError', '');
-            if (!oldP) { setLoginError('chgpwdError', 'Введите текущий пароль'); return; }
-            if (newP.length < 6) { setLoginError('chgpwdError', 'Новый пароль не короче 6 символов'); return; }
-            if (newP !== newP2) { setLoginError('chgpwdError', 'Новые пароли не совпадают'); return; }
-            if (oldP === newP) { setLoginError('chgpwdError', 'Новый пароль должен отличаться от текущего'); return; }
-            var token = getStoredToken();
-            if (!token) { setLoginError('chgpwdError', 'Не авторизован'); return; }
-            btn.disabled = true;
-            btn.textContent = 'Сохранение…';
-            var data = await authApi({
-                action: 'change_password',
-                token: token,
-                old_password: oldP,
-                new_password: newP,
-            });
-            if (data.response !== 'ok') {
-                // Серверный data.error НЕ показываем — единый фиксированный текст
-                if (data.error) console.warn('change_password error:', data.error);
-                setLoginError('chgpwdError', 'Не удалось сменить пароль');
-                btn.disabled = false;
-                btn.textContent = 'Сохранить';
-                return;
-            }
-            // Успех: зелёный бэйдж + автозакрытие модалки через 2 сек
-            showSuccessBadge('chgpwdError', 'Пароль изменён');
-            btn.textContent = 'Готово';
-            setTimeout(function () {
-                closeChgpwdModal();
-                setLoginError('chgpwdError', '');   // снимает gc-success
-                btn.disabled = false;
-                btn.textContent = 'Сохранить';
-            }, 2000);
-        }
+        // submitLogin/submitRegister/change_password/logout/setLoginError/
+        // showSuccessBadge/handleLoginEnterChain — всё перенесено в дашборд
+        // (GigaChat-Platform.html) и/или login.html. Здесь авторизация — только
+        // через GigaChat.auth.requireAuth() из _shared.js: при провале токена
+        // редирект на /login.html?return=<url>.
 
         // Переключение между AI-чатом и панелью задач. Panel — absolute
         // overlay поверх chat (CSS .show → opacity 1 + visibility visible).
@@ -1175,26 +879,8 @@
         })();
 
         function initAuthenticatedUI() {
-            // User-menu в шапке: показываем имя + dropdown («Сменить пароль / Выйти»)
-            var menu = document.getElementById('userMenu');
-            var trigger = document.getElementById('userMenuTrigger');
-            var label = document.getElementById('userMenuLabel');
-            label.textContent = CURRENT_USER;
-            menu.style.display = '';
-
-            function setOpen(open) {
-                menu.classList.toggle('open', open);
-                trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-            }
-            trigger.addEventListener('click', function (e) {
-                e.stopPropagation();
-                setOpen(!menu.classList.contains('open'));
-            });
-            document.addEventListener('click', function (e) {
-                if (!menu.contains(e.target)) setOpen(false);
-            });
-
-            // Запускаем основную инициализацию планировщика
+            // User-menu (Сменить пароль / Выйти) переехал на дашборд —
+            // здесь сразу инициализируем основной UI планировщика.
             initPlannerMainUI();
         }
 

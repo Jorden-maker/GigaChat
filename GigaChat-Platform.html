@@ -314,9 +314,16 @@
         .gc-auth-pill:hover { border-color: var(--accent); }
         .gc-auth-widget.open .gc-auth-pill { border-color: var(--accent); background: var(--bg-card-hover); }
         .gc-auth-pill .gc-auth-name {
-            max-width: 160px;
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            max-width: 180px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent) transparent;
         }
+        .gc-auth-pill .gc-auth-name::-webkit-scrollbar { height: 2px; }
+        .gc-auth-pill .gc-auth-name::-webkit-scrollbar-track { background: transparent; }
+        .gc-auth-pill .gc-auth-name::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 1px; }
         .gc-auth-pill .gc-auth-arrow {
             width: 6px; height: 6px;
             border-right: 1.5px solid var(--text-secondary);
@@ -357,6 +364,85 @@
         /* «Войти»-кнопка убрана: дашборд теперь = протектед страница
            (без токена редирект на /login.html). Login living separately. */
 
+        /* ========== Change-password модалка (перенесена из планировщика) ====
+           Аккаунтное управление консолидировано на дашборде: pill dropdown
+           «Сменить пароль» открывает эту модалку. Перенос — чтобы не было
+           дублирования и юзер всегда знал ОДНУ точку входа в свой аккаунт. */
+        @keyframes gcChgpwdSlide {
+            from { opacity: 0; transform: translateY(8px) scale(0.985); }
+            to   { opacity: 1; transform: translateY(0)  scale(1);     }
+        }
+        .gc-chgpwd-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(3px);
+            display: none; align-items: center; justify-content: center;
+        }
+        .gc-chgpwd-overlay.show { display: flex; }
+        .gc-chgpwd-modal {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: 12px; width: min(420px, 92vw);
+            animation: gcChgpwdSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .gc-chgpwd-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 22px; border-bottom: 1px solid var(--border);
+            font-size: 15px; font-weight: 600; color: var(--text-primary);
+        }
+        .gc-chgpwd-close {
+            background: none; border: none; color: var(--text-secondary);
+            font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px;
+        }
+        .gc-chgpwd-close:hover { color: var(--text-primary); }
+        .gc-chgpwd-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; }
+        .gc-chgpwd-body label {
+            display: flex; flex-direction: column; gap: 4px;
+            font-size: 12px; color: var(--text-secondary); font-weight: 500;
+        }
+        .gc-chgpwd-body input {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 6px; padding: 9px 12px; color: var(--text-primary);
+            font-family: inherit; font-size: 14px; outline: none;
+            transition: border-color 0.18s ease, background 0.18s ease;
+        }
+        .gc-chgpwd-body input:focus { border-color: var(--accent); background: var(--bg-card-hover); }
+        .gc-chgpwd-error {
+            padding: 0 22px; min-height: 14px;
+            color: #d97757; font-size: 12px;
+        }
+        .gc-chgpwd-error.gc-success {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; color: var(--text-primary); font-size: 13px;
+        }
+        .gc-chgpwd-footer {
+            display: flex; justify-content: flex-end; gap: 8px;
+            padding: 14px 22px 20px;
+        }
+        .gc-chgpwd-footer button {
+            padding: 8px 18px; border-radius: 6px;
+            font-family: inherit; font-size: 13px; cursor: pointer;
+            border: 1px solid var(--border); background: transparent;
+            color: var(--text-secondary); transition: all 0.18s ease;
+        }
+        .gc-chgpwd-footer button:hover { color: var(--text-primary); }
+        .gc-chgpwd-footer .primary {
+            background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600;
+        }
+        .gc-chgpwd-footer .primary:hover { opacity: 0.85; color: #fff; }
+        .gc-success-badge {
+            flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px;
+            background: #4caf50; border-radius: 50%;
+            position: relative;
+        }
+        .gc-success-badge::before {
+            content: '';
+            width: 5px; height: 9px;
+            border: solid #fff;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg) translate(-1px, -1px);
+        }
+
         /* Responsive */
         @media (max-width: 1100px) {
             .cards-grid { grid-template-columns: repeat(3, 1fr); }
@@ -386,10 +472,39 @@
 <div class="bg-noise"></div>
 
 <!-- Auth-виджет (top-right). Содержимое подменяется в JS:
-     - logged-in: pill «<имя> ▾» с dropdown «Сменить пароль / Выйти»
-     - logged-out: «Войти» → login.html
+     - pill «<имя> ▾» с dropdown «Сменить пароль / Выйти»
+     - logged-out не показывается: без токена → редирект на login.html
      Класс .gc-ready выставляется после verify (анти-FOUC). -->
 <div class="gc-auth-widget" id="gcAuthWidget"></div>
+
+<!-- Change-password модалка (перенесена из планировщика). Открывается из
+     pill dropdown «Сменить пароль». z-index выше всего, чтобы перекрывать
+     карточки и фон. -->
+<div class="gc-chgpwd-overlay" id="chgpwdOverlay" onclick="if(event.target===this)closeChgpwdModal()">
+    <div class="gc-chgpwd-modal">
+        <div class="gc-chgpwd-header">
+            Сменить пароль
+            <button class="gc-chgpwd-close" onclick="closeChgpwdModal()" aria-label="Закрыть">&times;</button>
+        </div>
+        <div class="gc-chgpwd-body">
+            <label>Текущий пароль
+                <input type="password" id="chgpwdOld" autocomplete="current-password" data-next="chgpwdNew">
+            </label>
+            <label>Новый пароль
+                <input type="password" id="chgpwdNew" autocomplete="new-password"
+                       placeholder="не менее 6 символов" data-next="chgpwdNew2">
+            </label>
+            <label>Подтвердите новый пароль
+                <input type="password" id="chgpwdNew2" autocomplete="new-password" data-next="chgpwdSaveBtn">
+            </label>
+        </div>
+        <div class="gc-chgpwd-error" id="chgpwdError"></div>
+        <div class="gc-chgpwd-footer">
+            <button onclick="closeChgpwdModal()">Отмена</button>
+            <button class="primary" id="chgpwdSaveBtn" onclick="submitChangePassword()">Сохранить</button>
+        </div>
+    </div>
+</div>
 
 <div class="container">
 
@@ -642,7 +757,8 @@
     // === Auth-gate + widget (top-right) =====================================
     // Дашборд — протектед страница. Без токена сразу редирект на /login.html.
     // После успешного verify: снимаем gc-pending-auth (показываем cards) и
-    // рендерим pill «Привет, X ▾» с dropdown «Открыть планировщик / Выйти».
+    // рендерим pill «<имя> ▾» с dropdown «Сменить пароль / Выйти».
+    // Pill scrollable (длинные имена прокручиваются ←/→ внутри).
     GigaChat.auth.requireAuth({ onOk: function (username) {
         document.documentElement.classList.remove('gc-pending-auth');
 
@@ -654,14 +770,16 @@
                 '<span class="gc-auth-arrow" aria-hidden="true"></span>' +
             '</button>' +
             '<div class="gc-auth-dropdown" role="menu">' +
-                '<a href="Agents/planner.html" role="menuitem">Открыть планировщик</a>' +
+                '<button type="button" id="gcAuthChgpwd" role="menuitem">Сменить пароль</button>' +
                 '<button type="button" id="gcAuthLogout" role="menuitem">Выйти</button>' +
             '</div>';
-        // textContent — защита от XSS (имя приходит от сервера, но всё равно)
-        widget.querySelector('.gc-auth-name').textContent = 'Привет, ' + username;
+        // textContent — защита от XSS (имя приходит от сервера, но всё равно).
+        // Без «Привет, » префикса — оставляем только имя, длинное прокручивается.
+        widget.querySelector('.gc-auth-name').textContent = username;
         widget.classList.add('gc-ready');
 
         var pill = document.getElementById('gcAuthPill');
+        var chgpwdBtn = document.getElementById('gcAuthChgpwd');
         var logoutBtn = document.getElementById('gcAuthLogout');
         function setOpen(open) {
             widget.classList.toggle('open', open);
@@ -674,12 +792,104 @@
         document.addEventListener('click', function (e) {
             if (!widget.contains(e.target)) setOpen(false);
         });
+        chgpwdBtn.addEventListener('click', function () {
+            setOpen(false);
+            openChgpwdModal();
+        });
         logoutBtn.addEventListener('click', function () {
             // После logout → login.html (а не на сам дашборд, иначе бесконечный
             // редирект: dashboard → no token → login → success → dashboard).
             GigaChat.auth.logout({ redirectTo: 'login.html' });
         });
     }});
+
+    // ============== Change-password modal logic =============================
+    // Перенесено из планировщика. setLoginError/showSuccessBadge — общие
+    // хелперы для inline-сообщений (имя осталось по историческим причинам,
+    // на дашборде используется только для chgpwdError).
+    function setLoginError(elId, text) {
+        var el = document.getElementById(elId);
+        if (!el) return;
+        if (el._clearTimer) { clearTimeout(el._clearTimer); el._clearTimer = null; }
+        el.classList.remove('gc-success');
+        el.textContent = text || '';
+        if (text) {
+            el._clearTimer = setTimeout(function () {
+                el.textContent = '';
+                el._clearTimer = null;
+            }, 5000);
+        }
+    }
+    function showSuccessBadge(elId, text) {
+        var el = document.getElementById(elId);
+        if (!el) return;
+        if (el._clearTimer) { clearTimeout(el._clearTimer); el._clearTimer = null; }
+        el.classList.add('gc-success');
+        el.innerHTML = '<span class="gc-success-badge" aria-hidden="true"></span><span></span>';
+        el.lastElementChild.textContent = text;
+    }
+    function openChgpwdModal() {
+        document.getElementById('chgpwdOverlay').classList.add('show');
+        document.getElementById('chgpwdOld').value = '';
+        document.getElementById('chgpwdNew').value = '';
+        document.getElementById('chgpwdNew2').value = '';
+        document.getElementById('chgpwdError').textContent = '';
+        setTimeout(function () { document.getElementById('chgpwdOld').focus(); }, 50);
+    }
+    function closeChgpwdModal() {
+        document.getElementById('chgpwdOverlay').classList.remove('show');
+    }
+    async function submitChangePassword() {
+        var btn = document.getElementById('chgpwdSaveBtn');
+        var oldP = document.getElementById('chgpwdOld').value;
+        var newP = document.getElementById('chgpwdNew').value;
+        var newP2 = document.getElementById('chgpwdNew2').value;
+        setLoginError('chgpwdError', '');
+        if (!oldP) { setLoginError('chgpwdError', 'Введите текущий пароль'); return; }
+        if (newP.length < 6) { setLoginError('chgpwdError', 'Новый пароль не короче 6 символов'); return; }
+        if (newP !== newP2) { setLoginError('chgpwdError', 'Новые пароли не совпадают'); return; }
+        if (oldP === newP) { setLoginError('chgpwdError', 'Новый пароль должен отличаться от текущего'); return; }
+        var token = GigaChat.auth.getToken();
+        if (!token) { setLoginError('chgpwdError', 'Не авторизован'); return; }
+        btn.disabled = true;
+        btn.textContent = 'Сохранение…';
+        var data = await GigaChat.auth.apiCall({
+            action: 'change_password', token: token,
+            old_password: oldP, new_password: newP
+        });
+        if (data.response !== 'ok') {
+            if (data.error) console.warn('change_password error:', data.error);
+            setLoginError('chgpwdError', 'Не удалось сменить пароль');
+            btn.disabled = false; btn.textContent = 'Сохранить';
+            return;
+        }
+        showSuccessBadge('chgpwdError', 'Пароль изменён');
+        btn.textContent = 'Готово';
+        setTimeout(function () {
+            closeChgpwdModal();
+            setLoginError('chgpwdError', '');
+            btn.disabled = false; btn.textContent = 'Сохранить';
+        }, 2000);
+    }
+    // Enter-цепочка внутри chgpwd модалки: Enter → следующее поле/кнопка
+    function handleChgpwdEnterChain(e) {
+        if (e.key !== 'Enter') return;
+        var inp = e.target;
+        if (!inp || inp.tagName !== 'INPUT') return;
+        var nextId = inp.getAttribute('data-next');
+        if (!nextId) return;
+        var nextEl = document.getElementById(nextId);
+        if (!nextEl) return;
+        e.preventDefault();
+        if (nextEl.tagName === 'BUTTON') nextEl.click();
+        else nextEl.focus();
+    }
+    (function bindChgpwdEnterChain() {
+        var inputs = document.querySelectorAll('.gc-chgpwd-body input');
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].addEventListener('keydown', handleChgpwdEnterChain);
+        }
+    })();
 
 </script>
 </body>
