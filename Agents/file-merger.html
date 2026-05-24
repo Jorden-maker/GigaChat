@@ -474,10 +474,14 @@
                 for (var k = 0; k < lis.length; k++) {
                     lis[k].addEventListener('click', function (e) {
                         e.stopPropagation();
-                        setValue(e.currentTarget.dataset.value, true);
-                        // Закрываем ВСЕ открытые — гарантия что соседнее не «откроется» само.
+                        // Сначала закрываем меню (fade-out начинается), потом
+                        // setValue вызывает rebuild() который меняет innerHTML.
+                        // Раньше порядок был обратный → юзер видел мигание DOM
+                        // в ещё видимом меню до того как оно начало исчезать.
+                        var clickedValue = e.currentTarget.dataset.value;
                         var allOpen = document.querySelectorAll('.gc-dropdown.open');
                         for (var x = 0; x < allOpen.length; x++) allOpen[x].classList.remove('open');
+                        setValue(clickedValue, true);
                     });
                 }
                 var found = state.items.find(function (it) { return String(it.value) === String(state.value); });
@@ -916,14 +920,23 @@
 
         // Превращает один лист Excel в блок xlsx-table (с грид + merges).
         async function xlsxSheetToBlock(sheet, file, sheetIdx) {
+            // КРИТИЧНО: cols = max(headers, max(row.length)). Если первая
+            // непустая строка Excel — merged заголовок (только A1), headers
+            // имеет длину 1, а у data-rows колонок 4. Раньше брал cols=headers.length
+            // и обрезал все B/C/D данных — выходила «пустая таблица».
+            var cols = (sheet.headers && sheet.headers.length) ? sheet.headers.length : 0;
+            for (var ri = 0; ri < sheet.rows.length; ri++) {
+                if (sheet.rows[ri].length > cols) cols = sheet.rows[ri].length;
+            }
             var grid = [];
             // B3: header'ы приводим к строкам — иначе числовые headers (например год
-            // 2024 в первой строке) дальше попадут в paragraphXml как number и
-            // `text || ''` сделает их пустыми (0 → '').
+            // 2024) дальше попадут в paragraphXml как number и `text || ''` сделает их пустыми.
             if (sheet.headers && sheet.headers.length) {
-                grid.push(sheet.headers.map(function (h) { return h == null ? '' : String(h); }));
+                var headerRow = sheet.headers.map(function (h) { return h == null ? '' : String(h); });
+                // Дополняем headers пустыми до cols (если data-rows шире)
+                while (headerRow.length < cols) headerRow.push('');
+                grid.push(headerRow);
             }
-            var cols = sheet.headers.length;
             for (var i = 0; i < sheet.rows.length; i++) {
                 var row = sheet.rows[i]; // массив
                 var arr = [];
