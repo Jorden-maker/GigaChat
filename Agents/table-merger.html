@@ -83,6 +83,49 @@
         .file-row .remove:hover { color: var(--error); background: rgba(239,68,68,0.08); }
         .file-row .err-msg { color: var(--error); font-size: 11px; margin-left: 8px; }
 
+        /* === Кастомные checkbox / radio в акценте темы === */
+        .opts-panel input[type="checkbox"],
+        .settings-panel input[type="radio"] {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 16px; height: 16px;
+            border: 1.5px solid var(--text-muted);
+            background: var(--bg-input);
+            cursor: pointer;
+            margin: 0;
+            position: relative;
+            transition: border-color 0.15s, background 0.15s;
+            flex-shrink: 0;
+            vertical-align: middle;
+        }
+        .opts-panel input[type="checkbox"] { border-radius: 4px; }
+        .settings-panel input[type="radio"] { border-radius: 50%; }
+        .opts-panel input[type="checkbox"]:hover,
+        .settings-panel input[type="radio"]:hover { border-color: var(--accent); }
+        .opts-panel input[type="checkbox"]:checked,
+        .settings-panel input[type="radio"]:checked {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+        .opts-panel input[type="checkbox"]:checked::after {
+            content: '';
+            position: absolute;
+            left: 4px; top: 0;
+            width: 4px; height: 9px;
+            border: solid #fff;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+        .settings-panel input[type="radio"]:checked::after {
+            content: '';
+            position: absolute;
+            left: 3px; top: 3px;
+            width: 7px; height: 7px;
+            background: #fff;
+            border-radius: 50%;
+        }
+
         /* === Options panel === */
         .opts-panel {
             background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
