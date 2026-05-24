@@ -82,6 +82,26 @@
     _migrateLegacyAuthKeys();
     try { return localStorage.getItem(AUTH_USERNAME_KEY) || ''; } catch (e) { return ''; }
   }
+
+  // ASCII-prefix для localStorage по имени юзера. Гарантия уникальности
+  // для кириллицы — через btoa(UTF-8 bytes) (старая replace [^A-Za-z0-9_] → '_'
+  // давала одинаковый prefix для 'Иванов' и 'Петров' — юзеры видели чужие
+  // сессии). Используется как user-namespace во всех агентах: sessionStore
+  // prefix, settings localStorage и т.п.
+  function authUserPrefix(name) {
+    var s = String(name == null ? authGetUsername() : name);
+    if (!s) return 'anon';
+    try {
+      var bytes = new TextEncoder().encode(s);
+      var bin = '';
+      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      var b64 = btoa(bin).replace(/[^A-Za-z0-9]/g, '');
+      if (b64) return b64;
+    } catch (e) { /* fallback ниже */ }
+    var h = 0;
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+    return 'u_' + Math.abs(h);
+  }
   function authSetAuth(token, username) {
     try {
       localStorage.setItem(AUTH_TOKEN_KEY, token || '');
@@ -3426,12 +3446,38 @@
     // полями для тела POST-запроса в webhook. Plane-агент использует это, чтобы
     // прокинуть token (planner_sessions), workspace_slug, plane_url, plane_token.
     // Если опция не задана — тело отправляется без доп. полей (как раньше).
-    var extraBody = opts.extraBody || function () { return {}; };
+    var userExtraBody = opts.extraBody || function () { return {}; };
+
+    // userScoped: true — изоляция данных юзера. Делает:
+    //   1) Префикс sessionStore = opts.prefix + '_' + userPrefix(username)
+    //      → sessions/история/драфты в localStorage НЕ пересекаются между юзерами
+    //   2) Автоматическая подмешка token в extraBody → backend знает кто юзер
+    //      и фильтрует chat-memory по user_id (workflow делает Verify token).
+    // По умолчанию false (обратная совместимость).
+    var userScoped = opts.userScoped === true;
+    var basePrefix = opts.prefix;
+    if (userScoped) {
+      var uPfx = authUserPrefix();
+      basePrefix = opts.prefix + '_' + uPfx;
+    }
+    // Финальная extraBody: если userScoped → token подмешивается всегда (плюс
+    // что вернул юзер в своём callback'е, его поля имеют приоритет).
+    var extraBody = userScoped
+      ? function (ctx) {
+          var u = userExtraBody(ctx) || {};
+          if (u.token == null) u.token = authGetToken();
+          return u;
+        }
+      : userExtraBody;
 
     var attachment = null;
+    // ВАЖНО: при userScoped игнорируем явный opts.idPrefix — иначе session ID
+    // будут одинаковы для разных юзеров (router_1, router_2), и backend chat-memory
+    // (ключ = session_id) даст коллизию. Принудительно basePrefix-based ID,
+    // т.е. session ID = router_<userPrefix>_1 — уникальный per-user.
     var sessionStore = createSessionStore({
-      prefix: opts.prefix,
-      idPrefix: opts.idPrefix || (opts.prefix + '_'),
+      prefix: basePrefix,
+      idPrefix: userScoped ? (basePrefix + '_') : (opts.idPrefix || (basePrefix + '_')),
       namePrefix: opts.namePrefix || (opts.prefix + '-'),
       sessionList: sessionListEl,
       renderMessages: function () { renderChat(); },
@@ -3726,6 +3772,15 @@
             sessionStore.clearInflight(sendSessionId);
           }
         }
+        // Глобальная обработка auth_required: если userScoped и сервер
+        // ответил «не авторизован» — чистим токен и редиректим на login.
+        // Покрывает все агенты разом, чтобы каждый не дублировал логику.
+        if (userScoped && data && data.auth_required) {
+          authClearAuth();
+          authRedirectToLogin();
+          sessionStore.clearInflight(sendSessionId);
+          return;
+        }
         var botMsg = parseBotMessage(data);
         if (!botMsg.ts) botMsg.ts = Date.now();
         enrichBotMsg(botMsg);
@@ -3899,6 +3954,7 @@
       logout: authLogout,
       parseReturnUrl: authParseReturnUrl,
       apiCall: authApiCall,
+      userPrefix: authUserPrefix,
       TOKEN_KEY: AUTH_TOKEN_KEY,
       USERNAME_KEY: AUTH_USERNAME_KEY
     },

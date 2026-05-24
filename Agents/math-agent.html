@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>GigaChat Math</title>
-    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.add('gc-pending-auth')}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <style>html.gc-pending-auth .sidebar,html.gc-pending-auth .main{display:none !important}</style>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -267,7 +268,11 @@
             return formatText(msg.content || '');
         }
 
+        // Auth-gate + изоляция сессий/history per user (userScoped:true).
+        GigaChat.auth.requireAuth({ onOk: function () {
+        document.documentElement.classList.remove('gc-pending-auth');
         GigaChat.createChatAgent({
+            userScoped: true,
             webhookPath: 'math',
             historyPath: 'history',
             prefix: 'math',
@@ -358,6 +363,7 @@
                         body: JSON.stringify({
                             message: ctx.message,
                             session_id: ctx.sessionId,
+                            token: GigaChat.auth.getToken(),  // userScoped: workflow проверит и фильтрует chat_memory по user_id
                             code: data.code,
                             raw_result: exec.output,
                             final_line: finalLine,
@@ -392,6 +398,7 @@
                 return await resp.json();
             }
         });
+        }}); // конец requireAuth.onOk
     </script>
 </body>
 </html>

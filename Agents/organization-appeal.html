@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Организация обращения — GigaChat</title>
-<script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+<script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.add('gc-pending-auth')}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+<style>html.gc-pending-auth header,html.gc-pending-auth main{display:none !important}</style>
 <style>
 :root {
     --bg-primary: #1f1f1e;
@@ -295,6 +296,10 @@ main { max-width: 800px; }
 </main>
 
 <script>
+    // Auth-gate: без токена → /login.html. После успеха снимаем mask.
+    GigaChat.auth.requireAuth({ onOk: function () {
+        document.documentElement.classList.remove('gc-pending-auth');
+    }});
     GigaChat.injectToolCss();
     var WEBHOOK_URL = GigaChat.webhookUrl('organization-appeal');
     var FETCH_TIMEOUT_MS = 180000;
@@ -469,11 +474,12 @@ main { max-width: 800px; }
                 fetchOpts = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json; charset=utf-8' },
-                    body: JSON.stringify({ text: text, filename: selectedFile.name })
+                    body: JSON.stringify({ text: text, filename: selectedFile.name, token: GigaChat.auth.getToken() })
                 };
             } else {
                 var formData = new FormData();
                 formData.append('file', selectedFile);
+                formData.append('token', GigaChat.auth.getToken());  // per-user auth
                 fetchOpts = { method: 'POST', body: formData };
             }
             var res = await GigaChat.fetchWithRetry(WEBHOOK_URL, fetchOpts, {
@@ -489,6 +495,11 @@ main { max-width: 800px; }
             try { data = await res.json(); }
             catch (parseErr) { throw new Error('Сервер вернул некорректный ответ (не JSON).'); }
 
+            if (data && data.auth_required) {
+                GigaChat.auth.clearAuth();
+                GigaChat.auth.redirectToLogin();
+                return;
+            }
             // Если нет ни extracted, ни steps — значит ошибка раньше DB-цепочки
             if (!data.extracted && (!data.steps || data.steps.length === 0)) {
                 errorBox.textContent = data.response || data.error || 'Ошибка обработки документа.';

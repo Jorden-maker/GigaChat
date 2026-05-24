@@ -14,7 +14,8 @@
         }
         html[data-theme="dark"] body { color: #d4d4d4; background: #1f1f1e; }
     </style>
-    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');document.documentElement.classList.add('gc-pending-auth');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <style>html.gc-pending-auth header,html.gc-pending-auth main{display:none !important}</style>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -418,6 +419,11 @@
     </div>
 
     <script>
+        // Auth-gate: без токена → /login.html. Инструмент работает в браузере,
+        // но платформа целиком закрыта (корпоративный LAN) — auth обязателен.
+        GigaChat.auth.requireAuth({ onOk: function () {
+            document.documentElement.classList.remove('gc-pending-auth');
+        }});
         GigaChat.injectToolCss();
         // Theme toggle инжектится автоматически из _shared.js (через injectToolCss),
         // своя кнопка тут не нужна — раньше создавала визуальный дубль.

@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>GigaChat Data</title>
-    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.add('gc-pending-auth')}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <style>html.gc-pending-auth .sidebar,html.gc-pending-auth .main{display:none !important}</style>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -96,18 +97,23 @@
         </div>
     </div>
     <script>
-        GigaChat.createChatAgent({
-            webhookPath: 'sql',
-            historyPath: 'history',
-            prefix: 'sql',
-            idPrefix: 'sql_',
-            namePrefix: 'Data-',
-            inflightLabel: 'Выполняю запрос',
-            exportAgentName: 'GigaChat Data',
-            emptyChatHtml: '<div class="empty-chat">Создайте новую сессию для начала работы</div>',
-            historyErrorHtml: '<div class="empty-chat">Не удалось загрузить историю.</div>',
-            historyLoadingHtml: '<div class="empty-chat">Загружаю историю...</div>'
-        });
+        // Auth-gate + изоляция сессий/history per user (userScoped:true).
+        GigaChat.auth.requireAuth({ onOk: function () {
+            document.documentElement.classList.remove('gc-pending-auth');
+            GigaChat.createChatAgent({
+                userScoped: true,
+                webhookPath: 'sql',
+                historyPath: 'history',
+                prefix: 'sql',
+                idPrefix: 'sql_',
+                namePrefix: 'Data-',
+                inflightLabel: 'Выполняю запрос',
+                exportAgentName: 'GigaChat Data',
+                emptyChatHtml: '<div class="empty-chat">Создайте новую сессию для начала работы</div>',
+                historyErrorHtml: '<div class="empty-chat">Не удалось загрузить историю.</div>',
+                historyLoadingHtml: '<div class="empty-chat">Загружаю историю...</div>'
+            });
+        }});
     </script>
 </body>
 </html>

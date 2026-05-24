@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>GigaChat Auto</title>
-    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.add('gc-pending-auth')}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <style>html.gc-pending-auth .sidebar,html.gc-pending-auth .main{display:none !important}</style>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -344,7 +345,13 @@
         }
 
         // ============ FACTORY-CALL ============
+        // Обёрнуто в requireAuth: без токена → редирект на /login.html. После успеха
+        // снимаем gc-pending-auth → main UI становится visible. userScoped:true
+        // включает изоляцию сессий и chat-memory по user_id.
+        GigaChat.auth.requireAuth({ onOk: function () {
+        document.documentElement.classList.remove('gc-pending-auth');
         GigaChat.createChatAgent({
+            userScoped: true,
             // webhookPath используется ТОЛЬКО для health-check'а (пинг /webhook/router
             // на «жив ли router-workflow»). Для sendMsg URL вычисляется динамически
             // через resolveSendUrl по currentAgent.
@@ -419,6 +426,7 @@
                 return out;
             }
         });
+        }}); // конец requireAuth.onOk
 
         // Классификатор + agent-hint при вводе. Вынесено наружу,
         // чтобы onSwitchExtra могла его вызвать для восстановленного draft.

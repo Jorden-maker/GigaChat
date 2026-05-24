@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Извлечение текста — GigaChat</title>
-<script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+<script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.add('gc-pending-auth')}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+<style>html.gc-pending-auth header,html.gc-pending-auth main{display:none !important}</style>
 <style>
 :root {
     --bg-primary: #1f1f1e;
@@ -124,6 +125,10 @@
 </main>
 
 <script>
+    // Auth-gate: без токена → /login.html. После успеха UI становится visible.
+    GigaChat.auth.requireAuth({ onOk: function () {
+        document.documentElement.classList.remove('gc-pending-auth');
+    }});
     GigaChat.injectToolCss(); // общие стили tool-страниц
     var WEBHOOK_URL = GigaChat.webhookUrl('extract-text');
     var FETCH_TIMEOUT_MS = 300000;
@@ -299,12 +304,20 @@
 
             var formData = new FormData();
             formData.append('file', selectedFile);
+            formData.append('token', GigaChat.auth.getToken());  // per-user auth
 
             var res = await fetch(WEBHOOK_URL, {
                 method: 'POST',
                 body: formData,
                 signal: controller.signal
             });
+
+            // Auth_required от сервера — токен протух, чистим и редиректим
+            if (res.status === 401 || res.status === 403) {
+                GigaChat.auth.clearAuth();
+                GigaChat.auth.redirectToLogin();
+                return;
+            }
 
             stopTimer();
             loading.classList.remove('show');
@@ -318,6 +331,13 @@
                 data = await res.json();
             } catch (parseErr) {
                 throw new Error('Сервер вернул некорректный ответ (не JSON).');
+            }
+
+            // n8n часто возвращает 200 OK + {auth_required:true} в body — обработать
+            if (data && data.auth_required) {
+                GigaChat.auth.clearAuth();
+                GigaChat.auth.redirectToLogin();
+                return;
             }
 
             if (data.success && data.response) {

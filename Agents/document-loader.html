@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Загрузка документов — GigaChat</title>
-<script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+<script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.add('gc-pending-auth')}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+<style>html.gc-pending-auth header,html.gc-pending-auth main{display:none !important}</style>
 <style>
 :root {
     --bg-primary: #1f1f1e;
@@ -130,6 +131,10 @@ main { max-width: 800px; }
 </main>
 
 <script>
+    // Auth-gate: без токена → /login.html. После успеха снимаем mask.
+    GigaChat.auth.requireAuth({ onOk: function () {
+        document.documentElement.classList.remove('gc-pending-auth');
+    }});
     GigaChat.injectToolCss();
     var WEBHOOK_URL = GigaChat.webhookUrl('upload-doc');
     var escapeHtml = GigaChat.escapeHtml; // ДО любых вызовов renderHistory
@@ -274,7 +279,8 @@ main { max-width: 800px; }
                     body: JSON.stringify({
                         text: extractedText,
                         fileName: selectedFile.name,
-                        source: 'browser'
+                        source: 'browser',
+                        token: GigaChat.auth.getToken()  // per-user auth
                     }),
                     signal: controller.signal
                 });
@@ -284,6 +290,7 @@ main { max-width: 800px; }
                 if (loadingText2) loadingText2.textContent = 'Обрабатываю документ: OCR → нарезка → эмбеддинг → сохранение';
                 var formData = new FormData();
                 formData.append('file', selectedFile);
+                formData.append('token', GigaChat.auth.getToken());  // per-user auth
                 res = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     body: formData,
@@ -305,6 +312,11 @@ main { max-width: 800px; }
                 data = await res.json();
             } catch (parseErr) {
                 throw new Error('Сервер вернул некорректный ответ (не JSON).');
+            }
+            if (data && data.auth_required) {
+                GigaChat.auth.clearAuth();
+                GigaChat.auth.redirectToLogin();
+                return;
             }
             var responseText = data.response || JSON.stringify(data);
 

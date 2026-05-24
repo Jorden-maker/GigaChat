@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GigaChat Prompt</title>
-<script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+<script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.add('gc-pending-auth')}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+<style>html.gc-pending-auth .sidebar,html.gc-pending-auth .main{display:none !important}</style>
 <style>
 :root {
   --bg-primary: #1f1f1e;
@@ -146,10 +147,13 @@
         }
 
         // ============ FACTORY-CALL ============
-        // DOM IDs/классы теперь стандартные (#chat, #msg, #send, .empty-chat,
-        // .bottom-area, span.dot.checking#statusDot в .status), поэтому почти
-        // все опции factory ушли в дефолты.
-        var agent = GigaChat.createChatAgent({
+        // Auth-gate + изоляция сессий/history per user. agent объявляем вне
+        // onOk callback'а, чтобы overridden window.exportChat ниже видел его.
+        var agent;
+        GigaChat.auth.requireAuth({ onOk: function () {
+        document.documentElement.classList.remove('gc-pending-auth');
+        agent = GigaChat.createChatAgent({
+            userScoped: true,
             webhookPath: 'prompt-engineer',
             historyPath: 'history',
             prefix: 'pe',
@@ -167,6 +171,7 @@
                 };
             }
         });
+        }}); // конец requireAuth.onOk
 
         // Кастомный экспорт — у prompt-engineer формат отличается от других
         // агентов: блок --- ПРОМПТ --- вокруг extras.prompt, отдельные разделители.

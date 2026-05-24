@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>GigaChat Talk</title>
-    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.classList.add('gc-pending-auth')}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <style>html.gc-pending-auth .sidebar,html.gc-pending-auth .main{display:none !important}</style>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -102,16 +103,22 @@
         </div>
     </div>
     <script>
-        GigaChat.createChatAgent({
-            webhookPath: 'chat',
-            historyPath: 'history',
-            prefix: 'chat',
-            idPrefix: 'chat_',
-            namePrefix: 'Talk-',
-            inflightLabel: 'Думаю',
-            exportAgentName: 'GigaChat Talk',
-            historyErrorHtml: '<div class="empty-chat"><span>Не удалось загрузить историю.</span><span class="memory-note">Можно продолжить общение — новые сообщения сохранятся</span></div>'
-        });
+        // Auth-gate: без токена → редирект на /login.html. После успеха снимаем
+        // gc-pending-auth → UI visible. userScoped:true изолирует сессии/history.
+        GigaChat.auth.requireAuth({ onOk: function () {
+            document.documentElement.classList.remove('gc-pending-auth');
+            GigaChat.createChatAgent({
+                userScoped: true,
+                webhookPath: 'chat',
+                historyPath: 'history',
+                prefix: 'chat',
+                idPrefix: 'chat_',
+                namePrefix: 'Talk-',
+                inflightLabel: 'Думаю',
+                exportAgentName: 'GigaChat Talk',
+                historyErrorHtml: '<div class="empty-chat"><span>Не удалось загрузить историю.</span><span class="memory-note">Можно продолжить общение — новые сообщения сохранятся</span></div>'
+            });
+        }});
     </script>
 </body>
 </html>
