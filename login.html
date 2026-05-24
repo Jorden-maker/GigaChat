@@ -168,7 +168,12 @@
             width: min(420px, 92vw);
             flex-shrink: 0;
             display: flex; flex-direction: column;
-            overflow: hidden;
+            /* overflow:hidden убран: во время transition новая форма (opacity:0,
+               но в DOM) занимает место → общий контент больше fromHeight,
+               margin-top:auto footer выталкивается за overflow и обрезается.
+               Когда height доезжает до toHeight — footer «выезжает» с задержкой,
+               не синхронно с низом модалки. Без overflow:hidden footer всегда
+               виден и плывёт ровно с нижней границей. */
             transition: height 0.18s ease;
             animation: gcModalSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
         }
