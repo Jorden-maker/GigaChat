@@ -145,18 +145,37 @@
             display: none;
         }
         .settings-panel.show { display: block; }
-        .settings-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        /* Grid 3 колонки — гарантирует одинаковую ширину input и select
+           (раньше через flex select был шире чем input, потому что у input
+           справа конкурировал .suffix). */
+        .settings-row {
+            display: grid;
+            grid-template-columns: 180px 1fr 50px;
+            align-items: center;
+            gap: 0 12px;
+            margin-bottom: 10px;
+        }
         .settings-row:last-child { margin-bottom: 0; }
         .settings-row label {
-            flex-shrink: 0; min-width: 180px;
             font-size: 13px; color: var(--text-secondary);
         }
         .settings-row select, .settings-row input[type=text] {
-            flex: 1; padding: 7px 12px; border-radius: 7px;
+            width: 100%; padding: 7px 12px; border-radius: 7px;
             border: 1px solid var(--border); background: var(--bg-input);
             color: var(--text-primary); font-size: 13px; font-family: inherit; outline: none;
         }
         .settings-row select:focus, .settings-row input:focus { border-color: var(--accent); }
+        /* Кастомная стрелка вниз — стандартная нативная страшная в dark theme. */
+        .settings-row select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'><path d='M1 1.5L6 6.5L11 1.5' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 32px;
+            cursor: pointer;
+        }
         .settings-row .suffix {
             color: var(--text-muted); font-size: 13px; font-family: Consolas, monospace;
         }
