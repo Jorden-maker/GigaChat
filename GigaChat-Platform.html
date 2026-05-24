@@ -406,6 +406,32 @@
             transition: border-color 0.18s ease, background 0.18s ease;
         }
         .gc-chgpwd-body input:focus { border-color: var(--accent); background: var(--bg-card-hover); }
+
+        /* Глазок show/hide для password-полей (как в login.html). Wrapper relative,
+           input full-width, кнопка absolute поверх правого края. */
+        .gc-pw-wrap { position: relative; display: block; }
+        .gc-pw-wrap input { width: 100% !important; }
+        .gc-pw-toggle {
+            position: absolute; right: 8px; top: 50%;
+            transform: translateY(-50%);
+            background: transparent; border: none;
+            cursor: pointer; padding: 6px;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--text-secondary);
+            border-radius: 4px;
+            transition: color .15s ease, background .15s ease;
+        }
+        .gc-pw-toggle:hover {
+            color: var(--accent);
+            background: rgba(255,255,255,0.06);
+        }
+        :root[data-theme="light"] .gc-pw-toggle:hover { background: rgba(0,0,0,0.05); }
+        .gc-pw-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .gc-pw-toggle svg {
+            width: 18px; height: 18px;
+            stroke: currentColor; fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
         .gc-chgpwd-error {
             padding: 0 22px; min-height: 14px;
             color: #d97757; font-size: 12px;
@@ -489,14 +515,23 @@
         </div>
         <div class="gc-chgpwd-body">
             <label>Текущий пароль
-                <input type="password" id="chgpwdOld" autocomplete="current-password" data-next="chgpwdNew">
+                <span class="gc-pw-wrap">
+                    <input type="password" id="chgpwdOld" autocomplete="current-password" data-next="chgpwdNew">
+                    <button type="button" class="gc-pw-toggle" aria-label="Показать пароль" onclick="togglePassword(this)"></button>
+                </span>
             </label>
             <label>Новый пароль
-                <input type="password" id="chgpwdNew" autocomplete="new-password"
-                       placeholder="не менее 6 символов" data-next="chgpwdNew2">
+                <span class="gc-pw-wrap">
+                    <input type="password" id="chgpwdNew" autocomplete="new-password"
+                           placeholder="не менее 6 символов" data-next="chgpwdNew2">
+                    <button type="button" class="gc-pw-toggle" aria-label="Показать пароль" onclick="togglePassword(this)"></button>
+                </span>
             </label>
             <label>Подтвердите новый пароль
-                <input type="password" id="chgpwdNew2" autocomplete="new-password" data-next="chgpwdSaveBtn">
+                <span class="gc-pw-wrap">
+                    <input type="password" id="chgpwdNew2" autocomplete="new-password" data-next="chgpwdSaveBtn">
+                    <button type="button" class="gc-pw-toggle" aria-label="Показать пароль" onclick="togglePassword(this)"></button>
+                </span>
             </label>
         </div>
         <div class="gc-chgpwd-error" id="chgpwdError"></div>
@@ -835,11 +870,45 @@
         document.getElementById('chgpwdNew').value = '';
         document.getElementById('chgpwdNew2').value = '';
         document.getElementById('chgpwdError').textContent = '';
+        // Запретить скролл страницы пока модалка открыта (не зум, не свайп).
+        // На html — потому что в этом проекте scrollbar рендерится на корневом
+        // элементе (page-scroll), не на body.
+        document.documentElement.style.overflow = 'hidden';
+        // Сбросить состояние глазков — при повторном открытии пароли скрыты
+        var toggles = document.querySelectorAll('#chgpwdOverlay .gc-pw-toggle');
+        for (var i = 0; i < toggles.length; i++) {
+            var inp = toggles[i].parentNode.querySelector('input');
+            if (inp) inp.type = 'password';
+            toggles[i].innerHTML = EYE_SVG;
+            toggles[i].setAttribute('aria-label', 'Показать пароль');
+        }
         setTimeout(function () { document.getElementById('chgpwdOld').focus(); }, 50);
     }
     function closeChgpwdModal() {
         document.getElementById('chgpwdOverlay').classList.remove('show');
+        document.documentElement.style.overflow = '';
     }
+
+    // === Глазок show/hide для password-полей (лифт из login.html) ===
+    var EYE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    var EYE_OFF_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    function togglePassword(btn) {
+        var inp = btn.parentNode.querySelector('input[type="password"], input[type="text"]');
+        if (!inp) return;
+        if (inp.type === 'password') {
+            inp.type = 'text';
+            btn.innerHTML = EYE_OFF_SVG;
+            btn.setAttribute('aria-label', 'Скрыть пароль');
+        } else {
+            inp.type = 'password';
+            btn.innerHTML = EYE_SVG;
+            btn.setAttribute('aria-label', 'Показать пароль');
+        }
+    }
+    (function initEyeIcons() {
+        var btns = document.querySelectorAll('.gc-pw-toggle');
+        for (var i = 0; i < btns.length; i++) btns[i].innerHTML = EYE_SVG;
+    })();
     async function submitChangePassword() {
         var btn = document.getElementById('chgpwdSaveBtn');
         var oldP = document.getElementById('chgpwdOld').value;
