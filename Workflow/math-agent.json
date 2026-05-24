@@ -104,7 +104,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
+        2370,
         80
       ],
       "id": "math-cls-0001",
@@ -190,7 +190,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        1960,
+        2650,
         80
       ],
       "id": "math-switch-0001",
@@ -223,7 +223,7 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        2240,
+        2930,
         -140
       ],
       "id": "math-gen-0001",
@@ -243,7 +243,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2520,
+        3210,
         -140
       ],
       "id": "math-gen-0002",
@@ -275,7 +275,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3080,
+        3770,
         -140
       ],
       "id": "math-gen-0003",
@@ -308,7 +308,7 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        2240,
+        2930,
         300
       ],
       "id": "math-0005-0005-0005-000000000005",
@@ -328,7 +328,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2520,
+        3210,
         300
       ],
       "id": "math-0006-0006-0006-000000000006",
@@ -362,7 +362,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2800,
+        3490,
         300
       ],
       "id": "math-0007-0007-0007-000000000007",
@@ -394,7 +394,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3080,
+        3770,
         80
       ],
       "id": "math-respond-code-0001",
@@ -426,7 +426,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3360,
+        4050,
         520
       ],
       "id": "math-0012-0012-0012-000000000012",
@@ -443,7 +443,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        840,
+        1530,
         80
       ],
       "id": "math-load-history-0001",
@@ -464,7 +464,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
+        1810,
         80
       ],
       "id": "math-aggregate-0001",
@@ -481,7 +481,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1400,
+        2090,
         80
       ],
       "id": "math-save-question-0001",
@@ -506,7 +506,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2800,
+        3490,
         -140
       ],
       "id": "math-save-resp-gen-0001",
@@ -531,7 +531,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3080,
+        3770,
         520
       ],
       "id": "math-save-resp-unsafe-0001",
@@ -692,7 +692,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2240,
+        2930,
         600
       ],
       "id": "math-sympify-gen-0001",
@@ -725,7 +725,7 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        2240,
+        2930,
         800
       ],
       "id": "math-reexplain-llm-0001",
@@ -745,7 +745,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2520,
+        3210,
         800
       ],
       "id": "math-reexplain-merge-0001",
@@ -762,7 +762,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2800,
+        3490,
         800
       ],
       "id": "math-reexplain-save-0001",
@@ -802,11 +802,83 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3080,
+        3770,
         800
       ],
       "id": "math-reexplain-respond-0001",
       "name": "Ответ: Reexplain"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1 AND expires_at > NOW();\nSELECT s.user_id FROM planner_sessions s WHERE s.token = $1 AND s.expires_at > NOW();",
+        "options": {
+          "queryReplacement": "={{ [$json.token] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        790,
+        300
+      ],
+      "id": "math-sso-sql-verify-V1",
+      "name": "SQL: Verify token",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('Валидация').first().json;\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        300
+      ],
+      "id": "math-sso-token-result-V1",
+      "name": "Token result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-math-token-ok",
+              "leftValue": "={{ $json.token_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1250,
+        300
+      ],
+      "id": "math-sso-token-if-V1",
+      "name": "Token OK?"
     }
   ],
   "pinData": {},
@@ -837,7 +909,7 @@
       "main": [
         [
           {
-            "node": "Загрузить историю",
+            "node": "SQL: Verify token",
             "type": "main",
             "index": 0
           }
@@ -1104,6 +1176,46 @@
         [
           {
             "node": "Ответ: результат MATH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: Verify token": {
+      "main": [
+        [
+          {
+            "node": "Token result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token result": {
+      "main": [
+        [
+          {
+            "node": "Token OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token OK?": {
+      "main": [
+        [
+          {
+            "node": "Загрузить историю",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка валидации",
             "type": "main",
             "index": 0
           }

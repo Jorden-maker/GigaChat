@@ -92,7 +92,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        740,
+        1430,
         300
       ],
       "id": "dl-0002-0002-0002-000000000002",
@@ -126,7 +126,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1020,
+        1710,
         300
       ],
       "id": "dl-0003-0003-0003-000000000003",
@@ -160,7 +160,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1300,
+        1990,
         500
       ],
       "id": "dl-0004-0004-0004-000000000004",
@@ -188,7 +188,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1580,
+        2270,
         400
       ],
       "id": "dl-0005-0005-0005-000000000005",
@@ -203,7 +203,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1860,
+        2550,
         400
       ],
       "id": "dl-0006-0006-0006-000000000006",
@@ -237,7 +237,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2140,
+        2830,
         400
       ],
       "id": "dl-0007-0007-0007-000000000007",
@@ -250,7 +250,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2460,
+        3150,
         200
       ],
       "id": "dl-0008-0008-0008-000000000008",
@@ -279,7 +279,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2740,
+        3430,
         200
       ],
       "id": "dl-0009-0009-0009-000000000009",
@@ -294,7 +294,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3020,
+        3710,
         200
       ],
       "id": "dl-0010-0010-0010-000000000010",
@@ -311,7 +311,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3300,
+        3990,
         200
       ],
       "id": "dl-0011-0011-0011-000000000011",
@@ -332,7 +332,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3580,
+        4270,
         200
       ],
       "id": "dl-0012-0012-0012-000000000012",
@@ -364,7 +364,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3860,
+        4550,
         200
       ],
       "id": "dl-0013-0013-0013-000000000013",
@@ -396,7 +396,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1580,
+        2270,
         700
       ],
       "id": "dl-0014-0014-0014-000000000014",
@@ -428,7 +428,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2420,
+        3110,
         600
       ],
       "id": "dl-0015-0015-0015-000000000015",
@@ -511,6 +511,78 @@
       ],
       "id": "doc-loader-sso-auth-resp-V1",
       "name": "SSO: Ответ auth_required"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1 AND expires_at > NOW();\nSELECT s.user_id FROM planner_sessions s WHERE s.token = $1 AND s.expires_at > NOW();",
+        "options": {
+          "queryReplacement": "={{ [$json.token] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        740,
+        300
+      ],
+      "id": "doc-loader-sso-sql-verify-V1",
+      "name": "SQL: Verify token",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('SSO: Auth check').first().json;\nconst srcItem = $('SSO: Auth check').first();\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id }, binary: (srcItem && srcItem.binary) || {} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        970,
+        300
+      ],
+      "id": "doc-loader-sso-token-result-V1",
+      "name": "Token result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-doc-loader-token-ok",
+              "leftValue": "={{ $json.token_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        300
+      ],
+      "id": "doc-loader-sso-token-if-V1",
+      "name": "Token OK?"
     }
   ],
   "pinData": {},
@@ -698,6 +770,46 @@
       ]
     },
     "SSO: Auth OK?": {
+      "main": [
+        [
+          {
+            "node": "SQL: Verify token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SSO: Ответ auth_required",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: Verify token": {
+      "main": [
+        [
+          {
+            "node": "Token result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token result": {
+      "main": [
+        [
+          {
+            "node": "Token OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token OK?": {
       "main": [
         [
           {

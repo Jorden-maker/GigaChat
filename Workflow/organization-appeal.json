@@ -113,7 +113,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        980,
+        1670,
         300
       ],
       "id": "oa-source-if-0001",
@@ -126,7 +126,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1260,
+        1950,
         100
       ],
       "id": "oa-text-body-0001",
@@ -139,7 +139,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1260,
+        1950,
         500
       ],
       "id": "oa-validate-0001",
@@ -172,7 +172,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1540,
+        2230,
         500
       ],
       "id": "oa-validate-if-0001",
@@ -204,7 +204,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1820,
+        2510,
         700
       ],
       "id": "oa-error-file-0001",
@@ -239,7 +239,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1820,
+        2510,
         500
       ],
       "id": "oa-ocr-0001",
@@ -253,7 +253,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2100,
+        2790,
         500
       ],
       "id": "oa-extract-text-0001",
@@ -286,7 +286,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2380,
+        3070,
         300
       ],
       "id": "oa-text-if-0001",
@@ -318,7 +318,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2380,
+        3070,
         500
       ],
       "id": "oa-error-ocr-0001",
@@ -350,7 +350,7 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        2660,
+        3350,
         300
       ],
       "id": "oa-llm-extract-0001",
@@ -370,7 +370,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2940,
+        3630,
         300
       ],
       "id": "oa-parse-data-0001",
@@ -403,7 +403,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        3220,
+        3910,
         300
       ],
       "id": "oa-parsed-if-0001",
@@ -435,7 +435,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3220,
+        3910,
         500
       ],
       "id": "oa-error-parse-0001",
@@ -448,7 +448,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3500,
+        4190,
         300
       ],
       "id": "oa-phase1-0001",
@@ -481,7 +481,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        3780,
+        4470,
         300
       ],
       "id": "oa-phase1-if-0001",
@@ -513,7 +513,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        4060,
+        4750,
         500
       ],
       "id": "oa-respond-phase1-0001",
@@ -530,7 +530,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4060,
+        4750,
         200
       ],
       "id": "oa-db1-0001",
@@ -551,7 +551,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4340,
+        5030,
         200
       ],
       "id": "oa-phase2-0001",
@@ -584,7 +584,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        4620,
+        5310,
         200
       ],
       "id": "oa-phase2-if-0001",
@@ -616,7 +616,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        4620,
+        5310,
         400
       ],
       "id": "oa-respond-phase2-0001",
@@ -633,7 +633,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4900,
+        5590,
         200
       ],
       "id": "oa-db2-0001",
@@ -654,7 +654,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5180,
+        5870,
         200
       ],
       "id": "oa-phase3-0001",
@@ -687,7 +687,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        5460,
+        6150,
         200
       ],
       "id": "oa-phase3-if-0001",
@@ -719,7 +719,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        5460,
+        6150,
         400
       ],
       "id": "oa-respond-phase3-0001",
@@ -736,7 +736,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        5740,
+        6430,
         200
       ],
       "id": "oa-db3-0001",
@@ -757,7 +757,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6020,
+        6710,
         200
       ],
       "id": "oa-phase4-0001",
@@ -789,7 +789,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        6300,
+        6990,
         200
       ],
       "id": "oa-final-respond-0001",
@@ -872,6 +872,78 @@
       ],
       "id": "org-appeal-sso-auth-resp-V1",
       "name": "SSO: Ответ auth_required"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1 AND expires_at > NOW();\nSELECT s.user_id FROM planner_sessions s WHERE s.token = $1 AND s.expires_at > NOW();",
+        "options": {
+          "queryReplacement": "={{ [$json.token] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        980,
+        300
+      ],
+      "id": "org-appeal-sso-sql-verify-V1",
+      "name": "SQL: Verify token",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('SSO: Auth check').first().json;\nconst srcItem = $('SSO: Auth check').first();\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id }, binary: (srcItem && srcItem.binary) || {} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1210,
+        300
+      ],
+      "id": "org-appeal-sso-token-result-V1",
+      "name": "Token result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-org-appeal-token-ok",
+              "leftValue": "={{ $json.token_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        300
+      ],
+      "id": "org-appeal-sso-token-if-V1",
+      "name": "Token OK?"
     }
   ],
   "pinData": {},
@@ -1186,6 +1258,46 @@
       ]
     },
     "SSO: Auth OK?": {
+      "main": [
+        [
+          {
+            "node": "SQL: Verify token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SSO: Ответ auth_required",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: Verify token": {
+      "main": [
+        [
+          {
+            "node": "Token result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token result": {
+      "main": [
+        [
+          {
+            "node": "Token OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token OK?": {
       "main": [
         [
           {

@@ -104,7 +104,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
+        2370,
         80
       ],
       "id": "rag-cls-0001",
@@ -146,7 +146,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        1960,
+        2650,
         80
       ],
       "id": "rag-switch-0001",
@@ -178,7 +178,7 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        2240,
+        2930,
         -140
       ],
       "id": "rag-gen-general-0001",
@@ -198,7 +198,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2520,
+        3210,
         -140
       ],
       "id": "rag-check-gen-0001",
@@ -230,7 +230,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3080,
+        3770,
         -140
       ],
       "id": "rag-resp-gen-0001",
@@ -259,7 +259,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2240,
+        2930,
         300
       ],
       "id": "rag-embed-0001",
@@ -274,7 +274,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2520,
+        3210,
         300
       ],
       "id": "rag-build-search-0001",
@@ -291,7 +291,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2800,
+        3490,
         300
       ],
       "id": "rag-search-0001",
@@ -312,7 +312,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3080,
+        3770,
         300
       ],
       "id": "rag-check-docs-0001",
@@ -354,7 +354,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        3360,
+        4050,
         300
       ],
       "id": "rag-docs-switch-0001",
@@ -386,7 +386,7 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        3640,
+        4330,
         80
       ],
       "id": "rag-gen-doc-0001",
@@ -406,7 +406,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3920,
+        4610,
         80
       ],
       "id": "rag-check-doc-0001",
@@ -438,7 +438,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        4480,
+        5170,
         80
       ],
       "id": "rag-resp-doc-0001",
@@ -470,7 +470,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3920,
+        4610,
         520
       ],
       "id": "rag-resp-fallback-0001",
@@ -487,7 +487,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        840,
+        1530,
         80
       ],
       "id": "rag-load-history-0001",
@@ -508,7 +508,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1120,
+        1810,
         80
       ],
       "id": "rag-aggregate-0001",
@@ -525,7 +525,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1400,
+        2090,
         80
       ],
       "id": "rag-save-question-0001",
@@ -550,7 +550,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2800,
+        3490,
         -140
       ],
       "id": "rag-save-resp-gen-0001",
@@ -575,7 +575,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4200,
+        4890,
         80
       ],
       "id": "rag-save-resp-doc-0001",
@@ -600,7 +600,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3640,
+        4330,
         520
       ],
       "id": "rag-save-resp-nodocs-0001",
@@ -613,6 +613,78 @@
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1 AND expires_at > NOW();\nSELECT s.user_id FROM planner_sessions s WHERE s.token = $1 AND s.expires_at > NOW();",
+        "options": {
+          "queryReplacement": "={{ [$json.token] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        790,
+        300
+      ],
+      "id": "rag-sso-sql-verify-V1",
+      "name": "SQL: Verify token",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('Валидация').first().json;\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        300
+      ],
+      "id": "rag-sso-token-result-V1",
+      "name": "Token result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-rag-token-ok",
+              "leftValue": "={{ $json.token_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {},
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1250,
+        300
+      ],
+      "id": "rag-sso-token-if-V1",
+      "name": "Token OK?"
     }
   ],
   "pinData": {},
@@ -643,7 +715,7 @@
       "main": [
         [
           {
-            "node": "Загрузить историю",
+            "node": "SQL: Verify token",
             "type": "main",
             "index": 0
           }
@@ -852,6 +924,46 @@
         [
           {
             "node": "Ответ: нет документов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL: Verify token": {
+      "main": [
+        [
+          {
+            "node": "Token result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token result": {
+      "main": [
+        [
+          {
+            "node": "Token OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token OK?": {
+      "main": [
+        [
+          {
+            "node": "Загрузить историю",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка валидации",
             "type": "main",
             "index": 0
           }
