@@ -737,11 +737,14 @@
                 return;
             }
             try {
+                // ignoreColumns в mergeTables НЕ передаём — иначе merged физически
+                // удалит колонки и renderIgnoreList перестанет видеть исчезнувшие
+                // pill'ы (юзер не сможет вернуть ignored обратно). Делаем фильтр
+                // на уровне renderPreview + doDownload через visibleCols.
                 var opts = {
                     dedup: optDedup.checked,
                     sortColumn: parseInt(sortColDropdown.getValue(), 10),
-                    sortDir: sortDirDropdown.getValue(),
-                    ignoreColumns: ignoredCols
+                    sortDir: sortDirDropdown.getValue()
                 };
                 mergedResult = GigaChat.mergeTables(allTables, opts);
             } catch (e) {
@@ -766,10 +769,10 @@
             previewSection.classList.add('show');
             var headers = mergedResult.headers;
             var rows = mergedResult.rows;
-            previewRowCount.textContent = String(rows.length);
-            previewColCount.textContent = String(headers.length);
             var visibleCols = [];
             for (var c = 0; c < headers.length; c++) if (!ignoredCols.has(c)) visibleCols.push(c);
+            previewRowCount.textContent = String(rows.length);
+            previewColCount.textContent = String(visibleCols.length); // только visible
             var html = '<thead><tr>';
             for (var ci = 0; ci < visibleCols.length; ci++) html += '<th>' + escapeHtml(headers[visibleCols[ci]]) + '</th>';
             html += '</tr></thead><tbody>';
