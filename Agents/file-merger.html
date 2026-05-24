@@ -159,25 +159,73 @@
         .settings-row label {
             font-size: 13px; color: var(--text-secondary);
         }
-        .settings-row select, .settings-row input[type=text] {
+        .settings-row input[type=text] {
             width: 100%; padding: 7px 12px; border-radius: 7px;
             border: 1px solid var(--border); background: var(--bg-input);
             color: var(--text-primary); font-size: 13px; font-family: inherit; outline: none;
         }
-        .settings-row select:focus, .settings-row input:focus { border-color: var(--accent); }
-        /* Кастомная стрелка вниз — стандартная нативная страшная в dark theme. */
-        .settings-row select {
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'><path d='M1 1.5L6 6.5L11 1.5' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            padding-right: 32px;
-            cursor: pointer;
-        }
+        .settings-row input:focus { border-color: var(--accent); }
         .settings-row .suffix {
             color: var(--text-muted); font-size: 13px; font-family: Consolas, monospace;
+        }
+
+        /* === Custom dropdown (полностью кастомный, без native <select>) === */
+        .gc-dropdown { position: relative; }
+        .settings-row .gc-dropdown { display: block; width: 100%; }
+        .gc-dropdown-trigger {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            width: 100%; padding: 7px 12px 7px 14px;
+            background: var(--bg-input); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 7px;
+            font-family: inherit; font-size: 13px; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .gc-dropdown-trigger:hover { border-color: var(--accent); }
+        .gc-dropdown.open .gc-dropdown-trigger { border-color: var(--accent); }
+        .gc-dropdown-label {
+            flex: 1; text-align: left;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .gc-dropdown-arrow {
+            width: 7px; height: 7px;
+            border-right: 1.5px solid var(--text-secondary);
+            border-bottom: 1.5px solid var(--text-secondary);
+            transform: translateY(-3px) rotate(45deg);
+            transition: transform 0.2s, border-color 0.15s;
+            flex-shrink: 0;
+        }
+        .gc-dropdown.open .gc-dropdown-arrow {
+            transform: translateY(2px) rotate(-135deg);
+            border-color: var(--accent);
+        }
+        .gc-dropdown-menu {
+            position: absolute; top: calc(100% + 4px); left: 0;
+            width: 100%; max-height: 320px; overflow-y: auto;
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+            padding: 6px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+            list-style: none; margin: 0;
+            z-index: 50;
+            scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+            opacity: 0; visibility: hidden;
+            transform: translateY(-4px);
+            transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+        }
+        .gc-dropdown.open .gc-dropdown-menu {
+            opacity: 1; visibility: visible; transform: translateY(0);
+        }
+        .gc-dropdown-menu li {
+            padding: 8px 12px; cursor: pointer; border-radius: 6px;
+            font-size: 13px; color: var(--text-primary);
+            transition: background 0.12s, color 0.12s;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .gc-dropdown-menu li:hover { background: var(--accent-light); color: var(--accent); }
+        .gc-dropdown-menu li.selected {
+            background: var(--accent-light); color: var(--accent); font-weight: 500;
+        }
+        .gc-dropdown-menu li.selected::before {
+            content: '✓ '; color: var(--accent); margin-right: 4px;
         }
 
         /* === Toasts (#11) — заменяют error-box === */
@@ -312,13 +360,14 @@
         <!-- #4 + #6 + #7: настройки сборки. Появляется когда есть хотя бы один валидный файл. -->
         <div class="settings-panel" id="settingsPanel">
             <div class="settings-row">
-                <label for="setSeparator">Между файлами:</label>
-                <select id="setSeparator">
-                    <option value="empty-line">Пустая строка</option>
-                    <option value="page-break">Новая страница</option>
-                    <option value="filename-heading">Заголовок с именем файла</option>
-                    <option value="none">Без разделителя</option>
-                </select>
+                <label>Между файлами:</label>
+                <div class="gc-dropdown" id="setSeparator" data-value="empty-line">
+                    <button type="button" class="gc-dropdown-trigger" aria-haspopup="listbox">
+                        <span class="gc-dropdown-label">Пустая строка</span>
+                        <span class="gc-dropdown-arrow" aria-hidden="true"></span>
+                    </button>
+                    <ul class="gc-dropdown-menu" role="listbox"></ul>
+                </div>
             </div>
             <div class="settings-row">
                 <label for="setOutputName">Имя файла:</label>
@@ -395,9 +444,71 @@
         var resultBlocks = document.getElementById('resultBlocks');
         var downloadBtn = document.getElementById('downloadBtn');
         var settingsPanel = document.getElementById('settingsPanel');
-        var setSeparator = document.getElementById('setSeparator');
         var setOutputName = document.getElementById('setOutputName');
         var toastContainer = document.getElementById('toastContainer');
+
+        // ============ Custom dropdown (вместо native <select>) ============
+        // Полный контроль над стилем opens-menu — native select показывал
+        // системный белый dropdown с синим highlight, не вписывалось в тему.
+        function createDropdown(rootId, items, value, onChange) {
+            var root = document.getElementById(rootId);
+            var trigger = root.querySelector('.gc-dropdown-trigger');
+            var labelEl = root.querySelector('.gc-dropdown-label');
+            var menu = root.querySelector('.gc-dropdown-menu');
+            var state = { items: items.slice(), value: value };
+
+            function rebuild() {
+                var html = '';
+                for (var i = 0; i < state.items.length; i++) {
+                    var it = state.items[i];
+                    var cls = String(it.value) === String(state.value) ? ' class="selected"' : '';
+                    html += '<li data-value="' + escapeHtml(String(it.value)) + '"' + cls + '>' + escapeHtml(it.label) + '</li>';
+                }
+                menu.innerHTML = html;
+                var lis = menu.querySelectorAll('li');
+                for (var k = 0; k < lis.length; k++) {
+                    lis[k].addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        setValue(e.currentTarget.dataset.value, true);
+                        // Закрываем ВСЕ открытые — гарантия что соседнее не «откроется» само.
+                        var allOpen = document.querySelectorAll('.gc-dropdown.open');
+                        for (var x = 0; x < allOpen.length; x++) allOpen[x].classList.remove('open');
+                    });
+                }
+                var found = state.items.find(function (it) { return String(it.value) === String(state.value); });
+                labelEl.textContent = found ? found.label : '';
+                root.dataset.value = String(state.value);
+            }
+            function setValue(v, fireChange) {
+                state.value = v;
+                rebuild();
+                if (fireChange && onChange) onChange(v);
+            }
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var others = document.querySelectorAll('.gc-dropdown.open');
+                for (var i = 0; i < others.length; i++) if (others[i] !== root) others[i].classList.remove('open');
+                root.classList.toggle('open');
+            });
+            document.addEventListener('click', function () { root.classList.remove('open'); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') root.classList.remove('open'); });
+            rebuild();
+            return {
+                getValue: function () { return state.value; },
+                setValue: function (v) { setValue(v, false); }
+            };
+        }
+
+        // Создаём dropdown для разделителя
+        var setSeparator = createDropdown('setSeparator', [
+            { value: 'empty-line',       label: 'Пустая строка' },
+            { value: 'page-break',       label: 'Новая страница' },
+            { value: 'filename-heading', label: 'Заголовок с именем файла' },
+            { value: 'none',             label: 'Без разделителя' }
+        ], 'empty-line', function (newVal) {
+            settings.separator = newVal;
+            saveSettings();
+        });
 
         // items: [{file, type:'docx'|'xlsx'|'csv'|'image'|'unknown', uid, error, status}]
         // status: '' | 'parsing' | 'done' | 'failed'  (B9 progress per file)
@@ -419,16 +530,13 @@
                     }
                 }
             } catch (e) {}
-            setSeparator.value = settings.separator;
+            setSeparator.setValue(settings.separator);
             setOutputName.value = settings.outputName;
         }
         function saveSettings() {
             try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) {}
         }
-        setSeparator.addEventListener('change', function () {
-            settings.separator = setSeparator.value || 'empty-line';
-            saveSettings();
-        });
+        // setSeparator: onChange-callback уже задан в createDropdown выше.
         setOutputName.addEventListener('input', function () {
             settings.outputName = (setOutputName.value || '').trim() || 'Объединение файлов';
             saveSettings();
