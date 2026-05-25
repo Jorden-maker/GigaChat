@@ -560,24 +560,37 @@
         }
         .board-preview .bp-meta { color: var(--text-muted); font-size: 11px; margin-top: 6px; }
 
-        /* === Phase 1: Контекстное меню === */
+        /* === Phase 1: Контекстное меню (стиль карточек) === */
         .context-menu {
             position: fixed; background: var(--bg-card); border: 1px solid var(--border);
-            border-radius: 8px; padding: 4px; min-width: 200px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 1001;
+            border-radius: 10px; padding: 6px; min-width: 220px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35); z-index: 1001;
             display: none;
         }
         .context-menu.show { display: block; }
         .context-menu button {
-            display: block; width: 100%; text-align: left;
+            display: flex; align-items: center; gap: 10px;
+            width: 100%; text-align: left;
             background: transparent; border: none; color: var(--text-primary);
-            padding: 7px 12px; font-size: 12px; cursor: pointer; border-radius: 6px;
-            font-family: inherit;
+            padding: 8px 12px; font-size: 13px; cursor: pointer; border-radius: 6px;
+            font-family: inherit; transition: background 0.12s, color 0.12s;
         }
-        .context-menu button:hover { background: var(--bg-input); }
+        .context-menu button:hover { background: var(--accent-light); color: var(--accent); }
         .context-menu button.danger { color: #ef4444; }
-        .context-menu button.danger:hover { background: rgba(239,68,68,0.1); }
-        .context-menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+        .context-menu button.danger:hover { background: rgba(239,68,68,0.12); color: #ef4444; }
+        .context-menu hr { border: none; border-top: 1px solid var(--border); margin: 6px 4px; }
+        .context-menu .ctx-icon {
+            width: 16px; height: 16px; flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--text-secondary);
+        }
+        .context-menu button:hover .ctx-icon { color: var(--accent); }
+        .context-menu button.danger .ctx-icon { color: #ef4444; }
+        .context-menu .ctx-icon svg {
+            width: 14px; height: 14px;
+            stroke: currentColor; fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
 
         /* === Phase 1: Модалка карточки === */
         .card-modal-backdrop {
@@ -635,12 +648,53 @@
             text-transform: uppercase; letter-spacing: 0.5px;
         }
         .card-modal-comment {
-            padding: 8px 10px; border-radius: 6px; background: var(--bg-input);
-            margin-bottom: 6px; font-size: 12px; color: var(--text-secondary);
+            padding: 10px 12px; border-radius: 8px; background: var(--bg-input);
+            margin-bottom: 6px; font-size: 13px; color: var(--text-primary);
+            border: 1px solid var(--border); line-height: 1.4;
         }
-        .card-modal-comment .cm-author { color: var(--text-muted); font-size: 11px; }
-        .card-modal-add-comment { margin-top: 10px; display: flex; gap: 6px; }
-        .card-modal-add-comment input { flex: 1; }
+        .card-modal-comment .cm-meta {
+            color: var(--text-muted); font-size: 11px; margin-bottom: 4px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .card-modal-comment .cm-text { white-space: pre-wrap; word-break: break-word; }
+        .card-modal-comments h4 {
+            display: flex; align-items: center; gap: 6px;
+        }
+        .card-modal-comments h4 .cm-count {
+            color: var(--text-muted); font-size: 11px; font-weight: 400;
+            background: var(--bg-input); padding: 1px 7px; border-radius: 10px;
+        }
+        #cm-comments-list {
+            max-height: 200px; overflow-y: auto;
+            margin-bottom: 10px; padding-right: 2px;
+            scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+        }
+        #cm-comments-list::-webkit-scrollbar { width: 6px; }
+        #cm-comments-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        #cm-comments-list .cm-empty {
+            color: var(--text-muted); font-size: 12px; text-align: center;
+            padding: 12px; font-style: italic;
+        }
+        .card-modal-add-comment {
+            margin-top: 10px; display: flex; gap: 8px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 8px; padding: 4px 4px 4px 12px;
+            transition: border-color 0.15s;
+        }
+        .card-modal-add-comment:focus-within { border-color: var(--accent); }
+        .card-modal-add-comment input {
+            flex: 1; background: transparent !important; border: none !important;
+            color: var(--text-primary); font-size: 13px; outline: none;
+            padding: 6px 0 !important;
+        }
+        .card-modal-add-comment button {
+            background: var(--accent); color: white; border: none;
+            padding: 6px 14px; border-radius: 6px; cursor: pointer;
+            font-size: 12px; font-family: inherit; font-weight: 500;
+            transition: background 0.15s;
+        }
+        .card-modal-add-comment button:hover { background: var(--accent-hover); }
+        .card-modal-add-comment button:disabled { opacity: 0.5; cursor: not-allowed; }
         .card-modal-footer {
             padding: 14px 24px 18px; display: flex; gap: 8px; justify-content: flex-end;
             border-top: 1px solid var(--border); flex-wrap: wrap;
@@ -2212,7 +2266,10 @@
                         }).join('') +
                     '</select>' +
                 '</div></div>' +
-                '<div class="card-modal-row"><label>Срок</label><div class="field-value">' +
+                '<div class="card-modal-row"><label>Дата начала</label><div class="field-value">' +
+                    '<input type="date" id="cm-start" value="' + escapeAttr(issue.start_date || '') + '">' +
+                '</div></div>' +
+                '<div class="card-modal-row"><label>Срок выполнения</label><div class="field-value">' +
                     '<input type="date" id="cm-deadline" value="' + escapeAttr(issue.target_date || '') + '">' +
                 '</div></div>' +
                 '<div class="card-modal-row"><label>Статус</label><div class="field-value">' +
@@ -2225,9 +2282,10 @@
                     '</select>' +
                 '</div></div>' +
                 '<div class="card-modal-comments">' +
-                    '<h4>Добавить комментарий</h4>' +
+                    '<h4>Комментарии</h4>' +
+                    '<div id="cm-comments-list"><div style="color:var(--text-muted);font-size:12px;text-align:center;padding:8px">Загружаю...</div></div>' +
                     '<div class="card-modal-add-comment">' +
-                        '<input type="text" id="cm-new-comment" placeholder="Текст комментария...">' +
+                        '<input type="text" id="cm-new-comment" placeholder="Текст комментария..." onkeydown="if(event.key===\'Enter\')modalAddComment()">' +
                         '<button onclick="modalAddComment()">Отправить</button>' +
                     '</div>' +
                 '</div>';
@@ -2242,6 +2300,65 @@
             if (prioSel) attachCustomDropdown(prioSel);
             if (stateSelect) attachCustomDropdown(stateSelect);
             document.getElementById('card-modal-backdrop').classList.add('show');
+            // Подгружаем комментарии асинхронно
+            loadCardComments(issue);
+        }
+
+        // Загрузка списка комментариев задачи через Plane API
+        async function loadCardComments(issue) {
+            var listEl = document.getElementById('cm-comments-list');
+            if (!listEl) return;
+            try {
+                var s = loadPlaneSettings();
+                var proj = (BOARD_PROJECTS_CACHE || []).find(function (p) { return p.name === BOARD_CURRENT_PROJECT; });
+                if (!proj || !issue || !issue.id) {
+                    listEl.innerHTML = '<div class="cm-empty">Не удалось определить проект/задачу</div>';
+                    return;
+                }
+                var url = s.url.replace(/\/$/, '') + '/api/v1/workspaces/' + s.slug +
+                          '/projects/' + proj.id + '/issues/' + issue.id + '/comments/';
+                var res = await fetch(url, {
+                    headers: { 'X-API-Key': s.token, 'Content-Type': 'application/json' }
+                });
+                if (!res.ok) {
+                    listEl.innerHTML = '<div class="cm-empty">Не удалось загрузить (' + res.status + ')</div>';
+                    return;
+                }
+                var data = await res.json();
+                var comments = Array.isArray(data) ? data : (data.results || []);
+                renderCardComments(comments);
+            } catch (e) {
+                listEl.innerHTML = '<div class="cm-empty">Ошибка: ' + escapeHtml(e.message || 'unknown') + '</div>';
+            }
+        }
+        function renderCardComments(comments) {
+            var listEl = document.getElementById('cm-comments-list');
+            if (!listEl) return;
+            // Бэдж с числом в шапке
+            var hdr = document.querySelector('.card-modal-comments h4');
+            if (hdr && !hdr.querySelector('.cm-count')) {
+                var b = document.createElement('span');
+                b.className = 'cm-count';
+                hdr.appendChild(b);
+            }
+            var countEl = hdr && hdr.querySelector('.cm-count');
+            if (countEl) countEl.textContent = comments.length;
+            if (!comments.length) {
+                listEl.innerHTML = '<div class="cm-empty">Комментариев пока нет</div>';
+                return;
+            }
+            listEl.innerHTML = comments.map(function (c) {
+                var text = stripHtml(c.comment_html || c.comment_text || c.comment || '');
+                var date = c.created_at ? new Date(c.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+                var author = c.actor_detail && (c.actor_detail.display_name || c.actor_detail.email) || '';
+                return '<div class="card-modal-comment">' +
+                    '<div class="cm-meta">' +
+                        '<span>' + escapeHtml(author || '—') + '</span>' +
+                        '<span>' + escapeHtml(date) + '</span>' +
+                    '</div>' +
+                    '<div class="cm-text">' + escapeHtml(text) + '</div>' +
+                '</div>';
+            }).join('');
         }
 
         function closeCardModal() {
@@ -2257,6 +2374,7 @@
             var newName = (document.getElementById('cm-name').value || '').trim();
             var newDesc = (document.getElementById('cm-desc').value || '').trim();
             var newPrio = document.getElementById('cm-prio').value;
+            var newStart = document.getElementById('cm-start') ? document.getElementById('cm-start').value : '';
             var newDeadline = document.getElementById('cm-deadline').value;
             var newState = document.getElementById('cm-state').value;
 
@@ -2277,6 +2395,7 @@
                 if (newName && newName !== origName) updateParams.name = newName;
                 if (newDesc) updateParams.description = newDesc;
                 if (newPrio !== String(MODAL_CURRENT_ISSUE.priority || 'none')) updateParams.priority = newPrio;
+                if (newStart && newStart !== (MODAL_CURRENT_ISSUE.start_date || '')) updateParams.start_date = newStart;
                 if (newDeadline && newDeadline !== (MODAL_CURRENT_ISSUE.target_date || '')) updateParams.target_date = newDeadline;
                 if (Object.keys(updateParams).length > 2) {
                     await planeDirect('update_issue', updateParams);
@@ -2325,6 +2444,8 @@
                 });
                 input.value = '';
                 statusEl.textContent = 'Комментарий добавлен';
+                // Перезагружаем список комментариев в модалке
+                if (typeof loadCardComments === 'function') loadCardComments(MODAL_CURRENT_ISSUE);
             } catch (e) {
                 statusEl.textContent = 'Ошибка: ' + e.message;
             } finally {
@@ -2342,10 +2463,24 @@
             // MED-3 fix: НЕ встраиваем JSON в onclick (XSS через имена со спецсимволами).
             // Строим через DOM API + addEventListener. closure захватывает issue.
             cm.innerHTML = '';
-            function mkBtn(label, onClick, isDanger) {
+            // SVG-иконки в едином стиле (stroke, 14x14)
+            var ICO = {
+                edit: '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+                arrow: '<svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+                comment: '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+                calendar: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+                trash: '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
+            };
+            function mkBtn(iconKey, label, onClick, isDanger) {
                 var b = document.createElement('button');
-                b.textContent = label;
                 if (isDanger) b.className = 'danger';
+                var ic = document.createElement('span');
+                ic.className = 'ctx-icon';
+                ic.innerHTML = ICO[iconKey] || '';
+                var tx = document.createElement('span');
+                tx.textContent = label;
+                b.appendChild(ic);
+                b.appendChild(tx);
                 b.addEventListener('click', function () {
                     cm.classList.remove('show');
                     onClick();
@@ -2353,17 +2488,17 @@
                 return b;
             }
             function mkHr() { return document.createElement('hr'); }
-            cm.appendChild(mkBtn('📝 Изменить', function () { openCardModal(issue); }));
-            cm.appendChild(mkBtn('→ Отложенные', function () { ctxMenuStatusFor(issue, 'backlog'); }));
-            cm.appendChild(mkBtn('→ Запланированные', function () { ctxMenuStatusFor(issue, 'todo'); }));
-            cm.appendChild(mkBtn('→ В работе', function () { ctxMenuStatusFor(issue, 'in_progress'); }));
-            cm.appendChild(mkBtn('→ Готово', function () { ctxMenuStatusFor(issue, 'done'); }));
-            cm.appendChild(mkBtn('→ Отменено', function () { ctxMenuStatusFor(issue, 'cancelled'); }));
+            cm.appendChild(mkBtn('edit', 'Изменить', function () { openCardModal(issue); }));
+            cm.appendChild(mkBtn('arrow', 'Отложенные', function () { ctxMenuStatusFor(issue, 'backlog'); }));
+            cm.appendChild(mkBtn('arrow', 'Запланированные', function () { ctxMenuStatusFor(issue, 'todo'); }));
+            cm.appendChild(mkBtn('arrow', 'В работе', function () { ctxMenuStatusFor(issue, 'in_progress'); }));
+            cm.appendChild(mkBtn('arrow', 'Готово', function () { ctxMenuStatusFor(issue, 'done'); }));
+            cm.appendChild(mkBtn('arrow', 'Отменено', function () { ctxMenuStatusFor(issue, 'cancelled'); }));
             cm.appendChild(mkHr());
-            cm.appendChild(mkBtn('💬 Добавить комментарий', function () { ctxMenuCommentFor(issue); }));
-            cm.appendChild(mkBtn('📅 Установить срок', function () { ctxMenuDeadlineFor(issue); }));
+            cm.appendChild(mkBtn('comment', 'Добавить комментарий', function () { ctxMenuCommentFor(issue); }));
+            cm.appendChild(mkBtn('calendar', 'Установить срок', function () { ctxMenuDeadlineFor(issue); }));
             cm.appendChild(mkHr());
-            cm.appendChild(mkBtn('🗑 Удалить', function () { ctxMenuDeleteFor(issue); }, true));
+            cm.appendChild(mkBtn('trash', 'Удалить', function () { ctxMenuDeleteFor(issue); }, true));
             cm.style.left = e.clientX + 'px';
             cm.style.top = e.clientY + 'px';
             cm.dataset.issueName = issue.name;
