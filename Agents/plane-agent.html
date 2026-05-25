@@ -191,6 +191,86 @@
         /* Чтобы кастомные dropdown'ы внутри card-modal заполняли всю ширину field-value */
         .card-modal .field-value .gc-dropdown { display: block; width: 100%; }
         .card-modal .field-value .gc-dropdown-trigger { width: 100%; min-width: 0; }
+
+        /* === Custom date picker (в дизайн, как gc-datepicker в планнере) === */
+        .gc-dp { position: relative; display: block; width: 100%; }
+        .gc-dp-trigger {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            height: 34px; padding: 0 10px 0 12px; box-sizing: border-box;
+            background: var(--bg-input); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 6px;
+            font-family: inherit; font-size: 13px; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .gc-dp-trigger:hover { border-color: var(--accent); }
+        .gc-dp.open .gc-dp-trigger { border-color: var(--accent); }
+        .gc-dp-label { flex: 1; text-align: left; color: var(--text-primary); }
+        .gc-dp-label.placeholder { color: var(--text-muted); }
+        .gc-dp-icon { color: var(--text-secondary); flex-shrink: 0; line-height: 0; transition: color 0.15s; }
+        .gc-dp-icon svg {
+            width: 14px; height: 14px; stroke: currentColor; fill: none;
+            stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+        }
+        .gc-dp.open .gc-dp-icon { color: var(--accent); }
+        .gc-dp-popup {
+            position: absolute; top: calc(100% + 4px); left: 0; width: 260px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 10px; padding: 10px; z-index: 250;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            opacity: 0; visibility: hidden; transform: translateY(-4px);
+            transition: opacity 0.18s, transform 0.18s, visibility 0s linear 0.18s;
+        }
+        .gc-dp.open .gc-dp-popup {
+            opacity: 1; visibility: visible; transform: translateY(0);
+            transition: opacity 0.18s, transform 0.18s, visibility 0s linear 0s;
+        }
+        .gc-dp-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .gc-dp-title {
+            flex: 1; text-align: center; font-size: 12px; font-weight: 600;
+            color: var(--text-primary); text-transform: capitalize;
+        }
+        .gc-dp-nav {
+            background: transparent; border: none; cursor: pointer;
+            width: 24px; height: 24px; border-radius: 4px;
+            color: var(--text-secondary); display: flex; align-items: center; justify-content: center;
+            font-family: inherit; transition: color 0.15s, background 0.15s;
+        }
+        .gc-dp-nav:hover { color: var(--accent); background: var(--bg-secondary); }
+        .gc-dp-nav svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .gc-dp-wd {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px;
+        }
+        .gc-dp-wd span {
+            font-size: 10px; color: var(--text-muted); text-align: center;
+            text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 0;
+        }
+        .gc-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+        .gc-dp-day {
+            background: none; border: none; cursor: pointer;
+            height: 28px; border-radius: 5px;
+            font-size: 11px; font-family: inherit; color: var(--text-primary);
+            transition: background 0.12s, color 0.12s;
+        }
+        .gc-dp-day:hover { background: var(--bg-secondary); color: var(--accent); }
+        .gc-dp-day.other-month { color: var(--text-muted); }
+        .gc-dp-day.today { color: var(--accent); font-weight: 600; box-shadow: inset 0 0 0 1px var(--accent); }
+        .gc-dp-day.selected {
+            background: var(--accent); color: #fff; font-weight: 600; box-shadow: none;
+        }
+        .gc-dp-day.selected:hover { background: var(--accent-hover); color: #fff; }
+        .gc-dp-actions {
+            display: flex; justify-content: space-between; margin-top: 8px;
+            padding-top: 8px; border-top: 1px solid var(--border);
+        }
+        .gc-dp-actions button {
+            background: none; border: none; cursor: pointer;
+            font-family: inherit; font-size: 11px; color: var(--accent);
+            padding: 4px 6px; border-radius: 4px; transition: background 0.12s;
+        }
+        .gc-dp-actions button:hover { background: var(--accent-light); }
         .modal-box .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
         .modal-box button {
             padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
@@ -2299,6 +2379,11 @@
             var prioSel = document.getElementById('cm-prio');
             if (prioSel) attachCustomDropdown(prioSel);
             if (stateSelect) attachCustomDropdown(stateSelect);
+            // Кастомизируем date-input'ы Начало + Срок через gc-dp
+            var startEl = document.getElementById('cm-start');
+            var deadlineEl = document.getElementById('cm-deadline');
+            if (startEl) attachCustomDatepicker(startEl);
+            if (deadlineEl) attachCustomDatepicker(deadlineEl);
             document.getElementById('card-modal-backdrop').classList.add('show');
             // Подгружаем комментарии асинхронно
             loadCardComments(issue);
@@ -2698,12 +2783,152 @@
                 wrap.classList.toggle('open');
             });
         }
-        // Глобальный close-on-outside для всех gc-dropdown
+        // Глобальный close-on-outside для всех gc-dropdown + gc-dp
         document.addEventListener('click', function (e) {
             document.querySelectorAll('.gc-dropdown.open').forEach(function (d) {
                 if (!d.contains(e.target)) d.classList.remove('open');
             });
+            document.querySelectorAll('.gc-dp.open').forEach(function (d) {
+                if (!d.contains(e.target)) d.classList.remove('open');
+            });
         });
+
+        // ===================================================================
+        // Кастомный date picker — оборачивает <input type="date"> в gc-dp UI
+        // ===================================================================
+        var MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+        var WEEKDAYS_RU = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+        var CAL_ICON_SVG = '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+        function _dpToday() { var d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+        function _dpDisplay(ymd) {
+            if (!ymd) return '';
+            var p = ymd.split('-');
+            return p[2] + '.' + p[1] + '.' + p[0];
+        }
+        function attachCustomDatepicker(inputEl) {
+            if (!inputEl || inputEl.dataset.gcDpWrapped) return;
+            inputEl.dataset.gcDpWrapped = '1';
+            var wrap = document.createElement('div');
+            wrap.className = 'gc-dp';
+            inputEl.parentNode.insertBefore(wrap, inputEl);
+            wrap.appendChild(inputEl);
+            inputEl.style.display = 'none';
+
+            var trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.className = 'gc-dp-trigger';
+            var label = document.createElement('span');
+            label.className = 'gc-dp-label';
+            var icon = document.createElement('span');
+            icon.className = 'gc-dp-icon';
+            icon.innerHTML = CAL_ICON_SVG;
+            trigger.appendChild(label);
+            trigger.appendChild(icon);
+            wrap.appendChild(trigger);
+
+            function syncLabel() {
+                if (inputEl.value) {
+                    label.textContent = _dpDisplay(inputEl.value);
+                    label.classList.remove('placeholder');
+                } else {
+                    label.textContent = 'дд.мм.гггг';
+                    label.classList.add('placeholder');
+                }
+            }
+            syncLabel();
+
+            var popup = document.createElement('div');
+            popup.className = 'gc-dp-popup';
+            wrap.appendChild(popup);
+
+            var viewY, viewM;
+            function render() {
+                var sel = inputEl.value;
+                var today = _dpToday();
+                popup.innerHTML =
+                    '<div class="gc-dp-header">' +
+                        '<button type="button" class="gc-dp-nav" data-act="prev"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>' +
+                        '<div class="gc-dp-title">' + MONTHS_RU[viewM] + ' ' + viewY + '</div>' +
+                        '<button type="button" class="gc-dp-nav" data-act="next"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>' +
+                    '</div>' +
+                    '<div class="gc-dp-wd">' + WEEKDAYS_RU.map(function (w) { return '<span>' + w + '</span>'; }).join('') + '</div>' +
+                    '<div class="gc-dp-grid"></div>' +
+                    '<div class="gc-dp-actions">' +
+                        '<button type="button" data-act="clear">Удалить</button>' +
+                        '<button type="button" data-act="today">Сегодня</button>' +
+                    '</div>';
+                var firstJs = new Date(viewY, viewM, 1).getDay();
+                var firstMon = (firstJs + 6) % 7;
+                var daysInMonth = new Date(viewY, viewM + 1, 0).getDate();
+                var prevDays = new Date(viewY, viewM, 0).getDate();
+                var cells = [];
+                for (var i = firstMon - 1; i >= 0; i--) {
+                    var pm = viewM === 0 ? { y: viewY - 1, m: 11 } : { y: viewY, m: viewM - 1 };
+                    cells.push({ day: prevDays - i, other: true, y: pm.y, m: pm.m });
+                }
+                for (var d = 1; d <= daysInMonth; d++) cells.push({ day: d, other: false, y: viewY, m: viewM });
+                var nd = 1;
+                while (cells.length < 42) {
+                    var nm = viewM === 11 ? { y: viewY + 1, m: 0 } : { y: viewY, m: viewM + 1 };
+                    cells.push({ day: nd++, other: true, y: nm.y, m: nm.m });
+                }
+                var grid = popup.querySelector('.gc-dp-grid');
+                grid.innerHTML = cells.map(function (c) {
+                    var ymd = c.y + '-' + String(c.m + 1).padStart(2, '0') + '-' + String(c.day).padStart(2, '0');
+                    var cls = 'gc-dp-day';
+                    if (c.other) cls += ' other-month';
+                    if (ymd === today && ymd !== sel) cls += ' today';
+                    if (ymd === sel) cls += ' selected';
+                    return '<button type="button" class="' + cls + '" data-ymd="' + ymd + '">' + c.day + '</button>';
+                }).join('');
+                grid.querySelectorAll('.gc-dp-day').forEach(function (b) {
+                    b.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        inputEl.value = b.dataset.ymd;
+                        inputEl.dispatchEvent(new Event('change'));
+                        syncLabel();
+                        wrap.classList.remove('open');
+                    });
+                });
+                popup.querySelector('[data-act="prev"]').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    if (viewM === 0) { viewM = 11; viewY--; } else viewM--;
+                    render();
+                });
+                popup.querySelector('[data-act="next"]').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    if (viewM === 11) { viewM = 0; viewY++; } else viewM++;
+                    render();
+                });
+                popup.querySelector('[data-act="clear"]').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    inputEl.value = '';
+                    inputEl.dispatchEvent(new Event('change'));
+                    syncLabel();
+                    wrap.classList.remove('open');
+                });
+                popup.querySelector('[data-act="today"]').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    inputEl.value = _dpToday();
+                    inputEl.dispatchEvent(new Event('change'));
+                    syncLabel();
+                    wrap.classList.remove('open');
+                });
+            }
+            popup.addEventListener('click', function (e) { e.stopPropagation(); });
+            trigger.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = !wrap.classList.contains('open');
+                document.querySelectorAll('.gc-dp.open').forEach(function (d) { if (d !== wrap) d.classList.remove('open'); });
+                wrap.classList.toggle('open', open);
+                if (open) {
+                    var ref = inputEl.value ? inputEl.value.split('-') : [_dpToday().split('-')[0], _dpToday().split('-')[1]];
+                    viewY = parseInt(ref[0], 10);
+                    viewM = parseInt(ref[1], 10) - 1;
+                    render();
+                }
+            });
+        }
 
         function sendQuickReply(text) {
             var input = document.getElementById('msg');
