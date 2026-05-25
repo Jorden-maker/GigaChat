@@ -746,8 +746,8 @@
 
     <!-- Direct test modal: 6 action-карточек для теста workflow без LLM.
          Каждая карточка шлёт {action, params, token, plane_*} напрямую и показывает JSON-ответ. -->
-    <div class="modal-backdrop" id="directTestModal" onclick="closeDirectTest()">
-        <div class="modal-box wide" onclick="event.stopPropagation()">
+    <div class="modal-backdrop" id="directTestModal">
+        <div class="modal-box wide">
             <h3>Тест без LLM (прямые action-вызовы)</h3>
             <div class="modal-hint">
                 Workflow поддерживает direct-режим: если в теле есть <code>action</code>, LLM пропускается.
@@ -945,8 +945,8 @@
     </div>
 
     <!-- Settings modal: Plane URL + workspace_slug + API token. -->
-    <div class="modal-backdrop" id="settingsModal" onclick="closeSettings()">
-        <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-backdrop" id="settingsModal">
+        <div class="modal-box">
             <button class="modal-close" onclick="closeSettings()" title="Закрыть (Esc)">×</button>
             <h3>Настройки</h3>
             <label for="set-url">Plane URL</label>
