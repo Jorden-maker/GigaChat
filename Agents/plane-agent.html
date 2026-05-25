@@ -296,21 +296,31 @@
         .sidebar-top .btn-home { margin: 0 !important; }
         .sidebar-top #boardToggleBtn { margin-left: 5px; }
 
-        /* При открытии доски: содержимое сайдбара (сессии + add) уезжает
-           вправо-в-лево (height/opacity), top-bar с кнопками остаётся.
-           Сайдбар сжимается до ширины top-bar. */
-        .sidebar { transition: width 0.3s ease; }
+        /* При открытии доски: сайдбар сворачивается до width:0,
+           sessions уезжают, top-bar с кнопками всплывает над доской
+           через position:fixed (чтобы не держать ширину сайдбара). */
+        .sidebar { transition: width 0.3s ease, min-width 0.3s ease, padding 0.3s ease; }
+        .sidebar-top { transition: padding 0.3s ease; }
         .sidebar-header, .sidebar-add, .session-list {
             transition: opacity 0.2s ease, transform 0.25s ease, max-height 0.3s ease;
             overflow: hidden;
         }
-        body.board-fullscreen .sidebar { width: auto; min-width: 0; }
+        body.board-fullscreen .sidebar {
+            width: 0 !important; min-width: 0 !important;
+            padding: 0; border-right-width: 0;
+        }
+        body.board-fullscreen .sidebar-top {
+            position: fixed; top: 8px; left: 8px; z-index: 50;
+            padding: 0; background: transparent;
+        }
         body.board-fullscreen .sidebar-header,
         body.board-fullscreen .sidebar-add,
         body.board-fullscreen .session-list {
             opacity: 0; transform: translateX(-30px);
             max-height: 0; padding: 0; margin: 0; pointer-events: none;
         }
+        /* Чтобы доска не подлезала под плавающие кнопки — отступ слева сверху */
+        body.board-fullscreen #board-panel { padding-left: 100px; }
         .board-col {
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 10px; padding: 10px;
