@@ -68,6 +68,13 @@
             padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 13.5px;
         }
         .file-row:last-child { border-bottom: none; }
+        .file-row.dragging { opacity: 0.4; }
+        .file-row.drag-over { background: var(--accent-light); }
+        .file-row .drag-handle {
+            cursor: grab; color: var(--text-muted); user-select: none;
+            flex-shrink: 0; font-size: 14px; padding: 0 4px;
+        }
+        .file-row .drag-handle:active { cursor: grabbing; }
         .file-row .badge {
             background: var(--accent-light); color: var(--accent);
             font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 500;
@@ -390,6 +397,18 @@
             </div>
         </div>
 
+        <!-- Result-box: видимый банер успеха после merge (UI-паритет с file-merger) -->
+        <div class="result-box" id="resultBox">
+            <div class="result-header">
+                <div class="result-meta">
+                    Готово. Строк: <b id="resultRows">—</b>, столбцов: <b id="resultCols">—</b>, файлов: <b id="resultFiles">—</b>
+                </div>
+                <div class="result-actions">
+                    <button class="btn-action" id="resultDownloadBtn">⬇ <span id="resultDownloadLabel">Скачать .xlsx</span></button>
+                </div>
+            </div>
+        </div>
+
         <div id="previewSection">
             <div class="preview-header">
                 <div class="preview-header-left">
@@ -441,6 +460,12 @@
         var downloadBtn = document.getElementById('downloadBtn');
         var folderInput = document.getElementById('folderInput');
         var pickFolderLink = document.getElementById('pickFolderLink');
+        var resultBox = document.getElementById('resultBox');
+        var resultRows = document.getElementById('resultRows');
+        var resultCols = document.getElementById('resultCols');
+        var resultFiles = document.getElementById('resultFiles');
+        var resultDownloadBtn = document.getElementById('resultDownloadBtn');
+        var resultDownloadLabel = document.getElementById('resultDownloadLabel');
         var loading = document.getElementById('loading');
         var loadingText = document.getElementById('loadingText');
         var progressFill = document.getElementById('progressFill');
@@ -476,7 +501,21 @@
             return String(s || '').replace(/[\\/:*?"<>|]+/g, '_').replace(/_+/g, '_').trim() || 'Объединение таблиц';
         }
         function saveSettings() { try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) {} }
-        function updateOutSuffix() { outSuffix.textContent = '.' + settings.outputFormat; }
+        function updateOutSuffix() {
+            outSuffix.textContent = '.' + settings.outputFormat;
+            if (resultDownloadLabel) resultDownloadLabel.textContent = 'Скачать .' + settings.outputFormat;
+        }
+        function showResultBox() {
+            if (!resultBox || !mergedResult) return;
+            var visibleCols = 0;
+            for (var c = 0; c < mergedResult.headers.length; c++) if (!ignoredCols.has(c)) visibleCols++;
+            var okFiles = items.filter(function (it) { return !it.error && it.parsed; }).length;
+            resultRows.textContent = String(mergedResult.rows.length);
+            resultCols.textContent = String(visibleCols);
+            resultFiles.textContent = String(okFiles);
+            resultBox.style.display = 'block';
+        }
+        function hideResultBox() { if (resultBox) resultBox.style.display = 'none'; }
 
         // ============ Toasts ============
         // B4: дедуп — если один и тот же текст уже показан в последний 1 сек,
@@ -792,7 +831,8 @@
                 else if (it.parsing) statusHtml = '<span class="row-status parsing show"></span>';
                 else statusHtml = '<span class="row-status done show" title="Файл готов">✓</span>';
                 html +=
-                    '<div class="file-row" data-uid="' + it.uid + '">' +
+                    '<div class="file-row" draggable="true" data-uid="' + it.uid + '">' +
+                        '<span class="drag-handle" title="Перетащи чтобы переставить">⋮⋮</span>' +
                         '<span class="' + badgeClass + '">' + badgeText + '</span>' +
                         '<span class="name">' + escapeHtml(it.file.name) + '</span>' +
                         (it.error ? '<span class="err-msg">' + escapeHtml(it.error) + '</span>' : '') +
@@ -809,6 +849,49 @@
                     var uid = e.currentTarget.dataset.uid;
                     items = items.filter(function (it) { return it.uid !== uid; });
                     renderList(); updateUI();
+                    recomputePreview();
+                });
+            }
+            // === Drag-and-drop reorder ===
+            var rows = fileRows.querySelectorAll('.file-row');
+            var draggingUid = null;
+            for (var j = 0; j < rows.length; j++) {
+                rows[j].addEventListener('dragstart', function (e) {
+                    draggingUid = e.currentTarget.dataset.uid;
+                    e.currentTarget.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                rows[j].addEventListener('dragend', function (e) {
+                    e.currentTarget.classList.remove('dragging');
+                    var allRows = fileRows.querySelectorAll('.file-row');
+                    for (var x = 0; x < allRows.length; x++) {
+                        allRows[x].classList.remove('drag-over');
+                        allRows[x].classList.remove('dragging');
+                    }
+                    draggingUid = null;
+                });
+                rows[j].addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+                rows[j].addEventListener('dragenter', function (e) {
+                    e.preventDefault();
+                    if (e.currentTarget.dataset.uid !== draggingUid) e.currentTarget.classList.add('drag-over');
+                });
+                rows[j].addEventListener('dragleave', function (e) {
+                    e.currentTarget.classList.remove('drag-over');
+                });
+                rows[j].addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var targetUid = e.currentTarget.dataset.uid;
+                    if (!draggingUid || draggingUid === targetUid) return;
+                    var fromIdx = items.findIndex(function (it) { return it.uid === draggingUid; });
+                    var toIdx = items.findIndex(function (it) { return it.uid === targetUid; });
+                    if (fromIdx < 0 || toIdx < 0) return;
+                    var moved = items.splice(fromIdx, 1)[0];
+                    items.splice(toIdx, 0, moved);
+                    renderList();
                     recomputePreview();
                 });
             }
@@ -891,9 +974,11 @@
         function renderPreview() {
             if (!mergedResult || !mergedResult.headers || !mergedResult.headers.length) {
                 hidePreview();
+                hideResultBox();
                 return;
             }
             previewSection.classList.add('show');
+            showResultBox();
             var headers = mergedResult.headers;
             var rows = mergedResult.rows;
             var visibleCols = [];
@@ -919,7 +1004,10 @@
                 : 'Показаны все ' + rows.length + ' строк.';
         }
 
-        function hidePreview() { previewSection.classList.remove('show'); }
+        function hidePreview() {
+            previewSection.classList.remove('show');
+            hideResultBox();
+        }
 
         function updateSortDropdownItems() {
             if (!mergedResult) return;
@@ -988,6 +1076,11 @@
 
         // ============ Download ============
         downloadBtn.addEventListener('click', doDownload);
+        if (resultDownloadBtn) {
+            resultDownloadBtn.addEventListener('click', function () {
+                if (mergedResult) doDownload();
+            });
+        }
         async function doDownload() {
             if (!mergedResult) { showToast('Сначала построй превью', 'error'); return; }
             var visibleCols = [];
