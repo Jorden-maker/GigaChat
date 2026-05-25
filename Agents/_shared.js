@@ -2637,7 +2637,10 @@
     // Если он перестал приходить с сервера → удалён на другом ПК → удаляем локально.
     // Если id никогда не было на сервере (LS-only, юзер создал офлайн до sync)
     // → push upsert (back-fill). Это устраняет «воскрешение» удалённых сессий.
-    var KEY_SYNC_SEEN = basePrefix + '_sync_seen';
+    // ВАЖНО: prefix (а не basePrefix — basePrefix живёт в scope createChatAgent,
+    // здесь не виден). prefix = opts.prefix = basePrefix в caller'е, тот же
+    // эффект, ту же изоляцию per-user.
+    var KEY_SYNC_SEEN = prefix + '_sync_seen';
     function loadSyncSeen() {
       try {
         var raw = localStorage.getItem(KEY_SYNC_SEEN);
