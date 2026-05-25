@@ -417,7 +417,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// === SSO Phase 3: token presence check ===\n// Token может быть в body (JSON request) ИЛИ form-data (file upload).\n// Для form-data n8n кладёт поля в корень $json (не в .body).\nconst item = $input.first();\nconst j = item && item.json ? item.json : {};\nconst body = j.body || j;\nconst token = String((body && body.token) || j.token || '').trim();\nif (!token) {\n  return [{ json: { __auth_required: true } }];\n}\n// Прокидываем все исходные поля + binary data дальше (binary не теряется\n// автоматически при возврате json — n8n сохраняет binary поле item.binary\n// если мы возвращаем СОДЕРЖИМОЕ $json, но не если возвращаем новый объект.\n// Используем item.binary в выходе явно.\nreturn [{ json: { ...j, __auth_ok: true }, binary: item.binary || {} }];\n"
+        "jsCode": "// === SSO Phase 3: token presence check ===\n// Token может быть в body (JSON request) ИЛИ form-data (file upload).\n// Для form-data n8n кладёт поля в корень $json (не в .body).\nconst item = $input.first();\nconst j = item && item.json ? item.json : {};\nconst body = j.body || j;\nconst token = String((body && body.token) || j.token || '').trim();\nif (!token) {\n  return [{ json: { __auth_required: true } }];\n}\n// Прокидываем все исходные поля + binary data дальше (binary не теряется\n// автоматически при возврате json — n8n сохраняет binary поле item.binary\n// если мы возвращаем СОДЕРЖИМОЕ $json, но не если возвращаем новый объект.\n// Используем item.binary в выходе явно.\nreturn [{ json: { ...j, token: token, __auth_ok: true }, binary: item.binary || {} }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
