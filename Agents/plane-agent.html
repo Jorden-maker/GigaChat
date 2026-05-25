@@ -630,7 +630,7 @@
             <div class="header-right">
                 <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
                 <button class="btn-settings" id="boardToggleBtn" onclick="toggleBoard()">Доска</button>
-                <button class="btn-settings" onclick="openSettings()">Plane-настройки</button>
+                <button class="btn-settings" onclick="openSettings()">Настройки</button>
                 <button class="btn-settings" onclick="openDirectTest()">Тест без LLM</button>
                 <button class="btn-export" id="btnExport" onclick="exportChat()">Экспорт</button>
             </div>
@@ -929,7 +929,7 @@
     <!-- Settings modal: Plane URL + workspace_slug + API token. -->
     <div class="modal-backdrop" id="settingsModal" onclick="if(event.target===this)closeSettings()">
         <div class="modal-box">
-            <h3>Plane-настройки</h3>
+            <h3>Настройки</h3>
             <label for="set-url">Plane URL</label>
             <input id="set-url" type="text" placeholder="http://host.docker.internal:8000" autocomplete="off" data-next="set-slug">
             <label for="set-slug">Workspace slug</label>
