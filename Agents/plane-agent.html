@@ -476,6 +476,142 @@
                 <div class="dt-result" id="dt-res-search_issues"></div>
             </div>
 
+            <div class="dt-card">
+                <h4>7. Получить задачу (детали)</h4>
+                <div class="dt-hint">action=get_issue, params={ project_name, issue_name }</div>
+                <div class="dt-row">
+                    <input id="dt-gi-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-gi-issue" placeholder="имя задачи (точное)" autocomplete="off">
+                    <button onclick="runDirect('get_issue', {
+                        project_name: document.getElementById('dt-gi-project').value.trim(),
+                        issue_name: document.getElementById('dt-gi-issue').value.trim()
+                    }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-get_issue"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>8. Изменить статус</h4>
+                <div class="dt-hint">action=change_status, params={ project_name, issue_name, state }</div>
+                <div class="dt-row">
+                    <input id="dt-cs-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-cs-issue" placeholder="имя задачи (точное)" autocomplete="off">
+                    <select id="dt-cs-state">
+                        <option value="todo">Todo</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="done">Done</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="backlog">Backlog</option>
+                    </select>
+                    <button onclick="runDirect('change_status', {
+                        project_name: document.getElementById('dt-cs-project').value.trim(),
+                        issue_name: document.getElementById('dt-cs-issue').value.trim(),
+                        state: document.getElementById('dt-cs-state').value
+                    }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-change_status"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>9. Установить срок (target_date)</h4>
+                <div class="dt-hint">action=set_deadline, params={ project_name, issue_name, target_date: 'YYYY-MM-DD' }</div>
+                <div class="dt-row">
+                    <input id="dt-sd-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-sd-issue" placeholder="имя задачи" autocomplete="off">
+                    <input id="dt-sd-date" type="date" placeholder="YYYY-MM-DD">
+                    <button onclick="runDirect('set_deadline', {
+                        project_name: document.getElementById('dt-sd-project').value.trim(),
+                        issue_name: document.getElementById('dt-sd-issue').value.trim(),
+                        target_date: document.getElementById('dt-sd-date').value
+                    }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-set_deadline"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>10. Назначить исполнителей</h4>
+                <div class="dt-hint">action=assign_issue, params={ project_name, issue_name, assignees: [user_id, ...] }<br>
+                user_id берутся из Plane (Settings → Members → ID). Через запятую.</div>
+                <div class="dt-row">
+                    <input id="dt-ai-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-ai-issue" placeholder="имя задачи" autocomplete="off">
+                    <input id="dt-ai-users" placeholder="user_id1, user_id2, ..." autocomplete="off">
+                    <button onclick="runDirect('assign_issue', {
+                        project_name: document.getElementById('dt-ai-project').value.trim(),
+                        issue_name: document.getElementById('dt-ai-issue').value.trim(),
+                        assignees: document.getElementById('dt-ai-users').value.split(',').map(s=>s.trim()).filter(Boolean)
+                    }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-assign_issue"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>11. Добавить метки</h4>
+                <div class="dt-hint">action=add_label, params={ project_name, issue_name, labels: [label_id, ...] }<br>
+                label_id из Plane (Project → Labels → ID). Через запятую.</div>
+                <div class="dt-row">
+                    <input id="dt-al-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-al-issue" placeholder="имя задачи" autocomplete="off">
+                    <input id="dt-al-labels" placeholder="label_id1, label_id2, ..." autocomplete="off">
+                    <button onclick="runDirect('add_label', {
+                        project_name: document.getElementById('dt-al-project').value.trim(),
+                        issue_name: document.getElementById('dt-al-issue').value.trim(),
+                        labels: document.getElementById('dt-al-labels').value.split(',').map(s=>s.trim()).filter(Boolean)
+                    }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-add_label"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>12. Убрать метки</h4>
+                <div class="dt-hint">action=remove_label, params={ project_name, issue_name, labels: [...] } — оставшиеся labels (без указанных)</div>
+                <div class="dt-row">
+                    <input id="dt-rl-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-rl-issue" placeholder="имя задачи" autocomplete="off">
+                    <input id="dt-rl-labels" placeholder="label_id1, label_id2, ... — те что останутся" autocomplete="off">
+                    <button onclick="runDirect('remove_label', {
+                        project_name: document.getElementById('dt-rl-project').value.trim(),
+                        issue_name: document.getElementById('dt-rl-issue').value.trim(),
+                        labels: document.getElementById('dt-rl-labels').value.split(',').map(s=>s.trim()).filter(Boolean)
+                    }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-remove_label"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>13. Добавить комментарий</h4>
+                <div class="dt-hint">action=add_comment, params={ project_name, issue_name, comment }</div>
+                <div class="dt-row">
+                    <input id="dt-ac-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-ac-issue" placeholder="имя задачи" autocomplete="off">
+                    <input id="dt-ac-text" placeholder="текст комментария" autocomplete="off">
+                    <button onclick="runDirect('add_comment', {
+                        project_name: document.getElementById('dt-ac-project').value.trim(),
+                        issue_name: document.getElementById('dt-ac-issue').value.trim(),
+                        comment: document.getElementById('dt-ac-text').value
+                    }, this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-add_comment"></div>
+            </div>
+
+            <div class="dt-card">
+                <h4>14. Bulk-операции (массив actions)</h4>
+                <div class="dt-hint">action=bulk, params={ actions: [{ action, params }, ...] }<br>
+                JSON массив. Пример: <code>[{"action":"delete_issue","params":{"project_name":"office","issue_name":"X"}}]</code></div>
+                <div class="dt-row">
+                    <input id="dt-bk-json" placeholder='[{"action":"...","params":{...}}, ...]' autocomplete="off" style="font-family:Consolas,monospace;font-size:11px">
+                    <button onclick="(function(b){
+                        var raw = document.getElementById('dt-bk-json').value.trim();
+                        var arr;
+                        try { arr = JSON.parse(raw); }
+                        catch(e) { showDirectResult('bulk', {error:'Невалидный JSON: '+e.message}, true); return; }
+                        if (!Array.isArray(arr)) { showDirectResult('bulk', {error:'Должен быть массив'}, true); return; }
+                        runDirect('bulk', { actions: arr }, b);
+                    })(this)">Выполнить</button>
+                </div>
+                <div class="dt-result" id="dt-res-bulk"></div>
+            </div>
+
             <div class="modal-buttons">
                 <button onclick="closeDirectTest()">Закрыть</button>
             </div>

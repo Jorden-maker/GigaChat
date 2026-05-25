@@ -25,7 +25,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        260,
+        280,
         300
       ],
       "id": "plane-agent-validate-0002",
@@ -57,7 +57,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        520,
+        560,
         300
       ],
       "id": "plane-agent-if-valid-0003",
@@ -75,8 +75,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        780,
-        200
+        840,
+        300
       ],
       "id": "plane-agent-verify-sql-0004",
       "name": "SQL: Verify token",
@@ -96,8 +96,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1040,
-        200
+        1120,
+        300
       ],
       "id": "plane-agent-token-result-0005",
       "name": "Token result"
@@ -128,8 +128,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1300,
-        200
+        1400,
+        300
       ],
       "id": "plane-agent-if-token-0006",
       "name": "Token OK?"
@@ -158,8 +158,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1560,
-        100
+        1680,
+        300
       ],
       "id": "plane-agent-fetch-projects-0007",
       "name": "Plane API: projects",
@@ -172,8 +172,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1820,
-        100
+        1960,
+        300
       ],
       "id": "plane-agent-projects-ctx-0008",
       "name": "Контекст: проекты"
@@ -204,8 +204,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2080,
-        100
+        2240,
+        300
       ],
       "id": "plane-agent-if-direct-0023",
       "name": "Direct mode?"
@@ -217,8 +217,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2340,
-        -100
+        2520,
+        100
       ],
       "id": "plane-agent-direct-resolve-0024",
       "name": "Direct resolve"
@@ -250,8 +250,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        2080,
-        100
+        2520,
+        500
       ],
       "id": "plane-agent-llm-0009",
       "name": "LLM: extract intent",
@@ -270,8 +270,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2340,
-        100
+        2800,
+        500
       ],
       "id": "plane-agent-parse-llm-0010",
       "name": "Parse LLM"
@@ -598,8 +598,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        2600,
-        100
+        3080,
+        300
       ],
       "id": "plane-agent-switch-0011",
       "name": "Switch action"
@@ -611,8 +611,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2860,
-        -300
+        3360,
+        -250
       ],
       "id": "plane-agent-list-projects-0012",
       "name": "list_projects: pass-through"
@@ -641,8 +641,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2860,
-        -100
+        3360,
+        -130
       ],
       "id": "plane-agent-list-issues-0013",
       "name": "list_issues: GET",
@@ -675,8 +675,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2860,
-        100
+        3360,
+        -10
       ],
       "id": "plane-agent-create-issue-0014",
       "name": "create_issue: POST",
@@ -689,8 +689,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2860,
-        300
+        3360,
+        230
       ],
       "id": "plane-agent-resolve-update-0015",
       "name": "update: resolve issue_id"
@@ -722,8 +722,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3120,
-        300
+        3640,
+        230
       ],
       "id": "plane-agent-update-issue-0016",
       "name": "update_issue: PATCH",
@@ -736,8 +736,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2860,
-        500
+        3360,
+        350
       ],
       "id": "plane-agent-resolve-delete-0017",
       "name": "delete: resolve issue_id"
@@ -766,8 +766,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3120,
-        500
+        3640,
+        350
       ],
       "id": "plane-agent-delete-issue-0018",
       "name": "delete_issue: DELETE",
@@ -797,8 +797,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2860,
-        700
+        3360,
+        110
       ],
       "id": "plane-agent-search-issues-0019",
       "name": "search_issues: GET",
@@ -811,7 +811,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3400,
+        4200,
         100
       ],
       "id": "plane-agent-format-0020",
@@ -843,7 +843,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3680,
+        4480,
         100
       ],
       "id": "plane-agent-resp-ok-0021",
@@ -875,8 +875,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        780,
-        540
+        560,
+        600
       ],
       "id": "plane-agent-resp-err-0022",
       "name": "Ответ: ошибка"
@@ -901,8 +901,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2700,
-        1100
+        3920,
+        410
       ],
       "id": "plane-get-issue-V1",
       "name": "get_issue: GET",
@@ -935,8 +935,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2700,
-        1300
+        3920,
+        530
       ],
       "id": "plane-add-comment-V1",
       "name": "add_comment: POST",
@@ -949,8 +949,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2400,
-        1000
+        3360,
+        510
       ],
       "id": "plane-resolve-extended-V1",
       "name": "resolve: extended"
@@ -1013,8 +1013,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        2600,
-        1000
+        3640,
+        510
       ],
       "id": "plane-post-resolve-switch-V1",
       "name": "Action router (extended)"
