@@ -1555,6 +1555,37 @@
                         stylesToUse = sx;
                     }
                 }
+                // Баг 14 (visual): word-6/7 styles.xml имеет <w:docDefaults>
+                // c <w:spacing after="200" line="276"/> (1.15 межстрочный + 10pt
+                // отступ после параграфа). Это применяется ВНУТРИ ячеек таблиц
+                // → строки раздуваются, таблица выглядит «широкой/большой».
+                // Переписываем docDefaults на наш tight-вариант (after=0 line=240),
+                // оставляя все <w:style> определения нетронутыми.
+                var TIGHT_DOC_DEFAULTS =
+                    '<w:docDefaults>' +
+                        '<w:rPrDefault><w:rPr>' +
+                            '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>' +
+                            '<w:sz w:val="22"/><w:szCs w:val="22"/>' +
+                            '<w:lang w:val="ru-RU"/>' +
+                        '</w:rPr></w:rPrDefault>' +
+                        '<w:pPrDefault><w:pPr>' +
+                            '<w:spacing w:after="0" w:line="240" w:lineRule="auto"/>' +
+                        '</w:pPr></w:pPrDefault>' +
+                    '</w:docDefaults>';
+                if (stylesToUse !== STYLES_XML) {
+                    if (/<w:docDefaults>[\s\S]*?<\/w:docDefaults>/.test(stylesToUse)) {
+                        stylesToUse = stylesToUse.replace(
+                            /<w:docDefaults>[\s\S]*?<\/w:docDefaults>/,
+                            TIGHT_DOC_DEFAULTS
+                        );
+                    } else {
+                        // docDefaults не было — вставим сразу после <w:styles ...>
+                        stylesToUse = stylesToUse.replace(
+                            /<w:styles\b[^>]*>/,
+                            function (m) { return m + TIGHT_DOC_DEFAULTS; }
+                        );
+                    }
+                }
                 zip.file('word/styles.xml', stylesToUse);
                 // Баг 14: numbering.xml — выбираем «самый богатый» (по числу <w:num>).
                 // Без него <w:numPr>/<w:pStyle="ListNumber"> теряют форматирование.
