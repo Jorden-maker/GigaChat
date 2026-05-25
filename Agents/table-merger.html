@@ -154,6 +154,32 @@
             border-color: rgba(239,68,68,0.4); text-decoration: line-through;
         }
 
+        /* Линк «или выбрать папку» под drop-zone (UI-паритет с file-merger) */
+        .or-folder {
+            text-align: center; margin: -8px 0 16px;
+            font-size: 13px; color: var(--text-secondary);
+        }
+        .or-folder a {
+            color: var(--accent); cursor: pointer; text-decoration: none;
+            border-bottom: 1px dashed var(--accent); padding-bottom: 1px;
+        }
+        .or-folder a:hover { color: var(--accent-hover); border-color: var(--accent-hover); }
+
+        /* Главная кнопка действия — всегда видима, disabled до успешного merge */
+        .primary-actions { display: flex; gap: 10px; margin-top: 16px; }
+        .primary-actions .btn-main {
+            flex: 1 1 auto; padding: 12px 18px; border-radius: 8px;
+            background: var(--accent); color: #1f1f1e; border: none;
+            font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+            transition: background 0.15s;
+        }
+        .primary-actions .btn-main:hover:not(:disabled) { background: var(--accent-hover); }
+        .primary-actions .btn-main:disabled {
+            opacity: 0.45; cursor: not-allowed;
+            background: var(--bg-input); color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
         /* === Settings panel (output format + name) === */
         .settings-panel {
             background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
@@ -309,6 +335,9 @@
             <div class="title">Перетащи файлы сюда или нажми чтобы выбрать</div>
             <div class="hint">Word (.docx), Excel (.xlsx), CSV/TSV</div>
         </label>
+        <!-- UI-паритет с file-merger: folder picker + видимая disabled-кнопка скачивания -->
+        <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none">
+        <div class="or-folder">или <a id="pickFolderLink">выбрать папку целиком</a></div>
 
         <div id="fileList">
             <div class="file-list-header">
@@ -355,6 +384,11 @@
                 <input type="text" id="setOutputName" placeholder="Объединение таблиц" maxlength="100">
                 <span class="suffix" id="outSuffix">.xlsx</span>
             </div>
+        </div>
+
+        <!-- Главное действие: видимо всегда, активно после успешного merge. -->
+        <div class="primary-actions">
+            <button class="btn-main" id="downloadBtnMain" disabled>Скачать .xlsx</button>
         </div>
 
         <div id="previewSection">
@@ -406,6 +440,9 @@
         var previewColCount = document.getElementById('previewColCount');
         var previewFooter = document.getElementById('previewFooter');
         var downloadBtn = document.getElementById('downloadBtn');
+        var downloadBtnMain = document.getElementById('downloadBtnMain');
+        var folderInput = document.getElementById('folderInput');
+        var pickFolderLink = document.getElementById('pickFolderLink');
         var loading = document.getElementById('loading');
         var loadingText = document.getElementById('loadingText');
         var progressFill = document.getElementById('progressFill');
@@ -441,7 +478,14 @@
             return String(s || '').replace(/[\\/:*?"<>|]+/g, '_').replace(/_+/g, '_').trim() || 'Объединение таблиц';
         }
         function saveSettings() { try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) {} }
-        function updateOutSuffix() { outSuffix.textContent = '.' + settings.outputFormat; }
+        function updateOutSuffix() {
+            outSuffix.textContent = '.' + settings.outputFormat;
+            if (downloadBtnMain) downloadBtnMain.textContent = 'Скачать .' + settings.outputFormat;
+        }
+        // Синхронизатор: main-кнопка повторяет состояние downloadBtn в preview.
+        function syncMainBtn() {
+            if (downloadBtnMain) downloadBtnMain.disabled = downloadBtn.disabled;
+        }
 
         // ============ Toasts ============
         // B4: дедуп — если один и тот же текст уже показан в последний 1 сек,
@@ -706,6 +750,44 @@
             if (e.target.files) addFiles(e.target.files);
             fileInput.value = '';
         });
+        // Folder picker (UI-паритет с file-merger)
+        if (pickFolderLink && folderInput) {
+            pickFolderLink.addEventListener('click', function (e) {
+                e.preventDefault();
+                folderInput.click();
+            });
+            folderInput.addEventListener('change', function (e) {
+                if (!e.target.files || !e.target.files.length) return;
+                // Фильтруем по поддерживаемым расширениям
+                var supported = [];
+                for (var i = 0; i < e.target.files.length; i++) {
+                    var n = (e.target.files[i].name || '').toLowerCase();
+                    if (/\.(docx|xlsx|csv|tsv)$/.test(n)) supported.push(e.target.files[i]);
+                }
+                if (!supported.length) {
+                    showToast('В папке нет .docx/.xlsx/.csv/.tsv файлов.', 'error');
+                } else {
+                    showToast('Из папки добавлено: ' + supported.length + ' файлов.', 'success');
+                    addFiles(supported);
+                }
+                folderInput.value = '';
+            });
+        }
+        // Main download button — клик повторяет click по downloadBtn в preview
+        if (downloadBtnMain) {
+            downloadBtnMain.addEventListener('click', function () {
+                if (downloadBtnMain.disabled) return;
+                downloadBtn.click();
+            });
+            // Авто-синхронизация disabled-состояния: MutationObserver следит
+            // за downloadBtn — никаких ручных syncMainBtn() в 5 разных местах.
+            try {
+                var mo = new MutationObserver(function () {
+                    downloadBtnMain.disabled = downloadBtn.disabled;
+                });
+                mo.observe(downloadBtn, { attributes: true, attributeFilter: ['disabled'] });
+            } catch (e) {}
+        }
         clearAllBtn.addEventListener('click', function () {
             items = []; mergedResult = null; allTables = []; ignoredCols = new Set();
             renderList(); updateUI(); hidePreview();
