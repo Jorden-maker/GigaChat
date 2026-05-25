@@ -1189,6 +1189,14 @@
             return card;
         }
 
+        // Пересчитать счётчики «4» в заголовках колонок после optimistic move
+        function updateBoardColCounts() {
+            document.querySelectorAll('#board-columns .board-col').forEach(function (col) {
+                var cnt = col.querySelector('[data-count]');
+                if (cnt) cnt.textContent = col.querySelectorAll('.board-card').length;
+            });
+        }
+
         function bindBoardDnD() {
             var cards = document.querySelectorAll('#board-columns .board-card');
             cards.forEach(function (card) {
@@ -1220,17 +1228,51 @@
                     // Маппинг group → state name (для нашего LLM ALIASES)
                     var STATE_MAP = { unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled' };
                     var statusEl = document.getElementById('board-status');
-                    statusEl.textContent = 'Обновляю «' + issueName + '»...';
+
+                    // Оптимистичный move: переносим карточку в новую колонку СРАЗУ.
+                    // При ошибке — откатываем. Это убирает «дёргание» reload-ом и
+                    // снижает риск 429 на rapid-drags (нет лишнего GET issues).
+                    var draggedCard = document.querySelector(
+                      '#board-columns .board-card[data-issue-name="' + CSS.escape(issueName) + '"]'
+                    );
+                    var originalParent = draggedCard ? draggedCard.parentNode : null;
+                    if (draggedCard && originalParent !== col) {
+                        // Убираем «Нет задач» placeholder если есть
+                        var emptyEl = col.querySelector('.board-empty');
+                        if (emptyEl) emptyEl.remove();
+                        col.appendChild(draggedCard);
+                        // Обновим счётчики обеих колонок
+                        updateBoardColCounts();
+                        // Если в origin стало пусто — поставим placeholder
+                        if (originalParent && !originalParent.querySelector('.board-card')) {
+                            var ph = document.createElement('div');
+                            ph.className = 'board-empty';
+                            ph.textContent = 'Нет задач';
+                            originalParent.appendChild(ph);
+                        }
+                    }
+
+                    statusEl.textContent = 'Сохраняю...';
                     var res = await planeDirect('change_status', {
                         project_name: BOARD_CURRENT_PROJECT,
                         issue_name: issueName,
                         state: STATE_MAP[targetState] || targetState
                     });
-                    if (res && res.response && /оши|error/i.test(res.response)) {
-                        statusEl.textContent = 'Ошибка: ' + (res.error || res.response);
+                    var isErr = !res || (res.response && /Не удалось|перегружен|нет доступа|не найдены|некорректные/i.test(res.response));
+                    if (isErr) {
+                        // Откат: возвращаем карточку в оригинальную колонку
+                        if (draggedCard && originalParent) {
+                            originalParent.appendChild(draggedCard);
+                            var newEmpty = col.querySelector('.board-card') ? null
+                                : (function() { var d = document.createElement('div'); d.className='board-empty'; d.textContent='Нет задач'; return d; })();
+                            if (newEmpty) col.appendChild(newEmpty);
+                            updateBoardColCounts();
+                        }
+                        statusEl.textContent = (res && res.response) || 'Ошибка обновления';
+                        setTimeout(function () { statusEl.textContent = ''; }, 5000);
                     } else {
-                        statusEl.textContent = 'Готово';
-                        reloadBoard();  // перезагрузить актуальное состояние
+                        statusEl.textContent = 'Сохранено';
+                        setTimeout(function () { statusEl.textContent = ''; }, 2000);
                     }
                 });
             });
