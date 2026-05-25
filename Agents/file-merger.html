@@ -932,8 +932,17 @@
             if (stylesFile) {
                 try { stylesXml = await stylesFile.async('string'); } catch (_) {}
             }
+            // Баг 14: numbering.xml хранит определения списков (numId → формат).
+            // Без него нумерованные/маркированные списки из source теряются —
+            // <w:pStyle w:val="ListNumber"/> ссылается на numId которого нет в
+            // output → Word рендерит как обычный параграф без буллетов/цифр.
+            var numberingXml = null;
+            var numFile = zip.file('word/numbering.xml');
+            if (numFile) {
+                try { numberingXml = await numFile.async('string'); } catch (_) {}
+            }
 
-            return { blocks: blocks, images: sourceImages, stylesXml: stylesXml };
+            return { blocks: blocks, images: sourceImages, stylesXml: stylesXml, numberingXml: numberingXml };
         }
         // Колонка A=1, B=2, ..., Z=26, AA=27...
         function colLettersToNum(s) {
@@ -1404,11 +1413,12 @@
                         var parsedSrc = it.cachedParse;
                         if (!parsedSrc) {
                             if (it.type === 'docx') {
-                                var parsed = await parseDocx(it.file); // {blocks, images, stylesXml}
+                                var parsed = await parseDocx(it.file); // {blocks, images, stylesXml, numberingXml}
                                 parsedSrc = {
                                     blocks: parsed.blocks,
                                     images: parsed.images || [],
                                     stylesXml: parsed.stylesXml || null,
+                                    numberingXml: parsed.numberingXml || null,
                                     srcName: it.file.name
                                 };
                             } else if (it.type === 'xlsx') {
@@ -1524,7 +1534,8 @@
 
                 // 3) Собираем .docx zip
                 var zip = new JSZip();
-                zip.file('[Content_Types].xml', contentTypesXml(images));
+                // [Content_Types].xml пишется ниже — после того как выяснится,
+                // нужен ли override для word/numbering.xml.
                 zip.file('_rels/.rels', MAIN_RELS);
                 // #5 + B3: если хоть один из docx-источников вернул styles.xml — берём
                 // самый «богатый» (с наибольшим числом <w:style>). Раньше брали
@@ -1545,8 +1556,27 @@
                     }
                 }
                 zip.file('word/styles.xml', stylesToUse);
+                // Баг 14: numbering.xml — выбираем «самый богатый» (по числу <w:num>).
+                // Без него <w:numPr>/<w:pStyle="ListNumber"> теряют форматирование.
+                var numberingToUse = null;
+                var bestNumCount = -1;
+                for (var ni = 0; ni < sources.length; ni++) {
+                    var nx = sources[ni].numberingXml;
+                    if (!nx) continue;
+                    var nm = nx.match(/<w:num\b/g);
+                    var nc = nm ? nm.length : 0;
+                    if (nc > bestNumCount) {
+                        bestNumCount = nc;
+                        numberingToUse = nx;
+                    }
+                }
+                if (numberingToUse) {
+                    zip.file('word/numbering.xml', numberingToUse);
+                }
+                // [Content_Types].xml пишем СЕЙЧАС — когда уже знаем про numbering.
+                zip.file('[Content_Types].xml', contentTypesXml(images, !!numberingToUse));
                 zip.file('word/document.xml', documentXml(bodyXml));
-                zip.file('word/_rels/document.xml.rels', documentRelsXml(rels));
+                zip.file('word/_rels/document.xml.rels', documentRelsXml(rels, !!numberingToUse));
                 for (var m = 0; m < images.length; m++) {
                     zip.file('word/media/' + images[m].name, images[m].bytes);
                 }
@@ -1623,6 +1653,7 @@
                         blocks: parsed.blocks,
                         images: parsed.images || [],
                         stylesXml: parsed.stylesXml || null,
+                        numberingXml: parsed.numberingXml || null,
                         srcName: it.file.name
                     };
                 } else if (it.type === 'xlsx') {
@@ -1736,7 +1767,7 @@
                 '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
             '</Relationships>';
 
-        function contentTypesXml(images) {
+        function contentTypesXml(images, hasNumbering) {
             // Уникальные расширения изображений
             var exts = {};
             for (var i = 0; i < images.length; i++) {
@@ -1749,17 +1780,24 @@
             for (var k in exts) {
                 defaults += '<Default Extension="' + k + '" ContentType="' + exts[k] + '"/>';
             }
+            var overrides =
+                '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+                '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>';
+            if (hasNumbering) {
+                overrides += '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>';
+            }
             return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
                 '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
-                    defaults +
-                    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
-                    '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
+                    defaults + overrides +
                 '</Types>';
         }
 
-        function documentRelsXml(rels) {
+        function documentRelsXml(rels, hasNumbering) {
             var inner =
                 '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>';
+            if (hasNumbering) {
+                inner += '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>';
+            }
             for (var i = 0; i < rels.length; i++) {
                 inner += '<Relationship Id="' + rels[i].id + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="' + rels[i].target + '"/>';
             }
