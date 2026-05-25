@@ -1190,9 +1190,8 @@
             return issues.map(function (i) {
                 var prio = String(i.priority || 'none').toLowerCase();
                 var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий',none:'—'})[prio] || prio;
-                var seq = i.sequence_id ? '#' + i.sequence_id + ' ' : '';
                 return '<div class="plane-card">' +
-                    '<div class="pc-title">' + seq + escapeHtml(i.name || '—') +
+                    '<div class="pc-title">' + escapeHtml(i.name || '—') +
                     '<span class="pc-prio ' + prio + '">' + prioLabel + '</span>' +
                     '</div></div>';
             }).join('');
@@ -1201,9 +1200,8 @@
             if (!issue) return '';
             var prio = String(issue.priority || 'none').toLowerCase();
             var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий',none:'—'})[prio] || prio;
-            var seq = issue.sequence_id ? '#' + issue.sequence_id + ' ' : '';
             return '<div class="plane-card">' +
-                '<div class="pc-title">' + seq + escapeHtml(issue.name || '—') +
+                '<div class="pc-title">' + escapeHtml(issue.name || '—') +
                 '<span class="pc-prio ' + prio + '">' + prioLabel + '</span>' +
                 '</div></div>';
         }
@@ -1486,7 +1484,6 @@
             }
             var prio = String(issue.priority || 'none').toLowerCase();
             var prioLabel = ({ urgent: 'срочно', high: 'высокий', medium: 'средний', low: 'низкий', none: '—' })[prio] || prio;
-            var seq = issue.sequence_id ? '#' + issue.sequence_id : '';
             var deadline = '';
             if (issue.target_date) {
                 var today = new Date(); today.setHours(0,0,0,0);
@@ -1522,7 +1519,6 @@
             card.innerHTML =
                 '<div class="bc-title">' + escapeHtml(issue.name || '—') + '</div>' +
                 '<div class="bc-meta">' +
-                    (seq ? '<span class="bc-seq">' + seq + '</span>' : '') +
                     '<span class="bc-prio ' + prio + '">' + prioLabel + '</span>' +
                     deadline +
                 '</div>' +
@@ -2004,8 +2000,7 @@
             ensureModalDom();
             // issue — объект из BOARD_ALL_ISSUES (имеет name, priority, target_date, sequence_id)
             MODAL_CURRENT_ISSUE = issue;
-            document.getElementById('cm-title').textContent =
-                (issue.sequence_id ? '#' + issue.sequence_id + ' ' : '') + (issue.name || '—');
+            document.getElementById('cm-title').textContent = issue.name || '—';
             // Build body
             var prio = String(issue.priority || 'none').toLowerCase();
             var body =
@@ -2219,9 +2214,8 @@
                 if (!pv) return;
                 var desc = stripHtml(issue.description_html || issue.description || '');
                 if (!desc && !issue.target_date && !issue.priority) return;
-                var seq = issue.sequence_id ? '#' + issue.sequence_id + ' ' : '';
                 pv.innerHTML =
-                    '<div class="bp-title">' + escapeHtml(seq + (issue.name || '—')) + '</div>' +
+                    '<div class="bp-title">' + escapeHtml(issue.name || '—') + '</div>' +
                     (desc ? '<div class="bp-desc">' + escapeHtml(desc) + '</div>' : '<div class="bp-desc" style="color:var(--text-muted)"><i>(нет описания)</i></div>') +
                     '<div class="bp-meta">' +
                         (issue.target_date ? '📅 ' + escapeHtml(issue.target_date) + ' • ' : '') +
