@@ -193,14 +193,58 @@
         .board-toolbar {
             display: flex; gap: 10px; align-items: center; margin-bottom: 14px;
         }
-        .board-toolbar select {
-            flex: 0 0 auto; min-width: 200px;
-            padding: 7px 10px; border-radius: 6px;
-            border: 1px solid var(--border); background: var(--bg-input);
-            color: var(--text-primary); font-family: inherit; font-size: 13px;
-            outline: none; cursor: pointer;
+        /* Кастомный dropdown проектов (под дизайн страницы) */
+        .board-select {
+            position: relative; flex: 0 0 auto; min-width: 220px;
+            outline: none;
         }
-        .board-toolbar select:focus { border-color: var(--accent); }
+        .board-select-trigger {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 7px 12px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--bg-input);
+            color: var(--text-primary); font-size: 13px; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            user-select: none;
+        }
+        .board-select-trigger:hover { border-color: var(--text-secondary); }
+        .board-select.open .board-select-trigger {
+            border-color: var(--accent);
+            background: var(--bg-secondary);
+        }
+        .board-select-arrow {
+            width: 6px; height: 6px;
+            border-right: 1.5px solid var(--text-secondary);
+            border-bottom: 1.5px solid var(--text-secondary);
+            transform: translateY(-2px) rotate(45deg);
+            transition: transform 0.18s ease, border-color 0.18s ease;
+            margin-left: 8px;
+        }
+        .board-select.open .board-select-arrow {
+            transform: translateY(2px) rotate(-135deg);
+            border-color: var(--accent);
+        }
+        .board-select-menu {
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+            margin: 0; padding: 4px; list-style: none;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            z-index: 100;
+            opacity: 0; visibility: hidden; transform: translateY(-4px);
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+            max-height: 260px; overflow-y: auto;
+        }
+        .board-select.open .board-select-menu {
+            opacity: 1; visibility: visible; transform: translateY(0);
+        }
+        .board-select-menu li {
+            padding: 8px 12px; border-radius: 5px; cursor: pointer;
+            color: var(--text-primary); font-size: 13px;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .board-select-menu li:hover { background: var(--bg-secondary); color: var(--accent); }
+        .board-select-menu li.selected { color: var(--accent); }
+        .board-select-menu li.empty { color: var(--text-muted); cursor: default; }
+        .board-select-menu li.empty:hover { background: transparent; color: var(--text-muted); }
         .board-toolbar .board-refresh {
             padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);
             background: var(--bg-secondary); color: var(--text-secondary);
@@ -333,13 +377,20 @@
                  между колонками → POST change_status напрямую (direct mode). -->
             <div id="board-panel">
                 <div class="board-toolbar">
-                    <select id="board-project-select" onchange="reloadBoard()"></select>
+                    <!-- Кастомный dropdown (под дизайн страницы) -->
+                    <div class="board-select" id="board-project-select" tabindex="0" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+                        <div class="board-select-trigger" onclick="toggleBoardSelect(event)">
+                            <span class="board-select-label" id="board-project-label">—</span>
+                            <span class="board-select-arrow" aria-hidden="true"></span>
+                        </div>
+                        <ul class="board-select-menu" id="board-project-menu" role="listbox"></ul>
+                    </div>
                     <button class="board-refresh" onclick="reloadBoard()">Обновить</button>
                     <span class="board-status" id="board-status"></span>
                 </div>
                 <div class="board-columns" id="board-columns">
                     <div class="board-col" data-state="unstarted">
-                        <div class="board-col-header">Todo <span class="board-col-count" data-count></span></div>
+                        <div class="board-col-header">Задачи <span class="board-col-count" data-count></span></div>
                         <div class="board-empty">Нет задач</div>
                     </div>
                     <div class="board-col" data-state="started">
@@ -989,33 +1040,76 @@
             return await res.json();
         }
 
+        // === Кастомный dropdown: open/close, выбор пункта ===
+        function toggleBoardSelect(e) {
+            if (e) e.stopPropagation();
+            var sel = document.getElementById('board-project-select');
+            if (!sel) return;
+            var open = sel.classList.toggle('open');
+            var trig = sel.querySelector('.board-select-trigger');
+            if (trig) trig.parentNode.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        // Click outside → закрыть
+        document.addEventListener('click', function (e) {
+            var sel = document.getElementById('board-project-select');
+            if (sel && sel.classList.contains('open') && !sel.contains(e.target)) {
+                sel.classList.remove('open');
+                sel.setAttribute('aria-expanded', 'false');
+            }
+        });
+        function selectBoardProject(name) {
+            BOARD_CURRENT_PROJECT = name;
+            document.getElementById('board-project-label').textContent = name || '—';
+            // Mark selected
+            var menu = document.getElementById('board-project-menu');
+            if (menu) {
+                Array.from(menu.querySelectorAll('li')).forEach(function (li) {
+                    li.classList.toggle('selected', li.dataset.value === name);
+                });
+            }
+            // Close + reload
+            var sel = document.getElementById('board-project-select');
+            if (sel) sel.classList.remove('open');
+            reloadBoard();
+        }
+
         async function loadBoard() {
             var statusEl = document.getElementById('board-status');
+            var labelEl = document.getElementById('board-project-label');
+            var menu = document.getElementById('board-project-menu');
             statusEl.textContent = 'Загружаю проекты...';
             if (!BOARD_PROJECTS_CACHE) {
                 var pd = await planeDirect('list_projects', {});
                 BOARD_PROJECTS_CACHE = (pd && pd.data && pd.data.projects) || [];
-                var sel = document.getElementById('board-project-select');
-                sel.innerHTML = '<option value="">— выберите проект —</option>' +
-                    BOARD_PROJECTS_CACHE.map(function (p) {
-                        return '<option value="' + escapeHtml(p.name) + '">' + escapeHtml(p.name) + '</option>';
-                    }).join('');
-                if (BOARD_PROJECTS_CACHE.length === 1) {
-                    sel.value = BOARD_PROJECTS_CACHE[0].name;
+                if (!BOARD_PROJECTS_CACHE.length) {
+                    menu.innerHTML = '<li class="empty">Нет проектов</li>';
+                    labelEl.textContent = 'Нет проектов';
+                    statusEl.textContent = '';
+                    renderBoardEmpty();
+                    return;
                 }
+                menu.innerHTML = BOARD_PROJECTS_CACHE.map(function (p) {
+                    var n = escapeHtml(p.name);
+                    return '<li role="option" data-value="' + n + '" onclick="selectBoardProject(\'' +
+                        n.replace(/'/g, "\\'") + '\')">' + n + '</li>';
+                }).join('');
+                // Авто-выбор первого проекта (раньше показывали «— выберите проект —»,
+                // юзер просил убрать, теперь первый из списка по умолчанию).
+                BOARD_CURRENT_PROJECT = BOARD_PROJECTS_CACHE[0].name;
+                labelEl.textContent = BOARD_CURRENT_PROJECT;
+                var firstLi = menu.querySelector('li[data-value]');
+                if (firstLi) firstLi.classList.add('selected');
             }
             statusEl.textContent = '';
             reloadBoard();
         }
 
         async function reloadBoard() {
-            var sel = document.getElementById('board-project-select');
-            var projectName = sel.value;
+            var projectName = BOARD_CURRENT_PROJECT;
             if (!projectName) {
                 renderBoardEmpty();
                 return;
             }
-            BOARD_CURRENT_PROJECT = projectName;
             var statusEl = document.getElementById('board-status');
             statusEl.textContent = 'Загружаю задачи...';
             var res = await planeDirect('list_issues', { project_name: projectName });
