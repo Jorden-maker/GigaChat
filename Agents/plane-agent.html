@@ -126,7 +126,15 @@
             border-radius: 12px; padding: 22px 24px; min-width: 380px; max-width: 480px;
             color: var(--text-primary); font-family: Segoe UI, Tahoma, sans-serif;
         }
-        .modal-box h3 { margin: 0 0 14px; font-size: 17px; }
+        .modal-box { position: relative; }
+        .modal-box h3 { margin: 0 0 14px; font-size: 17px; padding-right: 28px; }
+        .modal-box .modal-close {
+            position: absolute; top: 14px; right: 16px;
+            background: transparent; border: none; color: var(--text-muted);
+            font-size: 22px; line-height: 1; cursor: pointer; padding: 0 6px;
+            font-family: inherit; transition: color 0.15s;
+        }
+        .modal-box .modal-close:hover { color: var(--error); }
         .modal-box label { display: block; font-size: 13px; color: var(--text-secondary); margin: 10px 0 4px; }
         .modal-box input {
             width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
@@ -929,6 +937,7 @@
     <!-- Settings modal: Plane URL + workspace_slug + API token. -->
     <div class="modal-backdrop" id="settingsModal" onclick="if(event.target===this)closeSettings()">
         <div class="modal-box">
+            <button class="modal-close" onclick="closeSettings()" title="Закрыть (Esc)">×</button>
             <h3>Настройки</h3>
             <label for="set-url">Plane URL</label>
             <input id="set-url" type="text" placeholder="http://host.docker.internal:8000" autocomplete="off" data-next="set-slug">
