@@ -325,21 +325,8 @@
         .modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
         .modal-pane { display: none; }
         .modal-pane.active { display: block; }
-        .templates-list { display: flex; flex-direction: column; gap: 8px; }
-        .template-card {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
-            background: var(--bg-secondary);
-        }
-        .template-card .tc-name { color: var(--text-primary); font-size: 13px; font-weight: 500; }
-        .template-card .tc-desc { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
-        .template-card .tc-tag {
-            padding: 3px 8px; border-radius: 4px; font-size: 10px;
-            font-weight: 500; text-transform: uppercase;
-        }
-        .template-card .tc-tag.high { background: rgba(217,119,87,0.18); color: #d97757; }
-        .template-card .tc-tag.medium { background: rgba(184,137,93,0.18); color: var(--accent); }
-        .template-card .tc-tag.low { background: rgba(122,122,120,0.18); color: var(--text-secondary); }
+        /* Templates UI был удалён (см. batch A). CSS-классы .template-card и
+           .templates-list тоже снесены — не нужны. */
 
         /* Анти-FOUC: основной UI скрыт до завершения verify (см. inline-script
            в <head>). После onOk колбэка requireAuth — класс снимается, UI виден.
