@@ -172,6 +172,131 @@
         }
         .dt-result.show { display: block; }
         .dt-result.err { border-color: #dc2626; color: #dc2626; }
+
+        /* ============== Канбан-доска ============== */
+        /* Overlay поверх .main, появляется при toggleBoard(true). 4 колонки,
+           drag-and-drop карточек между ними → action change_status. */
+        #board-panel {
+            position: absolute; inset: 0;
+            background: var(--bg-primary);
+            padding: 14px 18px 18px;
+            overflow: auto;
+            scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+            z-index: 5;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.22s ease, visibility 0s linear 0.22s;
+        }
+        #board-panel.show {
+            opacity: 1; visibility: visible;
+            transition: opacity 0.22s ease, visibility 0s linear 0s;
+        }
+        .board-toolbar {
+            display: flex; gap: 10px; align-items: center; margin-bottom: 14px;
+        }
+        .board-toolbar select {
+            flex: 0 0 auto; min-width: 200px;
+            padding: 7px 10px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--bg-input);
+            color: var(--text-primary); font-family: inherit; font-size: 13px;
+            outline: none; cursor: pointer;
+        }
+        .board-toolbar select:focus { border-color: var(--accent); }
+        .board-toolbar .board-refresh {
+            padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);
+            background: var(--bg-secondary); color: var(--text-secondary);
+            font-family: inherit; font-size: 13px; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .board-toolbar .board-refresh:hover { border-color: var(--accent); color: var(--text-primary); }
+        .board-toolbar .board-status {
+            margin-left: auto; font-size: 12px; color: var(--text-muted);
+        }
+        .board-columns {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            min-height: 400px;
+        }
+        .board-col {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 10px; padding: 10px;
+            display: flex; flex-direction: column; gap: 8px;
+            min-height: 200px;
+        }
+        .board-col.drag-over {
+            border-color: var(--accent);
+            background: var(--bg-bot);
+        }
+        .board-col-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 4px 4px 8px; border-bottom: 1px solid var(--border);
+            font-size: 12px; font-weight: 600; color: var(--text-primary);
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .board-col-count {
+            font-weight: 400; color: var(--text-muted); font-size: 11px;
+        }
+        .board-card {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 8px; padding: 10px 12px;
+            cursor: grab; user-select: none;
+            transition: border-color 0.15s, transform 0.1s;
+        }
+        .board-card:hover { border-color: var(--accent); }
+        .board-card:active { cursor: grabbing; transform: scale(0.98); }
+        .board-card.dragging { opacity: 0.4; }
+        .board-card .bc-title {
+            color: var(--text-primary); font-size: 13px; font-weight: 500;
+            line-height: 1.35; margin-bottom: 6px;
+        }
+        .board-card .bc-meta {
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+            font-size: 11px;
+        }
+        .board-card .bc-seq { color: var(--text-muted); }
+        .board-card .bc-prio {
+            padding: 2px 7px; border-radius: 4px; font-weight: 500; text-transform: lowercase;
+        }
+        .board-card .bc-prio.urgent { background: rgba(220,38,38,0.18); color: #ef4444; }
+        .board-card .bc-prio.high { background: rgba(217,119,87,0.18); color: #d97757; }
+        .board-card .bc-prio.medium { background: rgba(184,137,93,0.18); color: var(--accent); }
+        .board-card .bc-prio.low { background: rgba(122,122,120,0.18); color: var(--text-secondary); }
+        .board-card .bc-prio.none { background: rgba(122,122,120,0.10); color: var(--text-muted); }
+        .board-card .bc-deadline { color: var(--text-muted); }
+        .board-card .bc-deadline.overdue { color: #ef4444; font-weight: 500; }
+        .board-empty { color: var(--text-muted); font-size: 12px; padding: 20px 0; text-align: center; }
+
+        /* Templates panel в Plane-настройках */
+        .modal-tabs {
+            display: flex; gap: 2px; margin-bottom: 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-tab {
+            padding: 8px 14px; cursor: pointer; font-size: 13px;
+            color: var(--text-secondary); background: transparent;
+            border: none; border-bottom: 2px solid transparent;
+            font-family: inherit; transition: color 0.15s, border-color 0.15s;
+        }
+        .modal-tab:hover { color: var(--text-primary); }
+        .modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .modal-pane { display: none; }
+        .modal-pane.active { display: block; }
+        .templates-list { display: flex; flex-direction: column; gap: 8px; }
+        .template-card {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--bg-secondary);
+        }
+        .template-card .tc-name { color: var(--text-primary); font-size: 13px; font-weight: 500; }
+        .template-card .tc-desc { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+        .template-card .tc-tag {
+            padding: 3px 8px; border-radius: 4px; font-size: 10px;
+            font-weight: 500; text-transform: uppercase;
+        }
+        .template-card .tc-tag.high { background: rgba(217,119,87,0.18); color: #d97757; }
+        .template-card .tc-tag.medium { background: rgba(184,137,93,0.18); color: var(--accent); }
+        .template-card .tc-tag.low { background: rgba(122,122,120,0.18); color: var(--text-secondary); }
+
         /* Анти-FOUC: основной UI скрыт до завершения verify (см. inline-script
            в <head>). После onOk колбэка requireAuth — класс снимается, UI виден.
            При провале verify — редирект на /login.html?return=..., UI вообще
@@ -197,22 +322,52 @@
             <div class="header-left"><h1>GigaChat Plane</h1></div>
             <div class="header-right">
                 <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
+                <button class="btn-settings" id="boardToggleBtn" onclick="toggleBoard()">Доска</button>
                 <button class="btn-settings" onclick="openSettings()">Plane-настройки</button>
                 <button class="btn-settings" onclick="openDirectTest()">Тест без LLM</button>
-                <button class="btn-export" onclick="exportChat()">Экспорт</button>
+                <button class="btn-export" id="btnExport" onclick="exportChat()">Экспорт</button>
             </div>
         </header>
-        <div id="chat"><div class="empty-chat">Создайте новую сессию для начала работы</div></div>
-        <div class="bottom-area">
-            <div class="gc-attach-chips" id="attachChips"></div>
-            <div id="input-area" class="gc-input-row">
-                <div class="gc-input-wrap">
-                    <textarea id="msg" rows="1" placeholder="Например: покажи мои проекты или создай задачу..." disabled></textarea>
-                    <button id="send" class="gc-send-icon" onclick="sendMsg()" disabled aria-label="Отправить">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
-                    </button>
+        <div class="main-body" style="flex:1;min-height:0;position:relative;display:flex;flex-direction:column">
+            <!-- Канбан-доска: overlay поверх чата при .show. Drag-and-drop карточек
+                 между колонками → POST change_status напрямую (direct mode). -->
+            <div id="board-panel">
+                <div class="board-toolbar">
+                    <select id="board-project-select" onchange="reloadBoard()"></select>
+                    <button class="board-refresh" onclick="reloadBoard()">Обновить</button>
+                    <span class="board-status" id="board-status"></span>
                 </div>
-                <span id="attachBtn"></span>
+                <div class="board-columns" id="board-columns">
+                    <div class="board-col" data-state="unstarted">
+                        <div class="board-col-header">Todo <span class="board-col-count" data-count></span></div>
+                        <div class="board-empty">Нет задач</div>
+                    </div>
+                    <div class="board-col" data-state="started">
+                        <div class="board-col-header">В работе <span class="board-col-count" data-count></span></div>
+                        <div class="board-empty">Нет задач</div>
+                    </div>
+                    <div class="board-col" data-state="completed">
+                        <div class="board-col-header">Готово <span class="board-col-count" data-count></span></div>
+                        <div class="board-empty">Нет задач</div>
+                    </div>
+                    <div class="board-col" data-state="cancelled">
+                        <div class="board-col-header">Отменено <span class="board-col-count" data-count></span></div>
+                        <div class="board-empty">Нет задач</div>
+                    </div>
+                </div>
+            </div>
+            <div id="chat"><div class="empty-chat">Создайте новую сессию для начала работы</div></div>
+            <div class="bottom-area">
+                <div class="gc-attach-chips" id="attachChips"></div>
+                <div id="input-area" class="gc-input-row">
+                    <div class="gc-input-wrap">
+                        <textarea id="msg" rows="1" placeholder="Например: покажи мои проекты или создай задачу..." disabled></textarea>
+                        <button id="send" class="gc-send-icon" onclick="sendMsg()" disabled aria-label="Отправить">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                        </button>
+                    </div>
+                    <span id="attachBtn"></span>
+                </div>
             </div>
         </div>
     </div>
@@ -327,18 +482,58 @@
         </div>
     </div>
 
-    <!-- Settings modal: Plane URL + workspace_slug + API token. Хранится в localStorage.
-         Enter в полях переключает фокус на следующее (data-next=id); на последнем
-         поле — кликает «Сохранить» (см. handleSettingsEnter в JS ниже). -->
+    <!-- Settings modal: Plane URL + workspace_slug + API token + шаблоны задач. -->
     <div class="modal-backdrop" id="settingsModal" onclick="if(event.target===this)closeSettings()">
         <div class="modal-box">
             <h3>Plane-настройки</h3>
-            <label for="set-url">Plane URL</label>
-            <input id="set-url" type="text" placeholder="http://host.docker.internal:8000" autocomplete="off" data-next="set-slug">
-            <label for="set-slug">Workspace slug</label>
-            <input id="set-slug" type="text" placeholder="office" autocomplete="off" data-next="set-token">
-            <label for="set-token">API token (X-API-Key)</label>
-            <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off" data-next="set-save-btn">
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-tab="conn" onclick="switchSettingsTab('conn')">Подключение</button>
+                <button class="modal-tab" data-tab="templates" onclick="switchSettingsTab('templates')">Шаблоны</button>
+            </div>
+
+            <div class="modal-pane active" data-pane="conn">
+                <label for="set-url">Plane URL</label>
+                <input id="set-url" type="text" placeholder="http://host.docker.internal:8000" autocomplete="off" data-next="set-slug">
+                <label for="set-slug">Workspace slug</label>
+                <input id="set-slug" type="text" placeholder="office" autocomplete="off" data-next="set-token">
+                <label for="set-token">API token (X-API-Key)</label>
+                <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off" data-next="set-save-btn">
+            </div>
+
+            <div class="modal-pane" data-pane="templates">
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">
+                    Шаблоны автоматически распознаются LLM при создании задачи.
+                    Напишите в чате «создай <b>багфикс</b> название» — задача создастся с
+                    предустановленным приоритетом и префиксом имени.
+                </div>
+                <div class="templates-list">
+                    <div class="template-card">
+                        <div>
+                            <div class="tc-name">Bug: ... (багфикс)</div>
+                            <div class="tc-desc">Триггер: «багфикс», «баг», «исправь»</div>
+                        </div>
+                        <span class="tc-tag high">high</span>
+                    </div>
+                    <div class="template-card">
+                        <div>
+                            <div class="tc-name">Feature: ... (фича)</div>
+                            <div class="tc-desc">Триггер: «фича», «новая возможность»</div>
+                        </div>
+                        <span class="tc-tag medium">medium</span>
+                    </div>
+                    <div class="template-card">
+                        <div>
+                            <div class="tc-name">Tech debt: ... (техдолг)</div>
+                            <div class="tc-desc">Триггер: «техдолг», «рефакторинг»</div>
+                        </div>
+                        <span class="tc-tag low">low</span>
+                    </div>
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:14px;line-height:1.5">
+                    Шаблоны hardcoded в LLM prompt. Кастомные шаблоны — в следующих версиях.
+                </div>
+            </div>
+
             <div class="modal-err" id="set-err"></div>
             <div class="modal-buttons">
                 <button onclick="closeSettings()">Отмена</button>
@@ -620,6 +815,205 @@
             if (ex.issues && ex.issues.length)      blocks += formatIssuesList(ex.issues, ex.project);
             if (ex.issue)                           blocks += formatIssueCard(ex.issue);
             return html + (blocks ? '<div style="margin-top:10px">' + blocks + '</div>' : '');
+        }
+
+        // ============== Канбан-доска ============
+        // toggleBoard — overlay поверх chat в .main-body. При первом открытии
+        // подгружает projects + issues всех 4 state-групп.
+        // Drag-and-drop карточек между колонками → POST change_status напрямую.
+        var BOARD_PROJECTS_CACHE = null;
+        var BOARD_CURRENT_PROJECT = null;
+
+        function toggleBoard(forceShow) {
+            var panel = document.getElementById('board-panel');
+            var btn = document.getElementById('boardToggleBtn');
+            if (!panel || !btn) return;
+            var show = typeof forceShow === 'boolean' ? forceShow : !panel.classList.contains('show');
+            panel.classList.toggle('show', show);
+            btn.textContent = show ? 'Чат' : 'Доска';
+            // Скрыть «Экспорт» когда доска открыта (она про чат)
+            var exportBtn = document.getElementById('btnExport');
+            if (exportBtn) exportBtn.style.display = show ? 'none' : '';
+            if (show) loadBoard();
+        }
+
+        async function planeDirect(action, params) {
+            var s = loadPlaneSettings();
+            var token = getAuthToken();
+            if (!token || !s.url || !s.slug || !s.token) return { response: 'error', error: 'no creds' };
+            var res = await fetch(GigaChat.webhookUrl('plane-agent'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                body: JSON.stringify({
+                    message: '__board_' + action, session_id: 'plane_board',
+                    token: token, workspace_slug: s.slug, plane_url: s.url, plane_token: s.token,
+                    action: action, params: params
+                })
+            });
+            return await res.json();
+        }
+
+        async function loadBoard() {
+            var statusEl = document.getElementById('board-status');
+            statusEl.textContent = 'Загружаю проекты...';
+            if (!BOARD_PROJECTS_CACHE) {
+                var pd = await planeDirect('list_projects', {});
+                BOARD_PROJECTS_CACHE = (pd && pd.data && pd.data.projects) || [];
+                var sel = document.getElementById('board-project-select');
+                sel.innerHTML = '<option value="">— выберите проект —</option>' +
+                    BOARD_PROJECTS_CACHE.map(function (p) {
+                        return '<option value="' + escapeHtml(p.name) + '">' + escapeHtml(p.name) + '</option>';
+                    }).join('');
+                if (BOARD_PROJECTS_CACHE.length === 1) {
+                    sel.value = BOARD_PROJECTS_CACHE[0].name;
+                }
+            }
+            statusEl.textContent = '';
+            reloadBoard();
+        }
+
+        async function reloadBoard() {
+            var sel = document.getElementById('board-project-select');
+            var projectName = sel.value;
+            if (!projectName) {
+                renderBoardEmpty();
+                return;
+            }
+            BOARD_CURRENT_PROJECT = projectName;
+            var statusEl = document.getElementById('board-status');
+            statusEl.textContent = 'Загружаю задачи...';
+            var res = await planeDirect('list_issues', { project_name: projectName });
+            var issues = (res && res.data && res.data.issues) || [];
+            statusEl.textContent = 'Задач: ' + issues.length;
+            renderBoardIssues(issues);
+        }
+
+        function renderBoardEmpty() {
+            var cols = document.querySelectorAll('#board-columns .board-col');
+            cols.forEach(function (col) {
+                // оставить header
+                var h = col.querySelector('.board-col-header');
+                col.innerHTML = '';
+                col.appendChild(h);
+                var cnt = h.querySelector('[data-count]'); if (cnt) cnt.textContent = '0';
+                var empty = document.createElement('div'); empty.className = 'board-empty';
+                empty.textContent = 'Выберите проект';
+                col.appendChild(empty);
+            });
+        }
+
+        function renderBoardIssues(issues) {
+            // Группируем по state.group. Plane state имеет group ∈ {backlog,
+            // unstarted, started, completed, cancelled}. backlog кладём в Todo.
+            var groups = { unstarted: [], started: [], completed: [], cancelled: [] };
+            issues.forEach(function (i) {
+                var g = (i.state_detail && i.state_detail.group) || 'unstarted';
+                if (g === 'backlog') g = 'unstarted';
+                if (groups[g]) groups[g].push(i);
+                else groups.unstarted.push(i);
+            });
+            var cols = document.querySelectorAll('#board-columns .board-col');
+            cols.forEach(function (col) {
+                var state = col.dataset.state;
+                var items = groups[state] || [];
+                var h = col.querySelector('.board-col-header');
+                col.innerHTML = '';
+                col.appendChild(h);
+                var cnt = h.querySelector('[data-count]'); if (cnt) cnt.textContent = items.length;
+                if (!items.length) {
+                    var empty = document.createElement('div'); empty.className = 'board-empty';
+                    empty.textContent = 'Нет задач';
+                    col.appendChild(empty);
+                    return;
+                }
+                items.forEach(function (issue) {
+                    col.appendChild(renderBoardCard(issue));
+                });
+            });
+            bindBoardDnD();
+        }
+
+        function renderBoardCard(issue) {
+            var card = document.createElement('div');
+            card.className = 'board-card';
+            card.draggable = true;
+            card.dataset.issueName = issue.name || '';
+            var prio = String(issue.priority || 'none').toLowerCase();
+            var prioLabel = ({ urgent: 'срочно', high: 'высокий', medium: 'средний', low: 'низкий', none: '—' })[prio] || prio;
+            var seq = issue.sequence_id ? '#' + issue.sequence_id : '';
+            var deadline = '';
+            if (issue.target_date) {
+                var today = new Date(); today.setHours(0,0,0,0);
+                var dl = new Date(issue.target_date);
+                var overdue = dl < today;
+                deadline = '<span class="bc-deadline' + (overdue ? ' overdue' : '') + '">' +
+                    '📅 ' + issue.target_date + '</span>';
+            }
+            card.innerHTML =
+                '<div class="bc-title">' + escapeHtml(issue.name || '—') + '</div>' +
+                '<div class="bc-meta">' +
+                    (seq ? '<span class="bc-seq">' + seq + '</span>' : '') +
+                    '<span class="bc-prio ' + prio + '">' + prioLabel + '</span>' +
+                    deadline +
+                '</div>';
+            return card;
+        }
+
+        function bindBoardDnD() {
+            var cards = document.querySelectorAll('#board-columns .board-card');
+            cards.forEach(function (card) {
+                card.addEventListener('dragstart', function (e) {
+                    card.classList.add('dragging');
+                    e.dataTransfer.setData('text/plain', card.dataset.issueName);
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                card.addEventListener('dragend', function () {
+                    card.classList.remove('dragging');
+                });
+            });
+            var cols = document.querySelectorAll('#board-columns .board-col');
+            cols.forEach(function (col) {
+                col.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    col.classList.add('drag-over');
+                });
+                col.addEventListener('dragleave', function () {
+                    col.classList.remove('drag-over');
+                });
+                col.addEventListener('drop', async function (e) {
+                    e.preventDefault();
+                    col.classList.remove('drag-over');
+                    var issueName = e.dataTransfer.getData('text/plain');
+                    var targetState = col.dataset.state;
+                    if (!issueName || !BOARD_CURRENT_PROJECT) return;
+                    // Маппинг group → state name (для нашего LLM ALIASES)
+                    var STATE_MAP = { unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled' };
+                    var statusEl = document.getElementById('board-status');
+                    statusEl.textContent = 'Обновляю «' + issueName + '»...';
+                    var res = await planeDirect('change_status', {
+                        project_name: BOARD_CURRENT_PROJECT,
+                        issue_name: issueName,
+                        state: STATE_MAP[targetState] || targetState
+                    });
+                    if (res && res.response && /оши|error/i.test(res.response)) {
+                        statusEl.textContent = 'Ошибка: ' + (res.error || res.response);
+                    } else {
+                        statusEl.textContent = 'Готово';
+                        reloadBoard();  // перезагрузить актуальное состояние
+                    }
+                });
+            });
+        }
+
+        // ============== Settings tabs ==============
+        function switchSettingsTab(tab) {
+            document.querySelectorAll('#settingsModal .modal-tab').forEach(function (b) {
+                b.classList.toggle('active', b.dataset.tab === tab);
+            });
+            document.querySelectorAll('#settingsModal .modal-pane').forEach(function (p) {
+                p.classList.toggle('active', p.dataset.pane === tab);
+            });
         }
 
         function bootAgent() {
