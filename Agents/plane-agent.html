@@ -226,7 +226,8 @@
         }
         .board-select-trigger {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 7px 12px; border-radius: 6px;
+            padding: 0 12px; border-radius: 6px;
+            height: 34px; box-sizing: border-box;
             border: 1px solid var(--border); background: var(--bg-input);
             color: var(--text-primary); font-size: 13px; cursor: pointer;
             transition: border-color 0.15s, background 0.15s;
@@ -272,10 +273,11 @@
         .board-select-menu li.empty { color: var(--text-muted); cursor: default; }
         .board-select-menu li.empty:hover { background: transparent; color: var(--text-muted); }
         .board-toolbar .board-refresh {
-            padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);
+            padding: 0 14px; border-radius: 6px; border: 1px solid var(--border);
+            height: 34px; box-sizing: border-box;
             background: var(--bg-secondary); color: var(--text-secondary);
             font-family: inherit; font-size: 13px; cursor: pointer;
-            transition: all 0.15s;
+            transition: all 0.15s; display: inline-flex; align-items: center;
         }
         .board-toolbar .board-refresh:hover { border-color: var(--accent); color: var(--text-primary); }
         .board-toolbar .board-status {
