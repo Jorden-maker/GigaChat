@@ -746,8 +746,8 @@
 
     <!-- Direct test modal: 6 action-карточек для теста workflow без LLM.
          Каждая карточка шлёт {action, params, token, plane_*} напрямую и показывает JSON-ответ. -->
-    <div class="modal-backdrop" id="directTestModal" data-close-on-backdrop="1">
-        <div class="modal-box wide">
+    <div class="modal-backdrop" id="directTestModal" onclick="closeDirectTest()">
+        <div class="modal-box wide" onclick="event.stopPropagation()">
             <h3>Тест без LLM (прямые action-вызовы)</h3>
             <div class="modal-hint">
                 Workflow поддерживает direct-режим: если в теле есть <code>action</code>, LLM пропускается.
@@ -945,8 +945,8 @@
     </div>
 
     <!-- Settings modal: Plane URL + workspace_slug + API token. -->
-    <div class="modal-backdrop" id="settingsModal" data-close-on-backdrop="1">
-        <div class="modal-box">
+    <div class="modal-backdrop" id="settingsModal" onclick="closeSettings()">
+        <div class="modal-box" onclick="event.stopPropagation()">
             <button class="modal-close" onclick="closeSettings()" title="Закрыть (Esc)">×</button>
             <h3>Настройки</h3>
             <label for="set-url">Plane URL</label>
@@ -1038,26 +1038,6 @@
         function closeSettings() {
             document.getElementById('settingsModal').classList.remove('open');
         }
-        // Универсальный backdrop-close: ловим mousedown НА backdrop (не bubbled)
-        // через event.target === currentTarget. Используем mousedown, а не click —
-        // иначе drag-выделение текста в input'е заканчивающееся за пределами modal-box
-        // случайно закрывало бы модалку (mouseup на backdrop).
-        document.addEventListener('mousedown', function (e) {
-            var bd = e.target;
-            if (!bd || !bd.classList || !bd.classList.contains('modal-backdrop')) return;
-            if (bd.getAttribute('data-close-on-backdrop') !== '1') return;
-            // Подтверждаем что click именно по backdrop, а не bubbled из modal-box
-            if (e.target !== bd) return;
-            // На mouseup проверим что отпустили тоже на backdrop (для защиты от drag)
-            var startBd = bd;
-            document.addEventListener('mouseup', function once(e2) {
-                document.removeEventListener('mouseup', once);
-                if (e2.target === startBd) {
-                    if (startBd.id === 'settingsModal') closeSettings();
-                    else if (startBd.id === 'directTestModal') closeDirectTest();
-                }
-            });
-        });
         // Глазок для password-полей: переключает type=password ↔ text
         function togglePwd(inputId, btn) {
             var inp = document.getElementById(inputId);
