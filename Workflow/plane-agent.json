@@ -10,7 +10,10 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [0, 300],
+      "position": [
+        0,
+        300
+      ],
       "id": "plane-agent-webhook-0001",
       "name": "Webhook",
       "webhookId": "plane-agent-webhook-001"
@@ -21,27 +24,42 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [260, 300],
+      "position": [
+        260,
+        300
+      ],
       "id": "plane-agent-validate-0002",
       "name": "Валидация"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
-          "conditions": [{
-            "id": "cond-valid",
-            "leftValue": "={{ $json.valid }}",
-            "rightValue": 1,
-            "operator": {"type": "number", "operation": "equals"}
-          }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [520, 300],
+      "position": [
+        520,
+        300
+      ],
       "id": "plane-agent-if-valid-0003",
       "name": "Валидно?"
     },
@@ -49,16 +67,24 @@
       "parameters": {
         "operation": "executeQuery",
         "query": "UPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1 AND expires_at > NOW();\nSELECT s.user_id, u.username FROM planner_sessions s JOIN planner_users u ON u.id = s.user_id WHERE s.token = $1 AND s.expires_at > NOW();",
-        "options": {"queryReplacement": "={{ [$json.token] }}"},
+        "options": {
+          "queryReplacement": "={{ [$json.token] }}"
+        },
         "alwaysOutputData": true
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [780, 200],
+      "position": [
+        780,
+        200
+      ],
       "id": "plane-agent-verify-sql-0004",
       "name": "SQL: Verify token",
       "credentials": {
-        "postgres": {"id": "OYsyciMf7Eq9W4FS", "name": "Postgres"}
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
@@ -69,27 +95,42 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1040, 200],
+      "position": [
+        1040,
+        200
+      ],
       "id": "plane-agent-token-result-0005",
       "name": "Token result"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
-          "conditions": [{
-            "id": "cond-token",
-            "leftValue": "={{ $json.token_valid }}",
-            "rightValue": true,
-            "operator": {"type": "boolean", "operation": "true"}
-          }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-token",
+              "leftValue": "={{ $json.token_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1300, 200],
+      "position": [
+        1300,
+        200
+      ],
       "id": "plane-agent-if-token-0006",
       "name": "Token OK?"
     },
@@ -100,15 +141,26 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "X-API-Key",
+              "value": "={{ $json.plane_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
-        "options": {"timeout": 15000}
+        "options": {
+          "timeout": 15000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1560, 100],
+      "position": [
+        1560,
+        100
+      ],
       "id": "plane-agent-fetch-projects-0007",
       "name": "Plane API: projects",
       "onError": "continueRegularOutput"
@@ -119,72 +171,108 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1820, 100],
+      "position": [
+        1820,
+        100
+      ],
       "id": "plane-agent-projects-ctx-0008",
       "name": "Контекст: проекты"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
-          "conditions": [{
-            "id": "cond-is-direct",
-            "leftValue": "={{ $json.is_direct }}",
-            "rightValue": 1,
-            "operator": {"type": "number", "operation": "equals"}
-          }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-is-direct",
+              "leftValue": "={{ $json.is_direct }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [2080, 100],
+      "position": [
+        2080,
+        100
+      ],
       "id": "plane-agent-if-direct-0023",
       "name": "Direct mode?"
     },
     {
       "parameters": {
-        "jsCode": "// Direct-bypass: action/params взяты прямо из body запроса, LLM пропускаем.\n// Резолвим project_name → project_id (как Parse LLM) и кидаем дальше в Switch.\nconst src = $input.first().json;\nconst action = src.direct_action;\nconst params = src.direct_params || {};\n\n// Резолв project_name → project_id (case-insensitive)\nlet project_id = null;\nlet project_name_canonical = null;\nif (params.project_name) {\n  const wanted = String(params.project_name).toLowerCase();\n  const found = (src.projects || []).find(p => String(p.name || '').toLowerCase() === wanted);\n  if (found) {\n    project_id = found.id;\n    project_name_canonical = found.name;\n  }\n}\n\nconst NEEDS_PROJECT = new Set(['list_issues','create_issue','update_issue','delete_issue','search_issues']);\nif (NEEDS_PROJECT.has(action) && !project_id) {\n  const available = (src.projects || []).map(p => p.name).join(', ') || '— у вас нет проектов';\n  return [{ json: {\n    ...src,\n    action: 'chat',\n    params: {},\n    llm_text: `Не нашёл проект «${params.project_name || '—'}». Доступные: ${available}.`\n  } }];\n}\n\nreturn [{ json: { ...src, action, params, project_id, project_name_canonical, llm_text: `Direct: ${action}.` } }];"
+        "jsCode": "// Direct-bypass: action/params взяты прямо из body запроса, LLM пропускаем.\n// Резолвим project_name → project_id (как Parse LLM) и кидаем дальше в Switch.\nconst src = $input.first().json;\nconst action = src.direct_action;\nconst params = src.direct_params || {};\n\n// Резолв project_name → project_id (case-insensitive)\nlet project_id = null;\nlet project_name_canonical = null;\nif (params.project_name) {\n  const wanted = String(params.project_name).toLowerCase();\n  const found = (src.projects || []).find(p => String(p.name || '').toLowerCase() === wanted);\n  if (found) {\n    project_id = found.id;\n    project_name_canonical = found.name;\n  }\n}\n\nconst NEEDS_PROJECT = new Set(['list_issues','create_issue','update_issue','delete_issue','search_issues','change_status','assign_issue','set_deadline','add_label','remove_label','add_comment','get_issue']);\nif (NEEDS_PROJECT.has(action) && !project_id) {\n  const available = (src.projects || []).map(p => p.name).join(', ') || '— у вас нет проектов';\n  return [{ json: {\n    ...src,\n    action: 'chat',\n    params: {},\n    llm_text: `Не нашёл проект «${params.project_name || '—'}». Доступные: ${available}.`\n  } }];\n}\n\nreturn [{ json: { ...src, action, params, project_id, project_name_canonical, llm_text: `Direct: ${action}.` } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2340, -100],
+      "position": [
+        2340,
+        -100
+      ],
       "id": "plane-agent-direct-resolve-0024",
       "name": "Direct resolve"
     },
     {
       "parameters": {
-        "modelId": {"__rl": true, "value": ".", "mode": "id"},
+        "modelId": {
+          "__rl": true,
+          "value": ".",
+          "mode": "id"
+        },
         "responses": {
           "values": [
             {
               "role": "system",
-              "content": "=Ты — Plane-агент GigaChat. Помогаешь пользователю управлять задачами в Plane на естественном языке.\n\nКРИТИЧЕСКОЕ ПРАВИЛО: НИКОГДА не начинай ответ с приветствия («Привет», «Здравствуйте», «Hi» и т.п.). Начинай сразу с сути.\n\nДоступные операции (tools):\n1. list_projects — показать список проектов. params: {} (пусто).\n2. list_issues — показать задачи в проекте. params: { project_name: string }.\n3. create_issue — создать задачу. params: { project_name: string, name: string, description?: string, priority?: 'urgent'|'high'|'medium'|'low'|'none' }.\n4. update_issue — обновить задачу. params: { project_name: string, issue_name: string, name?: string, description?: string, priority?: 'urgent'|'high'|'medium'|'low'|'none' }.\n5. delete_issue — удалить задачу. params: { project_name: string, issue_name: string }.\n6. search_issues — поиск задач. params: { project_name: string, query: string }.\n7. chat — обычный ответ без действия (для приветствий, вопросов, объяснений).\n\nДоступные проекты у пользователя:\n{{ ($json.projects || []).length > 0 ? JSON.stringify($json.projects.map(p => p.name)) : '[нет проектов]' }}\n\nФормат ответа — СТРОГО валидный JSON, без markdown, без ```json блоков:\n{\"action\": \"имя_операции\", \"params\": {...}, \"text\": \"короткое объяснение что делаешь\"}\n\nПравила:\n- text — на русском, 1-2 предложения, что ты сейчас сделаешь (например: \"Создаю задачу 'Звонок' в проекте Office.\")\n- params.project_name должен ТОЧНО совпадать с одним из доступных проектов (case-insensitive)\n- Если пользователь не указал проект, а действие требует его — задай уточняющий вопрос через action=chat\n- Если запрос НЕ про Plane (погода, философия, чит-чат) — отвечай через action=chat\n- Если у юзера 0 проектов и он просит список — отвечай через action=list_projects (вернёт пустой список)\n- Если юзер просит создать проект — отвечай через action=chat, объясни что создание проектов вручную через интерфейс Plane (API ограничено)\n\nПримеры:\n\nЗапрос: «Покажи мои проекты»\nОтвет: {\"action\":\"list_projects\",\"params\":{},\"text\":\"Сейчас покажу проекты.\"}\n\nЗапрос: «Какие задачи в проекте Office?»\nОтвет: {\"action\":\"list_issues\",\"params\":{\"project_name\":\"Office\"},\"text\":\"Сейчас покажу задачи проекта Office.\"}\n\nЗапрос: «Создай в Office задачу 'Звонок клиенту' с высоким приоритетом»\nОтвет: {\"action\":\"create_issue\",\"params\":{\"project_name\":\"Office\",\"name\":\"Звонок клиенту\",\"priority\":\"high\"},\"text\":\"Создаю задачу 'Звонок клиенту' в проекте Office с высоким приоритетом.\"}\n\nЗапрос: «Удали задачу Тест в проекте Office»\nОтвет: {\"action\":\"delete_issue\",\"params\":{\"project_name\":\"Office\",\"issue_name\":\"Тест\"},\"text\":\"Удаляю задачу 'Тест' из проекта Office.\"}\n\nЗапрос: «Найди задачи про дизайн в проекте Office»\nОтвет: {\"action\":\"search_issues\",\"params\":{\"project_name\":\"Office\",\"query\":\"дизайн\"},\"text\":\"Ищу задачи по запросу 'дизайн' в проекте Office.\"}\n\nЗапрос: «Привет»\nОтвет: {\"action\":\"chat\",\"params\":{},\"text\":\"Я Plane-агент — помогу управлять задачами. Скажи: покажи проекты, создай задачу, найди задачу — и я сделаю.\"}\n\nЗапрос: «Какая сегодня погода?»\nОтвет: {\"action\":\"chat\",\"params\":{},\"text\":\"Я работаю с Plane и не подключён к погодным сервисам. Могу помочь с задачами и проектами.\"}"
+              "content": "=Ты — Plane-агент GigaChat. Помогаешь пользователю управлять задачами в Plane на естественном языке.\n\nКРИТИЧЕСКОЕ ПРАВИЛО: НИКОГДА не начинай ответ с приветствия («Привет», «Здравствуйте», «Hi» и т.п.). Начинай сразу с сути.\n\nДоступные операции (tools):\n1. list_projects — показать список проектов. params: {} (пусто).\n2. list_issues — показать задачи в проекте. params: { project_name: string }.\n3. create_issue — создать задачу. params: { project_name: string, name: string, description?: string, priority?: 'urgent'|'high'|'medium'|'low'|'none' }.\n4. update_issue — обновить задачу. params: { project_name: string, issue_name: string, name?: string, description?: string, priority?: 'urgent'|'high'|'medium'|'low'|'none' }.\n5. delete_issue — удалить задачу. params: { project_name: string, issue_name: string }.\n6. search_issues — поиск задач. params: { project_name: string, query: string }.\n7. change_status — изменить статус задачи. params: { project_name, issue_name, state: 'todo'|'in_progress'|'done'|'cancelled'|'backlog' }.\n8. assign_issue — назначить исполнителей. params: { project_name, issue_name, assignees: [user_id, ...] }. Юзер должен указать ID, либо отвечай chat-ом «нужны ID исполнителей».\n9. set_deadline — установить срок. params: { project_name, issue_name, target_date: 'YYYY-MM-DD' }. SMART-DATES: распознавай естественные даты и конвертируй в ISO. Сегодня: {{ new Date().toISOString().slice(0,10) }}.\n10. add_label — добавить метки. params: { project_name, issue_name, labels: [label_id, ...] }.\n11. remove_label — убрать метки. params: { project_name, issue_name, labels: [label_id, ...] }.\n12. add_comment — комментарий к задаче. params: { project_name, issue_name, comment: string }.\n13. get_issue — детали задачи. params: { project_name, issue_name }.\n14. bulk — массовая операция. params: { actions: [{action, params}, ...] }. Используй когда юзер просит «удали все Done», «передвинь всё Иванова в Todo» и т.п.\n15. chat — обычный ответ без действия (для приветствий, вопросов, объяснений).\n\nДоступные проекты у пользователя:\n{{ ($json.projects || []).length > 0 ? JSON.stringify($json.projects.map(p => p.name)) : '[нет проектов]' }}\n\nФормат ответа — СТРОГО валидный JSON, без markdown, без ```json блоков:\n{\"action\": \"имя_операции\", \"params\": {...}, \"text\": \"короткое объяснение что делаешь\"}\n\nПравила:\n- text — на русском, 1-2 предложения, что ты сейчас сделаешь (например: \"Создаю задачу 'Звонок' в проекте Office.\")\n- params.project_name должен ТОЧНО совпадать с одним из доступных проектов (case-insensitive)\n- Если пользователь не указал проект, а действие требует его — задай уточняющий вопрос через action=chat\n- Если запрос НЕ про Plane (погода, философия, чит-чат) — отвечай через action=chat\n- Если у юзера 0 проектов и он просит список — отвечай через action=list_projects (вернёт пустой список)\n- Если юзер просит создать проект — отвечай через action=chat, объясни что создание проектов вручную через интерфейс Plane (API ограничено)\n\n\nSMART-DATES (для set_deadline и create_issue с target_date):\n- «к пятнице» / «к понедельнику» → ближайшая указанная неделя\n- «через N дней» / «послезавтра» / «завтра» → today + N\n- «25 декабря» → текущий год (или следующий если уже прошло)\n- «25.12.2026» → как есть\n- Если дата неоднозначна — отвечай chat-ом с уточнением\n\nШАБЛОНЫ ЗАДАЧ (для create_issue):\n- «создай багфикс X» → name = «Bug: X», priority = high\n- «создай фичу X» → name = «Feature: X», priority = medium\n- «создай техдолг X» → name = «Tech debt: X», priority = low\n\nBULK-операции:\n- «удали все Done в проекте X» → action=bulk, actions=[delete_issue для каждой]\n- «передвинь все In Progress Иванова в Todo» → action=bulk, actions=[change_status для каждой]\n- Сначала отвечай chat-ом с превью списка и предложением подтвердить, потом — после «да/подтверждаю» юзер шлёт bulk.\n\nПримеры новых actions:\nЗапрос: «передвинь Звонок клиенту в работу»\nОтвет: {\"action\":\"change_status\",\"params\":{\"project_name\":\"Office\",\"issue_name\":\"Звонок клиенту\",\"state\":\"in_progress\"},\"text\":\"Перевожу 'Звонок клиенту' в статус 'В работе'.\"}\n\nЗапрос: «срок задачи Звонок — к пятнице»\nОтвет: {\"action\":\"set_deadline\",\"params\":{\"project_name\":\"Office\",\"issue_name\":\"Звонок\",\"target_date\":\"2026-05-30\"},\"text\":\"Ставлю дедлайн 30 мая.\"}\n\nЗапрос: «коммент к Звонку: переговорил, ждём ответа»\nОтвет: {\"action\":\"add_comment\",\"params\":{\"project_name\":\"Office\",\"issue_name\":\"Звонок\",\"comment\":\"переговорил, ждём ответа\"},\"text\":\"Добавляю комментарий.\"}\n\nПримеры:\n\nЗапрос: «Покажи мои проекты»\nОтвет: {\"action\":\"list_projects\",\"params\":{},\"text\":\"Сейчас покажу проекты.\"}\n\nЗапрос: «Какие задачи в проекте Office?»\nОтвет: {\"action\":\"list_issues\",\"params\":{\"project_name\":\"Office\"},\"text\":\"Сейчас покажу задачи проекта Office.\"}\n\nЗапрос: «Создай в Office задачу 'Звонок клиенту' с высоким приоритетом»\nОтвет: {\"action\":\"create_issue\",\"params\":{\"project_name\":\"Office\",\"name\":\"Звонок клиенту\",\"priority\":\"high\"},\"text\":\"Создаю задачу 'Звонок клиенту' в проекте Office с высоким приоритетом.\"}\n\nЗапрос: «Удали задачу Тест в проекте Office»\nОтвет: {\"action\":\"delete_issue\",\"params\":{\"project_name\":\"Office\",\"issue_name\":\"Тест\"},\"text\":\"Удаляю задачу 'Тест' из проекта Office.\"}\n\nЗапрос: «Найди задачи про дизайн в проекте Office»\nОтвет: {\"action\":\"search_issues\",\"params\":{\"project_name\":\"Office\",\"query\":\"дизайн\"},\"text\":\"Ищу задачи по запросу 'дизайн' в проекте Office.\"}\n\nЗапрос: «Привет»\nОтвет: {\"action\":\"chat\",\"params\":{},\"text\":\"Я Plane-агент — помогу управлять задачами. Скажи: покажи проекты, создай задачу, найди задачу — и я сделаю.\"}\n\nЗапрос: «Какая сегодня погода?»\nОтвет: {\"action\":\"chat\",\"params\":{},\"text\":\"Я работаю с Plane и не подключён к погодным сервисам. Могу помочь с задачами и проектами.\"}"
             },
-            {"content": "={{ $json.message }}"}
+            {
+              "content": "={{ $json.message }}"
+            }
           ]
         },
         "builtInTools": {},
-        "options": {"timeout": 60000, "temperature": 0}
+        "options": {
+          "timeout": 60000,
+          "temperature": 0
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
-      "position": [2080, 100],
+      "position": [
+        2080,
+        100
+      ],
       "id": "plane-agent-llm-0009",
       "name": "LLM: extract intent",
       "credentials": {
-        "openAiApi": {"id": "Qwyuj8GrADL2wlnl", "name": "GigaChat"}
+        "openAiApi": {
+          "id": "Qwyuj8GrADL2wlnl",
+          "name": "GigaChat"
+        }
       },
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Парсим LLM-ответ → action/params/text. LLM иногда оборачивает JSON в ```json...```\n// или добавляет лишний текст. Идём от строгого parse к фоллбекам.\nconst raw = $input.first().json;\nconst src = $('Контекст: проекты').first().json;\n\nfunction extractText(raw) {\n  if (!raw) return '';\n  // openAi-node ответ: output[0].content[0].text\n  if (raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0]) {\n    return String(raw.output[0].content[0].text || '');\n  }\n  // Запасной формат\n  if (raw.choices && raw.choices[0] && raw.choices[0].message) {\n    return String(raw.choices[0].message.content || '');\n  }\n  return '';\n}\n\nconst text = extractText(raw).trim();\nif (!text) {\n  return [{ json: { ...src, action: 'chat', params: {}, llm_text: 'Не удалось получить ответ от LLM. Попробуйте ещё раз.', llm_error: true } }];\n}\n\nfunction tryParse(s) {\n  try { return JSON.parse(s); } catch(_) { return null; }\n}\n\nlet parsed = tryParse(text);\nif (!parsed) {\n  // Срезаем ```json ... ``` обёртку\n  const m = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) parsed = tryParse(m[1].trim());\n}\nif (!parsed) {\n  // Берём первый {...} в строке\n  const m2 = text.match(/\\{[\\s\\S]*\\}/);\n  if (m2) parsed = tryParse(m2[0]);\n}\n\nif (!parsed || typeof parsed !== 'object') {\n  // LLM ушёл в свободный текст — трактуем как chat\n  return [{ json: { ...src, action: 'chat', params: {}, llm_text: text } }];\n}\n\nconst ALLOWED = new Set(['list_projects','list_issues','create_issue','update_issue','delete_issue','search_issues','chat']);\nconst action = ALLOWED.has(parsed.action) ? parsed.action : 'chat';\nconst params = (parsed.params && typeof parsed.params === 'object') ? parsed.params : {};\nconst llm_text = String(parsed.text || '').trim() || 'Готово.';\n\n// Резолвим project_name → project_id (case-insensitive)\nlet project_id = null;\nlet project_name_canonical = null;\nif (params.project_name) {\n  const wanted = String(params.project_name).toLowerCase();\n  const found = (src.projects || []).find(p => String(p.name || '').toLowerCase() === wanted);\n  if (found) {\n    project_id = found.id;\n    project_name_canonical = found.name;\n  }\n}\n\n// Если для action нужен project_id, но не нашли — даунгрейд до chat с подсказкой\nconst NEEDS_PROJECT = new Set(['list_issues','create_issue','update_issue','delete_issue','search_issues']);\nif (NEEDS_PROJECT.has(action) && !project_id) {\n  const available = (src.projects || []).map(p => p.name).join(', ') || '— у вас нет проектов';\n  return [{ json: {\n    ...src,\n    action: 'chat',\n    params: {},\n    llm_text: `Не нашёл проект «${params.project_name || '—'}». Доступные проекты: ${available}.`\n  } }];\n}\n\nreturn [{ json: { ...src, action, params, project_id, project_name_canonical, llm_text } }];"
+        "jsCode": "// Парсим LLM-ответ → action/params/text. LLM иногда оборачивает JSON в ```json...```\n// или добавляет лишний текст. Идём от строгого parse к фоллбекам.\nconst raw = $input.first().json;\nconst src = $('Контекст: проекты').first().json;\n\nfunction extractText(raw) {\n  if (!raw) return '';\n  // openAi-node ответ: output[0].content[0].text\n  if (raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0]) {\n    return String(raw.output[0].content[0].text || '');\n  }\n  // Запасной формат\n  if (raw.choices && raw.choices[0] && raw.choices[0].message) {\n    return String(raw.choices[0].message.content || '');\n  }\n  return '';\n}\n\nconst text = extractText(raw).trim();\nif (!text) {\n  return [{ json: { ...src, action: 'chat', params: {}, llm_text: 'Не удалось получить ответ от LLM. Попробуйте ещё раз.', llm_error: true } }];\n}\n\nfunction tryParse(s) {\n  try { return JSON.parse(s); } catch(_) { return null; }\n}\n\nlet parsed = tryParse(text);\nif (!parsed) {\n  // Срезаем ```json ... ``` обёртку\n  const m = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/);\n  if (m) parsed = tryParse(m[1].trim());\n}\nif (!parsed) {\n  // Берём первый {...} в строке\n  const m2 = text.match(/\\{[\\s\\S]*\\}/);\n  if (m2) parsed = tryParse(m2[0]);\n}\n\nif (!parsed || typeof parsed !== 'object') {\n  // LLM ушёл в свободный текст — трактуем как chat\n  return [{ json: { ...src, action: 'chat', params: {}, llm_text: text } }];\n}\n\nconst ALLOWED = new Set(['list_projects','list_issues','create_issue','update_issue','delete_issue','search_issues','change_status','assign_issue','set_deadline','add_label','remove_label','add_comment','get_issue','bulk','chat']);\nconst action = ALLOWED.has(parsed.action) ? parsed.action : 'chat';\nconst params = (parsed.params && typeof parsed.params === 'object') ? parsed.params : {};\nconst llm_text = String(parsed.text || '').trim() || 'Готово.';\n\n// Резолвим project_name → project_id (case-insensitive)\nlet project_id = null;\nlet project_name_canonical = null;\nif (params.project_name) {\n  const wanted = String(params.project_name).toLowerCase();\n  const found = (src.projects || []).find(p => String(p.name || '').toLowerCase() === wanted);\n  if (found) {\n    project_id = found.id;\n    project_name_canonical = found.name;\n  }\n}\n\n// Если для action нужен project_id, но не нашли — даунгрейд до chat с подсказкой\nconst NEEDS_PROJECT = new Set(['list_issues','create_issue','update_issue','delete_issue','search_issues']);\nif (NEEDS_PROJECT.has(action) && !project_id) {\n  const available = (src.projects || []).map(p => p.name).join(', ') || '— у вас нет проектов';\n  return [{ json: {\n    ...src,\n    action: 'chat',\n    params: {},\n    llm_text: `Не нашёл проект «${params.project_name || '—'}». Доступные проекты: ${available}.`\n  } }];\n}\n\nreturn [{ json: { ...src, action, params, project_id, project_name_canonical, llm_text } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2340, 100],
+      "position": [
+        2340,
+        100
+      ],
       "id": "plane-agent-parse-llm-0010",
       "name": "Parse LLM"
     },
@@ -192,20 +280,327 @@
       "parameters": {
         "rules": {
           "values": [
-            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "list_projects", "operator": {"type": "string", "operation": "equals"}, "id": "rule-list-projects"}], "combinator": "and"}},
-            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "list_issues", "operator": {"type": "string", "operation": "equals"}, "id": "rule-list-issues"}], "combinator": "and"}},
-            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "create_issue", "operator": {"type": "string", "operation": "equals"}, "id": "rule-create-issue"}], "combinator": "and"}},
-            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "update_issue", "operator": {"type": "string", "operation": "equals"}, "id": "rule-update-issue"}], "combinator": "and"}},
-            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "delete_issue", "operator": {"type": "string", "operation": "equals"}, "id": "rule-delete-issue"}], "combinator": "and"}},
-            {"conditions": {"options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose", "version": 3}, "conditions": [{"leftValue": "={{ $json.action }}", "rightValue": "search_issues", "operator": {"type": "string", "operation": "equals"}, "id": "rule-search-issues"}], "combinator": "and"}}
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "list_projects",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-list-projects"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "list_issues",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-list-issues"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "create_issue",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-create-issue"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "update_issue",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-update-issue"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "delete_issue",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-delete-issue"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "search_issues",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-search-issues"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "change_status",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-change_status"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "assign_issue",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-assign_issue"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "set_deadline",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-set_deadline"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "add_label",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-add_label"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "remove_label",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-remove_label"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "add_comment",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-add_comment"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_issue",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-get_issue"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "bulk",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-bulk"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
           ]
         },
-        "options": {"fallbackOutput": "extra"},
+        "options": {
+          "fallbackOutput": "extra"
+        },
         "looseTypeValidation": true
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [2600, 100],
+      "position": [
+        2600,
+        100
+      ],
       "id": "plane-agent-switch-0011",
       "name": "Switch action"
     },
@@ -215,7 +610,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2860, -300],
+      "position": [
+        2860,
+        -300
+      ],
       "id": "plane-agent-list-projects-0012",
       "name": "list_projects: pass-through"
     },
@@ -226,15 +624,26 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "X-API-Key",
+              "value": "={{ $json.plane_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
-        "options": {"timeout": 15000}
+        "options": {
+          "timeout": 15000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2860, -100],
+      "position": [
+        2860,
+        -100
+      ],
       "id": "plane-agent-list-issues-0013",
       "name": "list_issues: GET",
       "onError": "continueRegularOutput"
@@ -246,18 +655,29 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "X-API-Key",
+              "value": "={{ $json.plane_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  name: $json.params.name || 'Без названия',\n  description_html: $json.params.description ? ('<p>' + String($json.params.description).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</p>') : '<p></p>',\n  priority: ['urgent','high','medium','low','none'].includes($json.params.priority) ? $json.params.priority : 'none'\n}) }}",
-        "options": {"timeout": 15000}
+        "options": {
+          "timeout": 15000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2860, 100],
+      "position": [
+        2860,
+        100
+      ],
       "id": "plane-agent-create-issue-0014",
       "name": "create_issue: POST",
       "onError": "continueRegularOutput"
@@ -268,7 +688,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2860, 300],
+      "position": [
+        2860,
+        300
+      ],
       "id": "plane-agent-resolve-update-0015",
       "name": "update: resolve issue_id"
     },
@@ -279,18 +702,29 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "X-API-Key",
+              "value": "={{ $json.plane_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify((() => {\n  const out = {};\n  if ($json.params.name) out.name = $json.params.name;\n  if ($json.params.description) out.description_html = '<p>' + String($json.params.description).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</p>';\n  if (['urgent','high','medium','low','none'].includes($json.params.priority)) out.priority = $json.params.priority;\n  return out;\n})()) }}",
-        "options": {"timeout": 15000}
+        "jsonBody": "={{ JSON.stringify((() => {\n  const out = {};\n  if ($json.params.name) out.name = $json.params.name;\n  if ($json.params.description) out.description_html = '<p>' + String($json.params.description).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</p>';\n  if (['urgent','high','medium','low','none'].includes($json.params.priority)) out.priority = $json.params.priority;\n  // Расширения (Phase 2):\n  if ($json.state_id) out.state = $json.state_id;\n  if ($json.params.target_date) out.target_date = $json.params.target_date;\n  if (Array.isArray($json.params.assignees)) out.assignees = $json.params.assignees;\n  if (Array.isArray($json.params.labels)) out.labels = $json.params.labels;\n  return out;\n})()) }}",
+        "options": {
+          "timeout": 15000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3120, 300],
+      "position": [
+        3120,
+        300
+      ],
       "id": "plane-agent-update-issue-0016",
       "name": "update_issue: PATCH",
       "onError": "continueRegularOutput"
@@ -301,7 +735,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2860, 500],
+      "position": [
+        2860,
+        500
+      ],
       "id": "plane-agent-resolve-delete-0017",
       "name": "delete: resolve issue_id"
     },
@@ -312,15 +749,26 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "X-API-Key",
+              "value": "={{ $json.plane_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
-        "options": {"timeout": 15000}
+        "options": {
+          "timeout": 15000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3120, 500],
+      "position": [
+        3120,
+        500
+      ],
       "id": "plane-agent-delete-issue-0018",
       "name": "delete_issue: DELETE",
       "onError": "continueRegularOutput"
@@ -332,26 +780,40 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "X-API-Key", "value": "={{ $json.plane_token }}"},
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "X-API-Key",
+              "value": "={{ $json.plane_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
-        "options": {"timeout": 15000}
+        "options": {
+          "timeout": 15000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2860, 700],
+      "position": [
+        2860,
+        700
+      ],
       "id": "plane-agent-search-issues-0019",
       "name": "search_issues: GET",
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Единый форматтер для всех веток (list_projects, list_issues, create, update, delete, search, chat).\n// На входе либо родительский json (из Parse LLM) + api-результат, либо api-ответ.\n// Задача: собрать чистый { response, action, data, error } для фронта.\n\n// Универсальный поиск \"src\" — либо из Parse LLM (NL mode), либо Direct resolve (bypass).\nfunction getSrc() {\n  try { return $('Parse LLM').first().json; } catch(_) {}\n  try { return $('Direct resolve').first().json; } catch(_) {}\n  return {};\n}\nconst src = getSrc();\nconst input = $input.first().json || {};\n\nconst action = src.action || 'chat';\nconst llm_text = src.llm_text || '';\n\n// Для chat-веток (или если LLM упал) — просто текст\nif (action === 'chat' || src.llm_error) {\n  return [{ json: {\n    response: llm_text || 'Готово.',\n    action: 'chat',\n    data: null\n  } }];\n}\n\n// Resolve-ошибка (update/delete не нашли задачу) живёт в выходе resolve-ноды,\n// НЕ в input (input — это ответ PATCH/DELETE который выполнился с issue_id=undefined).\n// Достаём из соответствующей ноды по имени.\nfunction getResolveError() {\n  if (action === 'update_issue') {\n    try { return $('update: resolve issue_id').first().json._resolve_error || null; } catch(_) {}\n  } else if (action === 'delete_issue') {\n    try { return $('delete: resolve issue_id').first().json._resolve_error || null; } catch(_) {}\n  }\n  return null;\n}\nconst resolveErr = getResolveError() || input._resolve_error;\nif (resolveErr) {\n  return [{ json: {\n    response: resolveErr,\n    action,\n    data: null,\n    error: resolveErr\n  } }];\n}\n\n// Plane API мог вернуть ошибку. Бывает любой формы: string в r.error/r.detail,\n// объект-словарь field errors (DRF validation: {field: [\"msg\"]}), список и т.п.\n// Раньше String(объект) давал \"[object Object]\". Теперь — JSON.stringify для не-строк.\nfunction toErrStr(v) {\n  if (v == null) return null;\n  if (typeof v === 'string') return v;\n  try { return JSON.stringify(v); } catch(_) { return String(v); }\n}\nfunction planeError(r) {\n  if (!r || typeof r !== 'object') return null;\n  if (r.error)         return toErrStr(r.error);\n  if (r.detail)        return toErrStr(r.detail);\n  if (r.error_message) return toErrStr(r.error_message);\n  if (r.status_code && r.status_code >= 400) return `HTTP ${r.status_code}`;\n  // DRF validation errors: { name: [\"required\"], ... } — корневой объект без error/detail,\n  // зато все значения — массивы строк. Сериализуем целиком.\n  const keys = Object.keys(r);\n  if (keys.length > 0 && keys.every(k => Array.isArray(r[k]))) {\n    return toErrStr(r);\n  }\n  return null;\n}\n\n// === list_projects ===\nif (action === 'list_projects') {\n  const projects = (input.api_result && input.api_result.projects) || src.projects || [];\n  return [{ json: {\n    response: llm_text + (projects.length === 0 ? '\\n\\nНет доступных проектов.' : ''),\n    action,\n    data: { projects: projects.map(p => ({ id: p.id, name: p.name, identifier: p.identifier })) }\n  } }];\n}\n\n// === list_issues / search_issues ===\nif (action === 'list_issues' || action === 'search_issues') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось получить задачи: ${err}`, action, data: null, error: err } }];\n  }\n  let issues = Array.isArray(input) ? input : (input.results || []);\n  // search_issues: Plane v0.27 не всегда фильтрует через ?search=, дофильтровываем\n  // на клиенте по подстроке в name. Если query пустой — возвращаем всё (как list).\n  if (action === 'search_issues') {\n    const q = String((src.params && src.params.query) || '').toLowerCase().trim();\n    if (q) {\n      issues = issues.filter(i => String(i.name || '').toLowerCase().includes(q));\n    }\n  }\n  return [{ json: {\n    response: llm_text + (issues.length === 0 ? '\\n\\nЗадач не найдено.' : `\\n\\nНайдено: ${issues.length}.`),\n    action,\n    data: {\n      project: src.project_name_canonical,\n      issues: issues.map(i => ({\n        id: i.id,\n        name: i.name,\n        priority: i.priority,\n        state: i.state,\n        sequence_id: i.sequence_id,\n        created_at: i.created_at\n      }))\n    }\n  } }];\n}\n\n// === create_issue ===\nif (action === 'create_issue') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось создать задачу: ${err}`, action, data: null, error: err } }];\n  }\n  return [{ json: {\n    response: llm_text + ` Задача создана: ${input.name} (#${input.sequence_id || '?'}).`,\n    action,\n    data: { issue: { id: input.id, name: input.name, sequence_id: input.sequence_id, priority: input.priority } }\n  } }];\n}\n\n// === update_issue ===\nif (action === 'update_issue') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось обновить задачу: ${err}`, action, data: null, error: err } }];\n  }\n  return [{ json: {\n    response: llm_text + ` Задача обновлена: ${input.name || src.params.issue_name}.`,\n    action,\n    data: { issue: { id: input.id, name: input.name, sequence_id: input.sequence_id, priority: input.priority } }\n  } }];\n}\n\n// === delete_issue ===\nif (action === 'delete_issue') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось удалить задачу: ${err}`, action, data: null, error: err } }];\n  }\n  return [{ json: {\n    response: llm_text + ` Задача удалена.`,\n    action,\n    data: null\n  } }];\n}\n\n// Фоллбек\nreturn [{ json: { response: llm_text || 'Готово.', action, data: null } }];"
+        "jsCode": "// Единый форматтер для всех веток (list_projects, list_issues, create, update, delete, search, chat).\n// На входе либо родительский json (из Parse LLM) + api-результат, либо api-ответ.\n// Задача: собрать чистый { response, action, data, error } для фронта.\n\n// Универсальный поиск \"src\" — либо из Parse LLM (NL mode), либо Direct resolve (bypass).\nfunction getSrc() {\n  try { return $('Parse LLM').first().json; } catch(_) {}\n  try { return $('Direct resolve').first().json; } catch(_) {}\n  return {};\n}\nconst src = getSrc();\nconst input = $input.first().json || {};\n\nconst action = src.action || 'chat';\n// Расширенные actions — большинство ходят через update_issue: PATCH, для них\n// формат ответа аналогичен update. get_issue — возвращаем единый issue object.\n// add_comment — успех если HTTP 200.\nconst PATCH_ACTIONS = ['change_status','assign_issue','set_deadline','add_label','remove_label'];\nconst llm_text = src.llm_text || '';\n\n// Для chat-веток (или если LLM упал) — просто текст\nif (action === 'chat' || src.llm_error) {\n  return [{ json: {\n    response: llm_text || 'Готово.',\n    action: 'chat',\n    data: null\n  } }];\n}\n\n// Resolve-ошибка (update/delete не нашли задачу) живёт в выходе resolve-ноды,\n// НЕ в input (input — это ответ PATCH/DELETE который выполнился с issue_id=undefined).\n// Достаём из соответствующей ноды по имени.\nfunction getResolveError() {\n  if (action === 'update_issue') {\n    try { return $('update: resolve issue_id').first().json._resolve_error || null; } catch(_) {}\n  } else if (action === 'delete_issue') {\n    try { return $('delete: resolve issue_id').first().json._resolve_error || null; } catch(_) {}\n  }\n  return null;\n}\nconst resolveErr = getResolveError() || input._resolve_error;\nif (resolveErr) {\n  return [{ json: {\n    response: resolveErr,\n    action,\n    data: null,\n    error: resolveErr\n  } }];\n}\n\n// Plane API мог вернуть ошибку. Бывает любой формы: string в r.error/r.detail,\n// объект-словарь field errors (DRF validation: {field: [\"msg\"]}), список и т.п.\n// Раньше String(объект) давал \"[object Object]\". Теперь — JSON.stringify для не-строк.\nfunction toErrStr(v) {\n  if (v == null) return null;\n  if (typeof v === 'string') return v;\n  try { return JSON.stringify(v); } catch(_) { return String(v); }\n}\nfunction planeError(r) {\n  if (!r || typeof r !== 'object') return null;\n  if (r.error)         return toErrStr(r.error);\n  if (r.detail)        return toErrStr(r.detail);\n  if (r.error_message) return toErrStr(r.error_message);\n  if (r.status_code && r.status_code >= 400) return `HTTP ${r.status_code}`;\n  // DRF validation errors: { name: [\"required\"], ... } — корневой объект без error/detail,\n  // зато все значения — массивы строк. Сериализуем целиком.\n  const keys = Object.keys(r);\n  if (keys.length > 0 && keys.every(k => Array.isArray(r[k]))) {\n    return toErrStr(r);\n  }\n  return null;\n}\n\n// === list_projects ===\nif (action === 'list_projects') {\n  const projects = (input.api_result && input.api_result.projects) || src.projects || [];\n  return [{ json: {\n    response: llm_text + (projects.length === 0 ? '\\n\\nНет доступных проектов.' : ''),\n    action,\n    data: { projects: projects.map(p => ({ id: p.id, name: p.name, identifier: p.identifier })) }\n  } }];\n}\n\n// === list_issues / search_issues ===\nif (action === 'list_issues' || action === 'search_issues') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось получить задачи: ${err}`, action, data: null, error: err } }];\n  }\n  let issues = Array.isArray(input) ? input : (input.results || []);\n  // search_issues: Plane v0.27 не всегда фильтрует через ?search=, дофильтровываем\n  // на клиенте по подстроке в name. Если query пустой — возвращаем всё (как list).\n  if (action === 'search_issues') {\n    const q = String((src.params && src.params.query) || '').toLowerCase().trim();\n    if (q) {\n      issues = issues.filter(i => String(i.name || '').toLowerCase().includes(q));\n    }\n  }\n  return [{ json: {\n    response: llm_text + (issues.length === 0 ? '\\n\\nЗадач не найдено.' : `\\n\\nНайдено: ${issues.length}.`),\n    action,\n    data: {\n      project: src.project_name_canonical,\n      issues: issues.map(i => ({\n        id: i.id,\n        name: i.name,\n        priority: i.priority,\n        state: i.state,\n        sequence_id: i.sequence_id,\n        created_at: i.created_at\n      }))\n    }\n  } }];\n}\n\n// === create_issue ===\nif (action === 'create_issue') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось создать задачу: ${err}`, action, data: null, error: err } }];\n  }\n  return [{ json: {\n    response: llm_text + ` Задача создана: ${input.name} (#${input.sequence_id || '?'}).`,\n    action,\n    data: { issue: { id: input.id, name: input.name, sequence_id: input.sequence_id, priority: input.priority } }\n  } }];\n}\n\n// === update_issue ===\nif (action === 'update_issue') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось обновить задачу: ${err}`, action, data: null, error: err } }];\n  }\n  return [{ json: {\n    response: llm_text + ` Задача обновлена: ${input.name || src.params.issue_name}.`,\n    action,\n    data: { issue: { id: input.id, name: input.name, sequence_id: input.sequence_id, priority: input.priority } }\n  } }];\n}\n\n// === delete_issue ===\nif (action === 'delete_issue') {\n  const err = planeError(input);\n  if (err) {\n    return [{ json: { response: `Не удалось удалить задачу: ${err}`, action, data: null, error: err } }];\n  }\n  return [{ json: {\n    response: llm_text + ` Задача удалена.`,\n    action,\n    data: null\n  } }];\n}\n\n// Фоллбек\nreturn [{ json: { response: llm_text || 'Готово.', action, data: null } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3400, 100],
+      "position": [
+        3400,
+        100
+      ],
       "id": "plane-agent-format-0020",
       "name": "Формат ответа"
     },
@@ -362,16 +824,28 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              {"name": "Access-Control-Allow-Origin", "value": "*"},
-              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"},
-              {"name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS"}
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [3680, 100],
+      "position": [
+        3680,
+        100
+      ],
       "id": "plane-agent-resp-ok-0021",
       "name": "Ответ: OK"
     },
@@ -382,73 +856,592 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              {"name": "Access-Control-Allow-Origin", "value": "*"},
-              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"},
-              {"name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS"}
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [780, 540],
+      "position": [
+        780,
+        540
+      ],
       "id": "plane-agent-resp-err-0022",
       "name": "Ответ: ошибка"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.plane_url }}/api/v1/workspaces/{{ $json.workspace_slug }}/projects/{{ $json.project_id }}/issues/{{ $json.issue_id }}/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $json.plane_token }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2700,
+        1100
+      ],
+      "id": "plane-get-issue-V1",
+      "name": "get_issue: GET",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.plane_url }}/api/v1/workspaces/{{ $json.workspace_slug }}/projects/{{ $json.project_id }}/issues/{{ $json.issue_id }}/comments/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $json.plane_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ comment_html: '<p>' + String($json.params.comment || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</p>' }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2700,
+        1300
+      ],
+      "id": "plane-add-comment-V1",
+      "name": "add_comment: POST",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Resolve для extended-actions (change_status, set_deadline, assign_issue,\n// add_label, remove_label, add_comment, get_issue).\n// Находит issue_id по issue_name. Если params.state есть — берёт state_id\n// из загруженных states. Если params.labels (массив имён) — резолвит label_ids.\nconst src = $input.first().json;\nconst params = src.params || {};\n\n// Найти issue_id\nlet issue_id = null;\nlet issue_obj = null;\nconst issues = src.issues || [];\nconst wantedIssue = String(params.issue_name || '').toLowerCase().trim();\nif (wantedIssue) {\n  issue_obj = issues.find(i => String(i.name || '').toLowerCase() === wantedIssue);\n  if (issue_obj) issue_id = issue_obj.id;\n}\nif (!issue_id && wantedIssue) {\n  return [{ json: { ...src, _resolve_error: `Не нашёл задачу «${params.issue_name}». Доступные: ${issues.slice(0,5).map(i=>i.name).join(', ')}.` } }];\n}\n\n// Резолв state_id из params.state (если есть)\nlet state_id = null;\nif (params.state) {\n  const states = src._states || [];\n  const wantedState = String(params.state).toLowerCase().trim();\n  // Сначала по точному совпадению name, потом по group (backlog/unstarted/started/completed/cancelled)\n  const stateByName = states.find(s => String(s.name || '').toLowerCase() === wantedState);\n  const stateByGroup = states.find(s => String(s.group || '').toLowerCase() === wantedState);\n  // Семантические aliases для русских и популярных терминов\n  const ALIASES = {\n    'тудо':'unstarted','todo':'unstarted','к выполнению':'unstarted','новая':'unstarted',\n    'в работе':'started','в процессе':'started','in progress':'started','делается':'started',\n    'готово':'completed','done':'completed','завершено':'completed','выполнено':'completed',\n    'отменено':'cancelled','cancelled':'cancelled','отмена':'cancelled',\n    'бэклог':'backlog','backlog':'backlog','очередь':'backlog'\n  };\n  const aliased = ALIASES[wantedState];\n  const stateByAlias = aliased ? states.find(s => String(s.group || '').toLowerCase() === aliased) : null;\n  const state = stateByName || stateByGroup || stateByAlias;\n  if (state) state_id = state.id;\n}\n\nreturn [{ json: { ...src, issue_id, issue_obj, state_id } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        1000
+      ],
+      "id": "plane-resolve-extended-V1",
+      "name": "resolve: extended"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_issue",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-get"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "add_comment",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "r-comm"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        },
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2600,
+        1000
+      ],
+      "id": "plane-post-resolve-switch-V1",
+      "name": "Action router (extended)"
     }
   ],
   "connections": {
-    "Webhook": {"main": [[{"node": "Валидация", "type": "main", "index": 0}]]},
-    "Валидация": {"main": [[{"node": "Валидно?", "type": "main", "index": 0}]]},
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Валидация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация": {
+      "main": [
+        [
+          {
+            "node": "Валидно?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Валидно?": {
       "main": [
-        [{"node": "SQL: Verify token", "type": "main", "index": 0}],
-        [{"node": "Ответ: ошибка", "type": "main", "index": 0}]
+        [
+          {
+            "node": "SQL: Verify token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "SQL: Verify token": {"main": [[{"node": "Token result", "type": "main", "index": 0}]]},
-    "Token result": {"main": [[{"node": "Token OK?", "type": "main", "index": 0}]]},
+    "SQL: Verify token": {
+      "main": [
+        [
+          {
+            "node": "Token result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token result": {
+      "main": [
+        [
+          {
+            "node": "Token OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Token OK?": {
       "main": [
-        [{"node": "Plane API: projects", "type": "main", "index": 0}],
-        [{"node": "Ответ: ошибка", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Plane API: projects",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Plane API: projects": {"main": [[{"node": "Контекст: проекты", "type": "main", "index": 0}]]},
-    "Контекст: проекты": {"main": [[{"node": "Direct mode?", "type": "main", "index": 0}]]},
+    "Plane API: projects": {
+      "main": [
+        [
+          {
+            "node": "Контекст: проекты",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Контекст: проекты": {
+      "main": [
+        [
+          {
+            "node": "Direct mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Direct mode?": {
       "main": [
-        [{"node": "Direct resolve", "type": "main", "index": 0}],
-        [{"node": "LLM: extract intent", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Direct resolve",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM: extract intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Direct resolve": {"main": [[{"node": "Switch action", "type": "main", "index": 0}]]},
-    "LLM: extract intent": {"main": [[{"node": "Parse LLM", "type": "main", "index": 0}]]},
-    "Parse LLM": {"main": [[{"node": "Switch action", "type": "main", "index": 0}]]},
+    "Direct resolve": {
+      "main": [
+        [
+          {
+            "node": "Switch action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: extract intent": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM": {
+      "main": [
+        [
+          {
+            "node": "Switch action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Switch action": {
       "main": [
-        [{"node": "list_projects: pass-through", "type": "main", "index": 0}],
-        [{"node": "list_issues: GET", "type": "main", "index": 0}],
-        [{"node": "create_issue: POST", "type": "main", "index": 0}],
-        [{"node": "update: resolve issue_id", "type": "main", "index": 0}],
-        [{"node": "delete: resolve issue_id", "type": "main", "index": 0}],
-        [{"node": "search_issues: GET", "type": "main", "index": 0}],
-        [{"node": "Формат ответа", "type": "main", "index": 0}]
+        [
+          {
+            "node": "list_projects: pass-through",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "list_issues: GET",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "create_issue: POST",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "update: resolve issue_id",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "delete: resolve issue_id",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "search_issues: GET",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resolve: extended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resolve: extended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resolve: extended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resolve: extended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resolve: extended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resolve: extended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resolve: extended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "list_projects: pass-through": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
-    "list_issues: GET": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
-    "create_issue: POST": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
-    "update: resolve issue_id": {"main": [[{"node": "update_issue: PATCH", "type": "main", "index": 0}]]},
-    "update_issue: PATCH": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
-    "delete: resolve issue_id": {"main": [[{"node": "delete_issue: DELETE", "type": "main", "index": 0}]]},
-    "delete_issue: DELETE": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
-    "search_issues: GET": {"main": [[{"node": "Формат ответа", "type": "main", "index": 0}]]},
-    "Формат ответа": {"main": [[{"node": "Ответ: OK", "type": "main", "index": 0}]]}
+    "list_projects: pass-through": {
+      "main": [
+        [
+          {
+            "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "list_issues: GET": {
+      "main": [
+        [
+          {
+            "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_issue: POST": {
+      "main": [
+        [
+          {
+            "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update: resolve issue_id": {
+      "main": [
+        [
+          {
+            "node": "update_issue: PATCH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_issue: PATCH": {
+      "main": [
+        [
+          {
+            "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "delete: resolve issue_id": {
+      "main": [
+        [
+          {
+            "node": "delete_issue: DELETE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "delete_issue: DELETE": {
+      "main": [
+        [
+          {
+            "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search_issues: GET": {
+      "main": [
+        [
+          {
+            "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Формат ответа": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "resolve: extended": {
+      "main": [
+        [
+          {
+            "node": "Action router (extended)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action router (extended)": {
+      "main": [
+        [
+          {
+            "node": "get_issue: GET",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "add_comment: POST",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "update_issue: PATCH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_issue: GET": {
+      "main": [
+        [
+          {
+            "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "add_comment: POST": {
+      "main": [
+        [
+          {
+            "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": {"executionOrder": "v1"},
+  "settings": {
+    "executionOrder": "v1"
+  },
   "versionId": "plane-agent-v2-llm",
-  "meta": {"templateCredsSetupCompleted": true},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
   "id": "plane-agent-workflow",
   "tags": []
 }
