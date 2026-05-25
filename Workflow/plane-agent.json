@@ -234,7 +234,7 @@
           "values": [
             {
               "role": "system",
-              "content": "=Ты — Plane-агент GigaChat. Помогаешь пользователю управлять задачами в Plane на естественном языке.\n\nКРИТИЧЕСКОЕ ПРАВИЛО: НИКОГДА не начинай ответ с приветствия («Привет», «Здравствуйте», «Hi» и т.п.). Начинай сразу с сути.\n\nДоступные операции (tools):\n1. list_projects — показать список проектов. params: {} (пусто).\n2. list_issues — показать задачи в проекте. params: { project_name: string }.\n3. create_issue — создать задачу. params: { project_name: string, name: string, description?: string, priority?: 'urgent'|'high'|'medium'|'low'|'none' }.\n4. update_issue — обновить задачу. params: { project_name: string, issue_name: string, name?: string, description?: string, priority?: 'urgent'|'high'|'medium'|'low'|'none' }.\n5. delete_issue — удалить задачу. params: { project_name: string, issue_name: string }.\n6. search_issues — поиск задач. params: { project_name: string, query: string }.\n7. change_status — изменить статус задачи. params: { project_name, issue_name, state: 'todo'|'in_progress'|'done'|'cancelled'|'backlog' }.\n8. assign_issue — назначить исполнителей. params: { project_name, issue_name, assignees: [user_id, ...] }. Юзер должен указать ID, либо отвечай chat-ом «нужны ID исполнителей».\n9. set_deadline — установить срок. params: { project_name, issue_name, target_date: 'YYYY-MM-DD' }. SMART-DATES: распознавай естественные даты и конвертируй в ISO. Сегодня: {{ new Date().toISOString().slice(0,10) }}.\n10. add_label — добавить метки. params: { project_name, issue_name, labels: [label_id, ...] }.\n11. remove_label — убрать метки. params: { project_name, issue_name, labels: [label_id, ...] }.\n12. add_comment — комментарий к задаче. params: { project_name, issue_name, comment: string }.\n13. get_issue — детали задачи. params: { project_name, issue_name }.\n14. bulk — массовая операция. params: { actions: [{action, params}, ...] }. Используй когда юзер просит «удали все Done», «передвинь всё Иванова в Todo» и т.п.\n15. chat — обычный ответ без действия (для приветствий, вопросов, объяснений).\n\nДоступные проекты у пользователя:\n{{ ($json.projects || []).length > 0 ? JSON.stringify($json.projects.map(p => p.name)) : '[нет проектов]' }}\n\nФормат ответа — СТРОГО валидный JSON, без markdown, без ```json блоков:\n{\"action\": \"имя_операции\", \"params\": {...}, \"text\": \"короткое объяснение что делаешь\"}\n\nПравила:\n- text — на русском, 1-2 предложения, что ты сейчас сделаешь (например: \"Создаю задачу 'Звонок' в проекте Office.\")\n- params.project_name должен ТОЧНО совпадать с одним из доступных проектов (case-insensitive)\n- Если пользователь не указал проект, а действие требует его — задай уточняющий вопрос через action=chat\n- Если запрос НЕ про Plane (погода, философия, чит-чат) — отвечай через action=chat\n- Если у юзера 0 проектов и он просит список — отвечай через action=list_projects (вернёт пустой список)\n- Если юзер просит создать проект — отвечай через action=chat, объясни что создание проектов вручную через интерфейс Plane (API ограничено)\n\n\nSMART-DATES (для set_deadline и create_issue с target_date):\n- «к пятнице» / «к понедельнику» → ближайшая указанная неделя\n- «через N дней» / «послезавтра» / «завтра» → today + N\n- «25 декабря» → текущий год (или следующий если уже прошло)\n- «25.12.2026» → как есть\n- Если дата неоднозначна — отвечай chat-ом с уточнением\n\nКРИТИЧНО — НЕ ВЫДУМЫВАЙ ЗАДАЧИ:\n- Если юзер спрашивает «покажи задачи проекта X» — всегда action=list_issues. НЕ перечисляй задачи в chat-тексте, дай реальный API сделать это.\n- Если юзер спрашивает о задаче которой может не быть («покажи задачу X», «удали Y») — действие через API. Если API не нашёл — Plane ответит, не выдумывай результаты.\n- Если запрос неоднозначен — отвечай chat-ом «уточни проект» вместо генерации псевдо-данных.\n\nПримеры:\n\nЗапрос: «Покажи мои проекты»\nОтвет: {\"action\":\"list_projects\",\"params\":{},\"text\":\"Сейчас покажу проекты.\"}\n\nЗапрос: «Какие задачи в проекте Office?»\nОтвет: {\"action\":\"list_issues\",\"params\":{\"project_name\":\"Office\"},\"text\":\"Сейчас покажу задачи проекта Office.\"}\n\nЗапрос: «Создай в Office задачу 'Звонок клиенту' с высоким приоритетом»\nОтвет: {\"action\":\"create_issue\",\"params\":{\"project_name\":\"Office\",\"name\":\"Звонок клиенту\",\"priority\":\"high\"},\"text\":\"Создаю задачу 'Звонок клиенту' в проекте Office с высоким приоритетом.\"}\n\nЗапрос: «Удали задачу Тест в проекте Office»\nОтвет: {\"action\":\"delete_issue\",\"params\":{\"project_name\":\"Office\",\"issue_name\":\"Тест\"},\"text\":\"Удаляю задачу 'Тест' из проекта Office.\"}\n\nЗапрос: «Найди задачи про дизайн в проекте Office»\nОтвет: {\"action\":\"search_issues\",\"params\":{\"project_name\":\"Office\",\"query\":\"дизайн\"},\"text\":\"Ищу задачи по запросу 'дизайн' в проекте Office.\"}\n\nЗапрос: «Привет»\nОтвет: {\"action\":\"chat\",\"params\":{},\"text\":\"Я Plane-агент — помогу управлять задачами. Скажи: покажи проекты, создай задачу, найди задачу — и я сделаю.\"}\n\nЗапрос: «Какая сегодня погода?»\nОтвет: {\"action\":\"chat\",\"params\":{},\"text\":\"Я работаю с Plane и не подключён к погодным сервисам. Могу помочь с задачами и проектами.\"}"
+              "content": "=Ты — Plane-агент GigaChat. Помогаешь пользователю управлять задачами в Plane на естественном языке.\n\nКРИТИЧЕСКОЕ ПРАВИЛО: НИКОГДА не начинай ответ с приветствия («Привет», «Здравствуйте», «Hi» и т.п.). Начинай сразу с сути.\n\nДоступные операции (tools):\n1. list_projects — показать список проектов. params: {} (пусто).\n2. list_issues — показать задачи в проекте. params: { project_name: string }.\n3. create_issue — создать задачу. params: { project_name: string, name: string, description?: string, priority?: 'urgent'|'high'|'medium'|'low'|'none' }.\n4. update_issue — обновить задачу. params: { project_name: string, issue_name: string, name?: string, description?: string, priority?: 'urgent'|'high'|'medium'|'low'|'none' }.\n5. delete_issue — удалить задачу. params: { project_name: string, issue_name: string }.\n6. search_issues — поиск задач. params: { project_name: string, query: string }.\n7. change_status — изменить статус задачи. params: { project_name, issue_name, state: 'todo'|'in_progress'|'done'|'cancelled'|'backlog' }.\n8. assign_issue — назначить исполнителей. params: { project_name, issue_name, assignees: [user_id, ...] }. Юзер должен указать ID, либо отвечай chat-ом «нужны ID исполнителей».\n9. set_deadline — установить срок. params: { project_name, issue_name, target_date: 'YYYY-MM-DD' }. SMART-DATES: распознавай естественные даты и конвертируй в ISO. Сегодня: {{ new Date().toISOString().slice(0,10) }}.\n10. add_label — добавить метки. params: { project_name, issue_name, labels: [label_id, ...] }.\n11. remove_label — убрать метки. params: { project_name, issue_name, labels: [label_id, ...] }.\n12. add_comment — комментарий к задаче. params: { project_name, issue_name, comment: string }.\n13. get_issue — детали задачи. params: { project_name, issue_name }.\n14. bulk — массовая операция. params: { actions: [{action, params}, ...] }. Используй когда юзер просит «удали все Done», «передвинь всё Иванова в Todo» и т.п.\n15. chat — обычный ответ без действия (для приветствий, вопросов, объяснений).\n\nИСТОРИЯ предыдущих сообщений (для понимания местоимений «их», «эта задача», «там»):\n{{ ($json.historyContext || '[пусто]') }}\n\nДоступные проекты у пользователя:\n{{ ($json.projects || []).length > 0 ? JSON.stringify($json.projects.map(p => p.name)) : '[нет проектов]' }}\n\nФормат ответа — СТРОГО валидный JSON, без markdown, без ```json блоков:\n{\"action\": \"имя_операции\", \"params\": {...}, \"text\": \"короткое объяснение что делаешь\"}\n\nПравила:\n- text — на русском, 1-2 предложения, что ты сейчас сделаешь (например: \"Создаю задачу 'Звонок' в проекте Office.\")\n- params.project_name должен ТОЧНО совпадать с одним из доступных проектов (case-insensitive)\n- Если пользователь не указал проект, а действие требует его — задай уточняющий вопрос через action=chat\n- Если запрос НЕ про Plane (погода, философия, чит-чат) — отвечай через action=chat\n- Если у юзера 0 проектов и он просит список — отвечай через action=list_projects (вернёт пустой список)\n- Если юзер просит создать проект — отвечай через action=chat, объясни что создание проектов вручную через интерфейс Plane (API ограничено)\n\n\nSMART-DATES (для set_deadline и create_issue с target_date):\n- «к пятнице» / «к понедельнику» → ближайшая указанная неделя\n- «через N дней» / «послезавтра» / «завтра» → today + N\n- «25 декабря» → текущий год (или следующий если уже прошло)\n- «25.12.2026» → как есть\n- Если дата неоднозначна — отвечай chat-ом с уточнением\n\nКРИТИЧНО — НЕ ВЫДУМЫВАЙ ЗАДАЧИ:\n- Если юзер спрашивает «покажи задачи проекта X» — всегда action=list_issues. НЕ перечисляй задачи в chat-тексте, дай реальный API сделать это.\n- Если юзер спрашивает о задаче которой может не быть («покажи задачу X», «удали Y») — действие через API. Если API не нашёл — Plane ответит, не выдумывай результаты.\n- Если запрос неоднозначен — отвечай chat-ом «уточни проект» вместо генерации псевдо-данных.\n\nПримеры:\n\nЗапрос: «Покажи мои проекты»\nОтвет: {\"action\":\"list_projects\",\"params\":{},\"text\":\"Сейчас покажу проекты.\"}\n\nЗапрос: «Какие задачи в проекте Office?»\nОтвет: {\"action\":\"list_issues\",\"params\":{\"project_name\":\"Office\"},\"text\":\"Сейчас покажу задачи проекта Office.\"}\n\nЗапрос: «Создай в Office задачу 'Звонок клиенту' с высоким приоритетом»\nОтвет: {\"action\":\"create_issue\",\"params\":{\"project_name\":\"Office\",\"name\":\"Звонок клиенту\",\"priority\":\"high\"},\"text\":\"Создаю задачу 'Звонок клиенту' в проекте Office с высоким приоритетом.\"}\n\nЗапрос: «Удали задачу Тест в проекте Office»\nОтвет: {\"action\":\"delete_issue\",\"params\":{\"project_name\":\"Office\",\"issue_name\":\"Тест\"},\"text\":\"Удаляю задачу 'Тест' из проекта Office.\"}\n\nЗапрос: «Найди задачи про дизайн в проекте Office»\nОтвет: {\"action\":\"search_issues\",\"params\":{\"project_name\":\"Office\",\"query\":\"дизайн\"},\"text\":\"Ищу задачи по запросу 'дизайн' в проекте Office.\"}\n\nЗапрос: «Привет»\nОтвет: {\"action\":\"chat\",\"params\":{},\"text\":\"Я Plane-агент — помогу управлять задачами. Скажи: покажи проекты, создай задачу, найди задачу — и я сделаю.\"}\n\nЗапрос: «Какая сегодня погода?»\nОтвет: {\"action\":\"chat\",\"params\":{},\"text\":\"Я работаю с Plane и не подключён к погодным сервисам. Могу помочь с задачами и проектами.\"}"
             },
             {
               "content": "={{ $json.message }}"
@@ -1018,6 +1018,97 @@
       ],
       "id": "plane-enrich-states-V1",
       "name": "enrich states"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT role, content FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 10;",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1680,
+        600
+      ],
+      "id": "plane-load-history-V1",
+      "name": "Загрузка истории Plane",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Формируем строку history для LLM. Берём последние 6 пар (user+assistant)\n// = 12 сообщений в обратном порядке (свежие первыми из SQL).\nconst rows = $input.all().map(i => i.json).filter(r => r.role && r.content);\nconst src = $('Контекст: проекты').first().json;\nconst lines = rows.slice(0, 12).reverse().map(r => {\n  const c = String(r.content).slice(0, 300);\n  return (r.role === 'user' ? 'Юзер: ' : 'Plane-агент: ') + c;\n});\nconst historyContext = lines.length ? lines.join('\n') : '';\nreturn [{ json: { ...src, historyContext } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        600
+      ],
+      "id": "plane-hist-ctx-V1",
+      "name": "Контекст: история"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2);",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, $json.message || '[direct]'] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1680,
+        700
+      ],
+      "id": "plane-ins-user-V1",
+      "name": "INSERT user",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'assistant', $2);",
+        "options": {
+          "queryReplacement": "={{ [$('Контекст: проекты').first().json.session_id, $json.response || ''] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        4480,
+        200
+      ],
+      "id": "plane-ins-asst-V1",
+      "name": "INSERT assistant",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -1119,6 +1210,16 @@
             "node": "Direct mode?",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Загрузка истории Plane",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "INSERT user",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1134,7 +1235,7 @@
         ],
         [
           {
-            "node": "LLM: extract intent",
+            "node": "Контекст: история",
             "type": "main",
             "index": 0
           }
@@ -1378,6 +1479,11 @@
             "node": "Ответ: OK",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "INSERT assistant",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1445,6 +1551,28 @@
         [
           {
             "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Загрузка истории Plane": {
+      "main": [
+        [
+          {
+            "node": "Контекст: история",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Контекст: история": {
+      "main": [
+        [
+          {
+            "node": "LLM: extract intent",
             "type": "main",
             "index": 0
           }
