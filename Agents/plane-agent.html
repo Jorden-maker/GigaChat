@@ -580,57 +580,29 @@
             </div>
 
             <div class="dt-card">
-                <h4>10. Назначить исполнителей</h4>
-                <div class="dt-hint">action=assign_issue, params={ project_name, issue_name, assignees: [user_id, ...] }<br>
-                user_id берутся из Plane (Settings → Members → ID). Через запятую.</div>
+                <h4>10. Изменить приоритет</h4>
+                <div class="dt-hint">action=update_issue, params={ project_name, issue_name, priority }</div>
                 <div class="dt-row">
-                    <input id="dt-ai-project" placeholder="project_name" autocomplete="off">
-                    <input id="dt-ai-issue" placeholder="имя задачи" autocomplete="off">
-                    <input id="dt-ai-users" placeholder="user_id1, user_id2, ..." autocomplete="off">
-                    <button onclick="runDirect('assign_issue', {
-                        project_name: document.getElementById('dt-ai-project').value.trim(),
-                        issue_name: document.getElementById('dt-ai-issue').value.trim(),
-                        assignees: document.getElementById('dt-ai-users').value.split(',').map(s=>s.trim()).filter(Boolean)
+                    <input id="dt-cp-project" placeholder="project_name" autocomplete="off">
+                    <input id="dt-cp-issue" placeholder="имя задачи (точное)" autocomplete="off">
+                    <select id="dt-cp-prio">
+                        <option value="urgent">срочный</option>
+                        <option value="high" selected>высокий</option>
+                        <option value="medium">средний</option>
+                        <option value="low">низкий</option>
+                        <option value="none">нет</option>
+                    </select>
+                    <button onclick="runDirect('update_issue', {
+                        project_name: document.getElementById('dt-cp-project').value.trim(),
+                        issue_name: document.getElementById('dt-cp-issue').value.trim(),
+                        priority: document.getElementById('dt-cp-prio').value
                     }, this)">Выполнить</button>
                 </div>
-                <div class="dt-result" id="dt-res-assign_issue"></div>
+                <div class="dt-result" id="dt-res-update_issue" style="display:none"></div>
             </div>
 
             <div class="dt-card">
-                <h4>11. Добавить метки</h4>
-                <div class="dt-hint">action=add_label, params={ project_name, issue_name, labels: [label_id, ...] }<br>
-                label_id из Plane (Project → Labels → ID). Через запятую.</div>
-                <div class="dt-row">
-                    <input id="dt-al-project" placeholder="project_name" autocomplete="off">
-                    <input id="dt-al-issue" placeholder="имя задачи" autocomplete="off">
-                    <input id="dt-al-labels" placeholder="label_id1, label_id2, ..." autocomplete="off">
-                    <button onclick="runDirect('add_label', {
-                        project_name: document.getElementById('dt-al-project').value.trim(),
-                        issue_name: document.getElementById('dt-al-issue').value.trim(),
-                        labels: document.getElementById('dt-al-labels').value.split(',').map(s=>s.trim()).filter(Boolean)
-                    }, this)">Выполнить</button>
-                </div>
-                <div class="dt-result" id="dt-res-add_label"></div>
-            </div>
-
-            <div class="dt-card">
-                <h4>12. Убрать метки</h4>
-                <div class="dt-hint">action=remove_label, params={ project_name, issue_name, labels: [...] } — оставшиеся labels (без указанных)</div>
-                <div class="dt-row">
-                    <input id="dt-rl-project" placeholder="project_name" autocomplete="off">
-                    <input id="dt-rl-issue" placeholder="имя задачи" autocomplete="off">
-                    <input id="dt-rl-labels" placeholder="label_id1, label_id2, ... — те что останутся" autocomplete="off">
-                    <button onclick="runDirect('remove_label', {
-                        project_name: document.getElementById('dt-rl-project').value.trim(),
-                        issue_name: document.getElementById('dt-rl-issue').value.trim(),
-                        labels: document.getElementById('dt-rl-labels').value.split(',').map(s=>s.trim()).filter(Boolean)
-                    }, this)">Выполнить</button>
-                </div>
-                <div class="dt-result" id="dt-res-remove_label"></div>
-            </div>
-
-            <div class="dt-card">
-                <h4>13. Добавить комментарий</h4>
+                <h4>11. Добавить комментарий</h4>
                 <div class="dt-hint">action=add_comment, params={ project_name, issue_name, comment }</div>
                 <div class="dt-row">
                     <input id="dt-ac-project" placeholder="project_name" autocomplete="off">
@@ -645,82 +617,22 @@
                 <div class="dt-result" id="dt-res-add_comment"></div>
             </div>
 
-            <div class="dt-card">
-                <h4>14. Bulk-операции (массив actions)</h4>
-                <div class="dt-hint">action=bulk, params={ actions: [{ action, params }, ...] }<br>
-                JSON массив. Пример: <code>[{"action":"delete_issue","params":{"project_name":"office","issue_name":"X"}}]</code></div>
-                <div class="dt-row">
-                    <input id="dt-bk-json" placeholder='[{"action":"...","params":{...}}, ...]' autocomplete="off" style="font-family:Consolas,monospace;font-size:11px">
-                    <button onclick="(function(b){
-                        var raw = document.getElementById('dt-bk-json').value.trim();
-                        var arr;
-                        try { arr = JSON.parse(raw); }
-                        catch(e) { showDirectResult('bulk', {error:'Невалидный JSON: '+e.message}, true); return; }
-                        if (!Array.isArray(arr)) { showDirectResult('bulk', {error:'Должен быть массив'}, true); return; }
-                        runDirect('bulk', { actions: arr }, b);
-                    })(this)">Выполнить</button>
-                </div>
-                <div class="dt-result" id="dt-res-bulk"></div>
-            </div>
-
             <div class="modal-buttons">
                 <button onclick="closeDirectTest()">Закрыть</button>
             </div>
         </div>
     </div>
 
-    <!-- Settings modal: Plane URL + workspace_slug + API token + шаблоны задач. -->
+    <!-- Settings modal: Plane URL + workspace_slug + API token. -->
     <div class="modal-backdrop" id="settingsModal" onclick="if(event.target===this)closeSettings()">
         <div class="modal-box">
             <h3>Plane-настройки</h3>
-            <div class="modal-tabs">
-                <button class="modal-tab active" data-tab="conn" onclick="switchSettingsTab('conn')">Подключение</button>
-                <button class="modal-tab" data-tab="templates" onclick="switchSettingsTab('templates')">Шаблоны</button>
-            </div>
-
-            <div class="modal-pane active" data-pane="conn">
-                <label for="set-url">Plane URL</label>
-                <input id="set-url" type="text" placeholder="http://host.docker.internal:8000" autocomplete="off" data-next="set-slug">
-                <label for="set-slug">Workspace slug</label>
-                <input id="set-slug" type="text" placeholder="office" autocomplete="off" data-next="set-token">
-                <label for="set-token">API token (X-API-Key)</label>
-                <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off" data-next="set-save-btn">
-            </div>
-
-            <div class="modal-pane" data-pane="templates">
-                <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">
-                    Шаблоны автоматически распознаются LLM при создании задачи.
-                    Напишите в чате «создай <b>багфикс</b> название» — задача создастся с
-                    предустановленным приоритетом и префиксом имени.
-                </div>
-                <div class="templates-list">
-                    <div class="template-card">
-                        <div>
-                            <div class="tc-name">Bug: ... (багфикс)</div>
-                            <div class="tc-desc">Триггер: «багфикс», «баг», «исправь»</div>
-                        </div>
-                        <span class="tc-tag high">high</span>
-                    </div>
-                    <div class="template-card">
-                        <div>
-                            <div class="tc-name">Feature: ... (фича)</div>
-                            <div class="tc-desc">Триггер: «фича», «новая возможность»</div>
-                        </div>
-                        <span class="tc-tag medium">medium</span>
-                    </div>
-                    <div class="template-card">
-                        <div>
-                            <div class="tc-name">Tech debt: ... (техдолг)</div>
-                            <div class="tc-desc">Триггер: «техдолг», «рефакторинг»</div>
-                        </div>
-                        <span class="tc-tag low">low</span>
-                    </div>
-                </div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:14px;line-height:1.5">
-                    Шаблоны hardcoded в LLM prompt. Кастомные шаблоны — в следующих версиях.
-                </div>
-            </div>
-
+            <label for="set-url">Plane URL</label>
+            <input id="set-url" type="text" placeholder="http://host.docker.internal:8000" autocomplete="off" data-next="set-slug">
+            <label for="set-slug">Workspace slug</label>
+            <input id="set-slug" type="text" placeholder="office" autocomplete="off" data-next="set-token">
+            <label for="set-token">API token (X-API-Key)</label>
+            <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off" data-next="set-save-btn">
             <div class="modal-err" id="set-err"></div>
             <div class="modal-buttons">
                 <button onclick="closeSettings()">Отмена</button>
