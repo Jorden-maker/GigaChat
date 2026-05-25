@@ -287,25 +287,30 @@
             gap: 12px;
             min-height: 400px;
         }
-        /* Сайдбар сворачивается влево при открытии доски (через body.board-fullscreen). */
-        body.board-fullscreen .sidebar {
-            width: 0 !important; min-width: 0 !important;
-            margin-left: 0 !important; padding: 0 !important;
-            opacity: 0; overflow: hidden;
-            border-right-width: 0;
+        /* Sidebar top: back-arrow + кнопка Доска/Чат на одной строке.
+           Сама кнопка стоит на 5px правее back-arrow. */
+        .sidebar-top {
+            display: flex; align-items: center;
+            padding: 10px 12px; gap: 0;
         }
-        .sidebar {
-            transition: width 0.3s ease, opacity 0.25s ease,
-                        margin 0.3s ease, padding 0.3s ease;
+        .sidebar-top .btn-home { margin: 0 !important; }
+        .sidebar-top #boardToggleBtn { margin-left: 5px; }
+
+        /* При открытии доски: содержимое сайдбара (сессии + add) уезжает
+           вправо-в-лево (height/opacity), top-bar с кнопками остаётся.
+           Сайдбар сжимается до ширины top-bar. */
+        .sidebar { transition: width 0.3s ease; }
+        .sidebar-header, .sidebar-add, .session-list {
+            transition: opacity 0.2s ease, transform 0.25s ease, max-height 0.3s ease;
+            overflow: hidden;
         }
-        .main {
-            transition: padding-left 0.3s ease;
+        body.board-fullscreen .sidebar { width: auto; min-width: 0; }
+        body.board-fullscreen .sidebar-header,
+        body.board-fullscreen .sidebar-add,
+        body.board-fullscreen .session-list {
+            opacity: 0; transform: translateX(-30px);
+            max-height: 0; padding: 0; margin: 0; pointer-events: none;
         }
-        /* Кнопка «Доска/Чат» в header-left — стоит на 5px правее back-arrow,
-           h1 «GigaChat Plane» — на 12px правее кнопки. */
-        .header-left { display: flex; align-items: center; }
-        .header-left h1 { margin: 0 0 0 12px; }
-        .header-left #boardToggleBtn { margin-left: 5px; }
         .board-col {
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 10px; padding: 10px;
@@ -656,20 +661,17 @@
 </head>
 <body>
     <div class="sidebar">
+        <div class="sidebar-top">
+            <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
+            <button class="btn-settings" id="boardToggleBtn" onclick="toggleBoard()">Доска</button>
+        </div>
         <div class="sidebar-header"><h3>Сессии</h3></div>
         <div class="sidebar-add"><button onclick="createNewSession()">Новая сессия</button></div>
         <div class="session-list" id="sessionList"></div>
     </div>
     <div class="main">
         <header>
-            <div class="header-left">
-                <!-- Стрелка выхода + кнопка Доска/Чат СРАЗУ за ней (5px gap).
-                     Перенесена сюда из сайдбара чтобы оставаться видимой когда
-                     сайдбар сворачивается при открытии доски. -->
-                <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
-                <button class="btn-settings" id="boardToggleBtn" onclick="toggleBoard()">Доска</button>
-                <h1>GigaChat Plane</h1>
-            </div>
+            <div class="header-left"><h1>GigaChat Plane</h1></div>
             <div class="header-right">
                 <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
                 <button class="btn-settings" onclick="openSettings()">Настройки</button>
