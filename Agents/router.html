@@ -352,10 +352,12 @@
         document.documentElement.classList.remove('gc-pending-auth');
         GigaChat.createChatAgent({
             userScoped: true,
-            // webhookPath используется ТОЛЬКО для health-check'а (пинг /webhook/router
-            // на «жив ли router-workflow»). Для sendMsg URL вычисляется динамически
-            // через resolveSendUrl по currentAgent.
+            // router работает целиком во фронте (resolveSendUrl выбирает реальный
+            // endpoint per agent). Backend workflow «Поток (Роутер)» удалён —
+            // /webhook/router больше не существует. skipHealthCheck:true —
+            // не пинговать несуществующий endpoint, статус сразу «Онлайн».
             webhookPath: 'router',
+            skipHealthCheck: true,
             historyPath: 'history',
             prefix: 'router',
             idPrefix: 'router_',

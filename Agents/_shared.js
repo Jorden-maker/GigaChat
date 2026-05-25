@@ -4091,12 +4091,20 @@
       onInputExtra(input.value);
     });
 
-    // Health-check
-    function ping() {
-      return checkServerStatus(WEBHOOK_URL, statusDot, statusText, { dotClass: statusDotClass });
+    // Health-check. skipHealthCheck:true — для агентов без backend-пинга
+    // (например router — работает целиком во фронте, бэк-workflow удалён).
+    // В этом случае статус сразу показываем «Онлайн» — потому что юзер видит
+    // сам факт что страница загрузилась = всё что нужно, работает.
+    if (opts.skipHealthCheck) {
+      if (statusDot) statusDot.className = statusDotClass + ' online';
+      if (statusText) statusText.textContent = 'Онлайн';
+    } else {
+      var ping = function () {
+        return checkServerStatus(WEBHOOK_URL, statusDot, statusText, { dotClass: statusDotClass });
+      };
+      ping();
+      setInterval(ping, 30000);
     }
-    ping();
-    setInterval(ping, 30000);
 
     // Глобальные обёртки для onclick из HTML (кнопки «Новая сессия»,
     // «Экспорт», send). Совместимость со старым кодом.
