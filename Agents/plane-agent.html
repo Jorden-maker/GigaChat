@@ -301,9 +301,11 @@
         .main {
             transition: padding-left 0.3s ease;
         }
-        /* Кнопка «Доска/Чат» в header-left — стоит слева от заголовка */
-        .header-left { display: flex; align-items: center; gap: 12px; }
-        .header-left h1 { margin: 0; }
+        /* Кнопка «Доска/Чат» в header-left — стоит на 5px правее back-arrow,
+           h1 «GigaChat Plane» — на 12px правее кнопки. */
+        .header-left { display: flex; align-items: center; }
+        .header-left h1 { margin: 0 0 0 12px; }
+        .header-left #boardToggleBtn { margin-left: 5px; }
         .board-col {
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 10px; padding: 10px;
@@ -654,7 +656,6 @@
 </head>
 <body>
     <div class="sidebar">
-        <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
         <div class="sidebar-header"><h3>Сессии</h3></div>
         <div class="sidebar-add"><button onclick="createNewSession()">Новая сессия</button></div>
         <div class="session-list" id="sessionList"></div>
@@ -662,9 +663,10 @@
     <div class="main">
         <header>
             <div class="header-left">
-                <!-- Кнопка «Доска/Чат» — сразу справа от стрелки выхода (которая в сайдбаре),
-                     визуально они стоят рядом. При клике сайдбар уезжает влево, доска
-                     расширяется на всю ширину. -->
+                <!-- Стрелка выхода + кнопка Доска/Чат СРАЗУ за ней (5px gap).
+                     Перенесена сюда из сайдбара чтобы оставаться видимой когда
+                     сайдбар сворачивается при открытии доски. -->
+                <a class="btn-home" href="../GigaChat-Platform.html" aria-label="Назад к GigaChat"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
                 <button class="btn-settings" id="boardToggleBtn" onclick="toggleBoard()">Доска</button>
                 <h1>GigaChat Plane</h1>
             </div>
