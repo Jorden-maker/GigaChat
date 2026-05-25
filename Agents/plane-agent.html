@@ -310,6 +310,273 @@
         .board-card .bc-deadline.overdue { color: #ef4444; font-weight: 500; }
         .board-empty { color: var(--text-muted); font-size: 12px; padding: 20px 0; text-align: center; }
 
+        /* === Phase 1: Toolbar расширенная (поиск, фильтры, сортировка, мои) === */
+        .board-toolbar-2 {
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .board-search-input {
+            background: var(--bg-input); border: 1px solid var(--border);
+            color: var(--text-primary); padding: 6px 10px; border-radius: 6px;
+            font-size: 12px; min-width: 200px; font-family: inherit;
+            transition: border-color 0.15s;
+        }
+        .board-search-input:focus { outline: none; border-color: var(--accent); }
+        .board-chip {
+            padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border);
+            background: transparent; color: var(--text-secondary);
+            font-size: 11px; cursor: pointer; transition: all 0.15s;
+            font-family: inherit;
+        }
+        .board-chip:hover { color: var(--text-primary); border-color: var(--accent); }
+        .board-chip.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+        .board-sort-select {
+            background: var(--bg-input); border: 1px solid var(--border);
+            color: var(--text-secondary); padding: 5px 8px; border-radius: 6px;
+            font-size: 11px; font-family: inherit; cursor: pointer;
+        }
+        .board-sort-select:focus { outline: none; border-color: var(--accent); }
+
+        /* === Phase 1: Quick-create в колонках === */
+        .board-col-add {
+            background: transparent; border: 1px dashed var(--border);
+            color: var(--text-muted); padding: 6px; border-radius: 6px;
+            cursor: pointer; font-size: 13px; font-family: inherit;
+            transition: all 0.15s; margin-top: 4px;
+        }
+        .board-col-add:hover { border-color: var(--accent); color: var(--accent); }
+        .board-col-quick-form {
+            display: none; margin-top: 4px;
+        }
+        .board-col-quick-form.show { display: block; }
+        .board-col-quick-form input {
+            width: 100%; padding: 7px 9px; border-radius: 6px;
+            border: 1px solid var(--accent); background: var(--bg-input);
+            color: var(--text-primary); font-size: 12px; font-family: inherit;
+            box-sizing: border-box;
+        }
+        .board-col-quick-form input:focus { outline: none; }
+        .board-col-quick-form .qf-hint {
+            color: var(--text-muted); font-size: 10px; margin-top: 4px;
+        }
+
+        /* === Phase 1: Bulk selection === */
+        .board-card.selected {
+            border-color: var(--accent); background: var(--accent-light);
+            box-shadow: inset 0 0 0 1px var(--accent);
+        }
+        .board-bulk-bar {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: var(--bg-card); border: 1px solid var(--accent);
+            border-radius: 24px; padding: 10px 18px; display: none;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            z-index: 100;
+        }
+        .board-bulk-bar.show { display: flex; gap: 10px; align-items: center; }
+        .board-bulk-bar .bulk-count { color: var(--text-muted); font-size: 12px; margin-right: 6px; }
+        .board-bulk-bar button {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--text-primary); padding: 5px 12px; border-radius: 12px;
+            cursor: pointer; font-size: 12px; font-family: inherit;
+            transition: all 0.15s;
+        }
+        .board-bulk-bar button:hover { border-color: var(--accent); color: var(--accent); }
+        .board-bulk-bar button.danger:hover { border-color: var(--error); color: var(--error); }
+
+        /* === Phase 1: Чипы меток + счётчики на карточке === */
+        .board-card .bc-labels {
+            display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 0;
+        }
+        .board-card .bc-label {
+            padding: 1px 6px; border-radius: 8px; font-size: 10px;
+            background: rgba(122,122,120,0.18); color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .board-card .bc-counters {
+            display: inline-flex; gap: 6px; color: var(--text-muted);
+            font-size: 10px; margin-left: auto;
+        }
+        .board-card .bc-counters span {
+            display: inline-flex; align-items: center; gap: 2px;
+        }
+        .board-card .bc-foot {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 6px; gap: 6px;
+        }
+
+        /* === Phase 1: Hover preview tooltip === */
+        .board-preview {
+            position: fixed; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 8px; padding: 10px 12px; max-width: 320px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3); pointer-events: none;
+            z-index: 1000; display: none; font-size: 12px;
+            color: var(--text-secondary); line-height: 1.4;
+        }
+        .board-preview.show { display: block; }
+        .board-preview .bp-title { color: var(--text-primary); font-weight: 500; margin-bottom: 6px; font-size: 13px; }
+        .board-preview .bp-desc { color: var(--text-secondary); white-space: pre-wrap;
+            max-height: 160px; overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical;
+        }
+        .board-preview .bp-meta { color: var(--text-muted); font-size: 11px; margin-top: 6px; }
+
+        /* === Phase 1: Контекстное меню === */
+        .context-menu {
+            position: fixed; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 8px; padding: 4px; min-width: 200px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 1001;
+            display: none;
+        }
+        .context-menu.show { display: block; }
+        .context-menu button {
+            display: block; width: 100%; text-align: left;
+            background: transparent; border: none; color: var(--text-primary);
+            padding: 7px 12px; font-size: 12px; cursor: pointer; border-radius: 6px;
+            font-family: inherit;
+        }
+        .context-menu button:hover { background: var(--bg-input); }
+        .context-menu button.danger { color: #ef4444; }
+        .context-menu button.danger:hover { background: rgba(239,68,68,0.1); }
+        .context-menu hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
+
+        /* === Phase 1: Модалка карточки === */
+        .card-modal-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            display: none; z-index: 999;
+            align-items: center; justify-content: center;
+        }
+        .card-modal-backdrop.show { display: flex; }
+        .card-modal {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; max-width: 620px; width: 92%;
+            max-height: 88vh; overflow-y: auto;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+        }
+        .card-modal-header {
+            padding: 18px 24px 12px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .card-modal-header h3 {
+            margin: 0; flex: 1; color: var(--text-primary);
+            font-size: 16px; font-weight: 500;
+        }
+        .card-modal-close {
+            background: transparent; border: none; color: var(--text-muted);
+            font-size: 22px; cursor: pointer; padding: 0 6px; line-height: 1;
+            font-family: inherit;
+        }
+        .card-modal-close:hover { color: var(--error); }
+        .card-modal-body { padding: 18px 24px; }
+        .card-modal-row {
+            display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;
+        }
+        .card-modal-row label {
+            color: var(--text-muted); font-size: 12px;
+            min-width: 100px; padding-top: 7px;
+        }
+        .card-modal-row .field-value { flex: 1; color: var(--text-primary); font-size: 13px; }
+        .card-modal-row input,
+        .card-modal-row textarea,
+        .card-modal-row select {
+            width: 100%; padding: 6px 10px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--bg-input);
+            color: var(--text-primary); font-size: 13px; font-family: inherit;
+            box-sizing: border-box;
+        }
+        .card-modal-row input:focus,
+        .card-modal-row textarea:focus,
+        .card-modal-row select:focus { outline: none; border-color: var(--accent); }
+        .card-modal-row textarea { min-height: 76px; resize: vertical; }
+        .card-modal-comments {
+            margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;
+        }
+        .card-modal-comments h4 {
+            margin: 0 0 10px; color: var(--text-secondary); font-size: 12px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .card-modal-comment {
+            padding: 8px 10px; border-radius: 6px; background: var(--bg-input);
+            margin-bottom: 6px; font-size: 12px; color: var(--text-secondary);
+        }
+        .card-modal-comment .cm-author { color: var(--text-muted); font-size: 11px; }
+        .card-modal-add-comment { margin-top: 10px; display: flex; gap: 6px; }
+        .card-modal-add-comment input { flex: 1; }
+        .card-modal-footer {
+            padding: 14px 24px 18px; display: flex; gap: 8px; justify-content: flex-end;
+            border-top: 1px solid var(--border); flex-wrap: wrap;
+        }
+        .card-modal-footer button {
+            padding: 7px 16px; border-radius: 8px; font-size: 13px;
+            cursor: pointer; border: 1px solid var(--border); background: transparent;
+            color: var(--text-primary); font-family: inherit;
+            transition: all 0.15s;
+        }
+        .card-modal-footer button:hover { border-color: var(--accent); color: var(--accent); }
+        .card-modal-footer button.primary {
+            background: var(--accent); border-color: var(--accent); color: white;
+        }
+        .card-modal-footer button.primary:hover { background: var(--accent-hover); }
+        .card-modal-footer button.danger:hover { border-color: var(--error); color: var(--error); }
+
+        /* === Phase 1: Confirm dialog === */
+        .confirm-modal-content {
+            padding: 28px 24px; text-align: center;
+        }
+        .confirm-modal-content h4 {
+            margin: 0 0 12px; color: var(--text-primary); font-size: 16px;
+        }
+        .confirm-modal-content p {
+            color: var(--text-secondary); margin: 0 0 20px; font-size: 13px;
+        }
+
+        /* === Phase 1: Sticky project pill в чате === */
+        .sticky-project-pill {
+            display: none; align-items: center; gap: 6px;
+            background: var(--accent-light); color: var(--accent);
+            padding: 4px 10px; border-radius: 12px; font-size: 11px;
+            margin: 6px 14px;
+        }
+        .sticky-project-pill.show { display: inline-flex; }
+        .sticky-project-pill .sp-clear {
+            background: transparent; border: none; color: var(--accent);
+            cursor: pointer; padding: 0 0 0 6px; font-size: 14px;
+            line-height: 1; font-family: inherit;
+        }
+        .sticky-project-pill .sp-clear:hover { color: var(--error); }
+
+        /* === Phase 1: Quick reply buttons под bot-сообщением === */
+        .quick-replies {
+            display: flex; gap: 6px; flex-wrap: wrap;
+            margin: 8px 0 4px;
+        }
+        .quick-reply-btn {
+            background: var(--bg-input); border: 1px solid var(--border);
+            color: var(--text-secondary); padding: 5px 12px; border-radius: 14px;
+            font-size: 12px; cursor: pointer; font-family: inherit;
+            transition: all 0.15s;
+        }
+        .quick-reply-btn:hover {
+            border-color: var(--accent); color: var(--accent);
+            background: var(--accent-light);
+        }
+        .quick-reply-btn.danger:hover {
+            border-color: var(--error); color: var(--error);
+            background: rgba(239,68,68,0.06);
+        }
+
+        /* === Phase 1: Disambiguation list в чате === */
+        .disambig-list {
+            display: flex; flex-direction: column; gap: 6px; margin-top: 8px;
+        }
+        .disambig-item {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 8px; padding: 8px 12px; cursor: pointer;
+            transition: all 0.15s;
+        }
+        .disambig-item:hover { border-color: var(--accent); }
+        .disambig-item .di-title { color: var(--text-primary); font-size: 13px; font-weight: 500; }
+        .disambig-item .di-meta { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+
         /* Templates panel в Plane-настройках */
         .modal-tabs {
             display: flex; gap: 2px; margin-bottom: 14px;
@@ -376,24 +643,64 @@
                     <button class="board-refresh" onclick="reloadBoard()">Обновить</button>
                     <span class="board-status" id="board-status"></span>
                 </div>
+                <!-- Phase 1: вторая полоса с поиском, фильтрами, сортировкой -->
+                <div class="board-toolbar-2">
+                    <input type="text" class="board-search-input" id="board-search"
+                           placeholder="Поиск задачи..." oninput="applyBoardFilters()">
+                    <button class="board-chip" id="board-chip-mine" onclick="toggleMineFilter()">Только мои</button>
+                    <button class="board-chip" id="board-chip-overdue" onclick="toggleFilter('overdue')">Просроченные</button>
+                    <button class="board-chip" id="board-chip-urgent" onclick="toggleFilter('urgent')">Срочные</button>
+                    <button class="board-chip" id="board-chip-no-due" onclick="toggleFilter('noDeadline')">Без срока</button>
+                    <select class="board-sort-select" id="board-sort" onchange="applyBoardFilters()">
+                        <option value="priority">Сортировка: приоритет</option>
+                        <option value="deadline">Сортировка: срок</option>
+                        <option value="created">Сортировка: создан</option>
+                        <option value="name">Сортировка: имя</option>
+                    </select>
+                </div>
                 <div class="board-columns" id="board-columns">
                     <div class="board-col" data-state="unstarted">
                         <div class="board-col-header">Задачи <span class="board-col-count" data-count></span></div>
                         <div class="board-empty">Нет задач</div>
+                        <button class="board-col-add" data-state="unstarted" onclick="openQuickCreate('unstarted')">+ Добавить</button>
+                        <div class="board-col-quick-form" data-state="unstarted">
+                            <input type="text" placeholder="Название задачи + Enter" data-qc-state="unstarted">
+                            <div class="qf-hint">Esc — отмена</div>
+                        </div>
                     </div>
                     <div class="board-col" data-state="started">
                         <div class="board-col-header">В работе <span class="board-col-count" data-count></span></div>
                         <div class="board-empty">Нет задач</div>
+                        <button class="board-col-add" data-state="started" onclick="openQuickCreate('started')">+ Добавить</button>
+                        <div class="board-col-quick-form" data-state="started">
+                            <input type="text" placeholder="Название задачи + Enter" data-qc-state="started">
+                            <div class="qf-hint">Esc — отмена</div>
+                        </div>
                     </div>
                     <div class="board-col" data-state="completed">
                         <div class="board-col-header">Готово <span class="board-col-count" data-count></span></div>
                         <div class="board-empty">Нет задач</div>
+                        <button class="board-col-add" data-state="completed" onclick="openQuickCreate('completed')">+ Добавить</button>
+                        <div class="board-col-quick-form" data-state="completed">
+                            <input type="text" placeholder="Название задачи + Enter" data-qc-state="completed">
+                            <div class="qf-hint">Esc — отмена</div>
+                        </div>
                     </div>
                     <div class="board-col" data-state="cancelled">
                         <div class="board-col-header">Отменено <span class="board-col-count" data-count></span></div>
                         <div class="board-empty">Нет задач</div>
+                        <button class="board-col-add" data-state="cancelled" onclick="openQuickCreate('cancelled')">+ Добавить</button>
+                        <div class="board-col-quick-form" data-state="cancelled">
+                            <input type="text" placeholder="Название задачи + Enter" data-qc-state="cancelled">
+                            <div class="qf-hint">Esc — отмена</div>
+                        </div>
                     </div>
                 </div>
+            </div>
+            <!-- Phase 1: Sticky project pill (показывается когда set) -->
+            <div id="sticky-project-pill" class="sticky-project-pill">
+                Контекст: <strong id="sticky-project-name"></strong>
+                <button class="sp-clear" onclick="clearStickyProject()" title="Сбросить">×</button>
             </div>
             <div id="chat"><div class="empty-chat">Создайте новую сессию для начала работы</div></div>
             <div class="bottom-area">
@@ -905,6 +1212,42 @@
             if (ex.projects && ex.projects.length)  blocks += formatProjectsList(ex.projects);
             if (ex.issues && ex.issues.length)      blocks += formatIssuesList(ex.issues, ex.project);
             if (ex.issue)                           blocks += formatIssueCard(ex.issue);
+
+            // Phase 1 #12: Disambiguation — список совпадений с кнопками
+            if (ex.disambiguation && Array.isArray(ex.disambiguation.items)) {
+                blocks += '<div class="disambig-list">';
+                ex.disambiguation.items.slice(0, 8).forEach(function (it) {
+                    var meta = [];
+                    if (it.project_name) meta.push('проект: ' + it.project_name);
+                    if (it.state) meta.push('статус: ' + it.state);
+                    if (it.priority) meta.push('приоритет: ' + it.priority);
+                    var action = ex.disambiguation.action || 'select';
+                    // Quick reply: «<глагол> "<имя>" в <проект>»
+                    var template = ex.disambiguation.replyTemplate || ('Выбираю «' + it.name + '»');
+                    var reply = template.replace('{name}', it.name).replace('{project}', it.project_name || '');
+                    blocks += '<div class="disambig-item" onclick="sendQuickReply(' +
+                        JSON.stringify(reply).replace(/"/g, '&quot;') + ')">' +
+                        '<div class="di-title">' + escapeHtml(it.name || '?') + '</div>' +
+                        (meta.length ? '<div class="di-meta">' + escapeHtml(meta.join(' • ')) + '</div>' : '') +
+                    '</div>';
+                });
+                blocks += '</div>';
+            }
+
+            // Phase 1 #14: Quick reply buttons
+            if (ex.quick_replies && Array.isArray(ex.quick_replies) && ex.quick_replies.length) {
+                blocks += '<div class="quick-replies">';
+                ex.quick_replies.slice(0, 6).forEach(function (qr) {
+                    var label = (typeof qr === 'string') ? qr : (qr.label || '');
+                    var text = (typeof qr === 'string') ? qr : (qr.text || qr.label || '');
+                    var danger = (typeof qr === 'object' && qr.danger) ? ' danger' : '';
+                    if (!label || !text) return;
+                    blocks += '<button class="quick-reply-btn' + danger + '" onclick="sendQuickReply(' +
+                        JSON.stringify(text).replace(/"/g, '&quot;') + ')">' +
+                        escapeHtml(label) + '</button>';
+                });
+                blocks += '</div>';
+            }
             return html + (blocks ? '<div style="margin-top:10px">' + blocks + '</div>' : '');
         }
 
@@ -964,6 +1307,13 @@
         function selectBoardProject(name) {
             BOARD_CURRENT_PROJECT = name;
             document.getElementById('board-project-label').textContent = name || '—';
+            // Phase 1 #11: pin sticky project — выбор на доске → закрепляется и для чата
+            if (typeof saveStickyProject === 'function' && name) {
+                saveStickyProject(name);
+            }
+            // Сбрасываем фильтр «мои» при смене проекта (CURRENT_USER_ID может быть другим)
+            if (typeof SELECTED_CARDS !== 'undefined') SELECTED_CARDS.clear();
+            if (typeof updateBulkBar === 'function') updateBulkBar();
             // Mark selected
             var menu = document.getElementById('board-project-menu');
             if (menu) {
@@ -1105,6 +1455,11 @@
             card.className = 'board-card';
             card.draggable = true;
             card.dataset.issueName = issue.name || '';
+            card.dataset.issueId = issue.id || '';
+            // Подсветим если selected (для сохранения через reload)
+            if (SELECTED_CARDS && SELECTED_CARDS.has(issue.id || issue.name)) {
+                card.classList.add('selected');
+            }
             var prio = String(issue.priority || 'none').toLowerCase();
             var prioLabel = ({ urgent: 'срочно', high: 'высокий', medium: 'средний', low: 'низкий', none: '—' })[prio] || prio;
             var seq = issue.sequence_id ? '#' + issue.sequence_id : '';
@@ -1116,13 +1471,65 @@
                 deadline = '<span class="bc-deadline' + (overdue ? ' overdue' : '') + '">' +
                     '📅 ' + issue.target_date + '</span>';
             }
+            // Phase 1 #7: метки (chips)
+            var labelsHtml = '';
+            var labelIds = issue.labels || issue.label_ids || [];
+            if (Array.isArray(labelIds) && labelIds.length) {
+                labelsHtml = '<div class="bc-labels">' +
+                    labelIds.slice(0, 4).map(function (lid) {
+                        var label = BOARD_LABELS_CACHE[lid];
+                        var name = label ? label.name : String(lid).slice(0, 6);
+                        var color = label ? label.color : '';
+                        var style = color ? (' style="background:' + color + '22;color:' + color + '"') : '';
+                        return '<span class="bc-label"' + style + '>' + escapeHtml(name) + '</span>';
+                    }).join('') +
+                    (labelIds.length > 4 ? '<span class="bc-label">+' + (labelIds.length - 4) + '</span>' : '') +
+                    '</div>';
+            }
+            // Phase 1 #8: счётчики (💬 N, 👤 N)
+            var counters = [];
+            var commentCount = issue.comments_count || (Array.isArray(issue.comments) ? issue.comments.length : 0);
+            if (commentCount > 0) counters.push('<span>💬 ' + commentCount + '</span>');
+            var assigneeCount = (Array.isArray(issue.assignees) ? issue.assignees.length : 0)
+                              || (Array.isArray(issue.assignee_ids) ? issue.assignee_ids.length : 0);
+            if (assigneeCount > 0) counters.push('<span>👤 ' + assigneeCount + '</span>');
+            var countersHtml = counters.length ? '<span class="bc-counters">' + counters.join('') + '</span>' : '';
+
             card.innerHTML =
                 '<div class="bc-title">' + escapeHtml(issue.name || '—') + '</div>' +
                 '<div class="bc-meta">' +
                     (seq ? '<span class="bc-seq">' + seq + '</span>' : '') +
                     '<span class="bc-prio ' + prio + '">' + prioLabel + '</span>' +
                     deadline +
-                '</div>';
+                '</div>' +
+                labelsHtml +
+                (countersHtml ? '<div class="bc-foot">' + countersHtml + '</div>' : '');
+
+            // Phase 1: handlers
+            card.addEventListener('click', function (e) {
+                if (e.shiftKey) {
+                    // #10: bulk select
+                    e.preventDefault();
+                    toggleCardSelect(card, issue);
+                } else if (SELECTED_CARDS.size > 0) {
+                    // Если уже что-то выделено — клик без shift тоже добавляет/убирает
+                    toggleCardSelect(card, issue);
+                } else {
+                    // #1: модалка
+                    openCardModal(issue);
+                }
+            });
+            card.addEventListener('contextmenu', function (e) {
+                // #3: контекстное меню
+                openContextMenu(e, issue);
+            });
+            card.addEventListener('mouseenter', function (e) {
+                // #4: hover preview
+                showCardPreview(e, issue);
+            });
+            card.addEventListener('mouseleave', function () {
+                hideCardPreview();
+            });
             return card;
         }
 
@@ -1250,6 +1657,24 @@
                     // _shared.js sendMsg (через userScoped:true) — сразу clearAuth
                     // + redirect, без дорисовки чужого ответа в чат.
                     var extras = (data && data.data) ? data.data : {};
+
+                    // Phase 1 #11: Sticky project — если backend сообщил про
+                    // используемый проект, фиксируем для следующих сообщений.
+                    if (extras && extras.project_name_canonical) {
+                        if (typeof saveStickyProject === 'function') {
+                            saveStickyProject(extras.project_name_canonical);
+                        }
+                    }
+                    // Phase 1 #12: Disambiguation — если backend вернул несколько кандидатов
+                    // под одну issue_name, фронт отрендерит список карточек.
+                    if (data && data.disambiguation) extras.disambiguation = data.disambiguation;
+                    // Phase 1 #14: Quick replies — массив строк/{label,text} от backend
+                    if (data && data.quick_replies) extras.quick_replies = data.quick_replies;
+                    // Phase 1 #13: Подтверждение destructive — открываем confirm-flow
+                    if (data && data.confirm) {
+                        setTimeout(function () { openConfirmDialog(data.confirm); }, 50);
+                    }
+
                     return {
                         role: 'assistant',
                         content: (data && data.response) || 'Пустой ответ',
@@ -1260,12 +1685,14 @@
                     // К каждому POST прикрепляем токен + Plane-настройки.
                     // Workflow проверит токен → если invalid вернёт {auth_required:true},
                     // если settings пустые → {plane_setup_required:true}.
+                    // Phase 1 #11: + sticky_project (backend сам решит как использовать).
                     var s = loadPlaneSettings();
                     return {
                         token: getAuthToken(),
                         workspace_slug: s.slug,
                         plane_url: s.url,
-                        plane_token: s.token
+                        plane_token: s.token,
+                        sticky_project: (STICKY_PROJECT && STICKY_PROJECT.name) || null
                     };
                 }
             });
@@ -1276,6 +1703,668 @@
                 setTimeout(openSettings, 300);
             }
         }
+
+        // ===================================================================
+        // Phase 1: Интерактивная доска (фичи 1-10) + чат (11-14)
+        // ===================================================================
+
+        // --- State ---
+        var BOARD_FILTERS = { search: '', mine: false, overdue: false, urgent: false, noDeadline: false, sortBy: 'priority' };
+        var BOARD_ALL_ISSUES = [];   // последний полный набор issues с сервера (до фильтрации)
+        var BOARD_LABELS_CACHE = {}; // id → {name, color}
+        var BOARD_MEMBERS_CACHE = []; // [{id, display_name, ...}]
+        var CURRENT_USER_ID = null;  // id текущего юзера в Plane (для «Мои задачи»)
+        var SELECTED_CARDS = new Set(); // issue ids
+        var STICKY_PROJECT = null;   // {name, ts} — закреплённый проект для чата
+
+        // --- Quick helpers ---
+        function _q(sel) { return document.querySelector(sel); }
+        function _qa(sel) { return document.querySelectorAll(sel); }
+
+        // ===================================================================
+        // Phase 1 #11: Sticky project (закреплённый контекст)
+        // ===================================================================
+        function loadStickyProject() {
+            try {
+                var raw = localStorage.getItem('plane_sticky_project');
+                if (raw) {
+                    var s = JSON.parse(raw);
+                    // Считаем sticky актуальным 1 час
+                    if (s && s.name && s.ts && (Date.now() - s.ts < 3600000)) {
+                        STICKY_PROJECT = s;
+                        return;
+                    }
+                }
+            } catch (e) {}
+            STICKY_PROJECT = null;
+        }
+        function saveStickyProject(name) {
+            if (!name) { localStorage.removeItem('plane_sticky_project'); STICKY_PROJECT = null; }
+            else {
+                STICKY_PROJECT = { name: name, ts: Date.now() };
+                try { localStorage.setItem('plane_sticky_project', JSON.stringify(STICKY_PROJECT)); } catch (e) {}
+            }
+            renderStickyPill();
+        }
+        function renderStickyPill() {
+            var pill = document.getElementById('sticky-project-pill');
+            var nameEl = document.getElementById('sticky-project-name');
+            if (!pill || !nameEl) return;
+            if (STICKY_PROJECT && STICKY_PROJECT.name) {
+                nameEl.textContent = STICKY_PROJECT.name;
+                pill.classList.add('show');
+            } else {
+                pill.classList.remove('show');
+            }
+        }
+        function clearStickyProject() { saveStickyProject(null); }
+
+        // ===================================================================
+        // Phase 1 #5-9: Фильтры / сортировка
+        // ===================================================================
+        function toggleMineFilter() {
+            BOARD_FILTERS.mine = !BOARD_FILTERS.mine;
+            document.getElementById('board-chip-mine').classList.toggle('active', BOARD_FILTERS.mine);
+            applyBoardFilters();
+        }
+        function toggleFilter(name) {
+            BOARD_FILTERS[name] = !BOARD_FILTERS[name];
+            var chip = document.getElementById('board-chip-' + (
+                name === 'overdue' ? 'overdue' : name === 'urgent' ? 'urgent' : 'no-due'
+            ));
+            if (chip) chip.classList.toggle('active', BOARD_FILTERS[name]);
+            applyBoardFilters();
+        }
+        function applyBoardFilters() {
+            // Берём search-input в момент применения
+            var search = (document.getElementById('board-search') || {}).value || '';
+            BOARD_FILTERS.search = String(search).trim().toLowerCase();
+            BOARD_FILTERS.sortBy = (document.getElementById('board-sort') || {}).value || 'priority';
+            // Применяем фильтры к BOARD_ALL_ISSUES и перерисовываем
+            var filtered = filterIssues(BOARD_ALL_ISSUES);
+            renderBoardIssues(filtered);
+        }
+        function filterIssues(issues) {
+            if (!Array.isArray(issues)) return [];
+            var today = new Date(); today.setHours(0,0,0,0);
+            var out = issues.filter(function (i) {
+                if (BOARD_FILTERS.search) {
+                    var name = String(i.name || '').toLowerCase();
+                    var seq = String(i.sequence_id || '').toLowerCase();
+                    if (name.indexOf(BOARD_FILTERS.search) === -1 && seq.indexOf(BOARD_FILTERS.search) === -1) return false;
+                }
+                if (BOARD_FILTERS.mine && CURRENT_USER_ID) {
+                    var ass = i.assignees || i.assignee_ids || [];
+                    if (!Array.isArray(ass) || ass.indexOf(CURRENT_USER_ID) === -1) return false;
+                }
+                if (BOARD_FILTERS.urgent && String(i.priority||'').toLowerCase() !== 'urgent') return false;
+                if (BOARD_FILTERS.noDeadline && i.target_date) return false;
+                if (BOARD_FILTERS.overdue) {
+                    if (!i.target_date) return false;
+                    var dl = new Date(i.target_date);
+                    if (dl >= today) return false;
+                }
+                return true;
+            });
+            // Сортировка
+            var PRIO_ORDER = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
+            out.sort(function (a, b) {
+                switch (BOARD_FILTERS.sortBy) {
+                    case 'deadline': {
+                        var ad = a.target_date ? new Date(a.target_date).getTime() : Infinity;
+                        var bd = b.target_date ? new Date(b.target_date).getTime() : Infinity;
+                        return ad - bd;
+                    }
+                    case 'created': {
+                        var ac = a.created_at ? new Date(a.created_at).getTime() : 0;
+                        var bc = b.created_at ? new Date(b.created_at).getTime() : 0;
+                        return bc - ac;
+                    }
+                    case 'name':
+                        return String(a.name || '').localeCompare(String(b.name || ''));
+                    case 'priority':
+                    default:
+                        return (PRIO_ORDER[String(a.priority || 'none').toLowerCase()] || 5)
+                             - (PRIO_ORDER[String(b.priority || 'none').toLowerCase()] || 5);
+                }
+            });
+            return out;
+        }
+
+        // ===================================================================
+        // Phase 1 #2: Quick-create в колонке
+        // ===================================================================
+        function openQuickCreate(state) {
+            // Закрыть все остальные quick-forms
+            _qa('.board-col-quick-form').forEach(function (f) { f.classList.remove('show'); });
+            var form = document.querySelector('.board-col-quick-form[data-state="' + state + '"]');
+            if (!form) return;
+            form.classList.add('show');
+            var input = form.querySelector('input');
+            if (input) {
+                input.value = '';
+                setTimeout(function () { input.focus(); }, 50);
+                // Bind once
+                if (!input.dataset.bound) {
+                    input.dataset.bound = '1';
+                    input.addEventListener('keydown', async function (e) {
+                        if (e.key === 'Escape') {
+                            form.classList.remove('show');
+                        } else if (e.key === 'Enter') {
+                            var name = input.value.trim();
+                            if (!name || !BOARD_CURRENT_PROJECT) return;
+                            var statusEl = document.getElementById('board-status');
+                            statusEl.textContent = 'Создаю...';
+                            input.disabled = true;
+                            try {
+                                var STATE_MAP = { unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled' };
+                                // Создаём через bulk: create_issue + change_status
+                                var res = await planeDirect('create_issue', {
+                                    project_name: BOARD_CURRENT_PROJECT,
+                                    name: name
+                                });
+                                if (res && !res.error && res.action !== 'error') {
+                                    var targetState = STATE_MAP[state];
+                                    if (state !== 'unstarted') {
+                                        // Перенесём в нужную колонку
+                                        await planeDirect('change_status', {
+                                            project_name: BOARD_CURRENT_PROJECT,
+                                            issue_name: name,
+                                            state: targetState
+                                        });
+                                    }
+                                    statusEl.textContent = 'Создано';
+                                    form.classList.remove('show');
+                                    reloadBoard();
+                                } else {
+                                    statusEl.textContent = (res && res.response) || 'Ошибка создания';
+                                }
+                            } catch (err) {
+                                statusEl.textContent = 'Ошибка: ' + err.message;
+                            } finally {
+                                input.disabled = false;
+                                setTimeout(function () { statusEl.textContent = ''; }, 3000);
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        // ===================================================================
+        // Phase 1 #1: Модалка детальной карточки + #3 контекстное меню + #4 hover preview
+        // ===================================================================
+        var MODAL_CURRENT_ISSUE = null;
+
+        function ensureModalDom() {
+            if (document.getElementById('card-modal-backdrop')) return;
+            var div = document.createElement('div');
+            div.id = 'card-modal-backdrop';
+            div.className = 'card-modal-backdrop';
+            div.innerHTML =
+                '<div class="card-modal">' +
+                    '<div class="card-modal-header">' +
+                        '<h3 id="cm-title">Задача</h3>' +
+                        '<button class="card-modal-close" onclick="closeCardModal()">×</button>' +
+                    '</div>' +
+                    '<div class="card-modal-body" id="cm-body"></div>' +
+                    '<div class="card-modal-footer">' +
+                        '<button class="danger" onclick="modalDelete()">Удалить</button>' +
+                        '<button onclick="closeCardModal()">Отмена</button>' +
+                        '<button class="primary" onclick="modalSave()">Сохранить</button>' +
+                    '</div>' +
+                '</div>';
+            document.body.appendChild(div);
+            div.addEventListener('click', function (e) {
+                if (e.target === div) closeCardModal();
+            });
+
+            // Context-menu
+            var cm = document.createElement('div');
+            cm.id = 'board-context-menu';
+            cm.className = 'context-menu';
+            document.body.appendChild(cm);
+            document.addEventListener('click', function () { cm.classList.remove('show'); });
+
+            // Preview tooltip
+            var pv = document.createElement('div');
+            pv.id = 'board-preview';
+            pv.className = 'board-preview';
+            document.body.appendChild(pv);
+
+            // Bulk bar
+            var bb = document.createElement('div');
+            bb.id = 'board-bulk-bar';
+            bb.className = 'board-bulk-bar';
+            bb.innerHTML =
+                '<span class="bulk-count" id="bulk-count">0</span>' +
+                '<button onclick="bulkAction(\'todo\')">→ Задачи</button>' +
+                '<button onclick="bulkAction(\'in_progress\')">→ В работе</button>' +
+                '<button onclick="bulkAction(\'done\')">→ Готово</button>' +
+                '<button class="danger" onclick="bulkAction(\'delete\')">Удалить</button>' +
+                '<button onclick="clearSelection()">Отмена</button>';
+            document.body.appendChild(bb);
+
+            // ESC закрывает модалку
+            document.addEventListener('keydown', function (e) {
+                if (e.key !== 'Escape') return;
+                var m = document.getElementById('card-modal-backdrop');
+                if (m && m.classList.contains('show')) closeCardModal();
+                cm.classList.remove('show');
+                pv.classList.remove('show');
+                if (SELECTED_CARDS.size > 0) clearSelection();
+            });
+        }
+
+        async function openCardModal(issue) {
+            ensureModalDom();
+            // issue — объект из BOARD_ALL_ISSUES (имеет name, priority, target_date, sequence_id)
+            MODAL_CURRENT_ISSUE = issue;
+            document.getElementById('cm-title').textContent =
+                (issue.sequence_id ? '#' + issue.sequence_id + ' ' : '') + (issue.name || '—');
+            // Build body
+            var prio = String(issue.priority || 'none').toLowerCase();
+            var body =
+                '<div class="card-modal-row"><label>Название</label><div class="field-value">' +
+                    '<input type="text" id="cm-name" value="' + escapeAttr(issue.name || '') + '">' +
+                '</div></div>' +
+                '<div class="card-modal-row"><label>Описание</label><div class="field-value">' +
+                    '<textarea id="cm-desc" placeholder="Описание...">' + escapeHtml(stripHtml(issue.description_html || issue.description || '')) + '</textarea>' +
+                '</div></div>' +
+                '<div class="card-modal-row"><label>Приоритет</label><div class="field-value">' +
+                    '<select id="cm-prio">' +
+                        ['urgent','high','medium','low','none'].map(function(p){
+                            return '<option value="'+p+'"'+(p===prio?' selected':'')+'>'+
+                                ({urgent:'Срочный',high:'Высокий',medium:'Средний',low:'Низкий',none:'—'}[p])+'</option>';
+                        }).join('') +
+                    '</select>' +
+                '</div></div>' +
+                '<div class="card-modal-row"><label>Срок</label><div class="field-value">' +
+                    '<input type="date" id="cm-deadline" value="' + escapeAttr(issue.target_date || '') + '">' +
+                '</div></div>' +
+                '<div class="card-modal-row"><label>Статус</label><div class="field-value">' +
+                    '<select id="cm-state">' +
+                        '<option value="todo">Задачи</option>' +
+                        '<option value="in_progress">В работе</option>' +
+                        '<option value="done">Готово</option>' +
+                        '<option value="cancelled">Отменено</option>' +
+                        '<option value="backlog">Бэклог</option>' +
+                    '</select>' +
+                '</div></div>' +
+                '<div class="card-modal-comments">' +
+                    '<h4>Добавить комментарий</h4>' +
+                    '<div class="card-modal-add-comment">' +
+                        '<input type="text" id="cm-new-comment" placeholder="Текст комментария...">' +
+                        '<button onclick="modalAddComment()">Отправить</button>' +
+                    '</div>' +
+                '</div>';
+            document.getElementById('cm-body').innerHTML = body;
+            // Selected state from issue.state_detail.group → map к нашим именам
+            var g = (issue.state_detail && issue.state_detail.group) || 'unstarted';
+            var stateSelect = document.getElementById('cm-state');
+            var stateMap = { unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled', backlog: 'backlog' };
+            if (stateSelect) stateSelect.value = stateMap[g] || 'todo';
+            document.getElementById('card-modal-backdrop').classList.add('show');
+        }
+
+        function closeCardModal() {
+            var m = document.getElementById('card-modal-backdrop');
+            if (m) m.classList.remove('show');
+            MODAL_CURRENT_ISSUE = null;
+        }
+
+        async function modalSave() {
+            if (!MODAL_CURRENT_ISSUE || !BOARD_CURRENT_PROJECT) return;
+            var statusEl = document.getElementById('board-status');
+            var origName = MODAL_CURRENT_ISSUE.name;
+            var newName = (document.getElementById('cm-name').value || '').trim();
+            var newDesc = (document.getElementById('cm-desc').value || '').trim();
+            var newPrio = document.getElementById('cm-prio').value;
+            var newDeadline = document.getElementById('cm-deadline').value;
+            var newState = document.getElementById('cm-state').value;
+
+            statusEl.textContent = 'Сохраняю...';
+            try {
+                // 1) Если меняется статус — отдельный change_status
+                var origGroup = (MODAL_CURRENT_ISSUE.state_detail && MODAL_CURRENT_ISSUE.state_detail.group) || 'unstarted';
+                var stateMap = { unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled', backlog: 'backlog' };
+                if (stateMap[origGroup] !== newState) {
+                    await planeDirect('change_status', {
+                        project_name: BOARD_CURRENT_PROJECT,
+                        issue_name: origName,
+                        state: newState
+                    });
+                }
+                // 2) Update name/description/priority/deadline
+                var updateParams = { project_name: BOARD_CURRENT_PROJECT, issue_name: origName };
+                if (newName && newName !== origName) updateParams.name = newName;
+                if (newDesc) updateParams.description = newDesc;
+                if (newPrio !== String(MODAL_CURRENT_ISSUE.priority || 'none')) updateParams.priority = newPrio;
+                if (newDeadline && newDeadline !== (MODAL_CURRENT_ISSUE.target_date || '')) updateParams.target_date = newDeadline;
+                if (Object.keys(updateParams).length > 2) {
+                    await planeDirect('update_issue', updateParams);
+                }
+                statusEl.textContent = 'Сохранено';
+                closeCardModal();
+                reloadBoard();
+            } catch (e) {
+                statusEl.textContent = 'Ошибка: ' + e.message;
+            } finally {
+                setTimeout(function () { statusEl.textContent = ''; }, 3000);
+            }
+        }
+
+        async function modalDelete() {
+            if (!MODAL_CURRENT_ISSUE || !BOARD_CURRENT_PROJECT) return;
+            if (!confirm('Удалить задачу «' + (MODAL_CURRENT_ISSUE.name || '?') + '»?')) return;
+            var statusEl = document.getElementById('board-status');
+            statusEl.textContent = 'Удаляю...';
+            try {
+                await planeDirect('delete_issue', {
+                    project_name: BOARD_CURRENT_PROJECT,
+                    issue_name: MODAL_CURRENT_ISSUE.name
+                });
+                statusEl.textContent = 'Удалено';
+                closeCardModal();
+                reloadBoard();
+            } catch (e) {
+                statusEl.textContent = 'Ошибка: ' + e.message;
+            } finally {
+                setTimeout(function () { statusEl.textContent = ''; }, 3000);
+            }
+        }
+
+        async function modalAddComment() {
+            var input = document.getElementById('cm-new-comment');
+            var text = (input.value || '').trim();
+            if (!text || !MODAL_CURRENT_ISSUE) return;
+            var statusEl = document.getElementById('board-status');
+            statusEl.textContent = 'Добавляю...';
+            try {
+                await planeDirect('add_comment', {
+                    project_name: BOARD_CURRENT_PROJECT,
+                    issue_name: MODAL_CURRENT_ISSUE.name,
+                    comment: text
+                });
+                input.value = '';
+                statusEl.textContent = 'Комментарий добавлен';
+            } catch (e) {
+                statusEl.textContent = 'Ошибка: ' + e.message;
+            } finally {
+                setTimeout(function () { statusEl.textContent = ''; }, 3000);
+            }
+        }
+
+        // ===================================================================
+        // Phase 1 #3: Context menu (right-click)
+        // ===================================================================
+        function openContextMenu(e, issue) {
+            ensureModalDom();
+            e.preventDefault();
+            var cm = document.getElementById('board-context-menu');
+            cm.innerHTML =
+                '<button onclick="openCardModal(' + JSON.stringify(issue).replace(/"/g,'&quot;') + '); document.getElementById(\'board-context-menu\').classList.remove(\'show\')">📝 Изменить</button>' +
+                '<button onclick="ctxMenuStatus(\'todo\')">→ Задачи</button>' +
+                '<button onclick="ctxMenuStatus(\'in_progress\')">→ В работе</button>' +
+                '<button onclick="ctxMenuStatus(\'done\')">→ Готово</button>' +
+                '<button onclick="ctxMenuStatus(\'cancelled\')">→ Отменено</button>' +
+                '<hr>' +
+                '<button onclick="ctxMenuComment()">💬 Добавить комментарий</button>' +
+                '<button onclick="ctxMenuDeadline()">📅 Установить срок</button>' +
+                '<hr>' +
+                '<button class="danger" onclick="ctxMenuDelete()">🗑 Удалить</button>';
+            cm.style.left = e.clientX + 'px';
+            cm.style.top = e.clientY + 'px';
+            cm.dataset.issueName = issue.name;
+            cm.classList.add('show');
+            // Reposition если выходит за экран
+            setTimeout(function () {
+                var rect = cm.getBoundingClientRect();
+                if (rect.right > window.innerWidth) cm.style.left = (window.innerWidth - rect.width - 10) + 'px';
+                if (rect.bottom > window.innerHeight) cm.style.top = (window.innerHeight - rect.height - 10) + 'px';
+            }, 0);
+        }
+        async function ctxMenuStatus(state) {
+            var cm = document.getElementById('board-context-menu');
+            var name = cm.dataset.issueName;
+            cm.classList.remove('show');
+            if (!name || !BOARD_CURRENT_PROJECT) return;
+            await planeDirect('change_status', { project_name: BOARD_CURRENT_PROJECT, issue_name: name, state: state });
+            reloadBoard();
+        }
+        async function ctxMenuDelete() {
+            var cm = document.getElementById('board-context-menu');
+            var name = cm.dataset.issueName;
+            cm.classList.remove('show');
+            if (!name) return;
+            if (!confirm('Удалить задачу «' + name + '»?')) return;
+            await planeDirect('delete_issue', { project_name: BOARD_CURRENT_PROJECT, issue_name: name });
+            reloadBoard();
+        }
+        async function ctxMenuComment() {
+            var cm = document.getElementById('board-context-menu');
+            var name = cm.dataset.issueName;
+            cm.classList.remove('show');
+            if (!name) return;
+            var text = prompt('Комментарий для «' + name + '»:');
+            if (!text) return;
+            await planeDirect('add_comment', { project_name: BOARD_CURRENT_PROJECT, issue_name: name, comment: text });
+        }
+        async function ctxMenuDeadline() {
+            var cm = document.getElementById('board-context-menu');
+            var name = cm.dataset.issueName;
+            cm.classList.remove('show');
+            if (!name) return;
+            var date = prompt('Срок для «' + name + '» (YYYY-MM-DD):');
+            if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+            await planeDirect('set_deadline', { project_name: BOARD_CURRENT_PROJECT, issue_name: name, target_date: date });
+            reloadBoard();
+        }
+
+        // ===================================================================
+        // Phase 1 #4: Hover preview
+        // ===================================================================
+        var HOVER_TIMER = null;
+        function showCardPreview(e, issue) {
+            ensureModalDom();
+            clearTimeout(HOVER_TIMER);
+            HOVER_TIMER = setTimeout(function () {
+                var pv = document.getElementById('board-preview');
+                if (!pv) return;
+                var desc = stripHtml(issue.description_html || issue.description || '');
+                if (!desc && !issue.target_date && !issue.priority) return;
+                var seq = issue.sequence_id ? '#' + issue.sequence_id + ' ' : '';
+                pv.innerHTML =
+                    '<div class="bp-title">' + escapeHtml(seq + (issue.name || '—')) + '</div>' +
+                    (desc ? '<div class="bp-desc">' + escapeHtml(desc) + '</div>' : '<div class="bp-desc" style="color:var(--text-muted)"><i>(нет описания)</i></div>') +
+                    '<div class="bp-meta">' +
+                        (issue.target_date ? '📅 ' + escapeHtml(issue.target_date) + ' • ' : '') +
+                        'приоритет: ' + escapeHtml(String(issue.priority || 'none')) +
+                    '</div>';
+                var x = e.clientX + 16;
+                var y = e.clientY + 16;
+                pv.style.left = x + 'px';
+                pv.style.top = y + 'px';
+                pv.classList.add('show');
+                // Reposition если выходит
+                var rect = pv.getBoundingClientRect();
+                if (rect.right > window.innerWidth) pv.style.left = (window.innerWidth - rect.width - 10) + 'px';
+                if (rect.bottom > window.innerHeight) pv.style.top = (window.innerHeight - rect.height - 10) + 'px';
+            }, 500);
+        }
+        function hideCardPreview() {
+            clearTimeout(HOVER_TIMER);
+            var pv = document.getElementById('board-preview');
+            if (pv) pv.classList.remove('show');
+        }
+
+        // ===================================================================
+        // Phase 1 #10: Bulk select (Shift+click)
+        // ===================================================================
+        function toggleCardSelect(card, issue) {
+            var id = issue && (issue.id || issue.name);
+            if (!id) return;
+            if (SELECTED_CARDS.has(id)) {
+                SELECTED_CARDS.delete(id);
+                card.classList.remove('selected');
+            } else {
+                SELECTED_CARDS.add(id);
+                card.classList.add('selected');
+            }
+            updateBulkBar();
+        }
+        function clearSelection() {
+            SELECTED_CARDS.clear();
+            _qa('.board-card.selected').forEach(function (c) { c.classList.remove('selected'); });
+            updateBulkBar();
+        }
+        function updateBulkBar() {
+            var bb = document.getElementById('board-bulk-bar');
+            if (!bb) return;
+            var cnt = SELECTED_CARDS.size;
+            document.getElementById('bulk-count').textContent = cnt + ' выбрано';
+            bb.classList.toggle('show', cnt > 0);
+        }
+        async function bulkAction(action) {
+            if (SELECTED_CARDS.size === 0) return;
+            var ids = Array.from(SELECTED_CARDS);
+            // По id находим issue.name в BOARD_ALL_ISSUES
+            var names = ids.map(function (id) {
+                var issue = BOARD_ALL_ISSUES.find(function (i) { return (i.id || i.name) === id; });
+                return issue ? issue.name : null;
+            }).filter(Boolean);
+            if (!names.length) return;
+            var msg = action === 'delete'
+                ? 'Удалить ' + names.length + ' задач безвозвратно?'
+                : 'Перенести ' + names.length + ' задач в «' +
+                    ({todo:'Задачи',in_progress:'В работе',done:'Готово'}[action]||action) + '»?';
+            if (!confirm(msg)) return;
+
+            var statusEl = document.getElementById('board-status');
+            statusEl.textContent = 'Обрабатываю ' + names.length + ' задач...';
+            try {
+                // Через bulk action в workflow
+                var actions = names.map(function (n) {
+                    if (action === 'delete') {
+                        return { action: 'delete_issue', params: { project_name: BOARD_CURRENT_PROJECT, issue_name: n } };
+                    }
+                    return { action: 'change_status', params: { project_name: BOARD_CURRENT_PROJECT, issue_name: n, state: action } };
+                });
+                await planeDirect('bulk', { actions: actions });
+                statusEl.textContent = 'Готово';
+                clearSelection();
+                reloadBoard();
+            } catch (e) {
+                statusEl.textContent = 'Ошибка: ' + e.message;
+            } finally {
+                setTimeout(function () { statusEl.textContent = ''; }, 3000);
+            }
+        }
+
+        // ===================================================================
+        // Phase 1 #14: Quick replies (нужен hook в parseBotMessage → formatBotHtml)
+        // и #12 Disambiguation list — обрабатываются в formatBotMessage (см. ниже).
+        // Кнопки квик-реплая — отправляют новое сообщение через sendMsg.
+        // ===================================================================
+        function sendQuickReply(text) {
+            var input = document.getElementById('msg');
+            if (!input) return;
+            input.value = text;
+            if (typeof sendMsg === 'function') sendMsg();
+        }
+
+        // ===================================================================
+        // Phase 1 #13: Confirm dialog для destructive actions от backend
+        // ===================================================================
+        function openConfirmDialog(cfg) {
+            ensureModalDom();
+            // cfg = { title, message, confirm_text, cancel_text, confirm_reply }
+            var existing = document.getElementById('plane-confirm-backdrop');
+            if (existing) existing.remove();
+            var bd = document.createElement('div');
+            bd.id = 'plane-confirm-backdrop';
+            bd.className = 'card-modal-backdrop show';
+            bd.innerHTML =
+                '<div class="card-modal" style="max-width:420px">' +
+                    '<div class="confirm-modal-content">' +
+                        '<h4>' + escapeHtml(cfg.title || 'Подтверждение') + '</h4>' +
+                        '<p>' + escapeHtml(cfg.message || 'Продолжить?') + '</p>' +
+                        '<div style="display:flex;gap:8px;justify-content:center">' +
+                            '<button id="pc-cancel">' + escapeHtml(cfg.cancel_text || 'Отмена') + '</button>' +
+                            '<button id="pc-confirm" class="primary danger">' + escapeHtml(cfg.confirm_text || 'Подтвердить') + '</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            // Стили primary danger для confirm
+            var btn = bd.querySelector('#pc-confirm');
+            btn.style.cssText = 'padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;border:1px solid var(--error);background:var(--error);color:white;font-family:inherit;';
+            var cancelBtn = bd.querySelector('#pc-cancel');
+            cancelBtn.style.cssText = 'padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-primary);font-family:inherit;';
+            document.body.appendChild(bd);
+            bd.addEventListener('click', function (e) { if (e.target === bd) bd.remove(); });
+            cancelBtn.addEventListener('click', function () { bd.remove(); });
+            btn.addEventListener('click', function () {
+                var reply = cfg.confirm_reply || 'Да';
+                bd.remove();
+                sendQuickReply(reply);
+            });
+        }
+
+        // ===================================================================
+        // Helpers — экранирование
+        // ===================================================================
+        function escapeAttr(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+            });
+        }
+        function stripHtml(s) {
+            if (!s) return '';
+            var div = document.createElement('div');
+            div.innerHTML = String(s);
+            return (div.textContent || div.innerText || '').trim();
+        }
+
+        // Patch renderBoardIssues — нужно сохранить полный набор в BOARD_ALL_ISSUES
+        // ВАЖНО: renderBoardIssues определён выше. Здесь wrapping не делаем
+        // (могут быть race при override) — вместо этого добавим хук в reloadBoard.
+        var __origReloadBoard = reloadBoard;
+        reloadBoard = async function () {
+            var panel = document.getElementById('board-panel');
+            if (!panel || !panel.classList.contains('show')) return;
+            var projectName = BOARD_CURRENT_PROJECT;
+            if (!projectName) {
+                BOARD_ALL_ISSUES = [];
+                renderBoardEmpty();
+                return;
+            }
+            var statusEl = document.getElementById('board-status');
+            statusEl.textContent = 'Загружаю задачи...';
+            var res = await planeDirect('list_issues', { project_name: projectName });
+            var isErr = !res || res.action === 'error' || !!res.error;
+            var issues = (res && res.data && Array.isArray(res.data.issues)) ? res.data.issues : null;
+            if (isErr || issues === null) {
+                statusEl.textContent = (res && res.response) ? String(res.response).slice(0, 60) : 'Ошибка обновления';
+                setTimeout(function () { statusEl.textContent = ''; }, 4000);
+                return;
+            }
+            BOARD_ALL_ISSUES = issues;
+            statusEl.textContent = 'Задач: ' + issues.length;
+            // Применяем текущие фильтры
+            var filtered = filterIssues(BOARD_ALL_ISSUES);
+            renderBoardIssues(filtered);
+        };
+
+        // ИНИТ: на загрузке — sticky pill, modal infra
+        document.addEventListener('DOMContentLoaded', function () {
+            loadStickyProject();
+            renderStickyPill();
+            ensureModalDom();
+        });
+        // Если DOM уже готов (script в конце body) — сразу
+        loadStickyProject();
+        renderStickyPill();
+        ensureModalDom();
     </script>
 </body>
 </html>
