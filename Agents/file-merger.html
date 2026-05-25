@@ -753,11 +753,14 @@
                     it.type === 'csv' ? 'CSV' :
                     it.type === 'image' ? 'ФОТО' : '?'
                 );
-                // #9: статус парсинга — спиннер / галочка / крестик
+                // #9: статус — default ✓ (готов к сборке), spinner во время parsing,
+                // × при ошибке. Юзер видит ✓ сразу после добавления валидного файла,
+                // не дожидаясь сборки.
                 var statusHtml = '';
-                if (it.status === 'parsing') statusHtml = '<span class="row-status parsing show"></span>';
-                else if (it.status === 'done')   statusHtml = '<span class="row-status done show" title="Готов">✓</span>';
+                if (it.error) statusHtml = '<span class="row-status failed show" title="Ошибка">!</span>';
+                else if (it.status === 'parsing') statusHtml = '<span class="row-status parsing show"></span>';
                 else if (it.status === 'failed') statusHtml = '<span class="row-status failed show" title="Ошибка">×</span>';
+                else statusHtml = '<span class="row-status done show" title="Файл готов">✓</span>';
                 html +=
                     '<div class="file-row" draggable="true" data-uid="' + it.uid + '">' +
                         '<span class="drag-handle" title="Перетащи чтобы переставить">⋮⋮</span>' +
