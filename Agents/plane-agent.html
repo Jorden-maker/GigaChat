@@ -1021,7 +1021,17 @@
             var statusEl = document.getElementById('board-status');
             statusEl.textContent = 'Загружаю задачи...';
             var res = await planeDirect('list_issues', { project_name: projectName });
-            var issues = (res && res.data && res.data.issues) || [];
+            // NEW-5: если ответ — ошибка (action='error', error, или нет data.issues
+            // массивом), НЕ стираем доску — оставляем то что было. Без этого
+            // workflow-сбой (например, race между LLM и direct path) выглядит
+            // как «задачи пропали» хотя они есть в Plane.
+            var isErr = !res || res.action === 'error' || !!res.error;
+            var issues = (res && res.data && Array.isArray(res.data.issues)) ? res.data.issues : null;
+            if (isErr || issues === null) {
+                statusEl.textContent = (res && res.response) ? String(res.response).slice(0, 60) : 'Ошибка обновления';
+                setTimeout(function () { statusEl.textContent = ''; }, 4000);
+                return;
+            }
             statusEl.textContent = 'Задач: ' + issues.length;
             renderBoardIssues(issues);
         }

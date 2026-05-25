@@ -1047,7 +1047,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Формируем строку history для LLM. Берём последние 6 пар (user+assistant)\n// = 12 сообщений в обратном порядке (свежие первыми из SQL).\nconst rows = $input.all().map(i => i.json).filter(r => r.role && r.content);\nconst src = $('Контекст: проекты').first().json;\nconst lines = rows.slice(0, 12).reverse().map(r => {\n  const c = String(r.content).slice(0, 300);\n  return (r.role === 'user' ? 'Юзер: ' : 'Plane-агент: ') + c;\n});\nconst historyContext = lines.length ? lines.join('\n') : '';\nreturn [{ json: { ...src, historyContext } }];\n"
+        "jsCode": "// Формируем строку history для LLM. Берём последние 6 пар (user+assistant)\n// = 12 сообщений в обратном порядке (свежие первыми из SQL).\n// ВАЖНО: для newline в join() используем String.fromCharCode(10), НЕ '\\n' —\n// иначе при JSON-deserialize литерал \\n становится настоящим LF, который\n// ломает строку-литерал JS → Syntax Error.\nconst rows = $input.all().map(i => i.json).filter(r => r.role && r.content);\nconst src = $('Контекст: проекты').first().json;\nconst NL = String.fromCharCode(10);\nconst lines = rows.slice(0, 12).reverse().map(r => {\n  const c = String(r.content).slice(0, 300);\n  return (r.role === 'user' ? 'Юзер: ' : 'Plane-агент: ') + c;\n});\nconst historyContext = lines.length ? lines.join(NL) : '';\nreturn [{ json: Object.assign({}, src, { historyContext: historyContext }) }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1061,9 +1061,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2);",
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'user', $2 WHERE $1 <> 'plane_board' AND LENGTH(TRIM($2)) > 0;",
         "options": {
-          "queryReplacement": "={{ [$json.session_id, $json.message || '[direct]'] }}"
+          "queryReplacement": "={{ [$json.session_id, $json.message || ''] }}"
         },
         "alwaysOutputData": true
       },
@@ -1087,7 +1087,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'assistant', $2);",
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE $1 <> 'plane_board' AND LENGTH(TRIM($2)) > 0;",
         "options": {
           "queryReplacement": "={{ [$('Контекст: проекты').first().json.session_id, $json.response || ''] }}"
         },
@@ -1210,16 +1210,6 @@
             "node": "Direct mode?",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Загрузка истории Plane",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "INSERT user",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -1235,7 +1225,12 @@
         ],
         [
           {
-            "node": "Контекст: история",
+            "node": "INSERT user",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Загрузка истории Plane",
             "type": "main",
             "index": 0
           }
