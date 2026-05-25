@@ -72,10 +72,29 @@
             background: var(--accent-light); color: var(--accent);
             font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 500;
             flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px;
+            /* Выравнивание имён файлов: одинаковая ширина badge → имена в одной колонке */
+            min-width: 64px; box-sizing: border-box; text-align: center;
         }
         .file-row .badge.err-b { background: rgba(239,68,68,0.12); color: var(--error); }
         .file-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
-        .file-row .size { color: var(--text-muted); font-size: 12px; font-family: Consolas, monospace; flex-shrink: 0; }
+        .file-row .size {
+            color: var(--text-muted); font-size: 12px;
+            font-family: Consolas, monospace; flex-shrink: 0;
+            /* Фикс выравнивания: фиксированная ширина для размера → ✓ в одной колонке */
+            min-width: 64px; text-align: right;
+        }
+        .file-row .row-status {
+            flex-shrink: 0; width: 14px; height: 14px; display: none;
+            align-items: center; justify-content: center;
+        }
+        .file-row .row-status.show { display: inline-flex; }
+        .file-row .row-status.parsing {
+            border: 2px solid var(--border); border-top-color: var(--accent);
+            border-radius: 50%; animation: gc-spin 0.7s linear infinite;
+        }
+        .file-row .row-status.done { color: #10b981; font-size: 14px; line-height: 14px; }
+        .file-row .row-status.failed { color: var(--error); font-size: 14px; line-height: 14px; }
+        @keyframes gc-spin { to { transform: rotate(360deg); } }
         .file-row .remove {
             width: 22px; height: 22px; border: none; background: transparent;
             color: var(--text-muted); cursor: pointer; border-radius: 4px; font-size: 16px;
@@ -810,11 +829,17 @@
                     it.type === 'xlsx' ? 'EXCEL' :
                     it.type === 'csv' ? 'CSV/TSV' : '?';
                 var badgeClass = it.error ? 'badge err-b' : 'badge';
+                // Статус: ✓ default (готов), spinner во время парсинга, ! при ошибке
+                var statusHtml = '';
+                if (it.error) statusHtml = '<span class="row-status failed show" title="Ошибка">!</span>';
+                else if (it.parsing) statusHtml = '<span class="row-status parsing show"></span>';
+                else statusHtml = '<span class="row-status done show" title="Файл готов">✓</span>';
                 html +=
                     '<div class="file-row" data-uid="' + it.uid + '">' +
                         '<span class="' + badgeClass + '">' + badgeText + '</span>' +
                         '<span class="name">' + escapeHtml(it.file.name) + '</span>' +
                         (it.error ? '<span class="err-msg">' + escapeHtml(it.error) + '</span>' : '') +
+                        statusHtml +
                         '<span class="size">' + formatSize(it.file.size) + '</span>' +
                         '<button class="remove" data-uid="' + it.uid + '">×</button>' +
                     '</div>';
