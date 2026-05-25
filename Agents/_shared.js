@@ -1827,6 +1827,37 @@
   // === Парсинг XLSX (через JSZip + DOMParser) ===
   // Возвращает [{ name, headers, rows }, ...] — по одному на каждый лист.
   // Поддерживает shared strings (t="s"), inline strings (t="inlineStr"), числа.
+  // Excel serial date → JS Date. Excel epoch = 1899-12-30 (учитывает баг 1900
+  // как leap year). Целая часть = дни, дробная = время суток.
+  function _excelSerialToDate(serial) {
+    var days = Math.floor(serial);
+    var ms = Math.round((serial - days) * 86400 * 1000);
+    return new Date(Date.UTC(1899, 11, 30 + days, 0, 0, 0, ms));
+  }
+  function _padZero(n) { return (n < 10 ? '0' : '') + n; }
+  function _formatExcelDate(serial, code) {
+    var d = _excelSerialToDate(serial);
+    if (isNaN(d.getTime())) return String(serial);
+    var Y = d.getUTCFullYear(), M = d.getUTCMonth() + 1, D = d.getUTCDate();
+    var h = d.getUTCHours(), m = d.getUTCMinutes(), s = d.getUTCSeconds();
+    var c = (code || '').toLowerCase();
+    var hasTime = c.indexOf('h') !== -1 || c.indexOf('s') !== -1;
+    var hasDate = c.indexOf('y') !== -1 || c.indexOf('d') !== -1 ||
+                  c.indexOf('м') !== -1 || c.indexOf('д') !== -1 || c.indexOf('г') !== -1;
+    if (!hasDate && hasTime) {
+      return _padZero(h) + ':' + _padZero(m) + (s ? ':' + _padZero(s) : '');
+    }
+    var date = _padZero(D) + '.' + _padZero(M) + '.' + Y;
+    if (hasTime) return date + ' ' + _padZero(h) + ':' + _padZero(m);
+    return date;
+  }
+  // Встроенные numFmtId, которые означают дату/время в OOXML (§18.8.30).
+  var XLSX_BUILTIN_DATE_FMT = {
+    14: 'm/d/yyyy', 15: 'd-mmm-yy', 16: 'd-mmm', 17: 'mmm-yy',
+    18: 'h:mm AM/PM', 19: 'h:mm:ss AM/PM', 20: 'h:mm', 21: 'h:mm:ss',
+    22: 'm/d/yyyy h:mm', 45: 'mm:ss', 46: '[h]:mm:ss', 47: 'mmss.0'
+  };
+
   async function parseXlsxFile(file) {
     if (typeof JSZip === 'undefined') throw new Error('JSZip не загружен');
     var buf = await file.arrayBuffer();
@@ -1845,6 +1876,46 @@
         for (var j = 0; j < ts.length; j++) s += ts[j].textContent || '';
         sst.push(s);
       }
+    }
+
+    // Styles → cellXfs → numFmt. Каждой ячейке с s="N" соответствует
+    // cellXfs[N] (по порядку <xf>). Берём из xf атрибут numFmtId. Если
+    // numFmtId есть в встроенных дат-форматах или среди custom <numFmt code="..yyyy.."/>
+    // — флаг isDate. parseXlsx тогда конвертит serial → DD.MM.YYYY.
+    // Иначе число с дробью — оставляем как раньше (str via textContent).
+    var styleIsDate = []; // index — cellXfs id, value — boolean
+    var styleCode = [];   // index — cellXfs id, value — format code (for time/date variants)
+    var stylesFile = zip.file('xl/styles.xml');
+    if (stylesFile) {
+      try {
+        var stXml = await stylesFile.async('string');
+        var stDoc = new DOMParser().parseFromString(stXml, 'application/xml');
+        // Custom numFmt из <numFmts>
+        var customFmt = {};
+        var nfEls = stDoc.getElementsByTagName('numFmt');
+        for (var i = 0; i < nfEls.length; i++) {
+          var idAttr = parseInt(nfEls[i].getAttribute('numFmtId') || '0', 10);
+          var codeAttr = nfEls[i].getAttribute('formatCode') || '';
+          customFmt[idAttr] = codeAttr;
+        }
+        // cellXfs — массив <xf>. Берём только из непосредственного потомка
+        // <cellXfs>, не из <cellStyleXfs> (иначе индексы съедутся).
+        var cellXfsEl = stDoc.getElementsByTagName('cellXfs')[0];
+        if (cellXfsEl) {
+          var xfEls = cellXfsEl.getElementsByTagName('xf');
+          for (var i = 0; i < xfEls.length; i++) {
+            var nf = parseInt(xfEls[i].getAttribute('numFmtId') || '0', 10);
+            var code = customFmt[nf] || XLSX_BUILTIN_DATE_FMT[nf] || '';
+            var c = code.toLowerCase();
+            // Признаём датой если builtin date или custom с y/d/h/s (но не просто
+            // «0.00» — там нет этих букв). Защищаем «General», «#,##0», «0%».
+            var isDate = !!XLSX_BUILTIN_DATE_FMT[nf] ||
+                         (code && /[yYdDhHsS]|[мдгчс]/.test(code) && !/^[#0,.\- _%₽$€]+$/.test(code));
+            styleIsDate.push(!!isDate);
+            styleCode.push(code);
+          }
+        }
+      } catch (e) { /* styles parse fail → дальше без дат */ }
     }
 
     // Workbook → sheet names
@@ -1900,6 +1971,8 @@
             colIdx = j;
           }
           var t = cell.getAttribute('t');
+          var sAttr = cell.getAttribute('s');
+          var sIdx = sAttr ? parseInt(sAttr, 10) : -1;
           var value = '';
           if (t === 's') {
             var vEl = cell.getElementsByTagName('v')[0];
@@ -1912,7 +1985,24 @@
             }
           } else {
             var vEl2 = cell.getElementsByTagName('v')[0];
-            if (vEl2) value = vEl2.textContent || '';
+            if (vEl2) {
+              var raw = vEl2.textContent || '';
+              // Баг 14: если ячейка стилизована под дату — конвертим serial
+              // в DD.MM.YYYY. Без этой ветки 45413 → выходило «45413» вместо
+              // «01.05.2024», числа-проценты также теряли %.
+              if (sIdx >= 0 && styleIsDate[sIdx] && raw && !isNaN(parseFloat(raw))) {
+                value = _formatExcelDate(parseFloat(raw), styleCode[sIdx]);
+              } else if (sIdx >= 0 && styleCode[sIdx] &&
+                         /%/.test(styleCode[sIdx]) && raw && !isNaN(parseFloat(raw))) {
+                // Проценты: Excel хранит 0.5, отображает 50%. Конвертим.
+                value = (parseFloat(raw) * 100).toFixed(
+                  (styleCode[sIdx].match(/0\.0+/) || [''])[0].length > 2
+                    ? (styleCode[sIdx].match(/0\.0+/)[0].length - 2) : 0
+                ) + '%';
+              } else {
+                value = raw;
+              }
+            }
           }
           while (rowArr.length < colIdx) rowArr.push('');
           rowArr.push(value);
