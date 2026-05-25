@@ -184,21 +184,6 @@
         }
         .or-folder a:hover { color: var(--accent-hover); border-color: var(--accent-hover); }
 
-        /* Главная кнопка действия — всегда видима, disabled до успешного merge */
-        .primary-actions { display: flex; gap: 10px; margin-top: 16px; }
-        .primary-actions .btn-main {
-            flex: 1 1 auto; padding: 12px 18px; border-radius: 8px;
-            background: var(--accent); color: #1f1f1e; border: none;
-            font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
-            transition: background 0.15s;
-        }
-        .primary-actions .btn-main:hover:not(:disabled) { background: var(--accent-hover); }
-        .primary-actions .btn-main:disabled {
-            opacity: 0.45; cursor: not-allowed;
-            background: var(--bg-input); color: var(--text-muted);
-            border: 1px solid var(--border);
-        }
-
         /* === Settings panel (output format + name) === */
         .settings-panel {
             background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
@@ -405,11 +390,6 @@
             </div>
         </div>
 
-        <!-- Главное действие: видимо всегда, активно после успешного merge. -->
-        <div class="primary-actions">
-            <button class="btn-main" id="downloadBtnMain" disabled>Скачать .xlsx</button>
-        </div>
-
         <div id="previewSection">
             <div class="preview-header">
                 <div class="preview-header-left">
@@ -459,7 +439,6 @@
         var previewColCount = document.getElementById('previewColCount');
         var previewFooter = document.getElementById('previewFooter');
         var downloadBtn = document.getElementById('downloadBtn');
-        var downloadBtnMain = document.getElementById('downloadBtnMain');
         var folderInput = document.getElementById('folderInput');
         var pickFolderLink = document.getElementById('pickFolderLink');
         var loading = document.getElementById('loading');
@@ -497,14 +476,7 @@
             return String(s || '').replace(/[\\/:*?"<>|]+/g, '_').replace(/_+/g, '_').trim() || 'Объединение таблиц';
         }
         function saveSettings() { try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) {} }
-        function updateOutSuffix() {
-            outSuffix.textContent = '.' + settings.outputFormat;
-            if (downloadBtnMain) downloadBtnMain.textContent = 'Скачать .' + settings.outputFormat;
-        }
-        // Синхронизатор: main-кнопка повторяет состояние downloadBtn в preview.
-        function syncMainBtn() {
-            if (downloadBtnMain) downloadBtnMain.disabled = downloadBtn.disabled;
-        }
+        function updateOutSuffix() { outSuffix.textContent = '.' + settings.outputFormat; }
 
         // ============ Toasts ============
         // B4: дедуп — если один и тот же текст уже показан в последний 1 сек,
@@ -791,21 +763,6 @@
                 }
                 folderInput.value = '';
             });
-        }
-        // Main download button — клик повторяет click по downloadBtn в preview
-        if (downloadBtnMain) {
-            downloadBtnMain.addEventListener('click', function () {
-                if (downloadBtnMain.disabled) return;
-                downloadBtn.click();
-            });
-            // Авто-синхронизация disabled-состояния: MutationObserver следит
-            // за downloadBtn — никаких ручных syncMainBtn() в 5 разных местах.
-            try {
-                var mo = new MutationObserver(function () {
-                    downloadBtnMain.disabled = downloadBtn.disabled;
-                });
-                mo.observe(downloadBtn, { attributes: true, attributeFilter: ['disabled'] });
-            } catch (e) {}
         }
         clearAllBtn.addEventListener('click', function () {
             items = []; mergedResult = null; allTables = []; ignoredCols = new Set();
