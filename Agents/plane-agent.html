@@ -327,23 +327,22 @@
         </div>
     </div>
 
-    <!-- Settings modal: Plane URL + workspace_slug + API token. Хранится в localStorage. -->
+    <!-- Settings modal: Plane URL + workspace_slug + API token. Хранится в localStorage.
+         Enter в полях переключает фокус на следующее (data-next=id); на последнем
+         поле — кликает «Сохранить» (см. handleSettingsEnter в JS ниже). -->
     <div class="modal-backdrop" id="settingsModal" onclick="if(event.target===this)closeSettings()">
         <div class="modal-box">
             <h3>Plane-настройки</h3>
             <label for="set-url">Plane URL</label>
-            <input id="set-url" type="text" placeholder="http://host.docker.internal:8000" autocomplete="off">
-            <div class="modal-hint">Базовый адрес Plane API. Для локального self-host обычно <code>http://host.docker.internal:8000</code>, для облака — <code>https://api.plane.so</code>.</div>
+            <input id="set-url" type="text" placeholder="http://host.docker.internal:8000" autocomplete="off" data-next="set-slug">
             <label for="set-slug">Workspace slug</label>
-            <input id="set-slug" type="text" placeholder="office" autocomplete="off">
-            <div class="modal-hint">Slug рабочего пространства (виден в URL Plane: <code>/your-slug/projects</code>).</div>
+            <input id="set-slug" type="text" placeholder="office" autocomplete="off" data-next="set-token">
             <label for="set-token">API token (X-API-Key)</label>
-            <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off">
-            <div class="modal-hint">Создаётся в Plane: <em>Settings → API tokens → Add API token</em>.</div>
+            <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off" data-next="set-save-btn">
             <div class="modal-err" id="set-err"></div>
             <div class="modal-buttons">
                 <button onclick="closeSettings()">Отмена</button>
-                <button class="primary" onclick="saveSettings()">Сохранить</button>
+                <button class="primary" id="set-save-btn" onclick="saveSettings()">Сохранить</button>
             </div>
         </div>
     </div>
@@ -454,6 +453,28 @@
                 closeDirectTest();
             }
         });
+
+        // Enter-цепочка в Plane-настройках: фокус на следующее поле (data-next=id),
+        // на последнем поле (data-next=set-save-btn) — клик «Сохранить».
+        // По общему стилю проекта (см. login.html, chgpwd).
+        function handleSettingsEnter(e) {
+            if (e.key !== 'Enter') return;
+            var inp = e.target;
+            if (!inp || inp.tagName !== 'INPUT') return;
+            var nextId = inp.getAttribute('data-next');
+            if (!nextId) return;
+            var nextEl = document.getElementById(nextId);
+            if (!nextEl) return;
+            e.preventDefault();
+            if (nextEl.tagName === 'BUTTON') nextEl.click();
+            else nextEl.focus();
+        }
+        (function bindSettingsEnter() {
+            var inputs = document.querySelectorAll('#settingsModal input');
+            for (var i = 0; i < inputs.length; i++) {
+                inputs[i].addEventListener('keydown', handleSettingsEnter);
+            }
+        })();
 
         // ============ Direct test modal ============
         // Шлёт {action, params, token, plane_*} напрямую на /webhook/plane-agent.
