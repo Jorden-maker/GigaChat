@@ -283,10 +283,27 @@
         }
         .board-columns {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 14px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
             min-height: 400px;
         }
+        /* Сайдбар сворачивается влево при открытии доски (через body.board-fullscreen). */
+        body.board-fullscreen .sidebar {
+            width: 0 !important; min-width: 0 !important;
+            margin-left: 0 !important; padding: 0 !important;
+            opacity: 0; overflow: hidden;
+            border-right-width: 0;
+        }
+        .sidebar {
+            transition: width 0.3s ease, opacity 0.25s ease,
+                        margin 0.3s ease, padding 0.3s ease;
+        }
+        .main {
+            transition: padding-left 0.3s ease;
+        }
+        /* Кнопка «Доска/Чат» в header-left — стоит слева от заголовка */
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .header-left h1 { margin: 0; }
         .board-col {
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 10px; padding: 10px;
@@ -644,10 +661,15 @@
     </div>
     <div class="main">
         <header>
-            <div class="header-left"><h1>GigaChat Plane</h1></div>
+            <div class="header-left">
+                <!-- Кнопка «Доска/Чат» — сразу справа от стрелки выхода (которая в сайдбаре),
+                     визуально они стоят рядом. При клике сайдбар уезжает влево, доска
+                     расширяется на всю ширину. -->
+                <button class="btn-settings" id="boardToggleBtn" onclick="toggleBoard()">Доска</button>
+                <h1>GigaChat Plane</h1>
+            </div>
             <div class="header-right">
                 <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
-                <button class="btn-settings" id="boardToggleBtn" onclick="toggleBoard()">Доска</button>
                 <button class="btn-settings" onclick="openSettings()">Настройки</button>
                 <button class="btn-export" id="btnExport" onclick="exportChat()">Экспорт</button>
             </div>
@@ -684,6 +706,15 @@
                     </select>
                 </div>
                 <div class="board-columns" id="board-columns">
+                    <div class="board-col" data-state="backlog">
+                        <div class="board-col-header">Бэклог <span class="board-col-count" data-count></span></div>
+                        <div class="board-empty">Нет задач</div>
+                        <button class="board-col-add" data-state="backlog" onclick="openQuickCreate('backlog')">+ Добавить</button>
+                        <div class="board-col-quick-form" data-state="backlog">
+                            <input type="text" placeholder="Название задачи + Enter" data-qc-state="backlog">
+                            <div class="qf-hint">Esc — отмена</div>
+                        </div>
+                    </div>
                     <div class="board-col" data-state="unstarted">
                         <div class="board-col-header">Задачи <span class="board-col-count" data-count></span></div>
                         <div class="board-empty">Нет задач</div>
@@ -1314,11 +1345,12 @@
             var show = typeof forceShow === 'boolean' ? forceShow : !panel.classList.contains('show');
             panel.classList.toggle('show', show);
             btn.textContent = show ? 'Чат' : 'Доска';
+            // Сайдбар уезжает влево когда доска открыта → доска на всю ширину
+            document.body.classList.toggle('board-fullscreen', show);
             // Скрыть «Экспорт» когда доска открыта (она про чат)
             var exportBtn = document.getElementById('btnExport');
             if (exportBtn) exportBtn.style.display = show ? 'none' : '';
             if (show) {
-                // MED-1: fetch current user для фильтра «Только мои» (fire-and-forget)
                 if (typeof loadCurrentUser === 'function') loadCurrentUser();
                 loadBoard();
             }
@@ -1444,6 +1476,7 @@
         // между перерисовками (баг 15: при рекурсивных вызовах querySelector мог
         // вернуть null, col.appendChild(null) — TypeError, колонка оставалась пустой).
         var BOARD_COL_TITLES = {
+            backlog: 'Бэклог',
             unstarted: 'Задачи',
             started: 'В работе',
             completed: 'Готово',
@@ -1477,11 +1510,10 @@
 
         function renderBoardIssues(issues) {
             // Группируем по state.group. Plane state имеет group ∈ {backlog,
-            // unstarted, started, completed, cancelled}. backlog кладём в Todo.
-            var groups = { unstarted: [], started: [], completed: [], cancelled: [] };
+            // unstarted, started, completed, cancelled}. Все 5 — отдельная колонка.
+            var groups = { backlog: [], unstarted: [], started: [], completed: [], cancelled: [] };
             issues.forEach(function (i) {
                 var g = (i.state_detail && i.state_detail.group) || 'unstarted';
-                if (g === 'backlog') g = 'unstarted';
                 if (groups[g]) groups[g].push(i);
                 else groups.unstarted.push(i);
             });
@@ -1621,7 +1653,7 @@
                     var targetState = col.dataset.state;
                     if (!issueName || !BOARD_CURRENT_PROJECT) return;
                     // Маппинг group → state name (для нашего LLM ALIASES)
-                    var STATE_MAP = { unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled' };
+                    var STATE_MAP = { backlog: 'backlog', unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled' };
                     var statusEl = document.getElementById('board-status');
 
                     // Оптимистичный move: переносим карточку в новую колонку СРАЗУ.
@@ -1928,7 +1960,7 @@
                             statusEl.textContent = 'Создаю...';
                             input.disabled = true;
                             try {
-                                var STATE_MAP = { unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled' };
+                                var STATE_MAP = { backlog: 'backlog', unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled' };
                                 // Создаём через bulk: create_issue + change_status
                                 var res = await planeDirect('create_issue', {
                                     project_name: BOARD_CURRENT_PROJECT,
