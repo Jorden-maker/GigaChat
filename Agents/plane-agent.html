@@ -821,6 +821,10 @@
                 return;
             }
             closeSettings();
+            // MED-9: сбрасываем кэш доски — иначе после смены workspace доска
+            // продолжит показывать старые проекты до перезагрузки страницы.
+            BOARD_PROJECTS_CACHE = null;
+            BOARD_CURRENT_PROJECT = null;
             // Обновляем placeholder поля ввода + включаем send если был disabled
             var msgInput = document.getElementById('msg');
             if (msgInput) msgInput.placeholder = 'Например: покажи мои проекты или создай задачу...';
@@ -1258,7 +1262,10 @@
                         issue_name: issueName,
                         state: STATE_MAP[targetState] || targetState
                     });
-                    var isErr = !res || (res.response && /Не удалось|перегружен|нет доступа|не найдены|некорректные/i.test(res.response));
+                    // MED-10: используем структурные поля (action='error' / error)
+                    // вместо regex по тексту — текст может меняться, action — нет.
+                    var isErr = !res || res.action === 'error' || !!res.error
+                        || (res.response && /^Не удалось|^Plane перегружен|^Plane: нет доступа|^Plane: задача|^Plane: некорректные/.test(res.response));
                     if (isErr) {
                         // Откат: возвращаем карточку в оригинальную колонку
                         if (draggedCard && originalParent) {
