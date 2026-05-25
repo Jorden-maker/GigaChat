@@ -209,21 +209,17 @@
         .gc-dp-label.placeholder { color: var(--text-muted); }
         .gc-dp-icon { color: var(--text-secondary); flex-shrink: 0; line-height: 0; transition: color 0.15s; }
         .gc-dp-icon svg {
-            width: 14px; height: 14px; stroke: currentColor; fill: none;
-            stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+            width: 13px; height: 13px; stroke: currentColor; fill: none;
+            stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
         }
         .gc-dp.open .gc-dp-icon { color: var(--accent); }
         .gc-dp-popup {
-            position: absolute; top: calc(100% + 4px); left: 0; width: 260px;
+            position: fixed; width: 260px;
             background: var(--bg-card); border: 1px solid var(--border);
-            border-radius: 10px; padding: 10px; z-index: 250;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            border-radius: 10px; padding: 10px; z-index: 2500;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
             opacity: 0; visibility: hidden; transform: translateY(-4px);
             transition: opacity 0.18s, transform 0.18s, visibility 0s linear 0.18s;
-        }
-        /* Если у обёртки .gc-dp есть класс .flip-up — popup открывается вверх */
-        .gc-dp.flip-up .gc-dp-popup {
-            top: auto; bottom: calc(100% + 4px); transform: translateY(4px);
         }
         .gc-dp.open .gc-dp-popup {
             opacity: 1; visibility: visible; transform: translateY(0);
@@ -515,11 +511,13 @@
         .board-chip.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
         .board-add-task {
             margin-left: auto;
-            height: 28px; padding: 0 14px; border-radius: 6px;
+            height: 28px; padding: 0 12px 0 10px; border-radius: 6px;
             background: var(--accent); color: white; border: none;
             font-family: inherit; font-size: 12px; font-weight: 500;
             cursor: pointer; transition: background 0.15s;
+            display: inline-flex; align-items: center; gap: 6px;
         }
+        .board-add-task svg { display: block; }
         .board-add-task:hover { background: var(--accent-hover); }
         .board-add-task:disabled { opacity: 0.5; cursor: not-allowed; }
         /* === Универсальный кастомный dropdown — для сортировки, приоритета, статуса === */
@@ -542,9 +540,9 @@
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .gc-dropdown-arrow {
-            width: 7px; height: 7px;
-            border-right: 1.5px solid var(--text-secondary);
-            border-bottom: 1.5px solid var(--text-secondary);
+            width: 9px; height: 9px;
+            border-right: 1.6px solid var(--text-secondary);
+            border-bottom: 1.6px solid var(--text-secondary);
             transform: translateY(-3px) rotate(45deg);
             transition: transform 0.2s, border-color 0.15s;
             flex-shrink: 0;
@@ -956,7 +954,10 @@
                         <option value="created">Сортировка: создан</option>
                         <option value="name">Сортировка: имя</option>
                     </select>
-                    <button class="board-add-task" id="board-add-task-btn" onclick="openNewTaskModal()">+ Добавить задачу</button>
+                    <button class="board-add-task" id="board-add-task-btn" onclick="openNewTaskModal()">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Добавить задачу
+                    </button>
                 </div>
                 <div class="board-columns" id="board-columns">
                     <div class="board-col" data-state="backlog">
@@ -1591,6 +1592,8 @@
             // Скрыть «Экспорт» когда доска открыта (она про чат)
             var exportBtn = document.getElementById('btnExport');
             if (exportBtn) exportBtn.style.display = show ? 'none' : '';
+            // Запоминаем выбор для следующей перезагрузки
+            try { localStorage.setItem('plane_board_open', show ? '1' : '0'); } catch (e) {}
             if (show) {
                 if (typeof loadCurrentUser === 'function') loadCurrentUser();
                 loadBoard();
@@ -1633,6 +1636,8 @@
         function selectBoardProject(name) {
             BOARD_CURRENT_PROJECT = name;
             document.getElementById('board-project-label').textContent = name || '—';
+            // Запоминаем выбор для следующей перезагрузки
+            try { if (name) localStorage.setItem('plane_board_project', name); } catch (e) {}
             // Phase 1 #11: pin sticky project — выбор на доске → закрепляется и для чата
             if (typeof saveStickyProject === 'function' && name) {
                 saveStickyProject(name);
@@ -2038,6 +2043,33 @@
             if (!planeSettingsComplete()) {
                 setTimeout(openSettings, 300);
             }
+            // Восстанавливаем режим Доски при перезагрузке если он был открыт
+            try {
+                if (localStorage.getItem('plane_board_open') === '1' && planeSettingsComplete()) {
+                    var savedProj = localStorage.getItem('plane_board_project');
+                    setTimeout(function () {
+                        toggleBoard(true);
+                        // selectBoardProject вызовется внутри loadBoard через cache,
+                        // но если cache ещё не загружен — переопределим текущий проект.
+                        if (savedProj) {
+                            // Пытаемся подождать пока BOARD_PROJECTS_CACHE наполнится,
+                            // потом устанавливаем нужный проект.
+                            var tries = 0;
+                            var iv = setInterval(function () {
+                                if (BOARD_PROJECTS_CACHE && BOARD_PROJECTS_CACHE.length) {
+                                    clearInterval(iv);
+                                    var p = BOARD_PROJECTS_CACHE.find(function (x) { return x.name === savedProj; });
+                                    if (p && BOARD_CURRENT_PROJECT !== savedProj) {
+                                        selectBoardProject(savedProj);
+                                    }
+                                } else if (++tries > 30) {
+                                    clearInterval(iv);
+                                }
+                            }, 200);
+                        }
+                    }, 400);
+                }
+            } catch (e) {}
         }
 
         // ===================================================================
@@ -2097,15 +2129,11 @@
             renderStickyPill();
         }
         function renderStickyPill() {
+            // Pill «Контекст: …» убран по запросу юзера. Sticky всё ещё
+            // работает на бэке (LLM получает sticky_project), просто
+            // UI-индикатор не показываем.
             var pill = document.getElementById('sticky-project-pill');
-            var nameEl = document.getElementById('sticky-project-name');
-            if (!pill || !nameEl) return;
-            if (STICKY_PROJECT && STICKY_PROJECT.name) {
-                nameEl.textContent = STICKY_PROJECT.name;
-                pill.classList.add('show');
-            } else {
-                pill.classList.remove('show');
-            }
+            if (pill) pill.classList.remove('show');
         }
         function clearStickyProject() { saveStickyProject(null); }
 
@@ -2654,9 +2682,6 @@
             cm.appendChild(mkBtn('arrow', 'Готово', function () { ctxMenuStatusFor(issue, 'done'); }));
             cm.appendChild(mkBtn('arrow', 'Отменено', function () { ctxMenuStatusFor(issue, 'cancelled'); }));
             cm.appendChild(mkHr());
-            cm.appendChild(mkBtn('comment', 'Добавить комментарий', function () { ctxMenuCommentFor(issue); }));
-            cm.appendChild(mkBtn('calendar', 'Установить срок', function () { ctxMenuDeadlineFor(issue); }));
-            cm.appendChild(mkHr());
             cm.appendChild(mkBtn('trash', 'Удалить', function () { ctxMenuDeleteFor(issue); }, true));
             cm.style.left = e.clientX + 'px';
             cm.style.top = e.clientY + 'px';
@@ -3004,12 +3029,20 @@
                     viewY = parseInt(ref[0], 10);
                     viewM = parseInt(ref[1], 10) - 1;
                     render();
-                    // Auto-flip: если popup не помещается снизу, открываем вверх
+                    // Позиционируем fixed-popup относительно триггера в viewport,
+                    // с auto-flip и отступом 30px от низа.
                     setTimeout(function () {
                         var rect = trigger.getBoundingClientRect();
+                        var popupH = popup.offsetHeight || 290;
                         var spaceBelow = window.innerHeight - rect.bottom;
-                        var popupH = popup.offsetHeight || 280;
-                        wrap.classList.toggle('flip-up', spaceBelow < popupH + 20);
+                        var openUp = spaceBelow < popupH + 30;
+                        if (openUp) {
+                            popup.style.left = rect.left + 'px';
+                            popup.style.top = (rect.top - popupH - 4) + 'px';
+                        } else {
+                            popup.style.left = rect.left + 'px';
+                            popup.style.top = (rect.bottom + 4) + 'px';
+                        }
                     }, 0);
                 }
             });
