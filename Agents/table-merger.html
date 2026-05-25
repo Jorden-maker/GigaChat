@@ -397,18 +397,6 @@
             </div>
         </div>
 
-        <!-- Result-box: видимый банер успеха после merge (UI-паритет с file-merger) -->
-        <div class="result-box" id="resultBox">
-            <div class="result-header">
-                <div class="result-meta">
-                    Готово. Строк: <b id="resultRows">—</b>, столбцов: <b id="resultCols">—</b>, файлов: <b id="resultFiles">—</b>
-                </div>
-                <div class="result-actions">
-                    <button class="btn-action" id="resultDownloadBtn">⬇ <span id="resultDownloadLabel">Скачать .xlsx</span></button>
-                </div>
-            </div>
-        </div>
-
         <div id="previewSection">
             <div class="preview-header">
                 <div class="preview-header-left">
@@ -460,12 +448,6 @@
         var downloadBtn = document.getElementById('downloadBtn');
         var folderInput = document.getElementById('folderInput');
         var pickFolderLink = document.getElementById('pickFolderLink');
-        var resultBox = document.getElementById('resultBox');
-        var resultRows = document.getElementById('resultRows');
-        var resultCols = document.getElementById('resultCols');
-        var resultFiles = document.getElementById('resultFiles');
-        var resultDownloadBtn = document.getElementById('resultDownloadBtn');
-        var resultDownloadLabel = document.getElementById('resultDownloadLabel');
         var loading = document.getElementById('loading');
         var loadingText = document.getElementById('loadingText');
         var progressFill = document.getElementById('progressFill');
@@ -501,21 +483,7 @@
             return String(s || '').replace(/[\\/:*?"<>|]+/g, '_').replace(/_+/g, '_').trim() || 'Объединение таблиц';
         }
         function saveSettings() { try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) {} }
-        function updateOutSuffix() {
-            outSuffix.textContent = '.' + settings.outputFormat;
-            if (resultDownloadLabel) resultDownloadLabel.textContent = 'Скачать .' + settings.outputFormat;
-        }
-        function showResultBox() {
-            if (!resultBox || !mergedResult) return;
-            var visibleCols = 0;
-            for (var c = 0; c < mergedResult.headers.length; c++) if (!ignoredCols.has(c)) visibleCols++;
-            var okFiles = items.filter(function (it) { return !it.error && it.parsed; }).length;
-            resultRows.textContent = String(mergedResult.rows.length);
-            resultCols.textContent = String(visibleCols);
-            resultFiles.textContent = String(okFiles);
-            resultBox.style.display = 'block';
-        }
-        function hideResultBox() { if (resultBox) resultBox.style.display = 'none'; }
+        function updateOutSuffix() { outSuffix.textContent = '.' + settings.outputFormat; }
 
         // ============ Toasts ============
         // B4: дедуп — если один и тот же текст уже показан в последний 1 сек,
@@ -974,11 +942,9 @@
         function renderPreview() {
             if (!mergedResult || !mergedResult.headers || !mergedResult.headers.length) {
                 hidePreview();
-                hideResultBox();
                 return;
             }
             previewSection.classList.add('show');
-            showResultBox();
             var headers = mergedResult.headers;
             var rows = mergedResult.rows;
             var visibleCols = [];
@@ -1004,10 +970,7 @@
                 : 'Показаны все ' + rows.length + ' строк.';
         }
 
-        function hidePreview() {
-            previewSection.classList.remove('show');
-            hideResultBox();
-        }
+        function hidePreview() { previewSection.classList.remove('show'); }
 
         function updateSortDropdownItems() {
             if (!mergedResult) return;
@@ -1076,11 +1039,6 @@
 
         // ============ Download ============
         downloadBtn.addEventListener('click', doDownload);
-        if (resultDownloadBtn) {
-            resultDownloadBtn.addEventListener('click', function () {
-                if (mergedResult) doDownload();
-            });
-        }
         async function doDownload() {
             if (!mergedResult) { showToast('Сначала построй превью', 'error'); return; }
             var visibleCols = [];
