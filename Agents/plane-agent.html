@@ -37,6 +37,10 @@
             --text-muted: #5a5a5a;
             --accent: #d4a574;
             --accent-hover: #c08a5a;
+            /* LOW-4 fix: добавляем недостающие переменные для Phase 1 компонентов */
+            --accent-light: rgba(212, 165, 116, 0.18);
+            --bg-card: #262522;
+            --error: #ef4444;
             --sidebar-width: 270px;
         }
         :root[data-theme="light"] {
@@ -52,6 +56,10 @@
             --text-muted: #a8a59f;
             --accent: #b8895d;
             --accent-hover: #a0764d;
+            /* LOW-4: light theme overrides для новых vars */
+            --accent-light: rgba(184, 137, 93, 0.14);
+            --bg-card: #ffffff;
+            --error: #d92020;
         }
         /* Общие стили чат-агента — в _shared.js через GigaChat.injectAgentCss().
            Здесь только per-page правила. */
@@ -1213,7 +1221,12 @@
             if (ex.issues && ex.issues.length)      blocks += formatIssuesList(ex.issues, ex.project);
             if (ex.issue)                           blocks += formatIssueCard(ex.issue);
 
-            // Phase 1 #12: Disambiguation — список совпадений с кнопками
+            // MED-3 fix: disambig и quick_replies строим через data-attr + дальнейший delegation.
+            // Текст реплая хранится в data-reply (HTML-escaped), события навешиваются после
+            // вставки HTML — в момент рендера chat-message. Делаем это через event delegation
+            // на document с проверкой data-quick-reply / data-disambig-reply.
+
+            // Phase 1 #12: Disambiguation
             if (ex.disambiguation && Array.isArray(ex.disambiguation.items)) {
                 blocks += '<div class="disambig-list">';
                 ex.disambiguation.items.slice(0, 8).forEach(function (it) {
@@ -1221,15 +1234,13 @@
                     if (it.project_name) meta.push('проект: ' + it.project_name);
                     if (it.state) meta.push('статус: ' + it.state);
                     if (it.priority) meta.push('приоритет: ' + it.priority);
-                    var action = ex.disambiguation.action || 'select';
-                    // Quick reply: «<глагол> "<имя>" в <проект>»
-                    var template = ex.disambiguation.replyTemplate || ('Выбираю «' + it.name + '»');
-                    var reply = template.replace('{name}', it.name).replace('{project}', it.project_name || '');
-                    blocks += '<div class="disambig-item" onclick="sendQuickReply(' +
-                        JSON.stringify(reply).replace(/"/g, '&quot;') + ')">' +
-                        '<div class="di-title">' + escapeHtml(it.name || '?') + '</div>' +
-                        (meta.length ? '<div class="di-meta">' + escapeHtml(meta.join(' • ')) + '</div>' : '') +
-                    '</div>';
+                    var template = ex.disambiguation.replyTemplate || ('Выбираю «' + (it.name || '') + '»');
+                    var reply = template.replace('{name}', it.name || '').replace('{project}', it.project_name || '');
+                    blocks +=
+                        '<div class="disambig-item" data-quick-reply="' + escapeAttr(reply) + '">' +
+                            '<div class="di-title">' + escapeHtml(it.name || '?') + '</div>' +
+                            (meta.length ? '<div class="di-meta">' + escapeHtml(meta.join(' • ')) + '</div>' : '') +
+                        '</div>';
                 });
                 blocks += '</div>';
             }
@@ -1242,14 +1253,23 @@
                     var text = (typeof qr === 'string') ? qr : (qr.text || qr.label || '');
                     var danger = (typeof qr === 'object' && qr.danger) ? ' danger' : '';
                     if (!label || !text) return;
-                    blocks += '<button class="quick-reply-btn' + danger + '" onclick="sendQuickReply(' +
-                        JSON.stringify(text).replace(/"/g, '&quot;') + ')">' +
-                        escapeHtml(label) + '</button>';
+                    blocks +=
+                        '<button class="quick-reply-btn' + danger + '" data-quick-reply="' + escapeAttr(text) + '">' +
+                            escapeHtml(label) +
+                        '</button>';
                 });
                 blocks += '</div>';
             }
             return html + (blocks ? '<div style="margin-top:10px">' + blocks + '</div>' : '');
         }
+
+        // MED-3 fix: глобальный делегатор для data-quick-reply (disambig + quick_replies)
+        document.addEventListener('click', function (e) {
+            var el = e.target.closest('[data-quick-reply]');
+            if (!el) return;
+            var text = el.getAttribute('data-quick-reply');
+            if (text) sendQuickReply(text);
+        });
 
         // ============== Канбан-доска ============
         // toggleBoard — overlay поверх chat в .main-body. При первом открытии
@@ -1268,7 +1288,11 @@
             // Скрыть «Экспорт» когда доска открыта (она про чат)
             var exportBtn = document.getElementById('btnExport');
             if (exportBtn) exportBtn.style.display = show ? 'none' : '';
-            if (show) loadBoard();
+            if (show) {
+                // MED-1: fetch current user для фильтра «Только мои» (fire-and-forget)
+                if (typeof loadCurrentUser === 'function') loadCurrentUser();
+                loadBoard();
+            }
         }
 
         async function planeDirect(action, params) {
@@ -1660,10 +1684,11 @@
 
                     // Phase 1 #11: Sticky project — если backend сообщил про
                     // используемый проект, фиксируем для следующих сообщений.
-                    if (extras && extras.project_name_canonical) {
-                        if (typeof saveStickyProject === 'function') {
-                            saveStickyProject(extras.project_name_canonical);
-                        }
+                    // HIGH-4 fix: backend кладёт в data.project_name_canonical
+                    // (новый формат) или в data.project (старый list_issues).
+                    var canonicalProject = extras && (extras.project_name_canonical || extras.project);
+                    if (canonicalProject && typeof saveStickyProject === 'function') {
+                        saveStickyProject(canonicalProject);
                     }
                     // Phase 1 #12: Disambiguation — если backend вернул несколько кандидатов
                     // под одну issue_name, фронт отрендерит список карточек.
@@ -1716,6 +1741,25 @@
         var CURRENT_USER_ID = null;  // id текущего юзера в Plane (для «Мои задачи»)
         var SELECTED_CARDS = new Set(); // issue ids
         var STICKY_PROJECT = null;   // {name, ts} — закреплённый проект для чата
+
+        // MED-1 fix: загружаем CURRENT_USER_ID из Plane API при открытии доски.
+        // Endpoint /api/v1/users/me/ возвращает текущего юзера по X-API-Key.
+        async function loadCurrentUser() {
+            if (CURRENT_USER_ID) return;
+            try {
+                var s = loadPlaneSettings();
+                if (!s.url || !s.token) return;
+                var res = await fetch(s.url.replace(/\/$/, '') + '/api/v1/users/me/', {
+                    headers: { 'X-API-Key': s.token, 'Content-Type': 'application/json' },
+                    method: 'GET'
+                });
+                if (!res.ok) return;
+                var data = await res.json();
+                if (data && data.id) {
+                    CURRENT_USER_ID = data.id;
+                }
+            } catch (e) {}
+        }
 
         // --- Quick helpers ---
         function _q(sel) { return document.querySelector(sel); }
@@ -2102,17 +2146,30 @@
             ensureModalDom();
             e.preventDefault();
             var cm = document.getElementById('board-context-menu');
-            cm.innerHTML =
-                '<button onclick="openCardModal(' + JSON.stringify(issue).replace(/"/g,'&quot;') + '); document.getElementById(\'board-context-menu\').classList.remove(\'show\')">📝 Изменить</button>' +
-                '<button onclick="ctxMenuStatus(\'todo\')">→ Задачи</button>' +
-                '<button onclick="ctxMenuStatus(\'in_progress\')">→ В работе</button>' +
-                '<button onclick="ctxMenuStatus(\'done\')">→ Готово</button>' +
-                '<button onclick="ctxMenuStatus(\'cancelled\')">→ Отменено</button>' +
-                '<hr>' +
-                '<button onclick="ctxMenuComment()">💬 Добавить комментарий</button>' +
-                '<button onclick="ctxMenuDeadline()">📅 Установить срок</button>' +
-                '<hr>' +
-                '<button class="danger" onclick="ctxMenuDelete()">🗑 Удалить</button>';
+            // MED-3 fix: НЕ встраиваем JSON в onclick (XSS через имена со спецсимволами).
+            // Строим через DOM API + addEventListener. closure захватывает issue.
+            cm.innerHTML = '';
+            function mkBtn(label, onClick, isDanger) {
+                var b = document.createElement('button');
+                b.textContent = label;
+                if (isDanger) b.className = 'danger';
+                b.addEventListener('click', function () {
+                    cm.classList.remove('show');
+                    onClick();
+                });
+                return b;
+            }
+            function mkHr() { return document.createElement('hr'); }
+            cm.appendChild(mkBtn('📝 Изменить', function () { openCardModal(issue); }));
+            cm.appendChild(mkBtn('→ Задачи', function () { ctxMenuStatusFor(issue, 'todo'); }));
+            cm.appendChild(mkBtn('→ В работе', function () { ctxMenuStatusFor(issue, 'in_progress'); }));
+            cm.appendChild(mkBtn('→ Готово', function () { ctxMenuStatusFor(issue, 'done'); }));
+            cm.appendChild(mkBtn('→ Отменено', function () { ctxMenuStatusFor(issue, 'cancelled'); }));
+            cm.appendChild(mkHr());
+            cm.appendChild(mkBtn('💬 Добавить комментарий', function () { ctxMenuCommentFor(issue); }));
+            cm.appendChild(mkBtn('📅 Установить срок', function () { ctxMenuDeadlineFor(issue); }));
+            cm.appendChild(mkHr());
+            cm.appendChild(mkBtn('🗑 Удалить', function () { ctxMenuDeleteFor(issue); }, true));
             cm.style.left = e.clientX + 'px';
             cm.style.top = e.clientY + 'px';
             cm.dataset.issueName = issue.name;
@@ -2124,40 +2181,29 @@
                 if (rect.bottom > window.innerHeight) cm.style.top = (window.innerHeight - rect.height - 10) + 'px';
             }, 0);
         }
-        async function ctxMenuStatus(state) {
-            var cm = document.getElementById('board-context-menu');
-            var name = cm.dataset.issueName;
-            cm.classList.remove('show');
-            if (!name || !BOARD_CURRENT_PROJECT) return;
-            await planeDirect('change_status', { project_name: BOARD_CURRENT_PROJECT, issue_name: name, state: state });
+        // MED-3 fix: типизированные обёртки, принимают issue (closure-safe)
+        async function ctxMenuStatusFor(issue, state) {
+            if (!issue || !BOARD_CURRENT_PROJECT) return;
+            await planeDirect('change_status', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name, state: state });
             reloadBoard();
         }
-        async function ctxMenuDelete() {
-            var cm = document.getElementById('board-context-menu');
-            var name = cm.dataset.issueName;
-            cm.classList.remove('show');
-            if (!name) return;
-            if (!confirm('Удалить задачу «' + name + '»?')) return;
-            await planeDirect('delete_issue', { project_name: BOARD_CURRENT_PROJECT, issue_name: name });
+        async function ctxMenuDeleteFor(issue) {
+            if (!issue) return;
+            if (!confirm('Удалить задачу «' + issue.name + '»?')) return;
+            await planeDirect('delete_issue', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name });
             reloadBoard();
         }
-        async function ctxMenuComment() {
-            var cm = document.getElementById('board-context-menu');
-            var name = cm.dataset.issueName;
-            cm.classList.remove('show');
-            if (!name) return;
-            var text = prompt('Комментарий для «' + name + '»:');
+        async function ctxMenuCommentFor(issue) {
+            if (!issue) return;
+            var text = prompt('Комментарий для «' + issue.name + '»:');
             if (!text) return;
-            await planeDirect('add_comment', { project_name: BOARD_CURRENT_PROJECT, issue_name: name, comment: text });
+            await planeDirect('add_comment', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name, comment: text });
         }
-        async function ctxMenuDeadline() {
-            var cm = document.getElementById('board-context-menu');
-            var name = cm.dataset.issueName;
-            cm.classList.remove('show');
-            if (!name) return;
-            var date = prompt('Срок для «' + name + '» (YYYY-MM-DD):');
+        async function ctxMenuDeadlineFor(issue) {
+            if (!issue) return;
+            var date = prompt('Срок для «' + issue.name + '» (YYYY-MM-DD):');
             if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-            await planeDirect('set_deadline', { project_name: BOARD_CURRENT_PROJECT, issue_name: name, target_date: date });
+            await planeDirect('set_deadline', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name, target_date: date });
             reloadBoard();
         }
 
@@ -2319,40 +2365,48 @@
             });
         }
         function stripHtml(s) {
+            // MED-4 fix: НЕ используем innerHTML — это исполняет img.onerror/script.
+            // Используем DOMParser в режиме text/html — он парсит без attach к документу,
+            // скрипты не исполняются, события не триггерятся.
             if (!s) return '';
-            var div = document.createElement('div');
-            div.innerHTML = String(s);
-            return (div.textContent || div.innerText || '').trim();
+            try {
+                var doc = new DOMParser().parseFromString(String(s), 'text/html');
+                return (doc.body.textContent || doc.body.innerText || '').trim();
+            } catch (e) {
+                // Fallback: грубый regex
+                return String(s).replace(/<[^>]+>/g, '').replace(/&[a-z]+;/gi, ' ').trim();
+            }
         }
 
-        // Patch renderBoardIssues — нужно сохранить полный набор в BOARD_ALL_ISSUES
-        // ВАЖНО: renderBoardIssues определён выше. Здесь wrapping не делаем
-        // (могут быть race при override) — вместо этого добавим хук в reloadBoard.
-        var __origReloadBoard = reloadBoard;
-        reloadBoard = async function () {
-            var panel = document.getElementById('board-panel');
-            if (!panel || !panel.classList.contains('show')) return;
-            var projectName = BOARD_CURRENT_PROJECT;
-            if (!projectName) {
-                BOARD_ALL_ISSUES = [];
-                renderBoardEmpty();
-                return;
+        // MED-7 fix: больше не оверрайдим reloadBoard через monkey-patch
+        // (был дубликат логики обработки isErr). Вместо этого добавляем
+        // хук в существующий reloadBoard через wrapping renderBoardIssues —
+        // см. patch ниже. Здесь оставляем только cleanup при загрузке.
+
+        // MED-8 fix: при reload очищаем SELECTED_CARDS от тех id, что исчезли
+        function pruneSelection() {
+            if (!SELECTED_CARDS || SELECTED_CARDS.size === 0) return;
+            var validIds = new Set(BOARD_ALL_ISSUES.map(function (i) { return i.id || i.name; }));
+            var toRemove = [];
+            SELECTED_CARDS.forEach(function (id) { if (!validIds.has(id)) toRemove.push(id); });
+            toRemove.forEach(function (id) { SELECTED_CARDS.delete(id); });
+            if (toRemove.length) updateBulkBar();
+        }
+
+        // Перехват renderBoardIssues: сохраняем полный набор и применяем фильтры
+        var __origRenderBoardIssues = renderBoardIssues;
+        renderBoardIssues = function (issues) {
+            // Если вызван от reloadBoard напрямую — issues уже фильтрованы.
+            // Сохраняем полный набор только если ALL_ISSUES пуст или его длина
+            // меньше переданной (значит это «свежий» список с бэка).
+            if (Array.isArray(issues) && (BOARD_ALL_ISSUES.length === 0 || issues.length >= BOARD_ALL_ISSUES.length)) {
+                BOARD_ALL_ISSUES = issues;
+                pruneSelection();
             }
-            var statusEl = document.getElementById('board-status');
-            statusEl.textContent = 'Загружаю задачи...';
-            var res = await planeDirect('list_issues', { project_name: projectName });
-            var isErr = !res || res.action === 'error' || !!res.error;
-            var issues = (res && res.data && Array.isArray(res.data.issues)) ? res.data.issues : null;
-            if (isErr || issues === null) {
-                statusEl.textContent = (res && res.response) ? String(res.response).slice(0, 60) : 'Ошибка обновления';
-                setTimeout(function () { statusEl.textContent = ''; }, 4000);
-                return;
-            }
-            BOARD_ALL_ISSUES = issues;
-            statusEl.textContent = 'Задач: ' + issues.length;
-            // Применяем текущие фильтры
-            var filtered = filterIssues(BOARD_ALL_ISSUES);
-            renderBoardIssues(filtered);
+            // Применяем активные фильтры (если они есть — иначе вернёт всё)
+            var hasFilters = BOARD_FILTERS.search || BOARD_FILTERS.mine || BOARD_FILTERS.overdue || BOARD_FILTERS.urgent || BOARD_FILTERS.noDeadline;
+            var toRender = hasFilters ? filterIssues(BOARD_ALL_ISSUES) : issues;
+            return __origRenderBoardIssues.call(this, toRender);
         };
 
         // ИНИТ: на загрузке — sticky pill, modal infra
