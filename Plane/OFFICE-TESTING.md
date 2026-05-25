@@ -1,390 +1,292 @@
-# Тестирование GigaChat Plane в офисе — полная инструкция
+# Тестирование GigaChat Plane в офисе — полная инструкция (v2)
 
-Документ описывает развёртывание и тестирование интеграции с нуля. Считается что в офисе уже работают:
-- **n8n** (Docker-контейнер, доступен через браузер)
-- **PostgreSQL** (Docker-контейнер, с таблицами `planner_users`, `planner_sessions`)
-- **Plane** (Docker-контейнер, доступен через браузер)
-- **Логин в планировщике GigaChat** (хотя бы один зарегистрированный юзер в `planner_users`)
+Документ обновлён под версию **14 actions + канбан-доска + шаблоны + smart-dates + bulk**.
 
-Все три (n8n, Plane, Postgres) на ОДНОМ офисном сервере, в Docker.
+Считается что в офисе уже работают:
+- **n8n** (Docker, web UI доступен)
+- **PostgreSQL** (Docker, `planner_users`/`planner_sessions`/`agent_sessions`)
+- **Plane** (Docker, web UI доступен)
+- **Хотя бы один зарегистрированный юзер** (через `/login.html` GigaChat)
 
 ---
 
 ## Содержание
 
-1. [Шаг 1 — Синхронизация кода](#шаг-1--синхронизация-кода)
-2. [Шаг 2 — Импорт workflow в офисную n8n](#шаг-2--импорт-workflow-в-офисную-n8n)
-3. [Шаг 3 — Получение параметров Plane](#шаг-3--получение-параметров-plane)
-4. [Шаг 4 — Подбор Plane URL для n8n (КЛЮЧЕВОЙ ШАГ)](#шаг-4--подбор-plane-url-для-n8n-ключевой-шаг)
-5. [Шаг 5 — Конфигурация GigaChat Plane агента](#шаг-5--конфигурация-gigachat-plane-агента)
-6. [Шаг 6 — Direct-тест (без LLM)](#шаг-6--direct-тест-без-llm)
-7. [Шаг 7 — Проверка в Plane UI](#шаг-7--проверка-в-plane-ui)
-8. [Шаг 8 — NL-режим (через GigaChat LLM)](#шаг-8--nl-режим-через-gigachat-llm)
-9. [Troubleshooting — таблица ошибок](#troubleshooting--таблица-ошибок)
+1. [Шаг 1 — Синхронизация кода](#шаг-1)
+2. [Шаг 2 — Импорт workflow в офисную n8n](#шаг-2)
+3. [Шаг 3 — Параметры Plane API](#шаг-3)
+4. [Шаг 4 — Подбор Plane URL для n8n](#шаг-4)
+5. [Шаг 5 — Конфигурация GigaChat Plane](#шаг-5)
+6. [Шаг 6 — Direct-test (без LLM): 14 actions](#шаг-6)
+7. [Шаг 7 — Канбан-доска](#шаг-7)
+8. [Шаг 8 — Чат через LLM (NL-режим)](#шаг-8)
+9. [Шаг 9 — Шаблоны задач](#шаг-9)
+10. [Шаг 10 — Smart-даты](#шаг-10)
+11. [Шаг 11 — Bulk-операции](#шаг-11)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Шаг 1 — Синхронизация кода
+## Шаг 1
 
-На офисном ПК (где лежит репозиторий GigaChat):
-
+На офисном ПК:
 ```powershell
-cd C:\Users\Lenovo\Desktop\GigaChat   # путь может отличаться
+cd C:\Users\Lenovo\Desktop\GigaChat
 git pull origin main
 ```
 
-Должны прийти эти файлы (минимум):
-- `Workflow/plane-agent.json` — workflow
-- `Agents/plane-agent.html` — UI
-- `Agents/_shared.js` — с `extraBody` опцией (нужна для plane-agent + planner chat)
-- `Agents/planner.html` — с `extraBody: function() { return { token: getStoredToken() } }` (фикс чата планировщика)
-- `GigaChat-Platform.html` — карточка «GigaChat Plane» в разделе «Агенты»
-- `Plane/` — эта папка с документацией
+Должны прийти (минимум):
+- `Workflow/plane-agent.json` — workflow (28+ узлов, включая enrich states, action router, resolve extended)
+- `Agents/plane-agent.html` — UI (header «Доска / Plane-настройки / Тест без LLM», kanban-overlay, templates tab)
+- `Agents/_shared.js` — auth + sessions sync
+- `Workflow/sso.json`, `Workflow/sessions-sync.json` — единая авторизация
+- `login.html` — отдельная страница входа
+- `Plane/OFFICE-TESTING.md` — этот документ
 
-Если в офисе нет интернета (флэшка) — скопируй именно эти файлы поверх старых.
-
-**Проверка что код доехал:**
+Проверка:
 ```powershell
-git log --oneline -5
+git log --oneline -10
 ```
-Должны увидеть последние коммиты с сообщениями `feat(plane-agent)` и `fix(plane-agent)`.
+Должны быть свежие коммиты `feat(plane)` / `fix(plane)`.
 
 ---
 
-## Шаг 2 — Импорт workflow в офисную n8n
+## Шаг 2
 
-### 2.1 Если в офисной n8n уже настроены credentials
+В n8n импортнуть свежий `Workflow/plane-agent.json`:
+1. В n8n UI: **Workflows → Import from File → выбрать `plane-agent.json`** → подтвердить replace.
+2. В импортированном workflow найти узлы Postgres (например `SQL: Verify token`) → проверить что credential **«Postgres»** привязан (если нет — выбрать в выпадающем).
+3. Сохранить → **Activate** (toggle справа сверху).
 
-Скрипты `import-workflows.ps1` и `activate-workflows.ps1` лежат в корне `GigaChat/`. Они подхватят все JSON из `Workflow/`, включая `plane-agent.json`.
-
+Альтернатива из консоли (если есть JWT в `import-workflows.ps1`):
 ```powershell
 cd C:\Users\Lenovo\Desktop\GigaChat
-.\import-workflows.ps1
-.\activate-workflows.ps1 -Force
+powershell -ExecutionPolicy Bypass -File import-workflows.ps1
+powershell -ExecutionPolicy Bypass -File activate-workflows.ps1 -Force
 ```
 
-В выводе должно появиться:
-```
-Processing: plane-agent.json
-  UPDATED -> id: ..., name: [GigaChat] Plane-агент. Поток
-```
-и
-```
-[GigaChat] Plane-агент. Поток ... ПЕРЕЗАГРУЖЕН
-```
+---
 
-### 2.2 Если ругается на отсутствующие credentials
+## Шаг 3
 
-В n8n должны быть **два** credentials:
-
-| Имя | Тип | Что в URL |
-|---|---|---|
-| `GigaChatLite10b` (или другое имя — поправь в скриптах) | OpenAI API (Chat) | Локальный GigaChat-endpoint |
-| `Postgres` | PostgreSQL | Подключение к офисной БД |
-
-Если их нет — заведи руками через n8n UI: Settings → Credentials → New credential. После этого открой `import-workflows.ps1`, проверь блок `$credentialMapping` — имена должны совпадать.
-
-### 2.3 Проверка что workflow активирован
-
-В браузере: открой офисный n8n → Workflows → найди `[GigaChat] Plane-агент. Поток` → справа сверху должен быть тумблер **Active** (зелёный).
-
-### 2.4 Тест webhook'а (минимум)
-
-В терминале (с офисного ПК, обращаясь к офисной n8n):
-
-```powershell
-curl.exe -X POST -H "Content-Type: application/json" -d '{\"message\":\"ping\"}' http://<IP_сервера>:5678/webhook/plane-agent
-```
-
-Должен вернуться JSON с `"response":"pong"`. Если 404 — workflow не активирован. Если timeout — n8n не доступен по этому адресу, проверь `<IP_сервера>:5678`.
+В Plane (web UI):
+1. **Workspace settings → API tokens → Add API token** → имя «GigaChat», бессрочный.
+2. Скопировать значение `plane_api_xxxxxxxxx...` (видно один раз).
+3. В URL Plane запомнить slug workspace (например `office` в `http://server:8000/office/projects`).
+4. Создать тестовый проект с любым именем (например **«Рабочие задачи»**) — для тестов будем им пользоваться.
 
 ---
 
-## Шаг 3 — Получение параметров Plane
+## Шаг 4
 
-Открой офисный Plane в браузере (URL ты знаешь — обычно `http://192.168.X.X` или `http://130.100.X.X`).
+n8n в Docker, Plane в Docker — `localhost:8000` из контейнера n8n **не** идёт в контейнер Plane. Правильный URL:
 
-### 3.1 Войди в свой workspace
+| Сценарий | URL |
+|---|---|
+| n8n и Plane в одной `docker-compose.yml` (одна сеть) | `http://plane-proxy:80` (имя сервиса) |
+| Разные `docker-compose.yml`, один Docker daemon | `http://host.docker.internal:8000` |
+| Plane на другом сервере | `http://<IP_сервера>:8000` |
 
-После входа в URL'е будет что-то вроде `http://<IP>/your-slug/projects/`. Текст **`your-slug`** — это `workspace_slug`, запиши его.
+Если непонятно — попробовать `host.docker.internal:8000` первым (это default в Direct test placeholder).
 
-Если workspace ещё нет — создай. Назови как удобно (английскими буквами + цифрами + дефис, **без пробелов** и **без кириллицы** — workflow валидирует по regex).
-
-### 3.2 Создай хотя бы один проект
-
-Иначе тесты `list_issues`, `create_issue` будут пустые. Назови как угодно, например `Тест`.
-
-### 3.3 Создай API token
-
-В Plane → **Settings** → **Workspace settings** → **API tokens** → **Add API token**.
-- Имя: `GigaChat agent` (любое)
-- Скоупы / expiry: дефолт
-
-Появится строка вида `plane_api_xxxxxxxxxxxxxxxxxxxxxxx`. **Скопируй её сразу** — Plane показывает её только один раз.
-
-**Запиши 3 параметра:**
-1. `workspace_slug` — из URL
-2. `api_token` — `plane_api_...`
-3. (потом) `plane_url` — следующий шаг
-
----
-
-## Шаг 4 — Подбор Plane URL для n8n (КЛЮЧЕВОЙ ШАГ)
-
-Здесь самая частая ошибка. У тебя нет shell-доступа к серверу, поэтому подбираем URL **методом перебора через UI**.
-
-### 4.1 Почему так
-
-Когда **браузер** обращается к Plane — он идёт по адресу типа `http://192.168.X.X` (порт 80, через nginx-прокси внутри Plane стека).
-
-Когда **n8n внутри Docker** обращается к Plane — у него своя сетевая видимость. Один и тот же сервер с одной стороны и с другой видится по-разному.
-
-### 4.2 Список URL для перебора
-
-Открой [GigaChat Plane](../Agents/plane-agent.html) в браузере (или через дашборд) — но временно пропусти настройку. Сначала собери URL, потом введёшь.
-
-Кандидаты в порядке убывания вероятности:
-
-| # | URL | Когда работает |
-|---|---|---|
-| 1 | `http://api:8000` | n8n присоединён к Docker-сети Plane, контейнер Plane API называется `api` |
-| 2 | `http://plane-api:8000` | то же, но контейнер зовётся `plane-api` |
-| 3 | `http://proxy` | если Plane проксируется через nginx и n8n в той же сети |
-| 4 | `http://host.docker.internal:8000` | host-gateway включён и 8000 проброшен наружу |
-| 5 | `http://<IP_сервера>:8000` | 8000 проброшен наружу контейнера Plane |
-| 6 | `http://<IP_сервера>` | без порта — через прокси Plane на 80 |
-
-### 4.3 Как откопать `<IP_сервера>`
-
-В адресной строке когда заходишь в Plane офисный — там и есть IP. Запиши его (например `192.168.10.42` или `130.100.50.42`).
-
-### 4.4 Метод перебора
-
-1. Открой [`Agents/plane-agent.html`](../Agents/plane-agent.html) (двойной клик по файлу в проводнике или через дашборд).
-2. Если попросит вход в Планировщик — залогинься (используй тот же логин/пароль что в офисной БД `planner_users`).
-3. Кликни **«Plane-настройки»**:
-   - **Plane URL**: подставь URL № 1 из таблицы (`http://api:8000`)
-   - **Workspace slug**: то что записал в Шаге 3.1
-   - **API token**: то что в Шаге 3.3
-   - **Сохранить**
-4. Кликни **«Тест без LLM»** → карточка **«1. Список проектов»** → **«Выполнить»**.
-
-### 4.5 Интерпретация ответа
-
-| Результат | URL правильный? | Что делать |
-|---|---|---|
-| Зелёный JSON с `"data":{"projects":[{...}]}` | ✅ | Ставь этот URL, иди к Шагу 5 |
-| `"error":"ETIMEDOUT"` или `"getaddrinfo failed"` | ❌ нет сетевого пути | Следующий URL из таблицы |
-| `"error":"ECONNREFUSED"` | ❌ хост есть, но порт закрыт | Следующий URL |
-| `"error":"401"` или `"Invalid API key"` | ✅ URL правильный, но **токен Plane неверный** | Перегенерируй токен в Plane (Шаг 3.3) |
-| `"error":"404"` или `"Page not found"` | ⚠️ URL частично работает, но slug неверный | Уточни slug в Plane UI (Шаг 3.1) |
-
-Один из URL точно сработает — если все 6 нет, см. секцию [Troubleshooting](#troubleshooting--таблица-ошибок), последний раздел.
-
----
-
-## Шаг 5 — Конфигурация GigaChat Plane агента
-
-После того как URL найден — он автоматически уже сохранён в localStorage (модалка «Plane-настройки» сохраняет). Дополнительной настройки делать не нужно.
-
-**Куда сохраняется** (для понимания):
-- `localStorage` ключ `plane_<base64(username)>_url` — Plane URL
-- `localStorage` ключ `plane_<base64(username)>_slug` — workspace slug
-- `localStorage` ключ `plane_<base64(username)>_token` — API token Plane
-
-Если хочешь переключить юзера — выйди из планировщика, зайди под другим логином. У каждого юзера свои настройки.
-
----
-
-## Шаг 6 — Direct-тест (без LLM)
-
-Цель: проверить что все 6 действий workflow'а работают через Plane API. LLM ни при чём.
-
-### 6.1 Открой панель «Тест без LLM»
-
-В шапке GigaChat Plane → кнопка **«Тест без LLM»**. Откроется модалка с 6 карточками.
-
-### 6.2 Прогон 6 тестов по очереди
-
-#### Тест 1: Список проектов
-- Карточка **«1. Список проектов»** → **«Выполнить»**
-- ✅ Ожидаемо: `"response":"Direct: list_projects."`, `"data":{"projects":[...]}`
-- Карточка должна стать **зелёной** (рамка), под ней — JSON с твоими проектами.
-
-#### Тест 2: Список задач в проекте
-- Карточка **«2. Список задач в проекте»**
-- В поле `project_name` подставится `office` (или твой slug) автоматически. **Замени на имя ПРОЕКТА** в Plane (например `Тест`).
-- **«Выполнить»**
-- ✅ Ожидаемо: `"data":{"project":"Тест","issues":[...]}`. Если задач в проекте нет — `"issues":[]`, это OK.
-
-#### Тест 3: Создать задачу
-- Карточка **«3. Создать задачу»**
-- `project_name`: имя проекта (как в Тесте 2)
-- `название задачи`: например `Тест из агента`
-- `приоритет`: дефолт `high`
-- **«Выполнить»**
-- ✅ Ожидаемо: `"data":{"issue":{"name":"Тест из агента","sequence_id":N,"priority":"high"}}`
-
-#### Тест 4: Список задач — снова
-- Повтори Тест 2. Теперь в списке должна быть задача `Тест из агента`.
-
-#### Тест 5: Обновить задачу
-- Карточка **«4. Обновить задачу»**
-- `project_name`: имя проекта
-- `имя задачи (точное)`: `Тест из агента`
-- `приоритет`: `urgent`
-- **«Выполнить»**
-- ✅ Ожидаемо: `"data":{"issue":{"name":"Тест из агента","priority":"urgent"}}`
-
-#### Тест 6: Поиск задач
-- Карточка **«6. Поиск задач»**
-- `project_name`: имя проекта
-- `поисковая строка`: `Тест` (или часть имени)
-- **«Выполнить»**
-- ✅ Ожидаемо: `"issues":[{...Тест из агента...}]` (1 задача найдена)
-
-#### Тест 7: Удалить задачу
-- Карточка **«5. Удалить задачу»**
-- `project_name`: имя проекта
-- `имя задачи`: `Тест из агента`
-- **«Выполнить»**
-- ✅ Ожидаемо: `"response":"...Задача удалена."`, `"data":null`
-
-### 6.3 Что должно быть в итоге
-
-Все 6 карточек — зелёные рамки. Никаких `[object Object]`, никаких красных. Если хоть одна — см. [Troubleshooting](#troubleshooting--таблица-ошибок).
-
----
-
-## Шаг 7 — Проверка в Plane UI
-
-Параллельно открой в другой вкладке офисный Plane → твой проект.
-
-- После **Теста 3** (create) — задача `Тест из агента` появилась в списке.
-- После **Теста 5** (update) — приоритет задачи изменился на Urgent (красная метка).
-- После **Теста 7** (delete) — задача исчезла из списка.
-
-Если что-то не отображается в Plane — кликни **F5** для обновления страницы. Plane обновляется мгновенно через websocket, но иногда висит.
-
----
-
-## Шаг 8 — NL-режим (через GigaChat LLM)
-
-После Direct-теста можешь попробовать естественные запросы. В главном окне агента (не в «Тест без LLM») напиши:
-
-- «покажи мои проекты»
-- «какие задачи в проекте Тест»
-- «создай задачу 'Звонок клиенту' в проекте Тест с высоким приоритетом»
-- «найди задачи про звонок»
-- «удали задачу Звонок клиенту»
-
-Workflow вызовет GigaChat LLM, тот извлечёт `{action, params}` JSON, дальше тот же путь что Direct-режим.
-
-**Важно**: если LLM в офисе не работает (домашний симптом — пустой ответ от LLM в `[GigaChat] Plane-агент. Поток`), NL-режим не сработает. Direct-режим продолжит работать всегда.
-
----
-
-## Troubleshooting — таблица ошибок
-
-### A. Ошибки в JSON-ответе workflow
-
-| Ошибка в `error` | Корень | Решение |
-|---|---|---|
-| `unauthorized`, `auth_required: true` | `planner_token` в localStorage отсутствует или невалиден в офисной БД | Перезайди в Планировщик в офисе |
-| `Plane не настроен`, `plane_setup_required: true` | пустые поля в «Plane-настройки» | Заполни модалку (Шаг 5) |
-| `workspace_slug содержит недопустимые символы` | slug с пробелами/кириллицей | Переименуй workspace в Plane (англ+цифры+дефис) |
-| `plane_url должен начинаться с http:// или https://` | URL без протокола | Добавь `http://` в начало |
-| `Не нашёл проект «X»` | имя проекта неверное или регистр не совпал | Проверь точное имя в Plane (case-insensitive поиск, но опечатки не прощает) |
-| `Не удалось получить задачи: ETIMEDOUT` | n8n не достучался до Plane | Шаг 4 — другой URL |
-| `Не удалось получить задачи: HTTP 401` | URL правильный, токен Plane неверный | Перегенерируй токен в Plane |
-| `Не удалось получить задачи: HTTP 404` | slug или endpoint Plane не тот | Проверь slug в URL Plane |
-| `Не удалось создать задачу: {"name":["This field is required"]}` | пустое поле `name` в create_issue | Заполни поле в форме |
-| `[object Object]` | Старая версия workflow (без фикса от 11e913b) | Прогони `import-workflows.ps1` ещё раз |
-
-### B. HTTP ошибки на уровне webhook
-
-| Симптом | Корень | Решение |
-|---|---|---|
-| `404` от `http://.../webhook/plane-agent` | Workflow не активирован в n8n | n8n UI → Workflows → активировать `[GigaChat] Plane-агент. Поток` |
-| `ETIMEDOUT` при curl webhook | n8n не доступен по этому адресу | Проверь IP сервера и порт n8n (обычно 5678) |
-| `500` от webhook | Внутренняя ошибка workflow (битый Code-нод) | Открой workflow в n8n → Executions → последнее выполнение → красный нод → ошибка |
-
-### C. Если ни один из 6 URL не работает (Шаг 4)
-
-Тогда **обязательно нужен** доступ к серверу с Docker. Варианты:
-
-**Вариант 1**: попроси админа выполнить и прислать вывод:
+Проверка из n8n shell:
 ```bash
-docker network ls
-docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Networks}}"
-docker inspect <имя_контейнера_n8n> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+docker exec n8n curl -s http://host.docker.internal:8000/api/v1/workspaces/ \
+  -H "X-API-Key: plane_api_xxxxxx" | head -c 200
 ```
-
-По выводу будет видно:
-- Какие docker-сети существуют
-- В какой сети сидит n8n
-- В какой — Plane
-- Имя API-контейнера Plane
-
-Дальше:
-
-**Вариант 2**: подключи n8n к сети Plane:
-```bash
-docker network connect <plane_network_name> <n8n_container_name>
-```
-После этого n8n сможет ходить в Plane по имени контейнера. Например:
-```bash
-docker network connect plane_default n8n
-```
-И в Plane URL пиши `http://api:8000` (если так зовут контейнер API).
-
-**Вариант 3**: проброс порта Plane API наружу:
-В docker-compose файле Plane найди сервис `api`, добавь:
-```yaml
-    ports:
-      - "8000:8000"
-```
-И `docker compose up -d api`. После этого `http://<IP_сервера>:8000` будет работать.
-
-### D. Если ничего не помогает — диагностика «снизу-вверх»
-
-1. **n8n живой?**
-   ```powershell
-   curl.exe http://<IP_сервера>:5678/healthz
-   ```
-   Ожидание: `{"status":"ok"}`. Иначе n8n упал.
-
-2. **Workflow зарегистрирован?**
-   ```powershell
-   curl.exe -X POST -H "Content-Type: application/json" -d '{\"message\":\"ping\"}' http://<IP_сервера>:5678/webhook/plane-agent
-   ```
-   Ожидание: `{"response":"pong","action":"error","error":"pong",...}`. Иначе workflow не активирован.
-
-3. **Token planner_token валиден?** В DevTools браузера → Console:
-   ```js
-   localStorage.getItem('planner_token')
-   ```
-   Должна вернуть строку из 64 hex-символов. Если null — перезайди в Планировщик.
-
-4. **Plane API напрямую отвечает?** На сервере или с ПК, через VPN/SSH:
-   ```bash
-   curl -H "X-API-Key: plane_api_xxx" http://<plane_api_url>/api/v1/workspaces/<slug>/projects/
-   ```
-   Если зелёный JSON — Plane работает, проблема между n8n и Plane.
-
-5. **БД доступна?** `planner_sessions` — таблица не пустая?
-   ```sql
-   SELECT count(*) FROM planner_sessions WHERE expires_at > NOW();
-   ```
-   Если 0 — никто не вошёл. Зайди в Планировщик заново.
+Должен прийти JSON со списком workspaces.
 
 ---
 
-## Контакт
+## Шаг 5
 
-Если что-то не работает после всех шагов — сохрани:
-1. Скрин «Тест без LLM» с ошибкой
-2. Скрин DevTools → Console (если есть красные)
-3. Скрин DevTools → Network → запрос к `/webhook/plane-agent` → вкладка Response
+В браузере (на офисном ПК где гоняешь GigaChat):
+1. Открыть `login.html` → войти своим логином/паролем
+2. Открыть **GigaChat-Platform.html** (дашборд) → клик карточки **GigaChat Plane** (третья в первой строке)
+3. В правом верхнем углу — **«Plane-настройки»** → откроется модалка с 2 вкладками:
+   - **Подключение**: вставить Plane URL, workspace slug, API token → «Сохранить»
+   - **Шаблоны**: посмотреть какие шаблоны доступны (Bug/Feature/Tech debt — hardcoded в LLM prompt)
+4. Сохранить → если креды правильные, модалка закроется
 
-И пиши — разберём.
+---
+
+## Шаг 6
+
+**14 actions** через кнопку **«Тест без LLM»** (правый верх). Открывается модалка с 14 карточками. Каждая шлёт прямой запрос (LLM пропускается).
+
+### Базовый смок-test (5 минут)
+| # | Карточка | Поля | Ожидаемое |
+|---|---|---|---|
+| 1 | Список проектов | — | data.projects = [{name: «Рабочие задачи», ...}] |
+| 3 | Создать задачу | project=«Рабочие задачи», name=«Купить молоко», priority=high | data.issue.sequence_id = NN |
+| 7 | Получить задачу | project + name | data.issue с полным объектом |
+| 4 | Обновить задачу | project + name + priority=urgent | response: «Задача обновлена» |
+| 5 | Удалить задачу | project + name | response: «Задача удалена» |
+
+### Полный test всех 14 actions
+| # | Action | Когда применять |
+|---|---|---|
+| 1 | `list_projects` | Проверить что workspace + token работают |
+| 2 | `list_issues` | Проверить что project_name резолвится |
+| 3 | `create_issue` | Создание + priority |
+| 4 | `update_issue` | Изменение name/priority/description |
+| 5 | `delete_issue` | Удаление |
+| 6 | `search_issues` | Фильтр по подстроке в name |
+| **7** | **`get_issue`** | Детали (полный объект, для отладки) |
+| **8** | **`change_status`** | state: `todo`/`in_progress`/`done`/`cancelled`/`backlog` |
+| **9** | **`set_deadline`** | target_date через date picker → YYYY-MM-DD |
+| **10** | **`assign_issue`** | assignees: comma-separated user_id из Plane Members |
+| **11** | **`add_label`** | labels: comma-separated label_id (из Plane → Project → Labels) |
+| **12** | **`remove_label`** | оставшиеся labels (те что НЕ удаляются) |
+| **13** | **`add_comment`** | text комментария — добавится в task → Comments |
+| **14** | **`bulk`** | JSON массив sub-actions. Пример: `[{"action":"delete_issue","params":{"project_name":"Рабочие задачи","issue_name":"X"}}]` |
+
+После каждого выполнения — JSON-ответ под карточкой. Если что-то красное (error) — см. [Troubleshooting](#troubleshooting).
+
+---
+
+## Шаг 7
+
+В header кнопка **«Доска»** — переключает на канбан-overlay.
+
+### Что должно работать:
+1. **Загрузка проектов**: select сверху с проектами (если один — авто-выбран)
+2. **Распределение задач по 4 колонкам**: Задачи / В работе / Готово / Отменено — по полю `state_detail.group` (backlog+unstarted=Задачи, started=В работе, completed=Готово, cancelled=Отменено)
+3. **Карточки**: показывают имя, `#sequence_id`, приоритет (цветной chip), дедлайн (📅 + красный если просрочен)
+4. **Счётчики**: в заголовке каждой колонки — число задач
+5. **Drag-and-drop**: схватить карточку → перетащить в другую колонку → автоматически меняется статус в Plane
+6. **Оптимистичный move**: карточка переезжает мгновенно (без задержки на сервер); если запрос упал — откатывается обратно с понятной ошибкой
+7. **Кнопка «Обновить»** — перезагрузить задачи (нужна если изменения сделаны в самом Plane UI)
+8. **Кнопка «Чат»** (вместо «Доска» когда открыта) — вернуться к чату
+
+### Что НЕ работает (ограничения MVP):
+- Создание задачи прямо с доски (только через чат или Direct Test)
+- Inline-редактирование (только статус через drag)
+- Фильтры по приоритету / исполнителю
+- Multi-select drag
+
+### Проверка корректности:
+1. В Plane web UI: переключить статус 2-3 задач (Todo → In Progress)
+2. В GigaChat Plane: открыть доску, нажать «Обновить»
+3. Распределение по колонкам должно совпасть с Plane
+
+---
+
+## Шаг 8
+
+В чат-режиме (по умолчанию) — пишешь на естественном языке, LLM генерит action+params.
+
+### Базовые запросы
+| Запрос | LLM action | Что произойдёт |
+|---|---|---|
+| «покажи мои проекты» | list_projects | Список проектов карточками |
+| «что в Рабочих задачах?» | list_issues | Список задач проекта |
+| «создай задачу 'Позвонить клиенту' в Рабочих задачах с высоким приоритетом» | create_issue | Новая задача |
+| «найди задачи со словом купить» | search_issues | Фильтр по подстроке |
+| «передвинь Купить молоко в работу» | change_status | state=in_progress |
+| «срок Купить молоко — к пятнице» | set_deadline | LLM сам конвертирует «пятница» → YYYY-MM-DD |
+| «прокомментируй задачу Купить молоко: переговорил, ждём поставку» | add_comment | Комментарий |
+| «удали задачу Купить молоко» | delete_issue | Удаление |
+| «детали задачи Купить молоко» | get_issue | Полная карточка |
+
+### Что НЕ работает в LLM режиме
+- **`assign_issue` / `add_label`** — LLM не знает user_id и label_id (это UUID). Если попросишь «назначь Иванову» — ответит chat-ом «нужен user_id из Plane Members».
+
+---
+
+## Шаг 9
+
+LLM понимает 3 hardcoded шаблона (видно в Plane-настройки → Шаблоны):
+
+| Триггер в чате | Что создаст |
+|---|---|
+| **багфикс** Кнопка не работает | `Bug: Кнопка не работает`, priority=high |
+| **фича** Экспорт в Excel | `Feature: Экспорт в Excel`, priority=medium |
+| **техдолг** Переписать SQL | `Tech debt: Переписать SQL`, priority=low |
+
+### Тест:
+1. Чат: «создай багфикс в Рабочих задачах: модалка не закрывается»
+2. Ожидание: создаётся задача `Bug: модалка не закрывается` с priority=high
+
+---
+
+## Шаг 10
+
+LLM конвертирует естественные даты в `YYYY-MM-DD` для `set_deadline` или `create_issue.target_date`. Сегодняшняя дата подставляется в system prompt.
+
+| Запрос | LLM конвертирует в |
+|---|---|
+| «к пятнице» | ближайшая пятница |
+| «через 3 дня» | today + 3 |
+| «послезавтра» | today + 2 |
+| «25 декабря» | текущий год (если уже прошло — следующий) |
+| «25.12.2026» | как есть |
+
+### Тест:
+1. Чат: «срок Купить молоко — через неделю»
+2. В Plane UI задача должна получить target_date = today + 7 дней
+3. На канбан-доске карточка покажет `📅 YYYY-MM-DD`
+
+---
+
+## Шаг 11
+
+LLM при запросах «удали все X», «передвинь всё Y» возвращает `action=bulk` с массивом sub-actions. Сейчас backend это **заглушка** — возвращает summary, реальной итерации нет (на будущее через `SplitInBatches`).
+
+### Что работает сейчас:
+1. Чат: «удали все Done задачи»
+2. LLM ответит chat-ом с preview списка + предложит подтвердить
+3. После «да» → `action=bulk` → backend вернёт «Bulk-операция получена (N sub-actions). Реальная итерация — в следующей версии»
+
+### Что НЕ работает:
+- Реальное удаление через bulk (одиночные actions работают)
+- Можно делать через Direct Test → action 14 «Bulk» вручную (JSON-массив), но та же заглушка
+
+---
+
+## Troubleshooting
+
+| Симптом | Что проверить |
+|---|---|
+| «Plane не настроен» при первом запросе | Открыть Plane-настройки → заполнить все 3 поля (URL/slug/token) |
+| 401/403 в Direct Test | Token недействителен / истёк → создать новый в Plane → Settings → API tokens |
+| 404 «task not found» в Direct Test | Опечатка в issue_name (case-sensitive!) или задача в другом проекте |
+| 404 «Page not found» | Plane URL неправильный — попробовать `host.docker.internal:8000` или IP сервера |
+| **429 «Plane перегружен запросами»** | Rate limit Plane. Подождать 5-10 сек. При rapid drag-and-drop — это нормально, drag оптимистичный и откатится |
+| Все 4 задачи в одной колонке «Задачи» | Старый кеш / устаревший workflow. Импортнуть свежий `plane-agent.json`, нажать «Обновить» в доске |
+| «Failed to execute json on Response» | Workflow упал — открыть n8n UI → Executions → последний failed → найти ноду с ошибкой |
+| Канбан пустой («Нет проектов») | API token не имеет доступа к workspace, или wrong slug — проверить в Plane URL |
+| LLM отвечает «не нашёл проект» | Имя в чате не совпадает с реальным (например «Office» vs «office») — точное имя |
+| Drag не работает на тач-устройстве | HTML5 DnD на mobile не поддерживается. Использовать чат-режим |
+| «session_id содержит недопустимые символы» | session_id должен быть 3-64 символа `[a-zA-Z0-9_-]` |
+
+### Полная диагностика
+1. **n8n UI → Executions** — найти последнее выполнение workflow `[GigaChat] Plane-агент. Поток`
+2. Кликнуть → видны все узлы и input/output каждого
+3. Красный узел = ошибка. Output ноды содержит детали
+4. Особенно полезно посмотреть `Контекст: проекты` (загрузка projects), `Direct resolve` / `Parse LLM` (резолв params), `resolve: extended` (поиск issue + state), и финальный HTTP узел (PATCH/GET/POST)
+
+### Логи Plane
+Если в n8n всё ок, но Plane возвращает странное:
+```bash
+docker logs plane-api 2>&1 | tail -50
+docker logs plane-worker 2>&1 | tail -50
+```
+
+---
+
+## Сводка по чек-листу
+
+После полного прохождения должны работать:
+- ✅ Все 14 actions через Direct Test
+- ✅ Канбан-доска: 4 колонки + drag-drop
+- ✅ Чат: 9 LLM-actions (всё кроме assign/labels/bulk)
+- ✅ Шаблоны: 3 hardcoded префикса
+- ✅ Smart-даты в естественной речи
+- ⚠️ Bulk: только preview, реальное выполнение TODO
+- ⚠️ Assign/labels: только Direct Test (LLM не знает UUID)
+
+Если есть пункты с ❌ — присылать в виде:
+1. Screenshot ошибки
+2. n8n Executions → найти upstream node ошибки → копировать JSON-output
+3. Сообщить в формате: «Action X, шаг N, было Y, ожидалось Z»
