@@ -698,7 +698,7 @@
                 </div>
                 <div class="board-columns" id="board-columns">
                     <div class="board-col" data-state="backlog">
-                        <div class="board-col-header">Бэклог <span class="board-col-count" data-count></span></div>
+                        <div class="board-col-header">Отложенные <span class="board-col-count" data-count></span></div>
                         <div class="board-empty">Нет задач</div>
                         <button class="board-col-add" data-state="backlog" onclick="openQuickCreate('backlog')">+ Добавить</button>
                         <div class="board-col-quick-form" data-state="backlog">
@@ -707,7 +707,7 @@
                         </div>
                     </div>
                     <div class="board-col" data-state="unstarted">
-                        <div class="board-col-header">Задачи <span class="board-col-count" data-count></span></div>
+                        <div class="board-col-header">Запланированные <span class="board-col-count" data-count></span></div>
                         <div class="board-empty">Нет задач</div>
                         <button class="board-col-add" data-state="unstarted" onclick="openQuickCreate('unstarted')">+ Добавить</button>
                         <div class="board-col-quick-form" data-state="unstarted">
@@ -1474,8 +1474,8 @@
         // между перерисовками (баг 15: при рекурсивных вызовах querySelector мог
         // вернуть null, col.appendChild(null) — TypeError, колонка оставалась пустой).
         var BOARD_COL_TITLES = {
-            backlog: 'Бэклог',
-            unstarted: 'Задачи',
+            backlog: 'Отложенные',
+            unstarted: 'Запланированные',
             started: 'В работе',
             completed: 'Готово',
             cancelled: 'Отменено'
@@ -2039,7 +2039,8 @@
             bb.className = 'board-bulk-bar';
             bb.innerHTML =
                 '<span class="bulk-count" id="bulk-count">0</span>' +
-                '<button onclick="bulkAction(\'todo\')">→ Задачи</button>' +
+                '<button onclick="bulkAction(\'backlog\')">→ Отложенные</button>' +
+                '<button onclick="bulkAction(\'todo\')">→ Запланированные</button>' +
                 '<button onclick="bulkAction(\'in_progress\')">→ В работе</button>' +
                 '<button onclick="bulkAction(\'done\')">→ Готово</button>' +
                 '<button class="danger" onclick="bulkAction(\'delete\')">Удалить</button>' +
@@ -2084,11 +2085,11 @@
                 '</div></div>' +
                 '<div class="card-modal-row"><label>Статус</label><div class="field-value">' +
                     '<select id="cm-state">' +
-                        '<option value="todo">Задачи</option>' +
+                        '<option value="backlog">Отложенные</option>' +
+                        '<option value="todo">Запланированные</option>' +
                         '<option value="in_progress">В работе</option>' +
                         '<option value="done">Готово</option>' +
                         '<option value="cancelled">Отменено</option>' +
-                        '<option value="backlog">Бэклог</option>' +
                     '</select>' +
                 '</div></div>' +
                 '<div class="card-modal-comments">' +
@@ -2217,7 +2218,8 @@
             }
             function mkHr() { return document.createElement('hr'); }
             cm.appendChild(mkBtn('📝 Изменить', function () { openCardModal(issue); }));
-            cm.appendChild(mkBtn('→ Задачи', function () { ctxMenuStatusFor(issue, 'todo'); }));
+            cm.appendChild(mkBtn('→ Отложенные', function () { ctxMenuStatusFor(issue, 'backlog'); }));
+            cm.appendChild(mkBtn('→ Запланированные', function () { ctxMenuStatusFor(issue, 'todo'); }));
             cm.appendChild(mkBtn('→ В работе', function () { ctxMenuStatusFor(issue, 'in_progress'); }));
             cm.appendChild(mkBtn('→ Готово', function () { ctxMenuStatusFor(issue, 'done'); }));
             cm.appendChild(mkBtn('→ Отменено', function () { ctxMenuStatusFor(issue, 'cancelled'); }));
@@ -2338,7 +2340,7 @@
             var msg = action === 'delete'
                 ? 'Удалить ' + names.length + ' задач безвозвратно?'
                 : 'Перенести ' + names.length + ' задач в «' +
-                    ({todo:'Задачи',in_progress:'В работе',done:'Готово'}[action]||action) + '»?';
+                    ({todo:'Запланированные',in_progress:'В работе',done:'Готово'}[action]||action) + '»?';
             if (!confirm(msg)) return;
 
             var statusEl = document.getElementById('board-status');
