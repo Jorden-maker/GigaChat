@@ -352,6 +352,7 @@
     <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark">
     <link rel="stylesheet" href="lib/hljs-light.min.css" id="hljs-theme-light" disabled>
     <script src="lib/highlight.min.js"></script>
+    <script src="_shared-guard.js"></script>
     <script src="_shared.js"></script>
 </head>
 <body>
@@ -1021,6 +1022,10 @@
         }
 
         async function reloadBoard() {
+            var panel = document.getElementById('board-panel');
+            // Баг 15: если доска уже скрыта — не дёргаем рендер (он может выкинуть
+            // ошибку и оставить колонки в полу-сломанном состоянии при reopen).
+            if (!panel || !panel.classList.contains('show')) return;
             var projectName = BOARD_CURRENT_PROJECT;
             if (!projectName) {
                 renderBoardEmpty();
@@ -1034,14 +1039,36 @@
             renderBoardIssues(issues);
         }
 
+        // Состояние колонки → заголовок. Используется и в renderBoardEmpty,
+        // и в renderBoardIssues, чтобы не зависеть от выживания .board-col-header
+        // между перерисовками (баг 15: при рекурсивных вызовах querySelector мог
+        // вернуть null, col.appendChild(null) — TypeError, колонка оставалась пустой).
+        var BOARD_COL_TITLES = {
+            unstarted: 'Задачи',
+            started: 'В работе',
+            completed: 'Готово',
+            cancelled: 'Отменено'
+        };
+
+        function rebuildBoardColHeader(col, count) {
+            // Полностью пересобираем header — никаких querySelector детей.
+            var state = col.dataset.state;
+            var h = document.createElement('div');
+            h.className = 'board-col-header';
+            h.appendChild(document.createTextNode((BOARD_COL_TITLES[state] || state) + ' '));
+            var cnt = document.createElement('span');
+            cnt.className = 'board-col-count';
+            cnt.setAttribute('data-count', '');
+            cnt.textContent = String(count == null ? 0 : count);
+            h.appendChild(cnt);
+            col.innerHTML = '';
+            col.appendChild(h);
+        }
+
         function renderBoardEmpty() {
             var cols = document.querySelectorAll('#board-columns .board-col');
             cols.forEach(function (col) {
-                // оставить header
-                var h = col.querySelector('.board-col-header');
-                col.innerHTML = '';
-                col.appendChild(h);
-                var cnt = h.querySelector('[data-count]'); if (cnt) cnt.textContent = '0';
+                rebuildBoardColHeader(col, 0);
                 var empty = document.createElement('div'); empty.className = 'board-empty';
                 empty.textContent = 'Выберите проект';
                 col.appendChild(empty);
@@ -1062,10 +1089,7 @@
             cols.forEach(function (col) {
                 var state = col.dataset.state;
                 var items = groups[state] || [];
-                var h = col.querySelector('.board-col-header');
-                col.innerHTML = '';
-                col.appendChild(h);
-                var cnt = h.querySelector('[data-count]'); if (cnt) cnt.textContent = items.length;
+                rebuildBoardColHeader(col, items.length);
                 if (!items.length) {
                     var empty = document.createElement('div'); empty.className = 'board-empty';
                     empty.textContent = 'Нет задач';

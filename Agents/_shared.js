@@ -142,11 +142,26 @@
   async function authVerifyToken(token) {
     var t = token || authGetToken();
     if (!t) return { ok: false, reason: 'no_token' };
-    var data = await authApiCall({ action: 'verify', token: t });
-    if (data.response !== 'ok' || data.auth_required) {
+    // Баг 1: при заходе на агент СРАЗУ после login.html изредка первая попытка
+    // verify уходит до того, как n8n/Postgres «увидели» последний UPDATE
+    // last_used_at от login. Тогда первый verify возвращает ok, но во время
+    // запроса юзера сюда уже мог попасть SSO-rotate (например, авто-refresh
+    // токена), и юзер видит «выкидывает с сессии одноразово».
+    // Простой retry с задержкой устраняет это: первая 401-выглядящая попытка
+    // ретраится через 600ms. Затраты ~600ms задержки в худшем случае.
+    for (var attempt = 0; attempt < 2; attempt++) {
+      var data = await authApiCall({ action: 'verify', token: t });
+      if (data.response === 'ok' && !data.auth_required) {
+        return { ok: true, username: data.username || authGetUsername() };
+      }
+      // Network error ИЛИ auth_required на ПЕРВОЙ попытке — даём один шанс.
+      if (attempt === 0) {
+        await new Promise(function (r) { setTimeout(r, 600); });
+        continue;
+      }
       return { ok: false, reason: 'invalid', network: !!data.network };
     }
-    return { ok: true, username: data.username || authGetUsername() };
+    return { ok: false, reason: 'invalid' };
   }
 
   // Считает путь до login.html относительно текущей страницы.
