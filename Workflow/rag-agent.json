@@ -99,7 +99,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const message = $('Агрегация').first().json.message;\nconst historyContext = $('Агрегация').first().json.historyContext || '';\nconst session_id = $('Агрегация').first().json.session_id || 'rag-default';\nconst lower = message.toLowerCase();\n\nconst docKeywords = [\n  'документ', 'договор', 'акт', 'контракт', 'соглашени',\n  'коммерческ', 'предложени', 'кп ', 'доверенност',\n  'записк', 'протокол', 'приказ', 'заявлени',\n  'шаблон', 'бланк', 'образец', 'форм',\n  'найди в документ', 'что написано', 'что сказано',\n  'о чём документ', 'о чем документ', 'содержание документ',\n  'загруженн', 'файл', 'текст документ',\n  'пункт', 'параграф', 'раздел', 'глав',\n  'срок', 'оплат', 'условия', 'реквизит',\n  'составь', 'подготовь', 'создай документ', 'напиши документ',\n  'база знаний', 'база документ', 'найди информаци',\n  'процитируй', 'цитат', 'выдержк',\n  'регламент', 'инструкци', 'положени', 'устав',\n  'накладн', 'счёт', 'счет-фактур', 'акт выполненн'\n];\n\nlet isDoc = false;\n\nfor (const kw of docKeywords) {\n  if (lower.includes(kw)) { isDoc = true; break; }\n}\n\n// Дополнительная проверка: вопрос о содержимом\nif (!isDoc && message.length > 15) {\n  const contentIndicators = ['что написано', 'что сказано', 'о чём', 'о чем', 'найди в', 'процитируй'];\n  const contentEntities = ['документ', 'файл', 'договор', 'акт', 'контракт'];\n  const hasQuestion = contentIndicators.some(q => lower.includes(q));\n  const hasEntity = contentEntities.some(e => lower.includes(e));\n  if (hasQuestion && hasEntity) isDoc = true;\n}\n\nif (!isDoc) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'document', historyContext, session_id } }];"
+        "jsCode": "const message = $('Агрегация').first().json.message;\nconst historyContext = $('Агрегация').first().json.historyContext || '';\nconst session_id = $('Агрегация').first().json.session_id || 'rag-default';\nconst lower = message.toLowerCase();\n\n// NEW-3: явное обнаружение «покажи / какие документы есть» — для таких\n// запросов embedding-поиск не работает (вопрос не содержит контента ни\n// одного конкретного документа). Используем SELECT DISTINCT filename.\nconst listIndicators = [\n  'какие документ', 'какие файл', 'список документ', 'список файл',\n  'покажи документ', 'покажи файл', 'покажи все документ', 'покажи все файл',\n  'что загружен', 'что есть в баз', 'что есть в документ',\n  'перечисли документ', 'перечисли файл',\n  'имена документ', 'имена файл', 'названия документ', 'названия файл',\n  'все документ', 'все файл',\n  'сколько документ', 'сколько файл'\n];\nfor (const ind of listIndicators) {\n  if (lower.includes(ind)) {\n    return [{ json: { message, mode: 'list_documents', historyContext, session_id } }];\n  }\n}\n\nconst docKeywords = [\n  'документ', 'договор', 'акт', 'контракт', 'соглашени',\n  'коммерческ', 'предложени', 'кп ', 'доверенност',\n  'записк', 'протокол', 'приказ', 'заявлени',\n  'шаблон', 'бланк', 'образец', 'форм',\n  'найди в документ', 'что написано', 'что сказано',\n  'о чём документ', 'о чем документ', 'содержание документ',\n  'загруженн', 'файл', 'текст документ',\n  'пункт', 'параграф', 'раздел', 'глав',\n  'срок', 'оплат', 'условия', 'реквизит',\n  'составь', 'подготовь', 'создай документ', 'напиши документ',\n  'база знаний', 'база документ', 'найди информаци',\n  'процитируй', 'цитат', 'выдержк',\n  'регламент', 'инструкци', 'положени', 'устав',\n  'накладн', 'счёт', 'счет-фактур', 'акт выполненн'\n];\n\nlet isDoc = false;\n\nfor (const kw of docKeywords) {\n  if (lower.includes(kw)) { isDoc = true; break; }\n}\n\n// Дополнительная проверка: вопрос о содержимом\nif (!isDoc && message.length > 15) {\n  const contentIndicators = ['что написано', 'что сказано', 'о чём', 'о чем', 'найди в', 'процитируй'];\n  const contentEntities = ['документ', 'файл', 'договор', 'акт', 'контракт'];\n  const hasQuestion = contentIndicators.some(q => lower.includes(q));\n  const hasEntity = contentEntities.some(e => lower.includes(e));\n  if (hasQuestion && hasEntity) isDoc = true;\n}\n\nif (!isDoc) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'document', historyContext, session_id } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -131,6 +131,28 @@
                       "operation": "equals"
                     },
                     "id": "rule-general"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "list_documents",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-list-docs"
                   }
                 ],
                 "combinator": "and"
@@ -685,6 +707,65 @@
       ],
       "id": "rag-sso-token-if-V1",
       "name": "Token OK?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT DISTINCT filename, COUNT(*) AS chunks, MIN(created_at) AS uploaded_at FROM documents WHERE filename IS NOT NULL AND filename <> '' GROUP BY filename ORDER BY uploaded_at DESC LIMIT 100;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2930,
+        420
+      ],
+      "id": "rag-list-docs-sql-V1",
+      "name": "SELECT DISTINCT documents",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Форматируем список документов как человеко-читаемый ответ.\nconst rows = $input.all().map(i => i.json).filter(r => r && r.filename);\nlet response;\nif (!rows.length) {\n  response = 'В базе документов пока ничего нет. Загрузите файлы через «Загрузка документов» на дашборде.';\n} else {\n  const NL = String.fromCharCode(10);\n  const lines = rows.map((r, idx) => {\n    const n = r.chunks ? ' (' + r.chunks + ' фрагм.)' : '';\n    return (idx + 1) + '. ' + r.filename + n;\n  });\n  response = 'Загружено документов: ' + rows.length + '.' + NL + lines.join(NL);\n}\nreturn [{ json: { response } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3210,
+        420
+      ],
+      "id": "rag-list-docs-fmt-V1",
+      "name": "Формат списка документов"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.response }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, GET, OPTIONS" }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3490,
+        420
+      ],
+      "id": "rag-resp-list-docs-V1",
+      "name": "Ответ: список документов"
     }
   ],
   "pinData": {},
@@ -751,7 +832,36 @@
         ],
         [
           {
+            "node": "SELECT DISTINCT documents",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Эмбеддинг вопроса",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SELECT DISTINCT documents": {
+      "main": [
+        [
+          {
+            "node": "Формат списка документов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Формат списка документов": {
+      "main": [
+        [
+          {
+            "node": "Ответ: список документов",
             "type": "main",
             "index": 0
           }
