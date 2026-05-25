@@ -288,11 +288,13 @@
             min-height: 400px;
         }
         /* Sidebar полностью сворачивается при открытии доски (slide-left).
-           Доска получает всю ширину. */
-        .sidebar {
+           Доска получает всю ширину. ВАЖНО: transition применяется ТОЛЬКО
+           когда есть класс .sidebar-animating — иначе ручной drag-resize
+           тоже бы анимировался (как было в баге). */
+        .sidebar { overflow: hidden; }
+        .sidebar.sidebar-animating {
             transition: width 0.3s ease, min-width 0.3s ease,
                         opacity 0.25s ease, border-right-width 0.3s ease;
-            overflow: hidden;
         }
         body.board-fullscreen .sidebar {
             width: 0 !important; min-width: 0 !important;
@@ -1334,6 +1336,13 @@
             var show = typeof forceShow === 'boolean' ? forceShow : !panel.classList.contains('show');
             panel.classList.toggle('show', show);
             btn.textContent = show ? 'Чат' : 'Доска';
+            // Анимация: вешаем класс ТОЛЬКО на время transition (350ms),
+            // потом снимаем — чтобы ручной drag-resize сайдбара был мгновенным.
+            var sidebar = document.querySelector('.sidebar');
+            if (sidebar) {
+                sidebar.classList.add('sidebar-animating');
+                setTimeout(function () { sidebar.classList.remove('sidebar-animating'); }, 350);
+            }
             // Сайдбар уезжает влево когда доска открыта → доска на всю ширину
             document.body.classList.toggle('board-fullscreen', show);
             // Скрыть «Экспорт» когда доска открыта (она про чат)
