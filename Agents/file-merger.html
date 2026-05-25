@@ -86,9 +86,20 @@
             background: var(--accent-light); color: var(--accent);
             font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 500;
             flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px;
+            /* Фикс выравнивания: фиксированная ширина → имена файлов всех
+               типов начинаются с одного X. Раньше CSV (3 буквы) был уже
+               EXCEL (5 букв), и имена «прыгали» влево-вправо. */
+            min-width: 56px; box-sizing: border-box; text-align: center;
         }
         .file-row .badge.error-badge { background: rgba(239,68,68,0.12); color: var(--error); }
-        .file-row .size { color: var(--text-muted); font-size: 12px; font-family: Consolas, monospace; flex-shrink: 0; }
+        .file-row .size {
+            color: var(--text-muted); font-size: 12px;
+            font-family: Consolas, monospace; flex-shrink: 0;
+            /* Фикс выравнивания: фиксированная ширина для размера → status-
+               галочка (✓) перед ним стоит в одной колонке для всех строк.
+               Раньше «137 Б» был узким, «46.2 КБ» — широким, галочка плыла. */
+            min-width: 64px; text-align: right;
+        }
         .file-row .remove {
             width: 22px; height: 22px; border: none; background: transparent;
             color: var(--text-muted); cursor: pointer; border-radius: 4px;
