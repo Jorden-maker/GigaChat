@@ -356,13 +356,25 @@
             display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
             margin-bottom: 10px;
         }
+        .board-search-wrap { position: relative; display: inline-block; }
         .board-search-input {
             background: var(--bg-input); border: 1px solid var(--border);
-            color: var(--text-primary); padding: 6px 10px; border-radius: 6px;
+            color: var(--text-primary); padding: 6px 28px 6px 10px; border-radius: 6px;
             font-size: 12px; min-width: 200px; font-family: inherit;
-            transition: border-color 0.15s;
+            transition: border-color 0.15s; box-sizing: border-box;
         }
         .board-search-input:focus { outline: none; border-color: var(--accent); }
+        .board-search-clear {
+            position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+            width: 18px; height: 18px; display: none;
+            align-items: center; justify-content: center;
+            background: transparent; border: none; cursor: pointer;
+            color: var(--text-secondary); border-radius: 4px; opacity: 0.7; padding: 0;
+            transition: opacity .15s, background .15s, color .15s;
+        }
+        .board-search-clear.show { display: flex; }
+        .board-search-clear:hover { background: var(--bg-secondary); color: var(--accent); opacity: 1; }
+        .board-search-clear svg { display: block; }
         .board-chip {
             padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border);
             background: transparent; color: var(--text-secondary);
@@ -685,8 +697,14 @@
                 </div>
                 <!-- Phase 1: вторая полоса с поиском, фильтрами, сортировкой -->
                 <div class="board-toolbar-2">
-                    <input type="text" class="board-search-input" id="board-search"
-                           placeholder="Поиск задачи..." oninput="applyBoardFilters()">
+                    <div class="board-search-wrap">
+                        <input type="text" class="board-search-input" id="board-search"
+                               placeholder="Поиск задачи..." oninput="applyBoardFilters(); boardSearchToggleClear(this)">
+                        <button type="button" class="board-search-clear" id="board-search-clear"
+                                aria-label="Очистить поиск" onclick="boardSearchClear()">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" width="10" height="10" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
                     <button class="board-chip" id="board-chip-mine" onclick="toggleMineFilter()">Только мои</button>
                     <button class="board-chip" id="board-chip-overdue" onclick="toggleFilter('overdue')">Просроченные</button>
                     <button class="board-chip" id="board-chip-urgent" onclick="toggleFilter('urgent')">Срочные</button>
@@ -1877,6 +1895,20 @@
             ));
             if (chip) chip.classList.toggle('active', BOARD_FILTERS[name]);
             applyBoardFilters();
+        }
+        // × в поле поиска: показ/скрытие + очистка (как в session-search в сайдбаре)
+        function boardSearchToggleClear(input) {
+            var btn = document.getElementById('board-search-clear');
+            if (btn) btn.classList.toggle('show', !!(input && input.value));
+        }
+        function boardSearchClear() {
+            var input = document.getElementById('board-search');
+            if (!input) return;
+            input.value = '';
+            var btn = document.getElementById('board-search-clear');
+            if (btn) btn.classList.remove('show');
+            applyBoardFilters();
+            input.focus();
         }
         function applyBoardFilters() {
             // Берём search-input в момент применения
