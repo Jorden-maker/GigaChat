@@ -220,6 +220,10 @@
             opacity: 0; visibility: hidden; transform: translateY(-4px);
             transition: opacity 0.18s, transform 0.18s, visibility 0s linear 0.18s;
         }
+        /* Если у обёртки .gc-dp есть класс .flip-up — popup открывается вверх */
+        .gc-dp.flip-up .gc-dp-popup {
+            top: auto; bottom: calc(100% + 4px); transform: translateY(4px);
+        }
         .gc-dp.open .gc-dp-popup {
             opacity: 1; visibility: visible; transform: translateY(0);
             transition: opacity 0.18s, transform 0.18s, visibility 0s linear 0s;
@@ -458,7 +462,9 @@
         }
         .board-card .bc-seq { color: var(--text-muted); }
         .board-card .bc-prio {
-            padding: 2px 7px; border-radius: 4px; font-weight: 500; text-transform: lowercase;
+            display: inline-flex; align-items: center;
+            padding: 0 7px; border-radius: 4px; font-weight: 500; text-transform: lowercase;
+            height: 18px; line-height: 1; box-sizing: border-box;
         }
         .board-card .bc-prio.urgent { background: rgba(220,38,38,0.18); color: #ef4444; }
         .board-card .bc-prio.high { background: rgba(217,119,87,0.18); color: #d97757; }
@@ -1747,6 +1753,30 @@
             col.innerHTML = '';
             col.appendChild(h);
         }
+        // Восстанавливает кнопку «+ Добавить» + quick-form внизу колонки.
+        // Вызывается после рендера карточек (renderBoardIssues / renderBoardEmpty).
+        function appendQuickCreate(col) {
+            var state = col.dataset.state;
+            var addBtn = document.createElement('button');
+            addBtn.className = 'board-col-add';
+            addBtn.dataset.state = state;
+            addBtn.textContent = '+ Добавить';
+            addBtn.addEventListener('click', function () { openQuickCreate(state); });
+            col.appendChild(addBtn);
+            var form = document.createElement('div');
+            form.className = 'board-col-quick-form';
+            form.dataset.state = state;
+            var inp = document.createElement('input');
+            inp.type = 'text';
+            inp.placeholder = 'Название задачи + Enter';
+            inp.dataset.qcState = state;
+            form.appendChild(inp);
+            var hint = document.createElement('div');
+            hint.className = 'qf-hint';
+            hint.textContent = 'Esc — отмена';
+            form.appendChild(hint);
+            col.appendChild(form);
+        }
 
         function renderBoardEmpty() {
             var cols = document.querySelectorAll('#board-columns .board-col');
@@ -1755,6 +1785,7 @@
                 var empty = document.createElement('div'); empty.className = 'board-empty';
                 empty.textContent = 'Выберите проект';
                 col.appendChild(empty);
+                appendQuickCreate(col);
             });
         }
 
@@ -1776,11 +1807,12 @@
                     var empty = document.createElement('div'); empty.className = 'board-empty';
                     empty.textContent = 'Нет задач';
                     col.appendChild(empty);
-                    return;
+                } else {
+                    items.forEach(function (issue) {
+                        col.appendChild(renderBoardCard(issue));
+                    });
                 }
-                items.forEach(function (issue) {
-                    col.appendChild(renderBoardCard(issue));
-                });
+                appendQuickCreate(col);
             });
             bindBoardDnD();
         }
@@ -1797,14 +1829,7 @@
             }
             var prio = String(issue.priority || 'none').toLowerCase();
             var prioLabel = ({ urgent: 'срочно', high: 'высокий', medium: 'средний', low: 'низкий', none: '—' })[prio] || prio;
-            var deadline = '';
-            if (issue.target_date) {
-                var today = new Date(); today.setHours(0,0,0,0);
-                var dl = new Date(issue.target_date);
-                var overdue = dl < today;
-                deadline = '<span class="bc-deadline' + (overdue ? ' overdue' : '') + '">' +
-                    '📅 ' + issue.target_date + '</span>';
-            }
+            // По запросу юзера — дата задачи с карточки убрана (фокус на приоритете + метках/счётчиках)
             // Phase 1 #7: метки (chips)
             var labelsHtml = '';
             var labelIds = issue.labels || issue.label_ids || [];
@@ -1833,7 +1858,6 @@
                 '<div class="bc-title">' + escapeHtml(issue.name || '—') + '</div>' +
                 '<div class="bc-meta">' +
                     '<span class="bc-prio ' + prio + '">' + prioLabel + '</span>' +
-                    deadline +
                 '</div>' +
                 labelsHtml +
                 (countersHtml ? '<div class="bc-foot">' + countersHtml + '</div>' : '');
@@ -2055,17 +2079,12 @@
         // Endpoint /api/v1/users/me/ возвращает текущего юзера по X-API-Key.
         async function loadCurrentUser() {
             if (CURRENT_USER_ID) return;
+            // Через workflow direct mode — браузер не может ходить на Plane напрямую
+            // если URL вида host.docker.internal:8000.
             try {
-                var s = loadPlaneSettings();
-                if (!s.url || !s.token) return;
-                var res = await fetch(s.url.replace(/\/$/, '') + '/api/v1/users/me/', {
-                    headers: { 'X-API-Key': s.token, 'Content-Type': 'application/json' },
-                    method: 'GET'
-                });
-                if (!res.ok) return;
-                var data = await res.json();
-                if (data && data.id) {
-                    CURRENT_USER_ID = data.id;
+                var res = await planeDirect('me', {});
+                if (res && res.data && res.data.user_id) {
+                    CURRENT_USER_ID = res.data.user_id;
                 }
             } catch (e) {}
         }
@@ -2389,28 +2408,27 @@
             loadCardComments(issue);
         }
 
-        // Загрузка списка комментариев задачи через Plane API
+        // Загрузка списка комментариев задачи — через workflow (direct mode).
+        // НЕ через прямой fetch, т.к. Plane URL (host.docker.internal:8000)
+        // резолвится только в n8n-контейнере, не из браузера.
         async function loadCardComments(issue) {
             var listEl = document.getElementById('cm-comments-list');
             if (!listEl) return;
+            if (!issue || !BOARD_CURRENT_PROJECT) {
+                listEl.innerHTML = '<div class="cm-empty">Не удалось определить задачу</div>';
+                return;
+            }
             try {
-                var s = loadPlaneSettings();
-                var proj = (BOARD_PROJECTS_CACHE || []).find(function (p) { return p.name === BOARD_CURRENT_PROJECT; });
-                if (!proj || !issue || !issue.id) {
-                    listEl.innerHTML = '<div class="cm-empty">Не удалось определить проект/задачу</div>';
-                    return;
-                }
-                var url = s.url.replace(/\/$/, '') + '/api/v1/workspaces/' + s.slug +
-                          '/projects/' + proj.id + '/issues/' + issue.id + '/comments/';
-                var res = await fetch(url, {
-                    headers: { 'X-API-Key': s.token, 'Content-Type': 'application/json' }
+                var res = await planeDirect('list_comments', {
+                    project_name: BOARD_CURRENT_PROJECT,
+                    issue_name: issue.name
                 });
-                if (!res.ok) {
-                    listEl.innerHTML = '<div class="cm-empty">Не удалось загрузить (' + res.status + ')</div>';
+                if (!res || res.action === 'error' || res.error) {
+                    listEl.innerHTML = '<div class="cm-empty">' +
+                        escapeHtml((res && res.response) || 'Не удалось загрузить') + '</div>';
                     return;
                 }
-                var data = await res.json();
-                var comments = Array.isArray(data) ? data : (data.results || []);
+                var comments = (res.data && (res.data.comments || res.data.results)) || [];
                 renderCardComments(comments);
             } catch (e) {
                 listEl.innerHTML = '<div class="cm-empty">Ошибка: ' + escapeHtml(e.message || 'unknown') + '</div>';
@@ -2922,10 +2940,19 @@
                 document.querySelectorAll('.gc-dp.open').forEach(function (d) { if (d !== wrap) d.classList.remove('open'); });
                 wrap.classList.toggle('open', open);
                 if (open) {
-                    var ref = inputEl.value ? inputEl.value.split('-') : [_dpToday().split('-')[0], _dpToday().split('-')[1]];
+                    // Если есть выбранная дата — показываем её месяц, иначе текущий
+                    var todayParts = _dpToday().split('-');
+                    var ref = inputEl.value ? inputEl.value.split('-') : todayParts;
                     viewY = parseInt(ref[0], 10);
                     viewM = parseInt(ref[1], 10) - 1;
                     render();
+                    // Auto-flip: если popup не помещается снизу, открываем вверх
+                    setTimeout(function () {
+                        var rect = trigger.getBoundingClientRect();
+                        var spaceBelow = window.innerHeight - rect.bottom;
+                        var popupH = popup.offsetHeight || 280;
+                        wrap.classList.toggle('flip-up', spaceBelow < popupH + 20);
+                    }, 0);
                 }
             });
         }
