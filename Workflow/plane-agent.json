@@ -1068,7 +1068,7 @@
         "operation": "executeQuery",
         "query": "SELECT role, content FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC LIMIT 10;",
         "options": {
-          "queryReplacement": "={{ [$json.session_id] }}"
+          "queryReplacement": "={{ [$('Контекст: проекты').first().json.session_id] }}"
         },
         "alwaysOutputData": true
       },
@@ -1283,11 +1283,6 @@
         [
           {
             "node": "INSERT user",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Загрузка истории Plane",
             "type": "main",
             "index": 0
           }
@@ -1650,6 +1645,17 @@
         [
           {
             "node": "Формат ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INSERT user": {
+      "main": [
+        [
+          {
+            "node": "Загрузка истории Plane",
             "type": "main",
             "index": 0
           }
