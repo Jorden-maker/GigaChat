@@ -201,6 +201,7 @@
             border: 1px solid var(--border); border-radius: 6px;
             font-family: inherit; font-size: 13px; cursor: pointer;
             transition: border-color 0.15s, background 0.15s;
+            width: 100%;
         }
         .gc-dp-trigger:hover { border-color: var(--accent); }
         .gc-dp.open .gc-dp-trigger { border-color: var(--accent); }
@@ -445,10 +446,12 @@
         }
         .board-card {
             background: var(--bg-input); border: 1px solid var(--border);
-            border-radius: 8px; padding: 10px 12px;
+            border-radius: 8px; padding: 8px 10px;
             cursor: grab; user-select: none;
             transition: border-color 0.15s, transform 0.1s;
         }
+        .board-card .bc-title { margin-bottom: 4px; font-size: 12.5px; line-height: 1.3; }
+        .board-card .bc-meta { font-size: 10.5px; }
         .board-card:hover { border-color: var(--accent); }
         .board-card:active { cursor: grabbing; transform: scale(0.98); }
         .board-card.dragging { opacity: 0.4; }
@@ -488,7 +491,7 @@
             color: var(--text-primary); padding: 0 28px 0 10px; border-radius: 6px;
             font-size: 12px; min-width: 200px; font-family: inherit;
             transition: border-color 0.15s; box-sizing: border-box;
-            height: 34px;
+            height: 28px;
         }
         .board-search-input:focus { outline: none; border-color: var(--accent); }
         .board-search-clear {
@@ -510,17 +513,28 @@
         }
         .board-chip:hover { color: var(--text-primary); border-color: var(--accent); }
         .board-chip.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+        .board-add-task {
+            margin-left: auto;
+            height: 28px; padding: 0 14px; border-radius: 6px;
+            background: var(--accent); color: white; border: none;
+            font-family: inherit; font-size: 12px; font-weight: 500;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .board-add-task:hover { background: var(--accent-hover); }
+        .board-add-task:disabled { opacity: 0.5; cursor: not-allowed; }
         /* === Универсальный кастомный dropdown — для сортировки, приоритета, статуса === */
         .gc-dropdown { position: relative; display: inline-block; vertical-align: bottom; }
         .gc-dropdown-trigger {
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
-            height: 34px; padding: 0 10px 0 12px;
+            height: 28px; padding: 0 10px 0 12px;
             background: var(--bg-input); color: var(--text-primary);
             border: 1px solid var(--border); border-radius: 6px;
             font-family: inherit; font-size: 12px; cursor: pointer; box-sizing: border-box;
             transition: border-color 0.15s, background 0.15s;
             min-width: 180px;
         }
+        /* В card-modal и других контекстах поля выше — переопределим внутри */
+        .card-modal .gc-dropdown-trigger { height: 34px; font-size: 13px; }
         .gc-dropdown-trigger:hover { border-color: var(--accent); }
         .gc-dropdown.open .gc-dropdown-trigger { border-color: var(--accent); }
         .gc-dropdown-label {
@@ -942,52 +956,23 @@
                         <option value="created">Сортировка: создан</option>
                         <option value="name">Сортировка: имя</option>
                     </select>
+                    <button class="board-add-task" id="board-add-task-btn" onclick="openNewTaskModal()">+ Добавить задачу</button>
                 </div>
                 <div class="board-columns" id="board-columns">
                     <div class="board-col" data-state="backlog">
                         <div class="board-col-header">Отложенные <span class="board-col-count" data-count></span></div>
-                        <div class="board-empty">Нет задач</div>
-                        <button class="board-col-add" data-state="backlog" onclick="openQuickCreate('backlog')">+ Добавить</button>
-                        <div class="board-col-quick-form" data-state="backlog">
-                            <input type="text" placeholder="Название задачи + Enter" data-qc-state="backlog">
-                            <div class="qf-hint">Esc — отмена</div>
-                        </div>
                     </div>
                     <div class="board-col" data-state="unstarted">
                         <div class="board-col-header">Запланированные <span class="board-col-count" data-count></span></div>
-                        <div class="board-empty">Нет задач</div>
-                        <button class="board-col-add" data-state="unstarted" onclick="openQuickCreate('unstarted')">+ Добавить</button>
-                        <div class="board-col-quick-form" data-state="unstarted">
-                            <input type="text" placeholder="Название задачи + Enter" data-qc-state="unstarted">
-                            <div class="qf-hint">Esc — отмена</div>
-                        </div>
                     </div>
                     <div class="board-col" data-state="started">
                         <div class="board-col-header">В работе <span class="board-col-count" data-count></span></div>
-                        <div class="board-empty">Нет задач</div>
-                        <button class="board-col-add" data-state="started" onclick="openQuickCreate('started')">+ Добавить</button>
-                        <div class="board-col-quick-form" data-state="started">
-                            <input type="text" placeholder="Название задачи + Enter" data-qc-state="started">
-                            <div class="qf-hint">Esc — отмена</div>
-                        </div>
                     </div>
                     <div class="board-col" data-state="completed">
                         <div class="board-col-header">Готово <span class="board-col-count" data-count></span></div>
-                        <div class="board-empty">Нет задач</div>
-                        <button class="board-col-add" data-state="completed" onclick="openQuickCreate('completed')">+ Добавить</button>
-                        <div class="board-col-quick-form" data-state="completed">
-                            <input type="text" placeholder="Название задачи + Enter" data-qc-state="completed">
-                            <div class="qf-hint">Esc — отмена</div>
-                        </div>
                     </div>
                     <div class="board-col" data-state="cancelled">
                         <div class="board-col-header">Отменено <span class="board-col-count" data-count></span></div>
-                        <div class="board-empty">Нет задач</div>
-                        <button class="board-col-add" data-state="cancelled" onclick="openQuickCreate('cancelled')">+ Добавить</button>
-                        <div class="board-col-quick-form" data-state="cancelled">
-                            <input type="text" placeholder="Название задачи + Enter" data-qc-state="cancelled">
-                            <div class="qf-hint">Esc — отмена</div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1782,10 +1767,7 @@
             var cols = document.querySelectorAll('#board-columns .board-col');
             cols.forEach(function (col) {
                 rebuildBoardColHeader(col, 0);
-                var empty = document.createElement('div'); empty.className = 'board-empty';
-                empty.textContent = 'Выберите проект';
-                col.appendChild(empty);
-                appendQuickCreate(col);
+                // «Нет задач» по запросу юзера убрали — колонки просто пустые
             });
         }
 
@@ -1803,16 +1785,12 @@
                 var state = col.dataset.state;
                 var items = groups[state] || [];
                 rebuildBoardColHeader(col, items.length);
-                if (!items.length) {
-                    var empty = document.createElement('div'); empty.className = 'board-empty';
-                    empty.textContent = 'Нет задач';
-                    col.appendChild(empty);
-                } else {
+                if (items.length) {
                     items.forEach(function (issue) {
                         col.appendChild(renderBoardCard(issue));
                     });
                 }
-                appendQuickCreate(col);
+                // appendQuickCreate убран — теперь общая кнопка в toolbar (#2)
             });
             bindBoardDnD();
         }
@@ -2389,6 +2367,17 @@
                     '</div>' +
                 '</div>';
             document.getElementById('cm-body').innerHTML = body;
+            // Восстанавливаем дефолтный footer (мог быть подменён openNewTaskModal)
+            var footer = document.querySelector('.card-modal-footer');
+            if (footer && !issue._isNew) {
+                footer.innerHTML =
+                    '<button class="danger" onclick="modalDelete()">Удалить</button>' +
+                    '<button onclick="closeCardModal()">Отмена</button>' +
+                    '<button class="primary" onclick="modalSave()">Сохранить</button>';
+            }
+            // Восстанавливаем секцию комментариев (могла быть скрыта)
+            var commSec = document.querySelector('.card-modal-comments');
+            if (commSec) commSec.style.display = issue._isNew ? 'none' : '';
             // Selected state from issue.state_detail.group → map к нашим именам
             var g = (issue.state_detail && issue.state_detail.group) || 'unstarted';
             var stateSelect = document.getElementById('cm-state');
@@ -2468,6 +2457,73 @@
             var m = document.getElementById('card-modal-backdrop');
             if (m) m.classList.remove('show');
             MODAL_CURRENT_ISSUE = null;
+            MODAL_IS_NEW = false;
+        }
+        // Открыть пустую модалку для создания новой задачи
+        var MODAL_IS_NEW = false;
+        function openNewTaskModal() {
+            if (!BOARD_CURRENT_PROJECT) {
+                alert('Сначала выбери проект в выпадающем списке.');
+                return;
+            }
+            MODAL_IS_NEW = true;
+            // Передаём пустой issue
+            openCardModal({
+                name: '', description_html: '', priority: 'none',
+                target_date: '', start_date: '',
+                state_detail: { group: 'unstarted' },
+                _isNew: true
+            });
+            // Меняем заголовок модалки + футер-кнопки
+            var title = document.getElementById('cm-title');
+            if (title) title.textContent = 'Новая задача';
+            var footer = document.querySelector('.card-modal-footer');
+            if (footer) {
+                footer.innerHTML =
+                    '<button onclick="closeCardModal()">Отмена</button>' +
+                    '<button class="primary" onclick="modalCreateNew()">Создать</button>';
+            }
+            // Скрываем секцию комментариев (для новой задачи нет смысла)
+            var commSec = document.querySelector('.card-modal-comments');
+            if (commSec) commSec.style.display = 'none';
+        }
+        async function modalCreateNew() {
+            var name = (document.getElementById('cm-name').value || '').trim();
+            if (!name) { alert('Введи название задачи'); return; }
+            var desc = (document.getElementById('cm-desc').value || '').trim();
+            var prio = document.getElementById('cm-prio').value;
+            var start = document.getElementById('cm-start').value;
+            var deadline = document.getElementById('cm-deadline').value;
+            var state = document.getElementById('cm-state').value;
+            var statusEl = document.getElementById('board-status');
+            statusEl.textContent = 'Создаю...';
+            try {
+                var createParams = { project_name: BOARD_CURRENT_PROJECT, name: name };
+                if (desc) createParams.description = desc;
+                if (prio && prio !== 'none') createParams.priority = prio;
+                if (start) createParams.start_date = start;
+                if (deadline) createParams.target_date = deadline;
+                var res = await planeDirect('create_issue', createParams);
+                if (res && (res.error || res.action === 'error')) {
+                    statusEl.textContent = res.response || 'Ошибка создания';
+                    return;
+                }
+                // Если выбран статус не «Запланированные» — change_status
+                if (state && state !== 'todo') {
+                    await planeDirect('change_status', {
+                        project_name: BOARD_CURRENT_PROJECT,
+                        issue_name: name,
+                        state: state
+                    });
+                }
+                statusEl.textContent = 'Создано';
+                closeCardModal();
+                reloadBoard();
+            } catch (e) {
+                statusEl.textContent = 'Ошибка: ' + e.message;
+            } finally {
+                setTimeout(function () { statusEl.textContent = ''; }, 3000);
+            }
         }
 
         async function modalSave() {
@@ -2627,16 +2683,18 @@
         }
         async function ctxMenuCommentFor(issue) {
             if (!issue) return;
-            var text = prompt('Комментарий для «' + issue.name + '»:');
-            if (!text) return;
-            await planeDirect('add_comment', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name, comment: text });
+            customPrompt('Комментарий для «' + issue.name + '»:', { type: 'text', placeholder: 'Текст комментария...' }).then(async function (text) {
+                if (!text) return;
+                await planeDirect('add_comment', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name, comment: text });
+            });
         }
         async function ctxMenuDeadlineFor(issue) {
             if (!issue) return;
-            var date = prompt('Срок для «' + issue.name + '» (YYYY-MM-DD):');
-            if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-            await planeDirect('set_deadline', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name, target_date: date });
-            reloadBoard();
+            customPrompt('Срок выполнения для «' + issue.name + '»:', { type: 'date' }).then(async function (date) {
+                if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+                await planeDirect('set_deadline', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name, target_date: date });
+                reloadBoard();
+            });
         }
 
         // ===================================================================
@@ -2962,6 +3020,48 @@
             if (!input) return;
             input.value = text;
             if (typeof sendMsg === 'function') sendMsg();
+        }
+
+        // Кастомный prompt в стиле проекта — заменяет browser native prompt()
+        function customPrompt(title, opts) {
+            opts = opts || {};
+            return new Promise(function (resolve) {
+                var existing = document.getElementById('plane-prompt-backdrop');
+                if (existing) existing.remove();
+                var bd = document.createElement('div');
+                bd.id = 'plane-prompt-backdrop';
+                bd.className = 'card-modal-backdrop show';
+                var inputType = opts.type === 'date' ? 'date' : 'text';
+                bd.innerHTML =
+                    '<div class="card-modal" style="max-width:440px">' +
+                        '<div class="card-modal-header">' +
+                            '<h3>' + escapeHtml(title) + '</h3>' +
+                        '</div>' +
+                        '<div class="card-modal-body">' +
+                            '<input type="' + inputType + '" id="pp-input" ' +
+                                'placeholder="' + escapeAttr(opts.placeholder || '') + '" ' +
+                                'style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-primary);font-size:13px;font-family:inherit;box-sizing:border-box;">' +
+                        '</div>' +
+                        '<div class="card-modal-footer">' +
+                            '<button id="pp-cancel">Отмена</button>' +
+                            '<button id="pp-ok" class="primary">OK</button>' +
+                        '</div>' +
+                    '</div>';
+                document.body.appendChild(bd);
+                var input = bd.querySelector('#pp-input');
+                setTimeout(function () { input.focus(); }, 30);
+                function close(val) { bd.remove(); resolve(val); }
+                bd.querySelector('#pp-cancel').addEventListener('click', function () { close(null); });
+                bd.querySelector('#pp-ok').addEventListener('click', function () { close(input.value); });
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') { e.preventDefault(); close(input.value); }
+                    if (e.key === 'Escape') close(null);
+                });
+                // Если тип date — оборачиваем в gc-dp datepicker для красивого UI
+                if (inputType === 'date' && typeof attachCustomDatepicker === 'function') {
+                    attachCustomDatepicker(input);
+                }
+            });
         }
 
         // ===================================================================
