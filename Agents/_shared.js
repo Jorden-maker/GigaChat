@@ -55,11 +55,11 @@
   var AUTH_USERNAME_KEY = 'gigachat_username';
   var AUTH_LEGACY_TOKEN_KEY = 'planner_token';
   var AUTH_LEGACY_USERNAME_KEY = 'planner_username';
-  var _authMigrated = false;
+  // A4 fix: _authMigrated убран — миграция выполняется при каждом get-call.
+  // Идемпотентна (если в новом ключе уже что-то есть — ничего не делает),
+  // но защищает от ситуации когда legacy-ключ заполнен после первого get.
 
   function _migrateLegacyAuthKeys() {
-    if (_authMigrated) return;
-    _authMigrated = true;
     try {
       var newTok = localStorage.getItem(AUTH_TOKEN_KEY);
       if (!newTok) {
@@ -184,8 +184,13 @@
       if (typeof opts.onOk === 'function') opts.onOk(res.username || authGetUsername());
       return true;
     }
-    // Сеть отвалилась — если страница допускает offline-режим, не редиректим
+    // Сеть отвалилась — если страница допускает offline-режим, не редиректим.
+    // A6: username из cache МОЖЕТ быть устаревшим (cached от прошлой сессии),
+    // если миграция planner_username отработала криво. Caller должен понимать
+    // что это «best effort» и не показывать имя как авторитетное (например,
+    // дописать «(оффлайн)»). Сейчас опция нигде не включена.
     if (res.network && opts.allowOffline) {
+      if (console && console.warn) console.warn('[auth] offline mode — username может быть устаревшим');
       if (typeof opts.onOk === 'function') opts.onOk(authGetUsername());
       return true;
     }
@@ -199,6 +204,9 @@
   }
 
   // Logout — серверный invalidate сессии + локальная очистка + редирект.
+  // ВАЖНО: всегда location.replace (не href) — иначе юзер жмёт Back в браузере
+  // и попадает обратно в защищённую страницу URL без токена → requireAuth →
+  // редирект на login → Back → loop в истории.
   async function authLogout(opts) {
     opts = opts || {};
     var token = authGetToken();
@@ -212,8 +220,24 @@
     var dashHref = location.pathname.replace(/\\/g, '/').indexOf('/Agents/') !== -1
       ? '../GigaChat-Platform.html'
       : 'GigaChat-Platform.html';
-    location.href = opts.redirectTo || dashHref;
+    location.replace(opts.redirectTo || dashHref);
   }
+
+  // A5 fix: cross-tab logout sync. Юзер логаутится во вкладке A → вкладка B
+  // (на любом агенте) ловит storage event и редиректит на login. Иначе вкладка
+  // B продолжала бы работать со старым cached token до следующего apiCall.
+  // Срабатывает только когда токен явно удалён (newValue === null), не на set.
+  // Не реагирует если страница уже на login.html (не зацикливаемся).
+  global.addEventListener('storage', function (e) {
+    if (!e || e.key !== AUTH_TOKEN_KEY) return;
+    if (e.newValue) return;  // login в другой вкладке — не trigger
+    // На login.html — игнорируем (мы уже там)
+    if (location.pathname.replace(/\\/g, '/').indexOf('/login.html') !== -1) return;
+    if (location.pathname.replace(/\\/g, '/').endsWith('/login.html')) return;
+    // На дашборде — просто reload (он сам редиректнет через requireAuth)
+    // На агентах — redirect на login
+    authRedirectToLogin({ replace: true });
+  });
 
   // Безопасный return-url из query (?return=...). Принимаем ТОЛЬКО относительные
   // или same-origin абсолютные. Иначе — фолбэк на дашборд (защита от open-redirect).
@@ -2601,14 +2625,28 @@
     function syncRename(id, newName) {
       var s = findSession(id);
       if (!s) return;
-      _syncPost({ action: 'upsert', session_id: id, name: newName, sort_order: 0 });
+      // S3 fix: sort_order НЕ шлём при rename — на backend COALESCE(NULLIF(0)) сохраняет старое.
+      // Иначе любой rename перезатирал бы порядок на сервере на 0.
+      _syncPost({ action: 'upsert', session_id: id, name: newName });
     }
     function syncDelete(id) {
       _syncPost({ action: 'delete', session_id: id });
     }
-    // pullFromBackend — на init после загрузки из LS. Сливает серверный
-    // список с LS: серверные id отсутствующие локально → добавляем (с правильным
-    // name). LS-only id (юзер создал офлайн) → пушим на сервер upsert.
+    // ============== pullFromBackend (S1+S2 fix) ==============
+    // Tombstones через sync_seen Map в LS: id который мы УЖЕ ВИДЕЛИ на сервере.
+    // Если он перестал приходить с сервера → удалён на другом ПК → удаляем локально.
+    // Если id никогда не было на сервере (LS-only, юзер создал офлайн до sync)
+    // → push upsert (back-fill). Это устраняет «воскрешение» удалённых сессий.
+    var KEY_SYNC_SEEN = basePrefix + '_sync_seen';
+    function loadSyncSeen() {
+      try {
+        var raw = localStorage.getItem(KEY_SYNC_SEEN);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) { return {}; }
+    }
+    function saveSyncSeen(seenMap) {
+      try { localStorage.setItem(KEY_SYNC_SEEN, JSON.stringify(seenMap)); } catch (e) {}
+    }
     async function pullFromBackend() {
       if (!syncWithBackend) return;
       var data = await _syncPost({ action: 'list' });
@@ -2616,40 +2654,73 @@
       var server = data.sessions;
       var serverIds = {};
       var changed = false;
-      // 1. Сервер → LS: добавляем то чего нет локально
+      var seen = loadSyncSeen();
+      // 1. Сервер → LS: добавляем что нет локально, обновляем имена при расхождении
       server.forEach(function (srv) {
         serverIds[srv.session_id] = true;
+        seen[srv.session_id] = 1;  // отметить как «синхронизированный»
         var local = findSession(srv.session_id);
         if (!local) {
           store.sessions.push({ id: srv.session_id, name: srv.name });
           changed = true;
         } else if (local.name !== srv.name) {
-          // Server wins при расхождении имени
-          local.name = srv.name;
+          local.name = srv.name;  // server-wins
           changed = true;
         }
       });
-      // 2. LS → сервер: пушим то что было создано до включения sync
+      // 2. LS → сервер ИЛИ LS-cleanup:
+      //    Был seen на сервере + сейчас отсутствует → удалён удалённо, удаляем локально.
+      //    Никогда не был seen → новая локальная (back-fill upsert на сервер).
+      var toRemove = [];
       store.sessions.forEach(function (loc) {
-        if (!serverIds[loc.id]) {
+        if (serverIds[loc.id]) return;  // на сервере есть — ничего
+        if (seen[loc.id]) {
+          // Tombstone: был, но исчез → удалён на другом ПК
+          toRemove.push(loc.id);
+          delete seen[loc.id];
+        } else {
+          // Никогда не было на сервере → back-fill (push upsert)
           _syncPost({ action: 'upsert', session_id: loc.id, name: loc.name, sort_order: 0 });
         }
       });
+      if (toRemove.length) {
+        var removeSet = {};
+        toRemove.forEach(function (id) { removeSet[id] = true; });
+        store.sessions = store.sessions.filter(function (s) { return !removeSet[s.id]; });
+        toRemove.forEach(function (id) {
+          // Чистим всё связанное (snapshots, drafts, inflight)
+          clearSnapshot(id); clearInflight(id); clearDraft(id);
+          // Если активная — переключаем
+          if (store.activeSessionId === id) {
+            store.activeSessionId = store.sessions.length ? store.sessions[store.sessions.length - 1].id : null;
+            if (!store.activeSessionId) onEmpty();
+          }
+        });
+        changed = true;
+      }
+      saveSyncSeen(seen);
       if (changed) {
         save();
         renderList();
+        renderMessages(store.displayMessages);
       }
     }
-    // Триггерим pullFromBackend через микротаск, чтобы createSessionStore вернулся
-    // синхронно (caller сразу получает store). Сессии подтягиваются и сайдбар
-    // обновляется в фоне.
-    if (syncWithBackend) {
-      setTimeout(function () { pullFromBackend(); }, 0);
-    }
+    // S1 fix: pullFromBackend больше НЕ запускается из конструктора через setTimeout.
+    // Caller (createChatAgent) вызывает sessionStore.pullFromBackend() ЯВНО после
+    // load() — гарантированно ПОСЛЕ заполнения store.sessions из LS, без race.
 
     function createNew() {
       store.sessionCounter++;
-      var id = idPrefix + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      // S7: crypto.randomUUID даёт 122 бита энтропии (vs 52 у Math.random),
+      // коллизия при двойном клике/race практически невозможна. Fallback на
+      // timestamp+random для старых браузеров без crypto.randomUUID.
+      var uniq;
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        uniq = crypto.randomUUID().replace(/-/g, '');
+      } else {
+        uniq = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      }
+      var id = idPrefix + uniq;
       var name = namePrefix + store.sessionCounter;
       store.sessions.push({ id: id, name: name });
       syncCreate(id, name, 0);
@@ -2915,7 +2986,8 @@
       cancelRename: cancelRename,
       renderList: renderList,
       pushToSession: pushToSession,
-      findSession: findSession
+      findSession: findSession,
+      pullFromBackend: pullFromBackend  // S1 fix: caller вызывает после load()
     };
   }
 
@@ -3989,6 +4061,12 @@
       sessionStore.switchTo(targetId);
     } else {
       attachment.setDisabled(true);
+    }
+    // S1 fix: pullFromBackend ПОСЛЕ load() — гарантирует что store.sessions уже
+    // заполнен из LS до того как мы сравним с серверным списком. Иначе race
+    // мог потерять LS-only сессии (server-list пуст → ничего бы не back-fill'нулось).
+    if (userScoped) {
+      sessionStore.pullFromBackend();
     }
 
     // Keydown: Enter — отправить (Shift+Enter — перенос). isComposing/keyCode 229

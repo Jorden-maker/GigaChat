@@ -515,7 +515,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1 AND expires_at > NOW();\nSELECT s.user_id FROM planner_sessions s WHERE s.token = $1 AND s.expires_at > NOW();",
+        "query": "WITH upd AS (\n  UPDATE planner_sessions SET last_used_at = NOW()\n  WHERE token = $1 AND expires_at > NOW()\n  RETURNING user_id\n)\nSELECT user_id FROM upd;",
         "options": {
           "queryReplacement": "={{ [$json.token] }}"
         },
@@ -540,7 +540,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('SSO: Auth check').first().json;\nconst srcItem = $('SSO: Auth check').first();\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id }, binary: (srcItem && srcItem.binary) || {} }];"
+        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('SSO: Auth check').first().json;\nconst srcItem = $('SSO: Auth check').first();\nif (data && data.error) {\n  return [{ json: { token_valid: false, response: 'error', error: 'database_unavailable' } }];\n}\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id }, binary: (srcItem && srcItem.binary) || {} }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

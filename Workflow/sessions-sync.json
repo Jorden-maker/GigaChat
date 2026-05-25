@@ -10,7 +10,10 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [0, 300],
+      "position": [
+        0,
+        300
+      ],
       "id": "sessions-sync-webhook-0001",
       "name": "Webhook Sessions Sync",
       "webhookId": "sessions-sync-webhook-001"
@@ -21,34 +24,49 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [280, 300],
+      "position": [
+        280,
+        300
+      ],
       "id": "sessions-sync-validate-0002",
       "name": "Валидация"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
-          "conditions": [{
-            "id": "cond-valid",
-            "leftValue": "={{ $json.valid }}",
-            "rightValue": 1,
-            "operator": {"type": "number", "operation": "equals"}
-          }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [560, 300],
+      "position": [
+        560,
+        300
+      ],
       "id": "sessions-sync-if-valid-0003",
       "name": "Валидно?"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1 AND expires_at > NOW();\nSELECT s.user_id FROM planner_sessions s WHERE s.token = $1 AND s.expires_at > NOW();",
+        "query": "WITH upd AS (\n  UPDATE planner_sessions SET last_used_at = NOW()\n  WHERE token = $1 AND expires_at > NOW()\n  RETURNING user_id\n)\nSELECT user_id FROM upd;",
         "options": {
           "queryReplacement": "={{ [$json.token] }}"
         },
@@ -56,49 +74,70 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [840, 300],
+      "position": [
+        840,
+        300
+      ],
       "id": "sessions-sync-verify-sql-0004",
       "name": "SQL: Verify token",
       "credentials": {
-        "postgres": {"id": "OYsyciMf7Eq9W4FS", "name": "Postgres"}
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('Валидация').first().json;\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id } }];"
+        "jsCode": "const item = $input.first();\nconst data = item && item.json ? item.json : null;\nconst src = $('Валидация').first().json;\n// PostgreSQL сбой: data может быть null или содержать .error поле — НЕ\n// помечаем как unauthorized, иначе юзер видит ложный auth_required редирект.\nif (data && data.error) {\n  return [{ json: { token_valid: false, response: 'error', error: 'database_unavailable' } }];\n}\nif (!data || !data.user_id) {\n  return [{ json: { token_valid: false, response: 'error', error: 'unauthorized', auth_required: true } }];\n}\nreturn [{ json: { ...src, token_valid: true, user_id: data.user_id } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 300],
+      "position": [
+        1120,
+        300
+      ],
       "id": "sessions-sync-token-result-0005",
       "name": "Token result"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
-          "conditions": [{
-            "id": "cond-token",
-            "leftValue": "={{ $json.token_valid }}",
-            "rightValue": true,
-            "operator": {"type": "boolean", "operation": "true"}
-          }],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-token",
+              "leftValue": "={{ $json.token_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1400, 300],
+      "position": [
+        1400,
+        300
+      ],
       "id": "sessions-sync-if-token-ok-0006",
       "name": "Token OK?"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH upserted AS (\n  INSERT INTO agent_sessions (user_id, agent, session_id, name, sort_order)\n  SELECT $2::integer, $3::varchar, $4::varchar, $5::text, COALESCE($6::integer, 0)\n  WHERE $1 = 'upsert' AND COALESCE($4, '') != ''\n  ON CONFLICT (user_id, agent, session_id)\n  DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order, updated_at = NOW()\n  RETURNING 1\n),\ndeleted AS (\n  DELETE FROM agent_sessions\n  WHERE $1 = 'delete' AND user_id = $2::integer AND agent = $3::varchar AND session_id = $4::varchar\n  RETURNING 1\n)\nSELECT session_id, name, sort_order, EXTRACT(EPOCH FROM updated_at)::bigint AS updated_ts\nFROM agent_sessions\nWHERE user_id = $2::integer AND agent = $3::varchar\n  AND ($1 = 'list' OR EXISTS (SELECT 1 FROM upserted) OR EXISTS (SELECT 1 FROM deleted))\nORDER BY sort_order, created_at",
+        "query": "WITH upserted AS (\n  INSERT INTO agent_sessions (user_id, agent, session_id, name, sort_order)\n  SELECT $2::integer, $3::varchar, $4::varchar, $5::text, COALESCE($6::integer, 0)\n  WHERE $1 = 'upsert' AND COALESCE($4, '') != ''\n  ON CONFLICT (user_id, agent, session_id)\n  DO UPDATE SET\n    name = EXCLUDED.name,\n    sort_order = COALESCE(NULLIF(EXCLUDED.sort_order, 0), agent_sessions.sort_order),\n    updated_at = NOW()\n  RETURNING session_id, name, sort_order, updated_at\n),\ndeleted AS (\n  DELETE FROM agent_sessions\n  WHERE $1 = 'delete' AND user_id = $2::integer AND agent = $3::varchar AND session_id = $4::varchar\n  RETURNING session_id\n),\nexisting AS (\n  SELECT session_id, name, sort_order, updated_at\n  FROM agent_sessions\n  WHERE user_id = $2::integer AND agent = $3::varchar\n)\nSELECT session_id, name, sort_order, EXTRACT(EPOCH FROM updated_at)::bigint AS updated_ts\nFROM (\n  -- Существующие строки минус удалённые минус замещённые upsert'ом\n  SELECT session_id, name, sort_order, updated_at FROM existing\n  WHERE NOT EXISTS (SELECT 1 FROM deleted d WHERE d.session_id = existing.session_id)\n    AND NOT EXISTS (SELECT 1 FROM upserted u WHERE u.session_id = existing.session_id)\n  UNION ALL\n  -- Свежие upsert-результаты (с новыми именами/полями)\n  SELECT session_id, name, sort_order, updated_at FROM upserted\n) combined\nORDER BY sort_order, updated_at",
         "options": {
           "queryReplacement": "={{ [$json.action, $json.user_id, $json.agent, $json.session_id || '', $json.name || '', $json.sort_order ?? 0] }}"
         },
@@ -106,11 +145,17 @@
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1680, 200],
+      "position": [
+        1680,
+        200
+      ],
       "id": "sessions-sync-sql-op-0007",
       "name": "SQL: sessions op",
       "credentials": {
-        "postgres": {"id": "OYsyciMf7Eq9W4FS", "name": "Postgres"}
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput"
@@ -121,7 +166,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1960, 200],
+      "position": [
+        1960,
+        200
+      ],
       "id": "sessions-sync-format-0008",
       "name": "Формат"
     },
@@ -132,16 +180,28 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              {"name": "Access-Control-Allow-Origin", "value": "*"},
-              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"},
-              {"name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS"}
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [2240, 200],
+      "position": [
+        2240,
+        200
+      ],
       "id": "sessions-sync-resp-ok-0009",
       "name": "Ответ: OK"
     },
@@ -152,44 +212,144 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              {"name": "Access-Control-Allow-Origin", "value": "*"},
-              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"},
-              {"name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS"}
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              }
             ]
           }
         }
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1680, 500],
+      "position": [
+        1680,
+        500
+      ],
       "id": "sessions-sync-resp-err-0010",
       "name": "Ответ: ошибка"
     }
   ],
   "connections": {
-    "Webhook Sessions Sync": {"main": [[{"node": "Валидация", "type": "main", "index": 0}]]},
-    "Валидация": {"main": [[{"node": "Валидно?", "type": "main", "index": 0}]]},
+    "Webhook Sessions Sync": {
+      "main": [
+        [
+          {
+            "node": "Валидация",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Валидация": {
+      "main": [
+        [
+          {
+            "node": "Валидно?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Валидно?": {
       "main": [
-        [{"node": "SQL: Verify token", "type": "main", "index": 0}],
-        [{"node": "Ответ: ошибка", "type": "main", "index": 0}]
+        [
+          {
+            "node": "SQL: Verify token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "SQL: Verify token": {"main": [[{"node": "Token result", "type": "main", "index": 0}]]},
-    "Token result": {"main": [[{"node": "Token OK?", "type": "main", "index": 0}]]},
+    "SQL: Verify token": {
+      "main": [
+        [
+          {
+            "node": "Token result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token result": {
+      "main": [
+        [
+          {
+            "node": "Token OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Token OK?": {
       "main": [
-        [{"node": "SQL: sessions op", "type": "main", "index": 0}],
-        [{"node": "Ответ: ошибка", "type": "main", "index": 0}]
+        [
+          {
+            "node": "SQL: sessions op",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответ: ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "SQL: sessions op": {"main": [[{"node": "Формат", "type": "main", "index": 0}]]},
-    "Формат": {"main": [[{"node": "Ответ: OK", "type": "main", "index": 0}]]}
+    "SQL: sessions op": {
+      "main": [
+        [
+          {
+            "node": "Формат",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Формат": {
+      "main": [
+        [
+          {
+            "node": "Ответ: OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": {"executionOrder": "v1"},
+  "settings": {
+    "executionOrder": "v1"
+  },
   "versionId": "sessions-sync-v1",
-  "meta": {"templateCredsSetupCompleted": true},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
   "id": "sessions-sync-workflow",
   "tags": []
 }

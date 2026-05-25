@@ -557,7 +557,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE planner_sessions SET last_used_at = NOW() WHERE token = $1 AND expires_at > NOW();\nSELECT s.user_id, u.username FROM planner_sessions s JOIN planner_users u ON u.id = s.user_id WHERE s.token = $1 AND s.expires_at > NOW();",
+        "query": "WITH upd AS (\n  UPDATE planner_sessions SET last_used_at = NOW()\n  WHERE token = $1 AND expires_at > NOW()\n  RETURNING user_id\n)\nSELECT user_id FROM upd;",
         "options": {
           "queryReplacement": "={{ [$json.token] }}"
         },

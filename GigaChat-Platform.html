@@ -329,6 +329,10 @@
             white-space: nowrap;
             scrollbar-width: thin;
             scrollbar-color: var(--accent) transparent;
+            /* A8: touch-action:pan-x — touch-swipe горизонтально = scroll name,
+               вертикальный tap = click bubbles up в pill (открыть dropdown).
+               Pointer-events:none ломал scroll на mobile полностью. */
+            touch-action: pan-x;
         }
         .gc-auth-pill .gc-auth-name::-webkit-scrollbar { height: 2px; }
         .gc-auth-pill .gc-auth-name::-webkit-scrollbar-track { background: transparent; }
@@ -872,15 +876,23 @@
         el.innerHTML = '<span class="gc-success-badge" aria-hidden="true"></span><span></span>';
         el.lastElementChild.textContent = text;
     }
+    // _chgpwdPrevOverflow — сохраняем оригинальный overflow чтобы не затереть
+    // чужие inline-стили на html при закрытии (A9). _chgpwdSuccessTimer — pending
+    // close-timer, чистится при повторном open/close (A10).
+    var _chgpwdPrevOverflow = '';
+    var _chgpwdSuccessTimer = null;
     function openChgpwdModal() {
+        // Если pending success-timer ещё не сработал (быстрое open после успеха) —
+        // отменяем чтобы не закрылась повторно открытая модалка через 2 сек (A10).
+        if (_chgpwdSuccessTimer) { clearTimeout(_chgpwdSuccessTimer); _chgpwdSuccessTimer = null; }
         document.getElementById('chgpwdOverlay').classList.add('show');
         document.getElementById('chgpwdOld').value = '';
         document.getElementById('chgpwdNew').value = '';
         document.getElementById('chgpwdNew2').value = '';
         document.getElementById('chgpwdError').textContent = '';
-        // Запретить скролл страницы пока модалка открыта (не зум, не свайп).
-        // На html — потому что в этом проекте scrollbar рендерится на корневом
-        // элементе (page-scroll), не на body.
+        // Запретить скролл страницы пока модалка открыта. Сохраняем прежнее
+        // значение чтобы вернуть при закрытии (защита от затирания).
+        _chgpwdPrevOverflow = document.documentElement.style.overflow || '';
         document.documentElement.style.overflow = 'hidden';
         // Сбросить состояние глазков — при повторном открытии пароли скрыты
         var toggles = document.querySelectorAll('#chgpwdOverlay .gc-pw-toggle');
@@ -894,8 +906,15 @@
     }
     function closeChgpwdModal() {
         document.getElementById('chgpwdOverlay').classList.remove('show');
-        document.documentElement.style.overflow = '';
+        document.documentElement.style.overflow = _chgpwdPrevOverflow;
+        if (_chgpwdSuccessTimer) { clearTimeout(_chgpwdSuccessTimer); _chgpwdSuccessTimer = null; }
     }
+    // ESC закрывает модалку (A2)
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var overlay = document.getElementById('chgpwdOverlay');
+        if (overlay && overlay.classList.contains('show')) closeChgpwdModal();
+    });
 
     // === Глазок show/hide для password-полей (лифт из login.html) ===
     var EYE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -917,7 +936,11 @@
         var btns = document.querySelectorAll('.gc-pw-toggle');
         for (var i = 0; i < btns.length; i++) btns[i].innerHTML = EYE_SVG;
     })();
+    // _chgpwdInflight: модуль-уровень flag, блокирует параллельные submit
+    // (даже если юзер закрыл и снова открыл модалку — A3).
+    var _chgpwdInflight = false;
     async function submitChangePassword() {
+        if (_chgpwdInflight) return;  // hard guard от двойного клика и реоткрытия
         var btn = document.getElementById('chgpwdSaveBtn');
         var oldP = document.getElementById('chgpwdOld').value;
         var newP = document.getElementById('chgpwdNew').value;
@@ -929,25 +952,33 @@
         if (oldP === newP) { setLoginError('chgpwdError', 'Новый пароль должен отличаться от текущего'); return; }
         var token = GigaChat.auth.getToken();
         if (!token) { setLoginError('chgpwdError', 'Не авторизован'); return; }
+        _chgpwdInflight = true;
         btn.disabled = true;
         btn.textContent = 'Сохранение…';
-        var data = await GigaChat.auth.apiCall({
-            action: 'change_password', token: token,
-            old_password: oldP, new_password: newP
-        });
-        if (data.response !== 'ok') {
-            if (data.error) console.warn('change_password error:', data.error);
-            setLoginError('chgpwdError', 'Не удалось сменить пароль');
-            btn.disabled = false; btn.textContent = 'Сохранить';
-            return;
+        try {
+            var data = await GigaChat.auth.apiCall({
+                action: 'change_password', token: token,
+                old_password: oldP, new_password: newP
+            });
+            if (data.response !== 'ok') {
+                if (data.error) console.warn('change_password error:', data.error);
+                setLoginError('chgpwdError',
+                    data.network ? 'Сеть недоступна' : 'Не удалось сменить пароль');
+                btn.disabled = false; btn.textContent = 'Сохранить';
+                return;
+            }
+            showSuccessBadge('chgpwdError', 'Пароль изменён');
+            btn.textContent = 'Готово';
+            // Сохраняем timer чтобы можно было его отменить при manual close (A10)
+            _chgpwdSuccessTimer = setTimeout(function () {
+                _chgpwdSuccessTimer = null;
+                closeChgpwdModal();
+                setLoginError('chgpwdError', '');
+                btn.disabled = false; btn.textContent = 'Сохранить';
+            }, 2000);
+        } finally {
+            _chgpwdInflight = false;
         }
-        showSuccessBadge('chgpwdError', 'Пароль изменён');
-        btn.textContent = 'Готово';
-        setTimeout(function () {
-            closeChgpwdModal();
-            setLoginError('chgpwdError', '');
-            btn.disabled = false; btn.textContent = 'Сохранить';
-        }, 2000);
     }
     // Enter-цепочка внутри chgpwd модалки: Enter → следующее поле/кнопка
     function handleChgpwdEnterChain(e) {

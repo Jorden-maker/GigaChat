@@ -480,6 +480,15 @@
         // === Tab switching (login ↔ register) с плавной анимацией ===
         function switchLoginTab(tab, options) {
             options = options || {};
+            // A7 fix: ВСЕГДА чистим pending switch-timers ДО проверки isSameTab.
+            // Иначе rapid-click (Register→Login→Register) оставляет timer'ы
+            // первого вызова — они срабатывают после isSameTab=true ветки и
+            // переключают tabs «за спиной» обратно, рассинхронивая DOM.
+            var area = document.getElementById('gcLoginFormArea');
+            if (area && area._switchTimers) {
+                area._switchTimers.forEach(clearTimeout);
+                area._switchTimers = [];
+            }
             var currentActive = document.querySelector('.gc-login-tab.active');
             var isSameTab = currentActive && currentActive.dataset.tab === tab;
             var modal = document.querySelector('.gc-login-modal');

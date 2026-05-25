@@ -624,10 +624,10 @@
 
         function bootAgent() {
             GigaChat.createChatAgent({
+                userScoped: true,  // sessions-sync + global auth_required handler из _shared.js
                 webhookPath: 'plane-agent',
                 historyPath: 'history',
                 prefix: 'plane',
-                idPrefix: 'plane_',
                 namePrefix: 'Plane-',
                 inflightLabel: 'Обрабатываю',
                 exportAgentName: 'GigaChat Plane',
@@ -640,13 +640,9 @@
                     if (data && data.plane_setup_required) {
                         setTimeout(openSettings, 100);
                     }
-                    // Если auth_required (сервер ответил «не авторизован») —
-                    // чистим токен и редиректим на /login.html. Это покрывает
-                    // случай «сессия протухла в фоне между запросами».
-                    if (data && data.auth_required) {
-                        GigaChat.auth.clearAuth();
-                        GigaChat.auth.redirectToLogin();
-                    }
+                    // A11: auth_required теперь обрабатывается централизованно в
+                    // _shared.js sendMsg (через userScoped:true) — сразу clearAuth
+                    // + redirect, без дорисовки чужого ответа в чат.
                     var extras = (data && data.data) ? data.data : {};
                     return {
                         role: 'assistant',
