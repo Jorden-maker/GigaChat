@@ -714,20 +714,16 @@
             background: var(--bg-card); border: 1px solid var(--border);
             border-radius: 12px; max-width: 620px; width: 92%;
             box-shadow: 0 16px 40px rgba(0,0,0,0.4);
-            /* ROOT-FIX: убран flex+max-height. Block layout = модалка
-               размером строго с контент. Скролл, если нужен, делает body
-               внутри (max-height: calc(90vh - …)). Это устраняет пустоту
-               между полями и footer в «Новой задаче» — она была побочкой
-               flex:0 1 auto + max-height 90vh. */
             display: block;
-            overflow: hidden;
+            /* Если контент длиннее 90vh — модалка целиком скроллится
+               (включая header и footer). Это проще чем body-only скролл. */
+            max-height: 90vh;
+            overflow-y: auto;
         }
         .card-modal-body {
-            /* Block layout. Body — обычный div. Если контент длинный (карточка
-               с комментариями), включается overflow-y: auto и кэп по высоте
-               чтобы не залезть за viewport (header ~50 + footer ~70 + запас 30). */
-            overflow-y: auto;
-            max-height: calc(90vh - 150px);
+            /* Block layout. Body — обычный div, размер строго по контенту.
+               Скролл (если длинный карточечный контент с комментариями)
+               делает .card-modal у которой свой max-height. */
             scrollbar-width: thin; scrollbar-color: var(--border) transparent;
         }
         .card-modal-body::-webkit-scrollbar { width: 5px; }
