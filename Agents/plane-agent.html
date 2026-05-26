@@ -546,6 +546,10 @@
             transform: translateY(-3px) rotate(45deg);
             transition: transform 0.2s, border-color 0.15s;
             flex-shrink: 0;
+            /* +2px right-margin: визуальный центр стрелки сдвигается на 2px
+               влево и совпадает с центром calendar-иконки (13px шир.).
+               Без этого стрелки в card-modal оказывались на 2px правее. */
+            margin-right: 2px;
         }
         .gc-dropdown.open .gc-dropdown-arrow {
             transform: translateY(2px) rotate(-135deg);
@@ -708,7 +712,13 @@
             display: flex; flex-direction: column;
         }
         .card-modal-body {
-            overflow-y: auto; flex: 1 1 auto;
+            /* flex: 0 1 auto = НЕ растягиваться больше контента, но позволять
+               сжатие если модалка упирается в max-height 90vh — тогда сработает
+               собственный overflow-y: auto. Раньше было flex: 1 1 auto, что
+               давало пустой провал между полями и футером на коротком контенте
+               (например, в «Новая задача»). */
+            overflow-y: auto; flex: 0 1 auto;
+            min-height: 0;
             scrollbar-width: thin; scrollbar-color: var(--border) transparent;
         }
         .card-modal-body::-webkit-scrollbar { width: 5px; }
@@ -2515,7 +2525,31 @@
             listEl.innerHTML = comments.map(function (c) {
                 var text = stripHtml(c.comment_html || c.comment_text || c.comment || '');
                 var date = c.created_at ? new Date(c.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
-                var author = c.actor_detail && (c.actor_detail.display_name || c.actor_detail.email) || '';
+                // Многоступенчатый поиск автора:
+                // 1) actor_detail (если воркфлоу запросил ?expand=actor_detail)
+                // 2) BOARD_MEMBERS_CACHE по c.actor / c.created_by / c.actor_id
+                // 3) сырой UUID (последние 8 символов)
+                var author = '';
+                if (c.actor_detail) {
+                    author = c.actor_detail.display_name || c.actor_detail.first_name ||
+                             c.actor_detail.email || '';
+                }
+                if (!author) {
+                    var actorId = c.actor || c.created_by || c.actor_id || '';
+                    if (actorId && Array.isArray(BOARD_MEMBERS_CACHE)) {
+                        var m = BOARD_MEMBERS_CACHE.find(function (x) {
+                            return (x.id === actorId) ||
+                                   (x.member && x.member.id === actorId);
+                        });
+                        if (m) {
+                            var md = m.member || m;
+                            author = md.display_name || md.first_name || md.email || '';
+                        }
+                    }
+                    if (!author && actorId) {
+                        author = String(actorId).slice(-8);
+                    }
+                }
                 return '<div class="card-modal-comment">' +
                     '<div class="cm-meta">' +
                         '<span>' + escapeHtml(author || '—') + '</span>' +
@@ -2935,7 +2969,11 @@
                 if (!d.contains(e.target)) d.classList.remove('open');
             });
             document.querySelectorAll('.gc-dp.open').forEach(function (d) {
-                if (!d.contains(e.target)) d.classList.remove('open');
+                if (!d.contains(e.target)) {
+                    d.classList.remove('open');
+                    // Сигналим обёртке чтобы она сняла scroll/resize listeners.
+                    d.dispatchEvent(new CustomEvent('gc-dp-closed'));
+                }
             });
         });
 
@@ -3062,6 +3100,18 @@
                 });
             }
             popup.addEventListener('click', function (e) { e.stopPropagation(); });
+
+            // Хелпер: репозиционирует попап под триггером (всегда вниз, отступ 4px).
+            function reposition() {
+                var rect = trigger.getBoundingClientRect();
+                popup.style.left = rect.left + 'px';
+                popup.style.top = (rect.bottom + 4) + 'px';
+            }
+            // Скролл-/resize-листенеры — чтобы при прокрутке модалки расстояние
+            // между триггером и попапом не плыло (issue: «разрыв при скролле»).
+            // Навешиваем capture=true чтобы ловить скролл любых предков.
+            function onViewportChange() { reposition(); }
+
             trigger.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var open = !wrap.classList.contains('open');
@@ -3075,13 +3125,20 @@
                     viewM = parseInt(ref[1], 10) - 1;
                     render();
                     // Позиционируем fixed-popup относительно триггера в viewport.
-                    // Всегда открываем вниз (юзер просил консистентность).
-                    setTimeout(function () {
-                        var rect = trigger.getBoundingClientRect();
-                        popup.style.left = rect.left + 'px';
-                        popup.style.top = (rect.bottom + 4) + 'px';
-                    }, 0);
+                    setTimeout(reposition, 0);
+                    // Слушаем scroll любых предков (capture=true) + resize окна.
+                    window.addEventListener('scroll', onViewportChange, true);
+                    window.addEventListener('resize', onViewportChange);
+                } else {
+                    window.removeEventListener('scroll', onViewportChange, true);
+                    window.removeEventListener('resize', onViewportChange);
                 }
+            });
+            // Когда попап закрывается извне (через document click-outside),
+            // тоже снимаем listeners — иначе утечка.
+            wrap.addEventListener('gc-dp-closed', function () {
+                window.removeEventListener('scroll', onViewportChange, true);
+                window.removeEventListener('resize', onViewportChange);
             });
         }
 
