@@ -4156,7 +4156,12 @@
         }
 
         // ИНИТ: на загрузке — sticky pill, modal infra, кастомизация sort-select
+        // BUG-FIX: guard от двойного выполнения. Раньше вешали DOMContentLoaded
+        // И вызывали сразу — оба триггерили bindKeyboardShortcuts(), и при
+        // нажатии R/N/B/? хэндлеры стреляли дважды.
         function _planeInitOnce() {
+            if (window.__planeInited) return;
+            window.__planeInited = true;
             loadStickyProject();
             renderStickyPill();
             ensureModalDom();
