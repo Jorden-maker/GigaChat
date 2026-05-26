@@ -3008,9 +3008,11 @@
                     }
                     // available = от низа триггера до нижней «стенки» минус
                     // 4px gap (.gc-dropdown-menu top: calc(100% + 4px))
-                    // минус 5px желаемого зазора.
-                    var available = bottomLimit - trgRect.bottom - 4 - 5;
-                    if (available > 80) {
+                    // минус 5px желаемого зазора
+                    // минус 10px на padding+border самого меню (4px×2 + 1px×2),
+                    // т.к. max-height у content-box не включает их.
+                    var available = bottomLimit - trgRect.bottom - 4 - 5 - 10;
+                    if (available > 60) {
                         // Достаточно места — кэп ниже дефолтных 260px если надо.
                         menu.style.maxHeight = Math.min(260, available) + 'px';
                     } else {
