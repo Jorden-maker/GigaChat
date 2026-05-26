@@ -740,6 +740,9 @@
         /* padding-bottom — запас под dropdown «Статус» (5 пунктов ≈ 150px).
            Меню расширяется внутри body, body скроллится, в footer не упирается. */
         .card-modal-body { padding: 18px 24px 170px; }
+        /* В режиме «Новая задача» секция комментариев скрыта → не нужен
+           большой запас под её скролл. Делаем body короче, без пустоты. */
+        .card-modal-body.is-new { padding-bottom: 24px; }
         .card-modal-row {
             display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;
         }
@@ -2608,6 +2611,10 @@
             // Восстанавливаем секцию комментариев (могла быть скрыта)
             var commSec = document.querySelector('.card-modal-comments');
             if (commSec) commSec.style.display = issue._isNew ? 'none' : '';
+            // Класс is-new убирает большой padding-bottom (170px → 24px),
+            // т.к. блок комментариев скрыт и пустота в модалке не нужна.
+            var bodyEl = document.querySelector('.card-modal-body');
+            if (bodyEl) bodyEl.classList.toggle('is-new', !!issue._isNew);
             // Selected state from issue.state_detail.group → map к нашим именам
             var g = (issue.state_detail && issue.state_detail.group) || 'unstarted';
             var stateSelect = document.getElementById('cm-state');
