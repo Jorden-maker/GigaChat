@@ -3144,16 +3144,18 @@
                     d.classList.remove('open');
                     d.dispatchEvent(new CustomEvent('gc-dp-closed'));
                 });
-                // Smart-flip через CSS-класс: если внизу мало места и вверху
-                // больше — добавляем .flip-up (правило в CSS поднимает меню над
-                // триггером через bottom:calc(100%+4px)). Иначе — default down.
-                // Менюшка остаётся в DOM-дереве wrap'а → close-on-outside и
-                // option-click работают как обычно. Никаких порталов и inline.
+                // Smart-flip: считаем место ВНИЗУ до нижней границы container'а.
+                // Внутри card-modal — модалка (чтобы dropdown не растягивал её).
+                // Иначе — viewport. Если внизу < 180px и сверху больше — flip-up.
                 var willOpen = !wrap.classList.contains('open');
                 if (willOpen) {
                     var trgRect = trigger.getBoundingClientRect();
-                    var spaceBelow = window.innerHeight - trgRect.bottom;
-                    var spaceAbove = trgRect.top;
+                    var modalEl2 = trigger.closest('.card-modal');
+                    var containerBottom = modalEl2
+                        ? modalEl2.getBoundingClientRect().bottom
+                        : window.innerHeight;
+                    var spaceBelow = containerBottom - trgRect.bottom;
+                    var spaceAbove = trgRect.top - (modalEl2 ? modalEl2.getBoundingClientRect().top : 0);
                     wrap.classList.toggle('flip-up', spaceBelow < 180 && spaceAbove > spaceBelow);
                 }
                 wrap.classList.toggle('open');
