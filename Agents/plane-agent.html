@@ -2334,10 +2334,11 @@
             if (BOARD_MEMBERS_CACHE && BOARD_MEMBERS_CACHE.length) return;
             try {
                 var res = await planeDirect('list_members', {});
+                console.log('[MEMBERS DIAG]', JSON.stringify(res).slice(0, 1500));
                 if (res && res.data && Array.isArray(res.data.members)) {
                     BOARD_MEMBERS_CACHE = res.data.members;
                 }
-            } catch (e) { /* silent fail */ }
+            } catch (e) { console.log('[MEMBERS DIAG] err', e); }
         }
         var CURRENT_USER_ID = null;  // id текущего юзера в Plane (для «Мои задачи»)
         var SELECTED_CARDS = new Set(); // issue ids
