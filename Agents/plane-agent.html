@@ -737,10 +737,9 @@
             font-family: inherit;
         }
         .card-modal-close:hover { color: var(--error); }
-        /* padding-bottom большой — чтобы при открытии dropdown'а Статус
-           (последний ряд) меню расширялось ВНИЗ внутри body и body
-           проскролливался, а не упирался в линию card-modal-footer. */
-        .card-modal-body { padding: 18px 24px 200px; }
+        /* padding-bottom — запас под dropdown «Статус» (5 пунктов ≈ 150px).
+           Меню расширяется внутри body, body скроллится, в footer не упирается. */
+        .card-modal-body { padding: 18px 24px 120px; }
         .card-modal-row {
             display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;
         }
