@@ -1938,18 +1938,34 @@
         }
 
         function renderBoardIssues(issues) {
-            // Группируем по state.group. Plane state имеет group ∈ {backlog,
-            // unstarted, started, completed, cancelled}. Все 5 — отдельная колонка.
-            // Восстанавливаем state_detail из localStorage cache если воркфлоу
-            // не смог enrich'нуть (например, Plane перегружен 429).
+            // Группируем по state.group. Восстанавливаем state_detail из
+            // localStorage cache если воркфлоу не смог enrich'нуть.
             var cachedMap = _loadStateMap(BOARD_CURRENT_PROJECT);
+            var hasCache = Object.keys(cachedMap).length > 0;
             var groups = { backlog: [], unstarted: [], started: [], completed: [], cancelled: [] };
+            // Сколько issues удалось определить (state_detail или cache)?
+            var resolved = 0;
+            var hasState = 0;
             issues.forEach(function (i) {
-                // Если state_detail отсутствует, но есть state UUID — резолвим
-                // через кэш. Иначе дефолт 'unstarted' (только если совсем нет данных).
                 if ((!i.state_detail || !i.state_detail.group) && i.state && cachedMap[i.state]) {
                     i.state_detail = cachedMap[i.state];
                 }
+                if (i.state) hasState++;
+                if (i.state_detail && i.state_detail.group) resolved++;
+            });
+            // SAFETY: если ни одна задача не имеет state_detail (ни от
+            // workflow, ни из кэша) И есть state UUID'ы — это полный провал
+            // enrich. НЕ рендерим, чтобы не свалить всё в Запланированные.
+            // Показываем сообщение, оставляем доску как была.
+            if (issues.length > 0 && resolved === 0 && hasState > 0) {
+                var statusEl = document.getElementById('board-status');
+                if (statusEl) {
+                    statusEl.textContent = 'Plane перегружен — подожди и обнови ещё раз';
+                    setTimeout(function () { statusEl.textContent = ''; }, 5000);
+                }
+                return;
+            }
+            issues.forEach(function (i) {
                 var g = (i.state_detail && i.state_detail.group) || 'unstarted';
                 if (groups[g]) groups[g].push(i);
                 else groups.unstarted.push(i);
