@@ -705,6 +705,7 @@
             background: var(--bg-card); border: 1px solid var(--border);
             border-radius: 12px; max-width: 620px; width: 92%;
             max-height: 90vh;
+            height: max-content;
             box-shadow: 0 16px 40px rgba(0,0,0,0.4);
             /* По умолчанию НЕТ скролла — модалка размером с контент.
                Если контент превышает 90vh — даём вертикальный скролл. */
@@ -742,7 +743,7 @@
         .card-modal-body { padding: 18px 24px 170px; }
         /* В режиме «Новая задача» секция комментариев скрыта → не нужен
            большой запас под её скролл. Делаем body короче, без пустоты. */
-        .card-modal-body.is-new { padding-bottom: 24px; }
+        .card-modal-body.is-new { padding-bottom: 0; }
         /* В is-new скрываем визуальный scrollbar — контент короткий, скролл
            не нужен. Не убираем overflow:auto чтобы dropdown'ы могли работать. */
         .card-modal-body.is-new { scrollbar-width: none; }
@@ -3149,19 +3150,25 @@
                     var trgRect = trigger.getBoundingClientRect();
                     menu.style.position = 'fixed';
                     menu.style.top = (trgRect.bottom + 4) + 'px';
+                    menu.style.bottom = 'auto'; // явно гасим bottom, чтобы не было flip-up
                     menu.style.left = trgRect.left + 'px';
+                    menu.style.right = 'auto';
                     menu.style.width = trgRect.width + 'px';
                     menu.style.minWidth = trgRect.width + 'px'; // глушим CSS min-width:100% (=100vw при fixed)
                     menu.style.maxHeight = '260px';
+                    menu.style.transform = 'none'; // гасим translateY анимации CSS
                 } else if (!willOpen) {
                     // Сбрасываем inline стили при закрытии — на случай если потом
                     // откроют вне модалки (default CSS absolute).
                     menu.style.position = '';
                     menu.style.top = '';
+                    menu.style.bottom = '';
                     menu.style.left = '';
+                    menu.style.right = '';
                     menu.style.width = '';
                     menu.style.minWidth = '';
                     menu.style.maxHeight = '';
+                    menu.style.transform = '';
                 }
                 wrap.classList.toggle('open');
             });
