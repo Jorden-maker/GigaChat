@@ -3164,32 +3164,36 @@
                     d.classList.remove('open');
                     d.dispatchEvent(new CustomEvent('gc-dp-closed'));
                 });
-                // Если dropdown внутри card-modal-body — позиционируем меню
-                // через position:fixed под триггером (всегда вниз, без скролла body).
+                // Если dropdown внутри card-modal-body — выносим меню в
+                // document.body (portal) и позиционируем position:fixed.
+                // Так оно не зависит ни от каких стилей родителей.
                 var willOpen = !wrap.classList.contains('open');
-                if (willOpen && trigger.closest('.card-modal-body')) {
+                var inModal = !!trigger.closest('.card-modal-body');
+                if (willOpen && inModal) {
+                    // Запоминаем где меню было — чтобы вернуть назад на закрытии
+                    if (!menu._origParent) menu._origParent = menu.parentNode;
+                    if (menu.parentNode !== document.body) document.body.appendChild(menu);
                     var trgRect = trigger.getBoundingClientRect();
-                    menu.style.position = 'fixed';
-                    menu.style.top = (trgRect.bottom + 4) + 'px';
-                    menu.style.bottom = 'auto'; // явно гасим bottom, чтобы не было flip-up
-                    menu.style.left = trgRect.left + 'px';
-                    menu.style.right = 'auto';
-                    menu.style.width = trgRect.width + 'px';
-                    menu.style.minWidth = trgRect.width + 'px'; // глушим CSS min-width:100% (=100vw при fixed)
-                    menu.style.maxHeight = '260px';
-                    menu.style.transform = 'none'; // гасим translateY анимации CSS
-                } else if (!willOpen) {
-                    // Сбрасываем inline стили при закрытии — на случай если потом
-                    // откроют вне модалки (default CSS absolute).
-                    menu.style.position = '';
-                    menu.style.top = '';
-                    menu.style.bottom = '';
-                    menu.style.left = '';
-                    menu.style.right = '';
-                    menu.style.width = '';
-                    menu.style.minWidth = '';
-                    menu.style.maxHeight = '';
-                    menu.style.transform = '';
+                    menu.style.cssText =
+                        'position:fixed;' +
+                        'top:' + (trgRect.bottom + 4) + 'px;' +
+                        'bottom:auto;' +
+                        'left:' + trgRect.left + 'px;' +
+                        'right:auto;' +
+                        'width:' + trgRect.width + 'px;' +
+                        'min-width:' + trgRect.width + 'px;' +
+                        'max-height:260px;' +
+                        'transform:none;' +
+                        'z-index:10000;' +
+                        'opacity:1;visibility:visible;' +
+                        'background:var(--bg-card);border:1px solid var(--border);' +
+                        'border-radius:8px;padding:4px;' +
+                        'box-shadow:0 8px 24px rgba(0,0,0,0.25);' +
+                        'overflow-y:auto;list-style:none;margin:0;';
+                } else if (!willOpen && menu._origParent) {
+                    // Возвращаем меню обратно в wrap и чистим inline-стили
+                    menu.style.cssText = '';
+                    if (menu.parentNode === document.body) menu._origParent.appendChild(menu);
                 }
                 wrap.classList.toggle('open');
             });
