@@ -1914,13 +1914,10 @@
                 // #3: контекстное меню
                 openContextMenu(e, issue);
             });
-            card.addEventListener('mouseenter', function (e) {
-                // #4: hover preview
-                showCardPreview(e, issue);
-            });
-            card.addEventListener('mouseleave', function () {
-                hideCardPreview();
-            });
+            // Hover preview убрана по запросу юзера — мини-карточка
+            // отвлекала и появлялась поверх задачи. Сами функции
+            // showCardPreview/hideCardPreview оставлены как no-op
+            // на случай если их вызывают из других мест.
             return card;
         }
 
@@ -1978,19 +1975,15 @@
                     );
                     var originalParent = draggedCard ? draggedCard.parentNode : null;
                     if (draggedCard && originalParent !== col) {
-                        // Убираем «Нет задач» placeholder если есть
+                        // Убираем «Нет задач» placeholder если он есть от старого
+                        // кода (на случай если в DOM остался).
                         var emptyEl = col.querySelector('.board-empty');
                         if (emptyEl) emptyEl.remove();
                         col.appendChild(draggedCard);
                         // Обновим счётчики обеих колонок
                         updateBoardColCounts();
-                        // Если в origin стало пусто — поставим placeholder
-                        if (originalParent && !originalParent.querySelector('.board-card')) {
-                            var ph = document.createElement('div');
-                            ph.className = 'board-empty';
-                            ph.textContent = 'Нет задач';
-                            originalParent.appendChild(ph);
-                        }
+                        // Placeholder «Нет задач» НЕ добавляем — по запросу
+                        // юзера колонка остаётся просто пустой.
                     }
 
                     statusEl.textContent = 'Сохраняю...';
@@ -2022,12 +2015,10 @@
                     var isErr = !res || res.action === 'error' || !!res.error
                         || (res.response && /^Не удалось|^Plane перегружен|^Plane: нет доступа|^Plane: задача|^Plane: некорректные/.test(res.response));
                     if (isErr) {
-                        // Откат: возвращаем карточку в оригинальную колонку
+                        // Откат: возвращаем карточку в оригинальную колонку.
+                        // Placeholder «Нет задач» НЕ добавляем (по запросу юзера).
                         if (draggedCard && originalParent) {
                             originalParent.appendChild(draggedCard);
-                            var newEmpty = col.querySelector('.board-card') ? null
-                                : (function() { var d = document.createElement('div'); d.className='board-empty'; d.textContent='Нет задач'; return d; })();
-                            if (newEmpty) col.appendChild(newEmpty);
                             updateBoardColCounts();
                         }
                         statusEl.textContent = (res && res.response) || 'Ошибка обновления';
