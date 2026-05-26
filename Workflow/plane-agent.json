@@ -218,7 +218,7 @@
       "typeVersion": 2,
       "position": [
         2520,
-        100
+        120
       ],
       "id": "plane-agent-direct-resolve-0024",
       "name": "Direct resolve"
@@ -250,8 +250,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        2520,
-        500
+        3360,
+        560
       ],
       "id": "plane-agent-llm-0009",
       "name": "LLM: extract intent",
@@ -270,8 +270,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2800,
-        500
+        3640,
+        560
       ],
       "id": "plane-agent-parse-llm-0010",
       "name": "Parse LLM"
@@ -686,7 +686,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        3080,
+        3920,
         300
       ],
       "id": "plane-agent-switch-0011",
@@ -699,8 +699,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
-        -250
+        4200,
+        -380
       ],
       "id": "plane-agent-list-projects-0012",
       "name": "list_projects: pass-through"
@@ -729,8 +729,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3360,
-        -130
+        4200,
+        -240
       ],
       "id": "plane-agent-list-issues-0013",
       "name": "list_issues: GET",
@@ -763,8 +763,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3360,
-        -10
+        4200,
+        -100
       ],
       "id": "plane-agent-create-issue-0014",
       "name": "create_issue: POST",
@@ -777,8 +777,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
-        230
+        4200,
+        40
       ],
       "id": "plane-agent-resolve-update-0015",
       "name": "update: resolve issue_id"
@@ -810,8 +810,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3640,
-        230
+        4480,
+        40
       ],
       "id": "plane-agent-update-issue-0016",
       "name": "update_issue: PATCH",
@@ -824,8 +824,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
-        350
+        4200,
+        180
       ],
       "id": "plane-agent-resolve-delete-0017",
       "name": "delete: resolve issue_id"
@@ -854,8 +854,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3640,
-        350
+        4480,
+        180
       ],
       "id": "plane-agent-delete-issue-0018",
       "name": "delete_issue: DELETE",
@@ -885,8 +885,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3360,
-        110
+        4200,
+        320
       ],
       "id": "plane-agent-search-issues-0019",
       "name": "search_issues: GET",
@@ -899,8 +899,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4200,
-        100
+        5040,
+        300
       ],
       "id": "plane-agent-format-0020",
       "name": "Формат ответа"
@@ -931,8 +931,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        4480,
-        100
+        5320,
+        200
       ],
       "id": "plane-agent-resp-ok-0021",
       "name": "Ответ: OK"
@@ -963,7 +963,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        560,
+        1400,
         600
       ],
       "id": "plane-agent-resp-err-0022",
@@ -976,8 +976,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3920,
-        410
+        4760,
+        400
       ],
       "id": "plane-get-issue-V1",
       "name": "get_issue: GET",
@@ -1010,8 +1010,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3920,
-        530
+        4760,
+        520
       ],
       "id": "plane-add-comment-V1",
       "name": "add_comment: POST",
@@ -1024,8 +1024,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
-        510
+        4200,
+        460
       ],
       "id": "plane-resolve-extended-V1",
       "name": "resolve: extended"
@@ -1088,8 +1088,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        3640,
-        510
+        4480,
+        460
       ],
       "id": "plane-post-resolve-switch-V1",
       "name": "Action router (extended)"
@@ -1101,8 +1101,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3640,
-        -130
+        4480,
+        -240
       ],
       "id": "plane-enrich-states-V1",
       "name": "enrich states"
@@ -1119,8 +1119,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1680,
-        600
+        2800,
+        560
       ],
       "id": "plane-load-history-V1",
       "name": "Загрузка истории Plane",
@@ -1140,8 +1140,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1960,
-        600
+        3080,
+        560
       ],
       "id": "plane-hist-ctx-V1",
       "name": "Контекст: история"
@@ -1158,8 +1158,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1680,
-        700
+        2520,
+        560
       ],
       "id": "plane-ins-user-V1",
       "name": "INSERT user",
@@ -1184,8 +1184,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4480,
-        200
+        5320,
+        400
       ],
       "id": "plane-ins-asst-V1",
       "name": "INSERT assistant",
@@ -1205,8 +1205,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3360,
-        700
+        4200,
+        620
       ],
       "id": "plane-stats-cross-V1",
       "name": "Stats/CrossProject handler"
