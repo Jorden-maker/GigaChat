@@ -1198,7 +1198,7 @@
                         priority: document.getElementById('dt-cp-prio').value
                     }, this)">Выполнить</button>
                 </div>
-                <div class="dt-result" id="dt-res-update_issue" style="display:none"></div>
+                <div class="dt-result" id="dt-res-update_issue_2" style="display:none"></div>
             </div>
 
             <div class="dt-card">
@@ -2710,6 +2710,10 @@
 
         async function modalSave() {
             if (!MODAL_CURRENT_ISSUE || !BOARD_CURRENT_PROJECT) return;
+            // AUDIT-M9: если модалка в режиме «Новая задача», routerим в createNew.
+            // Защита от race: footer мог не успеть обновиться после быстрых
+            // открытий, и старый «Сохранить» дёрнул бы modalSave вместо create.
+            if (MODAL_CURRENT_ISSUE._isNew) return modalCreateNew();
             var statusEl = document.getElementById('board-status');
             var origName = MODAL_CURRENT_ISSUE.name;
             var newName = (document.getElementById('cm-name').value || '').trim();
@@ -3281,7 +3285,18 @@
                 document.body.appendChild(bd);
                 var input = bd.querySelector('#pp-input');
                 setTimeout(function () { input.focus(); }, 30);
-                function close(val) { bd.remove(); resolve(val); }
+                function close(val) {
+                    // AUDIT-M2: если внутри был открыт gc-dp datepicker,
+                    // сигналим ему закрыться — иначе window scroll/resize
+                    // listeners остаются висеть на удалённой DOM-ноде (leak).
+                    var openDp = bd.querySelector('.gc-dp.open');
+                    if (openDp) {
+                        openDp.classList.remove('open');
+                        openDp.dispatchEvent(new CustomEvent('gc-dp-closed'));
+                    }
+                    bd.remove();
+                    resolve(val);
+                }
                 bd.querySelector('#pp-cancel').addEventListener('click', function () { close(null); });
                 bd.querySelector('#pp-ok').addEventListener('click', function () { close(input.value); });
                 input.addEventListener('keydown', function (e) {
