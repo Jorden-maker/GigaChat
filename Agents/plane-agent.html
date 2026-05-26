@@ -1852,6 +1852,12 @@
                 setTimeout(function () { statusEl.textContent = ''; }, 4000);
                 return;
             }
+            // Сохраняем state_map в localStorage если workflow прислал свежий.
+            // Это страховка: на следующих загрузках, если enrich упал — фронт
+            // восстановит state_detail из кэша.
+            if (res.data && res.data.states_map && Object.keys(res.data.states_map).length) {
+                _saveStateMap(projectName, res.data.states_map);
+            }
             statusEl.textContent = 'Задач: ' + issues.length;
             renderBoardIssues(issues);
         }
@@ -1915,11 +1921,35 @@
             });
         }
 
+        // BUG-FIX: кэш state-map per project в localStorage. Гарантирует
+        // правильную раскладку даже если workflow enrich state упал (rapid
+        // Обновить + перегрузка Plane). На каждом успешном рендере обновляем
+        // кэш, на провале — используем сохранённый.
+        function _stateCacheKey(projectName) {
+            return 'plane_state_map_' + (projectName || BOARD_CURRENT_PROJECT || '_');
+        }
+        function _saveStateMap(projectName, statesMap) {
+            if (!statesMap || typeof statesMap !== 'object') return;
+            try { localStorage.setItem(_stateCacheKey(projectName), JSON.stringify(statesMap)); } catch (e) {}
+        }
+        function _loadStateMap(projectName) {
+            try { return JSON.parse(localStorage.getItem(_stateCacheKey(projectName)) || '{}'); }
+            catch (e) { return {}; }
+        }
+
         function renderBoardIssues(issues) {
             // Группируем по state.group. Plane state имеет group ∈ {backlog,
             // unstarted, started, completed, cancelled}. Все 5 — отдельная колонка.
+            // Восстанавливаем state_detail из localStorage cache если воркфлоу
+            // не смог enrich'нуть (например, Plane перегружен 429).
+            var cachedMap = _loadStateMap(BOARD_CURRENT_PROJECT);
             var groups = { backlog: [], unstarted: [], started: [], completed: [], cancelled: [] };
             issues.forEach(function (i) {
+                // Если state_detail отсутствует, но есть state UUID — резолвим
+                // через кэш. Иначе дефолт 'unstarted' (только если совсем нет данных).
+                if ((!i.state_detail || !i.state_detail.group) && i.state && cachedMap[i.state]) {
+                    i.state_detail = cachedMap[i.state];
+                }
                 var g = (i.state_detail && i.state_detail.group) || 'unstarted';
                 if (groups[g]) groups[g].push(i);
                 else groups.unstarted.push(i);
