@@ -2622,12 +2622,25 @@
             // Восстанавливаем секцию комментариев (могла быть скрыта)
             var commSec = document.querySelector('.card-modal-comments');
             if (commSec) commSec.style.display = issue._isNew ? 'none' : '';
-            // Класс is-new убирает большой padding-bottom (170px → 0),
-            // is-new-modal на саму модалку убирает max-height (чтобы не было пустоты).
+            // Класс is-new убирает большой padding-bottom (170px → 0).
+            // На сам .card-modal в режиме «Новая задача» принудительно через
+            // inline-style ставим height:auto + max-height:none — иначе модалка
+            // тянется до 90vh и под Status образуется пустое поле (body не
+            // занимает доп. место из-за flex:0 1 auto).
             var bodyEl = document.querySelector('.card-modal-body');
             if (bodyEl) bodyEl.classList.toggle('is-new', !!issue._isNew);
             var modalEl = document.querySelector('.card-modal');
-            if (modalEl) modalEl.classList.toggle('is-new-modal', !!issue._isNew);
+            if (modalEl) {
+                if (issue._isNew) {
+                    modalEl.style.height = 'auto';
+                    modalEl.style.maxHeight = 'none';
+                    modalEl.classList.add('is-new-modal');
+                } else {
+                    modalEl.style.height = '';
+                    modalEl.style.maxHeight = '';
+                    modalEl.classList.remove('is-new-modal');
+                }
+            }
             // Selected state from issue.state_detail.group → map к нашим именам
             var g = (issue.state_detail && issue.state_detail.group) || 'unstarted';
             var stateSelect = document.getElementById('cm-state');
