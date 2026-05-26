@@ -2637,18 +2637,28 @@
             if (deadlineEl) attachCustomDatepicker(deadlineEl);
             var backdrop = document.getElementById('card-modal-backdrop');
             backdrop.classList.add('show');
-            // FORCE HEIGHT: измеряем реальные размеры детей модалки и явно
-            // ставим height = sum. Это убивает любую пустоту 100% — модалка
-            // буквально не может быть больше суммы своих компонентов.
+            // FORCE HEIGHT + DIAGNOSTIC LOG
             var modalEl = backdrop.querySelector('.card-modal');
             if (modalEl) {
                 requestAnimationFrame(function () {
                     var h = modalEl.querySelector('.card-modal-header');
                     var b = modalEl.querySelector('.card-modal-body');
                     var f = modalEl.querySelector('.card-modal-footer');
-                    var total = (h ? h.offsetHeight : 0)
-                              + (b ? b.offsetHeight : 0)
-                              + (f ? f.offsetHeight : 0);
+                    var hH = h ? h.offsetHeight : 0;
+                    var bH = b ? b.offsetHeight : 0;
+                    var fH = f ? f.offsetHeight : 0;
+                    var total = hH + bH + fH;
+                    console.log('[MODAL DIAG]',
+                      'header:', hH,
+                      'body:', bH,
+                      'footer:', fH,
+                      'sum:', total,
+                      'modal:', modalEl.offsetHeight,
+                      'body scrollH:', b ? b.scrollHeight : 0,
+                      'body clientH:', b ? b.clientHeight : 0,
+                      'body children:', b ? Array.from(b.children).map(function(c){return c.tagName+'.'+c.className+'='+c.offsetHeight;}).join(' | ') : '',
+                      'is-new:', b ? b.classList.contains('is-new') : false
+                    );
                     if (total > 0) {
                         modalEl.style.height = total + 'px';
                     }
