@@ -2637,17 +2637,16 @@
             if (deadlineEl) attachCustomDatepicker(deadlineEl);
             var backdrop = document.getElementById('card-modal-backdrop');
             backdrop.classList.add('show');
-            // FORCE REFLOW: модалка иногда рендерится с не до конца применёнными
-            // стилями (особенно is-new padding-bottom), создавая пустоту снизу.
-            // Read offsetHeight форсит синхронный layout recalc → пустота уходит
-            // сразу, без необходимости клика юзером в поле.
+            // SLEDGEHAMMER REFLOW: модалка рендерится с устаревшим layout
+            // (пустота снизу). rAF + offsetHeight не помогал. Делаем display:
+            // none → reflow → display:'' — это форсит ПОЛНЫЙ recompute из нуля.
             var modalEl = backdrop.querySelector('.card-modal');
             if (modalEl) {
-                // Двойной reflow через rAF — гарантирует что после layout-pass
-                // браузер применит все стили включая wrappers от attachCustom*.
                 requestAnimationFrame(function () {
-                    void modalEl.offsetHeight;
-                    requestAnimationFrame(function () { void modalEl.offsetHeight; });
+                    var prev = modalEl.style.display;
+                    modalEl.style.display = 'none';
+                    void modalEl.offsetHeight; // флашим layout
+                    modalEl.style.display = prev || '';
                 });
             }
             // Подгружаем комментарии асинхронно
