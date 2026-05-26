@@ -569,6 +569,15 @@
             opacity: 1; visibility: visible; transform: translateY(0);
             transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0s;
         }
+        /* Smart-flip: класс .flip-up на wrap'е поднимает меню над триггером.
+           Применяется когда внизу мало места (например, Status в новой задаче). */
+        .gc-dropdown.flip-up .gc-dropdown-menu {
+            top: auto; bottom: calc(100% + 4px);
+            transform: translateY(4px);
+        }
+        .gc-dropdown.flip-up.open .gc-dropdown-menu {
+            transform: translateY(0);
+        }
         .gc-dropdown-menu li {
             padding: 7px 10px; cursor: pointer; border-radius: 5px;
             font-size: 12px; color: var(--text-primary);
@@ -741,12 +750,8 @@
            Меню расширяется внутри body, body скроллится, в footer не упирается. */
         .card-modal-body { padding: 18px 24px 170px; }
         /* В режиме «Новая задача» секция комментариев скрыта → не нужен
-           большой запас под её скролл. Делаем body короче, без пустоты. */
-        .card-modal-body.is-new { padding-bottom: 0; }
-        /* В is-new скрываем визуальный scrollbar — контент короткий, скролл
-           не нужен. Не убираем overflow:auto чтобы dropdown'ы могли работать. */
-        .card-modal-body.is-new { scrollbar-width: none; }
-        .card-modal-body.is-new::-webkit-scrollbar { width: 0; height: 0; }
+           большой запас под её скролл. */
+        .card-modal-body.is-new { padding-bottom: 18px; }
         .card-modal-row {
             display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;
         }
@@ -3143,41 +3148,17 @@
                     d.classList.remove('open');
                     d.dispatchEvent(new CustomEvent('gc-dp-closed'));
                 });
-                // Если dropdown внутри card-modal-body — портал в document.body
-                // + smart-flip: открываем туда, где больше viewport-места.
-                // Без этого Status (последнее поле модалки) при открытии вниз
-                // перекрывал footer и юзер не мог нажать Отмена/Создать.
+                // Smart-flip через CSS-класс: если внизу мало места и вверху
+                // больше — добавляем .flip-up (правило в CSS поднимает меню над
+                // триггером через bottom:calc(100%+4px)). Иначе — default down.
+                // Менюшка остаётся в DOM-дереве wrap'а → close-on-outside и
+                // option-click работают как обычно. Никаких порталов и inline.
                 var willOpen = !wrap.classList.contains('open');
-                var inModal = !!trigger.closest('.card-modal-body');
-                if (willOpen && inModal) {
-                    if (!menu._origParent) menu._origParent = menu.parentNode;
-                    if (menu.parentNode !== document.body) document.body.appendChild(menu);
+                if (willOpen) {
                     var trgRect = trigger.getBoundingClientRect();
-                    var spaceBelow = window.innerHeight - trgRect.bottom - 8;
-                    var spaceAbove = trgRect.top - 8;
-                    var openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
-                    var maxH = Math.max(120, Math.min(260, openUp ? spaceAbove : spaceBelow));
-                    var topPx = openUp
-                        ? (trgRect.top - 4 - maxH)
-                        : (trgRect.bottom + 4);
-                    menu.style.cssText =
-                        'position:fixed;' +
-                        'top:' + topPx + 'px;' +
-                        'left:' + trgRect.left + 'px;' +
-                        'width:' + trgRect.width + 'px;' +
-                        'min-width:' + trgRect.width + 'px;' +
-                        'max-height:' + maxH + 'px;' +
-                        'transform:none;' +
-                        'z-index:10000;' +
-                        'opacity:1;visibility:visible;' +
-                        'background:var(--bg-card);border:1px solid var(--border);' +
-                        'border-radius:8px;padding:4px;' +
-                        'box-shadow:0 8px 24px rgba(0,0,0,0.25);' +
-                        'overflow-y:auto;list-style:none;margin:0;';
-                } else if (!willOpen && menu._origParent) {
-                    // Возвращаем меню обратно в wrap и чистим inline-стили
-                    menu.style.cssText = '';
-                    if (menu.parentNode === document.body) menu._origParent.appendChild(menu);
+                    var spaceBelow = window.innerHeight - trgRect.bottom;
+                    var spaceAbove = trgRect.top;
+                    wrap.classList.toggle('flip-up', spaceBelow < 180 && spaceAbove > spaceBelow);
                 }
                 wrap.classList.toggle('open');
             });
