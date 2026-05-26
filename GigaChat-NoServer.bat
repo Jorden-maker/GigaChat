@@ -7,56 +7,95 @@ REM через file:// в браузере с флагом --allow-file-access-f
 REM флаг разрешает fetch() к локальным файлам, без которого Pyodide
 REM (math-agent) не загрузился бы.
 REM
-REM Что делает:
-REM   1. Ищет Yandex Browser (приоритет — для офиса), потом Chrome
-REM   2. Запускает в ИЗОЛИРОВАННОМ профиле (своя папка GigaChatBrowserProfile
-REM      в %USERPROFILE%) — это критично для security: флаг
-REM      --allow-file-access-from-files не применится к обычным вкладкам
-REM      браузера, только к этому окну
-REM   3. Открывает дашборд GigaChat-Platform.html
+REM ПРИОРИТЕТ браузеров (изменён 2026-05-26):
+REM   1) Yandex Browser  — рекомендован для офиса, надёжный с file://
+REM   2) Microsoft Edge  — уже предустановлен, Chromium-новее старого Chrome
+REM   3) Google Chrome   — fallback. Старые корпоративные Chrome (<90) могут
+REM      падать на file:// — для них РЕКОМЕНДУЕТСЯ GigaChat-Start.bat (Caddy).
 REM
-REM ВАЖНО: в этом окне НЕ открывай посторонние сайты — security ослаблена
-REM внутри этого профиля (флаг разрешает доступ к локальным файлам со всех
-REM file:// страниц). Используй только для GigaChat.
+REM Запускает в ИЗОЛИРОВАННОМ профиле (своя папка GigaChatBrowserProfile
+REM в %USERPROFILE%) — это критично для security: флаг
+REM --allow-file-access-from-files не применится к обычным вкладкам.
 REM
-REM Закрытие окна = выход. Никакой сервер не остался работать в фоне.
+REM ВАЖНО: в этом окне НЕ открывай посторонние сайты — security ослаблена.
 REM ============================================================================
 
 cd /d "%~dp0"
+setlocal EnableDelayedExpansion
 
 set "BROWSER="
+set "BROWSER_NAME="
 
-REM Yandex Browser - предпочтительно для офиса. Проверяем 4 типичных пути:
-REM   1) Per-user install (LocalAppData) — самый частый
-REM   2) System-wide install в Program Files (64-bit OS, 64-bit Yandex)
-REM   3) System-wide install в Program Files (x86) (32-bit Yandex или legacy)
-REM   4) Нестандартный путь без подпапки Yandex (некоторые корпоративные сборки)
-if exist "%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe" set "BROWSER=%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe"
-if not defined BROWSER if exist "C:\Program Files\Yandex\YandexBrowser\Application\browser.exe" set "BROWSER=C:\Program Files\Yandex\YandexBrowser\Application\browser.exe"
-if not defined BROWSER if exist "C:\Program Files (x86)\Yandex\YandexBrowser\Application\browser.exe" set "BROWSER=C:\Program Files (x86)\Yandex\YandexBrowser\Application\browser.exe"
-if not defined BROWSER if exist "C:\Program Files\Application\browser.exe" set "BROWSER=C:\Program Files\Application\browser.exe"
+REM ========== 1. Yandex Browser ==========
+if exist "%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe" (
+    set "BROWSER=%LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe"
+    set "BROWSER_NAME=Yandex"
+)
+if not defined BROWSER if exist "C:\Program Files\Yandex\YandexBrowser\Application\browser.exe" (
+    set "BROWSER=C:\Program Files\Yandex\YandexBrowser\Application\browser.exe"
+    set "BROWSER_NAME=Yandex"
+)
+if not defined BROWSER if exist "C:\Program Files (x86)\Yandex\YandexBrowser\Application\browser.exe" (
+    set "BROWSER=C:\Program Files (x86)\Yandex\YandexBrowser\Application\browser.exe"
+    set "BROWSER_NAME=Yandex"
+)
+if not defined BROWSER if exist "C:\Program Files\Application\browser.exe" (
+    set "BROWSER=C:\Program Files\Application\browser.exe"
+    set "BROWSER_NAME=Yandex"
+)
 
-REM Chrome - fallback
-if not defined BROWSER if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" set "BROWSER=C:\Program Files\Google\Chrome\Application\chrome.exe"
-if not defined BROWSER if exist "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" set "BROWSER=C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
-if not defined BROWSER if exist "%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe" set "BROWSER=%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"
+REM ========== 2. Edge (Chromium, стабильнее на корпоративных Windows) ==========
+if not defined BROWSER if exist "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" (
+    set "BROWSER=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+    set "BROWSER_NAME=Edge"
+)
+if not defined BROWSER if exist "C:\Program Files\Microsoft\Edge\Application\msedge.exe" (
+    set "BROWSER=C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+    set "BROWSER_NAME=Edge"
+)
 
-REM Edge - последний fallback (тоже Chromium, тот же флаг работает)
-if not defined BROWSER if exist "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" set "BROWSER=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+REM ========== 3. Chrome — fallback ==========
+if not defined BROWSER if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
+    set "BROWSER=C:\Program Files\Google\Chrome\Application\chrome.exe"
+    set "BROWSER_NAME=Chrome"
+)
+if not defined BROWSER if exist "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" (
+    set "BROWSER=C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+    set "BROWSER_NAME=Chrome"
+)
+if not defined BROWSER if exist "%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe" (
+    set "BROWSER=%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"
+    set "BROWSER_NAME=Chrome"
+)
+REM Реестровый поиск Chrome — некоторые корпоративные установки кладут exe
+REM в нестандартный путь (например через Chocolatey/SCCM).
+if not defined BROWSER (
+    for /f "tokens=2,*" %%A in ('reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" /ve 2^>nul ^| findstr /i REG_SZ') do (
+        if exist "%%B" (
+            set "BROWSER=%%B"
+            set "BROWSER_NAME=Chrome"
+        )
+    )
+)
+if not defined BROWSER (
+    for /f "tokens=2,*" %%A in ('reg query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" /ve 2^>nul ^| findstr /i REG_SZ') do (
+        if exist "%%B" (
+            set "BROWSER=%%B"
+            set "BROWSER_NAME=Chrome"
+        )
+    )
+)
 
 if not defined BROWSER (
     echo.
     echo ERROR: Chromium-based browser not found.
-    echo Install Yandex Browser, Google Chrome, or Microsoft Edge.
-    echo Checked locations:
-    echo   %LOCALAPPDATA%\Yandex\YandexBrowser\Application\browser.exe
-    echo   C:\Program Files\Yandex\YandexBrowser\Application\browser.exe
-    echo   C:\Program Files ^(x86^)\Yandex\YandexBrowser\Application\browser.exe
-    echo   C:\Program Files\Application\browser.exe
-    echo   C:\Program Files\Google\Chrome\Application\chrome.exe
-    echo   C:\Program Files ^(x86^)\Google\Chrome\Application\chrome.exe
-    echo   %LOCALAPPDATA%\Google\Chrome\Application\chrome.exe
-    echo   C:\Program Files ^(x86^)\Microsoft\Edge\Application\msedge.exe
+    echo.
+    echo Install one of:
+    echo   - Yandex Browser (recommended for offline office use)
+    echo   - Microsoft Edge (already preinstalled on Windows 10/11)
+    echo   - Google Chrome
+    echo.
+    echo Or use GigaChat-Start.bat for HTTP-server mode ^(works with any browser^).
     echo.
     pause
     exit /b 1
@@ -71,10 +110,28 @@ if not exist "%~dp0GigaChat-Platform.html" (
     exit /b 1
 )
 
-echo Browser: %BROWSER%
-echo Profile: %USERPROFILE%\GigaChatBrowserProfile (isolated from your main browser)
-echo URL: file:///%~dp0GigaChat-Platform.html
+REM Доп. флаги для старых Chrome: снимаем CORS для file:// и блокировку
+REM запросов к локальному API (n8n на 5678, Pyodide и т.п.).
+set "EXTRA_FLAGS="
+if "%BROWSER_NAME%"=="Chrome" (
+    set "EXTRA_FLAGS=--disable-features=BlockInsecurePrivateNetworkRequests --disable-site-isolation-trials"
+)
+
+echo ============================================
+echo  Browser: %BROWSER_NAME%
+echo  Path:    %BROWSER%
+echo  Profile: %USERPROFILE%\GigaChatBrowserProfile (isolated)
+echo  URL:     file:///%~dp0GigaChat-Platform.html
+echo ============================================
 echo.
+if "%BROWSER_NAME%"=="Chrome" (
+    echo NOTE: Если страница не открылась или пуста, закрой это окно
+    echo       и запусти GigaChat-Start.bat ^(HTTP-сервер Caddy^) — он
+    echo       надёжнее на старых корпоративных Chrome.
+    echo.
+)
 echo Opening...
 
-start "" "%BROWSER%" --allow-file-access-from-files --user-data-dir="%USERPROFILE%\GigaChatBrowserProfile" "file:///%~dp0GigaChat-Platform.html"
+start "" "%BROWSER%" --allow-file-access-from-files --user-data-dir="%USERPROFILE%\GigaChatBrowserProfile" --no-first-run --no-default-browser-check %EXTRA_FLAGS% "file:///%~dp0GigaChat-Platform.html"
+
+endlocal

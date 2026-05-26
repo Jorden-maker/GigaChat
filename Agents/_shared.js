@@ -88,19 +88,33 @@
   // давала одинаковый prefix для 'Иванов' и 'Петров' — юзеры видели чужие
   // сессии). Используется как user-namespace во всех агентах: sessionStore
   // prefix, settings localStorage и т.п.
+  //
+  // BUG-FIX 2026-05-26: жёсткий потолок 20 символов. Раньше base64 от длинного
+  // кириллического имени (>9 букв) давал префикс >25, после склейки с
+  // agentPrefix + uuid32 итоговый session_id превышал 64 символа, бэкенд
+  // отвечал «session_id содержит недопустимые символы». Теперь: берём первые
+  // 12 символов base64 (различает короткие имена) + 8 hex от полного хэша
+  // (различает имена с одинаковым b64-началом). Всегда ровно ≤20 символов
+  // ASCII, итоговый session_id ≤ 7 (planner) + 1 + 20 + 1 + 32 = 61 char.
   function authUserPrefix(name) {
     var s = String(name == null ? authGetUsername() : name);
     if (!s) return 'anon';
+    // Простой быстрый хэш — используем и в b64-ветке (для суффикса),
+    // и в fallback'е.
+    var h = 0;
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+    var hashHex = ('00000000' + (h >>> 0).toString(16)).slice(-8);
     try {
       var bytes = new TextEncoder().encode(s);
       var bin = '';
       for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
       var b64 = btoa(bin).replace(/[^A-Za-z0-9]/g, '');
-      if (b64) return b64;
+      if (b64) {
+        // Если короткое — используем как есть; если длинное — первые 12 + 8 hex.
+        return b64.length <= 20 ? b64 : (b64.slice(0, 12) + hashHex);
+      }
     } catch (e) { /* fallback ниже */ }
-    var h = 0;
-    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
-    return 'u_' + Math.abs(h);
+    return 'u' + hashHex;
   }
   function authSetAuth(token, username) {
     try {

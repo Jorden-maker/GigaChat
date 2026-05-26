@@ -109,7 +109,7 @@
 
         /* === Панель задач: overlay поверх chat в .main-body === */
         #tasks-panel {
-            position: absolute; inset: 0;
+            position: absolute; top:0;right:0;bottom:0;left:0;
             background: var(--bg-primary);
             padding: 16px 40px;
             overflow-y: auto;
@@ -344,7 +344,7 @@
 
         /* === Modal для добавления/редактирования задачи === */
         .task-modal-overlay {
-            position: fixed; inset: 0; z-index: 100;
+            position: fixed; top:0;right:0;bottom:0;left:0; z-index: 100;
             background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(3px);
             display: none; align-items: center; justify-content: center;
             animation: plannerFadeIn 0.2s ease;
@@ -633,7 +633,7 @@
          конце <body> удаляет div. Это гарантирует, что юзер НЕ видит частично
          отрисованный layout/шрифты во время загрузки (что не помогали ни
          color-scheme, ни pre-paint <style>-блок). -->
-    <div id="__gc-bootloader" style="position:fixed;inset:0;background:#1f1f1e;z-index:99999;pointer-events:none"></div>
+    <div id="__gc-bootloader" style="position:fixed;top:0;right:0;bottom:0;left:0;background:#1f1f1e;z-index:99999;pointer-events:none"></div>
     <script>(function(){var t=document.documentElement.getAttribute('data-theme');if(t!=='dark'){var el=document.getElementById('__gc-bootloader');if(el)el.style.background='#fdfdfc';}})();</script>
 
     <!-- Login/register перенесены в /login.html (single-source-of-truth для всей

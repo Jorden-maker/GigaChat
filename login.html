@@ -61,7 +61,7 @@
 
         /* Анти-FOUC заставка — снимается после готовности UI (см. script внизу). */
         #__gc-bootloader {
-            position: fixed; inset: 0;
+            position: fixed; top:0;right:0;bottom:0;left:0;
             background: var(--bg-primary);
             z-index: 99999;
             pointer-events: none;
@@ -72,7 +72,7 @@
         /* Точечный фон — лифтнут из GigaChat-Platform.html, чтобы login
            визуально был частью платформы (а не отдельной чужой страницей). */
         .bg-dots {
-            position: fixed; inset: 0; z-index: 0;
+            position: fixed; top:0;right:0;bottom:0;left:0; z-index: 0;
             pointer-events: none;
             background-image:
                 radial-gradient(circle, rgba(212,165,116,0.22) 1.5px, transparent 2px),
