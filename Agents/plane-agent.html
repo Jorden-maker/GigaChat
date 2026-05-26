@@ -569,15 +569,6 @@
             opacity: 1; visibility: visible; transform: translateY(0);
             transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0s;
         }
-        /* Если внизу не помещается (например, dropdown Статус в нижнем
-           ряду модалки) — флипаем меню вверх через .flip-up. */
-        .gc-dropdown.flip-up .gc-dropdown-menu {
-            top: auto; bottom: calc(100% + 4px);
-            transform: translateY(4px);
-        }
-        .gc-dropdown.flip-up.open .gc-dropdown-menu {
-            transform: translateY(0);
-        }
         .gc-dropdown-menu li {
             padding: 7px 10px; cursor: pointer; border-radius: 5px;
             font-size: 12px; color: var(--text-primary);
@@ -3003,41 +2994,29 @@
                 document.querySelectorAll('.gc-dropdown.open').forEach(function (d) {
                     if (d !== wrap) d.classList.remove('open');
                 });
-                // NEW-14: перед открытием решаем — открывать вниз или вверх.
-                // Если меню упрётся в нижний край card-modal-body (точнее
-                // в её modal-footer или viewport) с зазором меньше 5px —
-                // флипаем вверх. Иначе вниз (default).
+                // NEW-14: меню ВСЕГДА открывается вниз. Если упирается в
+                // нижнюю границу card-modal-body — ограничиваем max-height
+                // так, чтобы между нижней кромкой меню и краем body
+                // оставалось 5px. Внутри меню сработает свой overflow-y:auto.
                 var willOpen = !wrap.classList.contains('open');
                 if (willOpen) {
-                    wrap.classList.remove('flip-up');
                     var trgRect = trigger.getBoundingClientRect();
-                    // Считаем верхнюю границу нижней «стенки»:
-                    //  - если внутри card-modal — берём верх footer'а (или нижнюю
-                    //    границу body, чтобы оставаться в скроллящейся области)
-                    //  - иначе — низ viewport'а
                     var bottomLimit = window.innerHeight;
                     var modalBody = trigger.closest('.card-modal-body');
                     if (modalBody) {
-                        var bodyRect = modalBody.getBoundingClientRect();
-                        bottomLimit = bodyRect.bottom;
+                        bottomLimit = modalBody.getBoundingClientRect().bottom;
                     }
-                    // Высота меню: измеряем offscreen-показав (visibility hidden
-                    // → offsetHeight доступен даже когда меню закрыто).
-                    // Меню уже отрисовано в DOM, так что offsetHeight валиден.
-                    var menuH = menu.offsetHeight || (selectEl.options.length * 30 + 8);
-                    var spaceBelow = bottomLimit - trgRect.bottom - 4; // 4 — зазор top
-                    if (spaceBelow < menuH + 5) {
-                        // Не помещается с 5px запасом — пробуем вверх.
-                        // Если и вверху тесно — оставляем вниз (Plan B: max-height скроллит сам).
-                        var topLimit = 0;
-                        if (modalBody) {
-                            var br2 = modalBody.getBoundingClientRect();
-                            topLimit = br2.top;
-                        }
-                        var spaceAbove = trgRect.top - topLimit - 4;
-                        if (spaceAbove > spaceBelow) {
-                            wrap.classList.add('flip-up');
-                        }
+                    // available = от низа триггера до нижней «стенки» минус
+                    // 4px gap (.gc-dropdown-menu top: calc(100% + 4px))
+                    // минус 5px желаемого зазора.
+                    var available = bottomLimit - trgRect.bottom - 4 - 5;
+                    if (available > 80) {
+                        // Достаточно места — кэп ниже дефолтных 260px если надо.
+                        menu.style.maxHeight = Math.min(260, available) + 'px';
+                    } else {
+                        // Слишком тесно — оставляем дефолтный max-height: 260px
+                        // (CSS), скролл внутри меню вытянет.
+                        menu.style.maxHeight = '';
                     }
                 }
                 wrap.classList.toggle('open');
