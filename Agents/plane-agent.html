@@ -1731,6 +1731,8 @@
                 if (firstLi) firstLi.classList.add('selected');
             }
             statusEl.textContent = '';
+            // Загружаем участников workspace в фоне для отображения авторов комментов.
+            loadBoardMembers();
             reloadBoard();
         }
 
@@ -2160,6 +2162,17 @@
         var BOARD_ALL_ISSUES = [];   // последний полный набор issues с сервера (до фильтрации)
         var BOARD_LABELS_CACHE = {}; // id → {name, color}
         var BOARD_MEMBERS_CACHE = []; // [{id, display_name, ...}]
+        // Подгружает список участников workspace, кэширует.
+        // Используется для отображения автора комментариев в card-modal.
+        async function loadBoardMembers() {
+            if (BOARD_MEMBERS_CACHE && BOARD_MEMBERS_CACHE.length) return;
+            try {
+                var res = await planeDirect('list_members', {});
+                if (res && res.data && Array.isArray(res.data.members)) {
+                    BOARD_MEMBERS_CACHE = res.data.members;
+                }
+            } catch (e) { /* silent fail */ }
+        }
         var CURRENT_USER_ID = null;  // id текущего юзера в Plane (для «Мои задачи»)
         var SELECTED_CARDS = new Set(); // issue ids
         var STICKY_PROJECT = null;   // {name, ts} — закреплённый проект для чата
