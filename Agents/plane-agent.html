@@ -2996,6 +2996,11 @@
                 document.querySelectorAll('.gc-dropdown.open').forEach(function (d) {
                     if (d !== wrap) d.classList.remove('open');
                 });
+                // ...и все открытые date picker'ы (одно одновременно открытое окно)
+                document.querySelectorAll('.gc-dp.open').forEach(function (d) {
+                    d.classList.remove('open');
+                    d.dispatchEvent(new CustomEvent('gc-dp-closed'));
+                });
                 wrap.classList.toggle('open');
             });
         }
@@ -3151,7 +3156,16 @@
             trigger.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var open = !wrap.classList.contains('open');
-                document.querySelectorAll('.gc-dp.open').forEach(function (d) { if (d !== wrap) d.classList.remove('open'); });
+                document.querySelectorAll('.gc-dp.open').forEach(function (d) {
+                    if (d !== wrap) {
+                        d.classList.remove('open');
+                        d.dispatchEvent(new CustomEvent('gc-dp-closed'));
+                    }
+                });
+                // ...и все открытые dropdown'ы (одно одновременно открытое окно)
+                document.querySelectorAll('.gc-dropdown.open').forEach(function (d) {
+                    d.classList.remove('open');
+                });
                 wrap.classList.toggle('open', open);
                 if (open) {
                     // Если есть выбранная дата — показываем её месяц, иначе текущий
