@@ -1519,13 +1519,28 @@
             }).join('');
         }
         function formatIssueCard(issue) {
+            // BUG-FIX #11: расширенная карточка — показываем приоритет, статус,
+            // дату начала, срок, описание (обрезано). Раньше показывали только
+            // название + приоритет, юзер жаловался «не показывает параметры».
             if (!issue) return '';
             var prio = String(issue.priority || 'none').toLowerCase();
             var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий',none:'—'})[prio] || prio;
+            var stateGroup = (issue.state_detail && issue.state_detail.group) || '';
+            var stateLabel = ({backlog:'Отложенные',unstarted:'Запланированные',started:'В работе',completed:'Готово',cancelled:'Отменено'})[stateGroup]
+                            || (issue.state_detail && issue.state_detail.name) || '';
+            var meta = [];
+            if (stateLabel) meta.push('Статус: ' + escapeHtml(stateLabel));
+            if (issue.start_date) meta.push('Начало: ' + escapeHtml(issue.start_date));
+            if (issue.target_date) meta.push('Срок: ' + escapeHtml(issue.target_date));
+            if (issue.created_at) meta.push('Создана: ' + escapeHtml(String(issue.created_at).slice(0,10)));
+            var desc = stripHtml(issue.description_html || issue.description || '').slice(0, 200);
             return '<div class="plane-card">' +
                 '<div class="pc-title">' + escapeHtml(issue.name || '—') +
                 '<span class="pc-prio ' + prio + '">' + prioLabel + '</span>' +
-                '</div></div>';
+                '</div>' +
+                (meta.length ? '<div class="pc-meta" style="margin-top:6px;color:var(--text-secondary);font-size:12px">' + meta.join(' · ') + '</div>' : '') +
+                (desc ? '<div class="pc-desc" style="margin-top:6px;color:var(--text-muted);font-size:12px;white-space:pre-wrap">' + escapeHtml(desc) + '</div>' : '') +
+                '</div>';
         }
         function formatBotMessage(msg) {
             var content = String(msg.content || '');
@@ -1741,12 +1756,26 @@
                         if (li) selectBoardProject(li.dataset.value);
                     });
                 }
-                // Авто-выбор первого проекта (раньше показывали «— выберите проект —»,
-                // юзер просил убрать, теперь первый из списка по умолчанию).
-                BOARD_CURRENT_PROJECT = BOARD_PROJECTS_CACHE[0].name;
+                // BUG-FIX 2026-05-26: «Обновить» уводило юзера на первый проект.
+                // Раньше всегда брали [0] независимо от текущего выбора. Теперь:
+                //  1) пробуем сохранить предыдущий BOARD_CURRENT_PROJECT (если есть
+                //     в свежем списке),
+                //  2) затем из localStorage (восстановление после F5),
+                //  3) и только если не нашли — [0].
+                var preferred = BOARD_CURRENT_PROJECT;
+                try {
+                    if (!preferred) preferred = localStorage.getItem('plane_board_project') || '';
+                } catch (e) {}
+                var chosenProj = null;
+                if (preferred) {
+                    chosenProj = BOARD_PROJECTS_CACHE.find(function (p) { return p.name === preferred; });
+                }
+                if (!chosenProj) chosenProj = BOARD_PROJECTS_CACHE[0];
+                BOARD_CURRENT_PROJECT = chosenProj.name;
                 labelEl.textContent = BOARD_CURRENT_PROJECT;
-                var firstLi = menu.querySelector('li[data-value]');
-                if (firstLi) firstLi.classList.add('selected');
+                var selLi = menu.querySelector('li[data-value="' + chosenProj.name.replace(/"/g, '\\"') + '"]')
+                         || menu.querySelector('li[data-value]');
+                if (selLi) selLi.classList.add('selected');
             }
             statusEl.textContent = '';
             // Загружаем участников workspace в фоне для отображения авторов комментов.
