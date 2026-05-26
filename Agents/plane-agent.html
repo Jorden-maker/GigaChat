@@ -704,28 +704,21 @@
         .card-modal {
             background: var(--bg-card); border: 1px solid var(--border);
             border-radius: 12px; max-width: 620px; width: 92%;
-            max-height: 90vh;
             box-shadow: 0 16px 40px rgba(0,0,0,0.4);
-            /* По умолчанию НЕТ скролла — модалка размером с контент.
-               Если контент превышает 90vh — даём вертикальный скролл. */
+            /* ROOT-FIX: убран flex+max-height. Block layout = модалка
+               размером строго с контент. Скролл, если нужен, делает body
+               внутри (max-height: calc(90vh - …)). Это устраняет пустоту
+               между полями и footer в «Новой задаче» — она была побочкой
+               flex:0 1 auto + max-height 90vh. */
+            display: block;
             overflow: hidden;
-            display: flex; flex-direction: column;
-        }
-        /* Для «Новая задача» — фиксированно по контенту, без max-height
-           заполнения. Иначе body внутри занимает 90vh минус footer и
-           образуется пустота под полями. */
-        .card-modal.is-new-modal {
-            max-height: none;
-            height: auto;
         }
         .card-modal-body {
-            /* flex: 0 1 auto = НЕ растягиваться больше контента, но позволять
-               сжатие если модалка упирается в max-height 90vh — тогда сработает
-               собственный overflow-y: auto. Раньше было flex: 1 1 auto, что
-               давало пустой провал между полями и футером на коротком контенте
-               (например, в «Новая задача»). */
-            overflow-y: auto; flex: 0 1 auto;
-            min-height: 0;
+            /* Block layout. Body — обычный div. Если контент длинный (карточка
+               с комментариями), включается overflow-y: auto и кэп по высоте
+               чтобы не залезть за viewport (header ~50 + footer ~70 + запас 30). */
+            overflow-y: auto;
+            max-height: calc(90vh - 150px);
             scrollbar-width: thin; scrollbar-color: var(--border) transparent;
         }
         .card-modal-body::-webkit-scrollbar { width: 5px; }
@@ -2622,25 +2615,11 @@
             // Восстанавливаем секцию комментариев (могла быть скрыта)
             var commSec = document.querySelector('.card-modal-comments');
             if (commSec) commSec.style.display = issue._isNew ? 'none' : '';
-            // Класс is-new убирает большой padding-bottom (170px → 0).
-            // На сам .card-modal в режиме «Новая задача» принудительно через
-            // inline-style ставим height:auto + max-height:none — иначе модалка
-            // тянется до 90vh и под Status образуется пустое поле (body не
-            // занимает доп. место из-за flex:0 1 auto).
+            // Класс is-new убирает padding-bottom (170px → 0) в режиме
+            // «Новая задача» — там нет блока комментариев и большой запас
+            // под скролл не нужен.
             var bodyEl = document.querySelector('.card-modal-body');
             if (bodyEl) bodyEl.classList.toggle('is-new', !!issue._isNew);
-            var modalEl = document.querySelector('.card-modal');
-            if (modalEl) {
-                if (issue._isNew) {
-                    modalEl.style.height = 'auto';
-                    modalEl.style.maxHeight = 'none';
-                    modalEl.classList.add('is-new-modal');
-                } else {
-                    modalEl.style.height = '';
-                    modalEl.style.maxHeight = '';
-                    modalEl.classList.remove('is-new-modal');
-                }
-            }
             // Selected state from issue.state_detail.group → map к нашим именам
             var g = (issue.state_detail && issue.state_detail.group) || 'unstarted';
             var stateSelect = document.getElementById('cm-state');
