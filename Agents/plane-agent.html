@@ -700,9 +700,19 @@
         .card-modal {
             background: var(--bg-card); border: 1px solid var(--border);
             border-radius: 12px; max-width: 620px; width: 92%;
-            max-height: 88vh; overflow-y: auto;
+            max-height: 90vh;
             box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+            /* По умолчанию НЕТ скролла — модалка размером с контент.
+               Если контент превышает 90vh — даём вертикальный скролл. */
+            overflow: hidden;
+            display: flex; flex-direction: column;
         }
+        .card-modal-body {
+            overflow-y: auto; flex: 1 1 auto;
+            scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+        }
+        .card-modal-body::-webkit-scrollbar { width: 5px; }
+        .card-modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         .card-modal-header {
             padding: 18px 24px 12px; border-bottom: 1px solid var(--border);
             display: flex; align-items: center; gap: 10px;
@@ -738,6 +748,10 @@
         .card-modal-row textarea:focus,
         .card-modal-row select:focus { outline: none; border-color: var(--accent); }
         .card-modal-row textarea { min-height: 76px; resize: vertical; }
+        .cm-created {
+            margin-top: 12px; color: var(--text-muted); font-size: 11px;
+            text-align: right; font-style: italic;
+        }
         .card-modal-comments {
             margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;
         }
@@ -931,7 +945,7 @@
                         </div>
                         <ul class="board-select-menu" id="board-project-menu" role="listbox"></ul>
                     </div>
-                    <button class="board-refresh" onclick="reloadBoard()">Обновить</button>
+                    <button class="board-refresh" onclick="forceFullReload()">Обновить</button>
                     <span class="board-status" id="board-status"></span>
                 </div>
                 <!-- Phase 1: вторая полоса с поиском, фильтрами, сортировкой -->
@@ -951,8 +965,7 @@
                     <select id="board-sort" onchange="applyBoardFilters()" style="display:none">
                         <option value="priority">Сортировка: приоритет</option>
                         <option value="deadline">Сортировка: срок</option>
-                        <option value="created">Сортировка: создан</option>
-                        <option value="name">Сортировка: имя</option>
+                        <option value="created">Сортировка: создана</option>
                     </select>
                     <button class="board-add-task" id="board-add-task-btn" onclick="openNewTaskModal()">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1663,13 +1676,18 @@
             var labelEl = document.getElementById('board-project-label');
             var menu = document.getElementById('board-project-menu');
             statusEl.textContent = 'Загружаю проекты...';
-            if (!BOARD_PROJECTS_CACHE) {
+            // NEW-7: refetch если кэш пуст (раньше падало в «Нет проектов»
+            // навсегда — пустой массив truthy, обход условия if (!cache))
+            if (!BOARD_PROJECTS_CACHE || !BOARD_PROJECTS_CACHE.length) {
                 var pd = await planeDirect('list_projects', {});
                 BOARD_PROJECTS_CACHE = (pd && pd.data && pd.data.projects) || [];
                 if (!BOARD_PROJECTS_CACHE.length) {
                     menu.innerHTML = '<li class="empty">Нет проектов</li>';
                     labelEl.textContent = 'Нет проектов';
                     statusEl.textContent = '';
+                    // Сбрасываем кэш обратно в null чтобы при следующем openBoard()
+                    // ещё раз попробовать запросить — иначе вечный «Нет проектов».
+                    BOARD_PROJECTS_CACHE = null;
                     renderBoardEmpty();
                     return;
                 }
@@ -1689,6 +1707,14 @@
             reloadBoard();
         }
 
+        // NEW-9: «Обновить» button — полный сброс: projects cache + issues.
+        // Без этого, если cache был сломан (empty array после network error),
+        // юзер никак не мог восстановить доску без F5 страницы.
+        async function forceFullReload() {
+            BOARD_PROJECTS_CACHE = null;
+            BOARD_ALL_ISSUES = [];
+            await loadBoard();
+        }
         async function reloadBoard() {
             var panel = document.getElementById('board-panel');
             // Баг 15: если доска уже скрыта — не дёргаем рендер (он может выкинуть
@@ -1958,6 +1984,17 @@
                         statusEl.textContent = (res && res.response) || 'Ошибка обновления';
                         setTimeout(function () { statusEl.textContent = ''; }, 5000);
                     } else {
+                        // NEW-8: ВАЖНО — обновляем in-memory issue.state_detail.group,
+                        // иначе следующий applyBoardFilters() (например, после клика
+                        // на «Сортировка») перерисует доску из BOARD_ALL_ISSUES и
+                        // карточка «телепортируется» обратно в исходную колонку.
+                        var moved = BOARD_ALL_ISSUES.find(function (it) {
+                            return (it.name || '') === issueName;
+                        });
+                        if (moved) {
+                            if (!moved.state_detail) moved.state_detail = {};
+                            moved.state_detail.group = targetState;
+                        }
                         statusEl.textContent = 'Сохранено';
                         setTimeout(function () { statusEl.textContent = ''; }, 2000);
                     }
@@ -2172,6 +2209,13 @@
             var search = (document.getElementById('board-search') || {}).value || '';
             BOARD_FILTERS.search = String(search).trim().toLowerCase();
             BOARD_FILTERS.sortBy = (document.getElementById('board-sort') || {}).value || 'priority';
+            // NEW-10: если BOARD_ALL_ISSUES пуст, но есть выбранный проект —
+            // делаем reload вместо рендера пустоты. Иначе клик «Сортировка»
+            // на свеже-открытой доске стирал бы карточки.
+            if ((!BOARD_ALL_ISSUES || !BOARD_ALL_ISSUES.length) && BOARD_CURRENT_PROJECT) {
+                reloadBoard();
+                return;
+            }
             // Применяем фильтры к BOARD_ALL_ISSUES и перерисовываем
             var filtered = filterIssues(BOARD_ALL_ISSUES);
             renderBoardIssues(filtered);
@@ -2212,8 +2256,6 @@
                         var bc = b.created_at ? new Date(b.created_at).getTime() : 0;
                         return bc - ac;
                     }
-                    case 'name':
-                        return String(a.name || '').localeCompare(String(b.name || ''));
                     case 'priority':
                     default:
                         return (PRIO_ORDER[String(a.priority || 'none').toLowerCase()] || 5)
@@ -2386,6 +2428,9 @@
                         '<option value="cancelled">Отменено</option>' +
                     '</select>' +
                 '</div></div>' +
+                (issue.created_at ? '<div class="cm-created">Создана: ' +
+                    escapeHtml(new Date(issue.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })) +
+                    '</div>' : '') +
                 '<div class="card-modal-comments">' +
                     '<h4>Комментарии</h4>' +
                     '<div id="cm-comments-list"><div style="color:var(--text-muted);font-size:12px;text-align:center;padding:8px">Загружаю...</div></div>' +
@@ -3029,20 +3074,12 @@
                     viewY = parseInt(ref[0], 10);
                     viewM = parseInt(ref[1], 10) - 1;
                     render();
-                    // Позиционируем fixed-popup относительно триггера в viewport,
-                    // с auto-flip и отступом 30px от низа.
+                    // Позиционируем fixed-popup относительно триггера в viewport.
+                    // Всегда открываем вниз (юзер просил консистентность).
                     setTimeout(function () {
                         var rect = trigger.getBoundingClientRect();
-                        var popupH = popup.offsetHeight || 290;
-                        var spaceBelow = window.innerHeight - rect.bottom;
-                        var openUp = spaceBelow < popupH + 30;
-                        if (openUp) {
-                            popup.style.left = rect.left + 'px';
-                            popup.style.top = (rect.top - popupH - 4) + 'px';
-                        } else {
-                            popup.style.left = rect.left + 'px';
-                            popup.style.top = (rect.bottom + 4) + 'px';
-                        }
+                        popup.style.left = rect.left + 'px';
+                        popup.style.top = (rect.bottom + 4) + 'px';
                     }, 0);
                 }
             });
