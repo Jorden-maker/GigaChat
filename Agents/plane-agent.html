@@ -1997,7 +1997,21 @@
             }
             var prio = String(issue.priority || 'none').toLowerCase();
             var prioLabel = ({ urgent: 'срочно', high: 'высокий', medium: 'средний', low: 'низкий', none: '—' })[prio] || prio;
-            // По запросу юзера — дата задачи с карточки убрана (фокус на приоритете + метках/счётчиках)
+            // Срок выполнения — справа от приоритета. Формат dd.mm (компактно).
+            // Если просрочен (target_date < today) — красным. Иначе — обычный muted.
+            var deadlineHtml = '';
+            if (issue.target_date) {
+                var td = new Date(issue.target_date);
+                var dd = String(td.getDate()).padStart(2,'0');
+                var mm = String(td.getMonth()+1).padStart(2,'0');
+                var yy = String(td.getFullYear()).slice(-2);
+                var today = new Date(); today.setHours(0,0,0,0);
+                var isOverdue = td < today;
+                var groupNow = (issue.state_detail && issue.state_detail.group) || '';
+                var closed = groupNow === 'completed' || groupNow === 'cancelled';
+                var cls = (isOverdue && !closed) ? 'bc-deadline overdue' : 'bc-deadline';
+                deadlineHtml = '<span class="' + cls + '">📅 ' + dd + '.' + mm + '.' + yy + '</span>';
+            }
             // Phase 1 #7: метки (chips)
             var labelsHtml = '';
             var labelIds = issue.labels || issue.label_ids || [];
@@ -2029,6 +2043,7 @@
                 '<div class="bc-title">' + escapeHtml(issue.name || '—') + '</div>' +
                 '<div class="bc-meta">' +
                     '<span class="bc-prio ' + prio + '">' + prioLabel + '</span>' +
+                    deadlineHtml +
                 '</div>' +
                 labelsHtml +
                 (countersHtml ? '<div class="bc-foot">' + countersHtml + '</div>' : '');
