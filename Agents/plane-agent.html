@@ -1689,7 +1689,22 @@
             // NEW-7: refetch если кэш пуст (раньше падало в «Нет проектов»
             // навсегда — пустой массив truthy, обход условия if (!cache))
             if (!BOARD_PROJECTS_CACHE || !BOARD_PROJECTS_CACHE.length) {
-                var pd = await planeDirect('list_projects', {});
+                // NEW-12: авто-retry x3 с backoff 0/1.5/3с. Если Plane был
+                // временно перегружен rapid-drags'ами, первый запрос может
+                // вернуть 429 — на повторе уже работает. Без этого юзеру
+                // приходилось ручкой жать «Обновить».
+                var pd = null;
+                var attempts = [0, 1500, 3000];
+                for (var ai = 0; ai < attempts.length; ai++) {
+                    if (attempts[ai] > 0) {
+                        statusEl.textContent = 'Загружаю проекты... (попытка ' + (ai + 1) + ')';
+                        await new Promise(function (r) { setTimeout(r, attempts[ai]); });
+                    }
+                    pd = await planeDirect('list_projects', {});
+                    if (pd && pd.data && Array.isArray(pd.data.projects) && pd.data.projects.length) {
+                        break;
+                    }
+                }
                 BOARD_PROJECTS_CACHE = (pd && pd.data && pd.data.projects) || [];
                 if (!BOARD_PROJECTS_CACHE.length) {
                     menu.innerHTML = '<li class="empty">Нет проектов</li>';
@@ -1922,11 +1937,17 @@
             cards.forEach(function (card) {
                 card.addEventListener('dragstart', function (e) {
                     card.classList.add('dragging');
+                    // NEW-11: глобальный флаг для подавления hover-preview во
+                    // время drag-and-drop (иначе мини-окошко всплывает над
+                    // карточкой пока тащим — отвлекает).
+                    window.IS_DRAGGING_CARD = true;
+                    hideCardPreview();
                     e.dataTransfer.setData('text/plain', card.dataset.issueName);
                     e.dataTransfer.effectAllowed = 'move';
                 });
                 card.addEventListener('dragend', function () {
                     card.classList.remove('dragging');
+                    window.IS_DRAGGING_CARD = false;
                 });
             });
             var cols = document.querySelectorAll('#board-columns .board-col');
@@ -1973,11 +1994,29 @@
                     }
 
                     statusEl.textContent = 'Сохраняю...';
-                    var res = await planeDirect('change_status', {
-                        project_name: BOARD_CURRENT_PROJECT,
-                        issue_name: issueName,
-                        state: STATE_MAP[targetState] || targetState
-                    });
+                    // NEW-13: сериализуем все change_status через DRAG_QUEUE.
+                    // Иначе rapid-drag вызывает параллельные PATCH'и → Plane
+                    // отдаёт 429 → доска после reload приходит в кашу.
+                    // Промис-цепочка гарантирует один-в-секунду + минимальную
+                    // паузу между запросами.
+                    var res = await (window.DRAG_QUEUE = (window.DRAG_QUEUE || Promise.resolve())
+                        .then(function () {
+                            return planeDirect('change_status', {
+                                project_name: BOARD_CURRENT_PROJECT,
+                                issue_name: issueName,
+                                state: STATE_MAP[targetState] || targetState
+                            });
+                        })
+                        .then(function (r) {
+                            // 150ms пауза между запросами — даёт Plane вздохнуть
+                            return new Promise(function (resolve) {
+                                setTimeout(function () { resolve(r); }, 150);
+                            });
+                        })
+                        .catch(function (e) {
+                            return { action: 'error', response: 'Ошибка сети: ' + (e && e.message || e) };
+                        })
+                    );
                     // MED-10: используем структурные поля (action='error' / error)
                     // вместо regex по тексту — текст может меняться, action — нет.
                     var isErr = !res || res.action === 'error' || !!res.error
@@ -2806,9 +2845,13 @@
         // ===================================================================
         var HOVER_TIMER = null;
         function showCardPreview(e, issue) {
+            // NEW-11: если идёт drag — не показываем preview, она перекрывает
+            // карточку и мешает (юзер просил убрать «мини-окошки при drag»).
+            if (window.IS_DRAGGING_CARD) return;
             ensureModalDom();
             clearTimeout(HOVER_TIMER);
             HOVER_TIMER = setTimeout(function () {
+                if (window.IS_DRAGGING_CARD) return;
                 var pv = document.getElementById('board-preview');
                 if (!pv) return;
                 var desc = stripHtml(issue.description_html || issue.description || '');
