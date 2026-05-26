@@ -2693,6 +2693,8 @@
                 listEl.innerHTML = '<div class="cm-empty">Комментариев пока нет</div>';
                 return;
             }
+            // DIAG: смотрим что Plane возвращает в comment + кэш мемберов
+            try { console.log('[COMMENTS DIAG]', 'first comment keys:', comments[0] ? Object.keys(comments[0]) : [], 'first comment:', comments[0], 'members cache size:', (BOARD_MEMBERS_CACHE||[]).length, 'members sample:', (BOARD_MEMBERS_CACHE||[])[0]); } catch(_){}
             listEl.innerHTML = comments.map(function (c) {
                 var text = stripHtml(c.comment_html || c.comment_text || c.comment || '');
                 var date = c.created_at ? new Date(c.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
