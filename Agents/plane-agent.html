@@ -2997,27 +2997,29 @@
                 document.querySelectorAll('.gc-dropdown.open').forEach(function (d) {
                     if (d !== wrap) d.classList.remove('open');
                 });
-                // NEW-14: меню ВСЕГДА открывается вниз. Если упирается в
-                // нижнюю границу card-modal-body — ограничиваем max-height
-                // (border-box, см. CSS) так, чтобы между нижней кромкой меню
-                // и краем body оставалось ровно 5px. Внутри меню сработает
-                // свой overflow-y:auto.
+                // NEW-14: меню ВСЕГДА открывается вниз. Если внутри card-modal-body —
+                // переводим на position:fixed и кэпаем max-height так, чтобы низ
+                // меню был на 5px выше нижнего края body. Это надёжнее CSS-абсолюта
+                // (раньше size-просчёт не сходился из-за padding/border/box-sizing).
                 var willOpen = !wrap.classList.contains('open');
                 if (willOpen) {
                     var trgRect = trigger.getBoundingClientRect();
-                    var bottomLimit = window.innerHeight;
                     var modalBody = trigger.closest('.card-modal-body');
                     if (modalBody) {
-                        bottomLimit = modalBody.getBoundingClientRect().bottom;
-                    }
-                    // available = от низа триггера до нижней «стенки»
-                    //   минус 4px зазор сверху (top: calc(100% + 4px))
-                    //   минус 5px желаемый зазор снизу
-                    // С box-sizing: border-box max-height = outer height.
-                    var available = bottomLimit - trgRect.bottom - 4 - 5;
-                    if (available > 60) {
-                        menu.style.maxHeight = Math.min(260, available) + 'px';
+                        var bodyRect = modalBody.getBoundingClientRect();
+                        menu.style.position = 'fixed';
+                        menu.style.top = (trgRect.bottom + 4) + 'px';
+                        menu.style.left = trgRect.left + 'px';
+                        menu.style.width = trgRect.width + 'px';
+                        // bodyRect.bottom - (top меню) - 5px желаемый зазор
+                        var maxH = bodyRect.bottom - (trgRect.bottom + 4) - 5;
+                        menu.style.maxHeight = Math.max(40, Math.min(260, maxH)) + 'px';
                     } else {
+                        // Не в модалке — сброс на CSS-дефолт (position:absolute).
+                        menu.style.position = '';
+                        menu.style.top = '';
+                        menu.style.left = '';
+                        menu.style.width = '';
                         menu.style.maxHeight = '';
                     }
                 }
