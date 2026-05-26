@@ -1684,6 +1684,11 @@
         }
 
         async function loadBoard() {
+            // AUDIT-H3: in-flight guard. Без него быстрые повторные открытия доски
+            // запускали 2-3 параллельных loadBoard, которые перетирали друг другу
+            // BOARD_PROJECTS_CACHE и menu.innerHTML. Второй вызов ждёт первый.
+            if (window.__loadBoardInflight) return window.__loadBoardInflight;
+            window.__loadBoardInflight = (async function () {
             var statusEl = document.getElementById('board-status');
             var labelEl = document.getElementById('board-project-label');
             var menu = document.getElementById('board-project-menu');
@@ -1718,11 +1723,24 @@
                     renderBoardEmpty();
                     return;
                 }
-                menu.innerHTML = BOARD_PROJECTS_CACHE.map(function (p) {
-                    var n = escapeHtml(p.name);
-                    return '<li role="option" data-value="' + n + '" onclick="selectBoardProject(\'' +
-                        n.replace(/'/g, "\\'") + '\')">' + n + '</li>';
-                }).join('');
+                // AUDIT-H2: больше не вставляем имя проекта в onclick="..." (XSS-риск).
+                // Имя пишем только в data-value + textContent (через DOM API), а клики
+                // ловим делегированием через addEventListener на самом menu.
+                menu.innerHTML = '';
+                BOARD_PROJECTS_CACHE.forEach(function (p) {
+                    var li = document.createElement('li');
+                    li.setAttribute('role', 'option');
+                    li.dataset.value = p.name;
+                    li.textContent = p.name;
+                    menu.appendChild(li);
+                });
+                if (!menu.dataset.delegated) {
+                    menu.dataset.delegated = '1';
+                    menu.addEventListener('click', function (e) {
+                        var li = e.target.closest('li[data-value]');
+                        if (li) selectBoardProject(li.dataset.value);
+                    });
+                }
                 // Авто-выбор первого проекта (раньше показывали «— выберите проект —»,
                 // юзер просил убрать, теперь первый из списка по умолчанию).
                 BOARD_CURRENT_PROJECT = BOARD_PROJECTS_CACHE[0].name;
@@ -1734,6 +1752,8 @@
             // Загружаем участников workspace в фоне для отображения авторов комментов.
             loadBoardMembers();
             reloadBoard();
+            })().finally(function () { window.__loadBoardInflight = null; });
+            return window.__loadBoardInflight;
         }
 
         // NEW-9: «Обновить» button — полный сброс: projects cache + issues.
@@ -1876,7 +1896,10 @@
                     labelIds.slice(0, 4).map(function (lid) {
                         var label = BOARD_LABELS_CACHE[lid];
                         var name = label ? label.name : String(lid).slice(0, 6);
-                        var color = label ? label.color : '';
+                        // AUDIT-H1: валидируем цвет regex'ом (только #RGB / #RRGGBB),
+                        // иначе вредоносный color из Plane мог инжектить CSS-escape в style="".
+                        var rawColor = label ? String(label.color || '') : '';
+                        var color = /^#[0-9a-fA-F]{3,8}$/.test(rawColor) ? rawColor : '';
                         var style = color ? (' style="background:' + color + '22;color:' + color + '"') : '';
                         return '<span class="bc-label"' + style + '>' + escapeHtml(name) + '</span>';
                     }).join('') +
@@ -1934,6 +1957,11 @@
         }
 
         function bindBoardDnD() {
+            // AUDIT-M5: cards пересоздаются каждый render (вешаем dragstart/dragend
+            // на свежие). Колонки же НЕ пересоздаются — раньше каждый bindBoardDnD
+            // навешивал дублирующие dragover/dragleave/drop, через 20 перерисовок
+            // один drop = десятки PATCH'ей. Маркером dataset.dndBound = '1'
+            // гарантируем привязку ровно одного слушателя на колонку.
             var cards = document.querySelectorAll('#board-columns .board-card');
             cards.forEach(function (card) {
                 card.addEventListener('dragstart', function (e) {
@@ -1953,6 +1981,8 @@
             });
             var cols = document.querySelectorAll('#board-columns .board-col');
             cols.forEach(function (col) {
+                if (col.dataset.dndBound === '1') return;
+                col.dataset.dndBound = '1';
                 col.addEventListener('dragover', function (e) {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
@@ -2694,12 +2724,19 @@
                 // 1) Если меняется статус — отдельный change_status
                 var origGroup = (MODAL_CURRENT_ISSUE.state_detail && MODAL_CURRENT_ISSUE.state_detail.group) || 'unstarted';
                 var stateMap = { unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled', backlog: 'backlog' };
+                // AUDIT-M3: проверяем результат каждого подзапроса. Раньше при
+                // ошибке change_status (429, conflict) код продолжал в update_issue
+                // и показывал «Сохранено» — юзер не понимал что статус не сменился.
                 if (stateMap[origGroup] !== newState) {
-                    await planeDirect('change_status', {
+                    var rState = await planeDirect('change_status', {
                         project_name: BOARD_CURRENT_PROJECT,
                         issue_name: origName,
                         state: newState
                     });
+                    if (rState && (rState.error || rState.action === 'error')) {
+                        statusEl.textContent = rState.response || 'Не удалось сменить статус';
+                        return;
+                    }
                 }
                 // 2) Update name/description/priority/deadline
                 var updateParams = { project_name: BOARD_CURRENT_PROJECT, issue_name: origName };
@@ -2709,7 +2746,11 @@
                 if (newStart && newStart !== (MODAL_CURRENT_ISSUE.start_date || '')) updateParams.start_date = newStart;
                 if (newDeadline && newDeadline !== (MODAL_CURRENT_ISSUE.target_date || '')) updateParams.target_date = newDeadline;
                 if (Object.keys(updateParams).length > 2) {
-                    await planeDirect('update_issue', updateParams);
+                    var rUpd = await planeDirect('update_issue', updateParams);
+                    if (rUpd && (rUpd.error || rUpd.action === 'error')) {
+                        statusEl.textContent = rUpd.response || 'Не удалось обновить';
+                        return;
+                    }
                 }
                 statusEl.textContent = 'Сохранено';
                 closeCardModal();
