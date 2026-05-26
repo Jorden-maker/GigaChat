@@ -476,6 +476,11 @@
         }
         .board-card .bc-deadline svg { flex-shrink: 0; }
         .board-card .bc-deadline.overdue { color: #ef4444; font-weight: 500; }
+        kbd {
+            display: inline-block; padding: 2px 8px; font-family: 'Cascadia Code', Consolas, monospace;
+            font-size: 12px; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 4px; color: var(--accent); min-width: 24px; text-align: center;
+        }
         .board-empty { color: var(--text-muted); font-size: 12px; padding: 20px 0; text-align: center; }
 
         /* === Phase 1: Toolbar расширенная (поиск, фильтры, сортировка, мои) === */
@@ -3592,6 +3597,68 @@
             return __origRenderBoardIssues.call(this, toRender);
         };
 
+        // KEYBOARD SHORTCUTS — глобальные горячие клавиши доски.
+        // N — новая задача, / — поиск, Esc — закрыть модалку,
+        // R — обновить, B — переключение доска/чат, ? — справка.
+        function bindKeyboardShortcuts() {
+            document.addEventListener('keydown', function (e) {
+                // Игнорируем если фокус на input/textarea/contenteditable
+                var tag = (e.target && e.target.tagName || '').toLowerCase();
+                var isEditing = (tag === 'input' || tag === 'textarea' ||
+                                 (e.target && e.target.isContentEditable));
+                // Esc работает ВСЕГДА (даже в полях) — закрыть модалку/dropdown
+                if (e.key === 'Escape') {
+                    var openModal = document.querySelector('.card-modal-backdrop.show');
+                    if (openModal) { closeCardModal(); return; }
+                    var openDp = document.querySelector('.gc-dp.open');
+                    var openDd = document.querySelector('.gc-dropdown.open');
+                    if (openDp) openDp.classList.remove('open');
+                    if (openDd) openDd.classList.remove('open');
+                    return;
+                }
+                if (isEditing) return; // остальные шорткаты только вне полей
+                var panelOpen = document.getElementById('board-panel') &&
+                                document.getElementById('board-panel').classList.contains('show');
+                if (e.key === 'n' || e.key === 'N' || e.key === 'т' || e.key === 'Т') {
+                    if (panelOpen && typeof openNewTaskModal === 'function') {
+                        e.preventDefault(); openNewTaskModal();
+                    }
+                } else if (e.key === '/' || e.key === '.') {
+                    if (panelOpen) {
+                        var s = document.getElementById('board-search');
+                        if (s) { e.preventDefault(); s.focus(); s.select(); }
+                    }
+                } else if (e.key === 'r' || e.key === 'R' || e.key === 'к' || e.key === 'К') {
+                    if (panelOpen && typeof forceFullReload === 'function') {
+                        e.preventDefault(); forceFullReload();
+                    }
+                } else if (e.key === 'b' || e.key === 'B' || e.key === 'и' || e.key === 'И') {
+                    e.preventDefault();
+                    if (typeof toggleBoard === 'function') toggleBoard();
+                } else if (e.key === '?') {
+                    e.preventDefault(); showKeyboardHelp();
+                }
+            });
+        }
+        function showKeyboardHelp() {
+            var html =
+                '<div class="card-modal-backdrop show" id="kbd-help-bd" style="z-index:2000">' +
+                '<div class="card-modal" style="max-width:480px">' +
+                '<div class="card-modal-header"><h3>Горячие клавиши</h3>' +
+                '<button class="card-modal-close" onclick="document.getElementById(\'kbd-help-bd\').remove()">×</button>' +
+                '</div><div class="card-modal-body" style="padding:18px 24px">' +
+                '<table style="width:100%;font-size:13px;line-height:1.8">' +
+                '<tr><td><kbd>N</kbd></td><td>Новая задача</td></tr>' +
+                '<tr><td><kbd>/</kbd></td><td>Фокус на поиск</td></tr>' +
+                '<tr><td><kbd>R</kbd></td><td>Обновить доску</td></tr>' +
+                '<tr><td><kbd>B</kbd></td><td>Переключить Доска/Чат</td></tr>' +
+                '<tr><td><kbd>Esc</kbd></td><td>Закрыть модалку/dropdown</td></tr>' +
+                '<tr><td><kbd>?</kbd></td><td>Эта справка</td></tr>' +
+                '</table></div></div></div>';
+            var d = document.createElement('div'); d.innerHTML = html;
+            document.body.appendChild(d.firstChild);
+        }
+
         // ИНИТ: на загрузке — sticky pill, modal infra, кастомизация sort-select
         function _planeInitOnce() {
             loadStickyProject();
@@ -3600,6 +3667,7 @@
             // Кастомизируем native sort-select в gc-dropdown стиль
             var sortSel = document.getElementById('board-sort');
             if (sortSel) attachCustomDropdown(sortSel);
+            bindKeyboardShortcuts();
         }
         document.addEventListener('DOMContentLoaded', _planeInitOnce);
         _planeInitOnce();
