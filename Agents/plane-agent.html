@@ -470,7 +470,11 @@
         .board-card .bc-prio.medium { background: rgba(184,137,93,0.18); color: var(--accent); }
         .board-card .bc-prio.low { background: rgba(122,122,120,0.18); color: var(--text-secondary); }
         .board-card .bc-prio.none { background: rgba(122,122,120,0.10); color: var(--text-muted); }
-        .board-card .bc-deadline { color: var(--text-muted); }
+        .board-card .bc-deadline {
+            display: inline-flex; align-items: center; gap: 3px;
+            color: var(--text-muted);
+        }
+        .board-card .bc-deadline svg { flex-shrink: 0; }
         .board-card .bc-deadline.overdue { color: #ef4444; font-weight: 500; }
         .board-empty { color: var(--text-muted); font-size: 12px; padding: 20px 0; text-align: center; }
 
@@ -2010,7 +2014,9 @@
                 var groupNow = (issue.state_detail && issue.state_detail.group) || '';
                 var closed = groupNow === 'completed' || groupNow === 'cancelled';
                 var cls = (isOverdue && !closed) ? 'bc-deadline overdue' : 'bc-deadline';
-                deadlineHtml = '<span class="' + cls + '">📅 ' + dd + '.' + mm + '.' + yy + '</span>';
+                // Тот же calendar SVG что в date picker'е, единый стиль.
+                var calSvg = '<svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+                deadlineHtml = '<span class="' + cls + '">' + calSvg + ' ' + dd + '.' + mm + '.' + yy + '</span>';
             }
             // Phase 1 #7: метки (chips)
             var labelsHtml = '';
