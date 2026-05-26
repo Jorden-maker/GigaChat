@@ -707,20 +707,24 @@
         .card-modal-backdrop {
             position: fixed; top:0;right:0;bottom:0;left:0; background: rgba(0,0,0,0.5);
             display: none; z-index: 999;
+            overflow-y: auto;
+            text-align: center; /* для inline-block центрирования модалки */
         }
         .card-modal-backdrop.show { display: block; }
+        .card-modal-backdrop::before {
+            /* Вертикальное центрирование через inline-block + ghost элемент */
+            content: ''; display: inline-block; height: 100%; vertical-align: middle;
+        }
         .card-modal {
             background: var(--bg-card); border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 12px; max-width: 620px; width: 92%;
             box-shadow: 0 16px 40px rgba(0,0,0,0.4);
-            /* Position fixed, центр по transform — модалка ровно по контенту,
-               никаких flex/inline-block стретчей. width: max-content + cap. */
-            position: fixed;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: min(620px, 92vw);
+            /* Inline-block — размер строго по контенту, никаких flex-стретчей */
+            display: inline-block; vertical-align: middle;
+            text-align: left;
             max-height: 90vh;
             overflow-y: auto;
+            margin: 5vh 0;
         }
         .card-modal-body {
             /* Block layout. Body — обычный div, размер строго по контенту.
