@@ -1518,13 +1518,6 @@
         ],
         [
           {
-            "node": "Формат ответа",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
             "node": "Stats/CrossProject handler",
             "type": "main",
             "index": 0

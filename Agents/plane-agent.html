@@ -2739,21 +2739,16 @@
                 listEl.innerHTML = '<div class="cm-empty">Комментариев пока нет</div>';
                 return;
             }
-            // DIAG: смотрим что Plane возвращает в comment + кэш мемберов
-            try {
-                if (comments[0]) {
-                    console.log('[COMMENTS DIAG] keys =', Object.keys(comments[0]).join(','));
-                    console.log('[COMMENTS DIAG] actor =', comments[0].actor);
-                    console.log('[COMMENTS DIAG] actor_detail =', JSON.stringify(comments[0].actor_detail));
-                    console.log('[COMMENTS DIAG] created_by =', comments[0].created_by);
-                    console.log('[COMMENTS DIAG] full first comment JSON =', JSON.stringify(comments[0]).slice(0, 800));
-                }
-                console.log('[COMMENTS DIAG] members cache size:', (BOARD_MEMBERS_CACHE||[]).length);
-                // Force-call list_members to debug
-                planeDirect('list_members', {}).then(function (r) {
-                    console.log('[COMMENTS DIAG] list_members raw:', JSON.stringify(r).slice(0, 1500));
+            // Если кэш мемберов пуст и есть актёры — догружаем фоном
+            // (на случай если loadBoard ещё не успел или упал).
+            if ((!BOARD_MEMBERS_CACHE || !BOARD_MEMBERS_CACHE.length) && comments.length) {
+                loadBoardMembers().then(function () {
+                    // Перерендериваем чтобы подставить имена из свежего кэша
+                    if (BOARD_MEMBERS_CACHE && BOARD_MEMBERS_CACHE.length) {
+                        renderCardComments(comments);
+                    }
                 });
-            } catch(e){ console.log('[DIAG ERR]', e); }
+            }
             listEl.innerHTML = comments.map(function (c) {
                 var text = stripHtml(c.comment_html || c.comment_text || c.comment || '');
                 var date = c.created_at ? new Date(c.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
