@@ -753,6 +753,10 @@
         /* В режиме «Новая задача» секция комментариев скрыта → не нужен
            большой запас под её скролл. Делаем body короче, без пустоты. */
         .card-modal-body.is-new { padding-bottom: 24px; }
+        /* В is-new скрываем визуальный scrollbar — контент короткий, скролл
+           не нужен. Не убираем overflow:auto чтобы dropdown'ы могли работать. */
+        .card-modal-body.is-new { scrollbar-width: none; }
+        .card-modal-body.is-new::-webkit-scrollbar { width: 0; height: 0; }
         .card-modal-row {
             display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;
         }
@@ -3148,6 +3152,27 @@
                     d.classList.remove('open');
                     d.dispatchEvent(new CustomEvent('gc-dp-closed'));
                 });
+                // Если dropdown внутри card-modal-body — позиционируем меню
+                // через position:fixed под триггером (всегда вниз, без скролла body).
+                var willOpen = !wrap.classList.contains('open');
+                if (willOpen && trigger.closest('.card-modal-body')) {
+                    var trgRect = trigger.getBoundingClientRect();
+                    menu.style.position = 'fixed';
+                    menu.style.top = (trgRect.bottom + 4) + 'px';
+                    menu.style.left = trgRect.left + 'px';
+                    menu.style.width = trgRect.width + 'px';
+                    menu.style.minWidth = trgRect.width + 'px'; // глушим CSS min-width:100% (=100vw при fixed)
+                    menu.style.maxHeight = '260px';
+                } else if (!willOpen) {
+                    // Сбрасываем inline стили при закрытии — на случай если потом
+                    // откроют вне модалки (default CSS absolute).
+                    menu.style.position = '';
+                    menu.style.top = '';
+                    menu.style.left = '';
+                    menu.style.width = '';
+                    menu.style.minWidth = '';
+                    menu.style.maxHeight = '';
+                }
                 wrap.classList.toggle('open');
             });
         }
