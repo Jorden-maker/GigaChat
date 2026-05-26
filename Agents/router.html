@@ -173,11 +173,11 @@
                         <svg class="custom-select-arrow" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                     </button>
                     <div class="custom-select-panel" id="targetAgentPanel" role="listbox">
-                        <div class="custom-select-option" data-value="sql" onclick="setTargetAgent('sql')" role="option" aria-selected="false">GigaChat Data</div>
-                        <div class="custom-select-option" data-value="rag" onclick="setTargetAgent('rag')" role="option" aria-selected="false">GigaChat Docs</div>
-                        <div class="custom-select-option" data-value="math" onclick="setTargetAgent('math')" role="option" aria-selected="false">GigaChat Math</div>
-                        <div class="custom-select-option" data-value="prompt-engineer" onclick="setTargetAgent('prompt-engineer')" role="option" aria-selected="false">GigaChat Prompt</div>
-                        <div class="custom-select-option selected" data-value="chat" onclick="setTargetAgent('chat')" role="option" aria-selected="true">GigaChat Talk</div>
+                        <div class="custom-select-option" data-value="sql" onclick="setTargetAgent(true,'sql')" role="option" aria-selected="false">GigaChat Data</div>
+                        <div class="custom-select-option" data-value="rag" onclick="setTargetAgent(true,'rag')" role="option" aria-selected="false">GigaChat Docs</div>
+                        <div class="custom-select-option" data-value="math" onclick="setTargetAgent(true,'math')" role="option" aria-selected="false">GigaChat Math</div>
+                        <div class="custom-select-option" data-value="prompt-engineer" onclick="setTargetAgent(true,'prompt-engineer')" role="option" aria-selected="false">GigaChat Prompt</div>
+                        <div class="custom-select-option selected" data-value="chat" onclick="setTargetAgent(true,'chat')" role="option" aria-selected="true">GigaChat Talk</div>
                     </div>
                 </div>
             </div>
@@ -198,6 +198,11 @@
         var input = document.getElementById('msg');
         var agentHint = document.getElementById('agentHint');
         var currentAgent = 'chat'; // выбранный агент для отправки (default)
+        // BUG-FIX #8: флаг ручного выбора. Когда юзер кликает в dropdown,
+        // классификатор больше НЕ переопределяет на каждом вводе. Раньше:
+        // юзер выбирал Prompt, печатал «напиши промпт по клиентам», классификатор
+        // переключал на SQL (по слову «клиент»), ответ приходил от SQL.
+        var userManuallySelected = false;
 
         var AGENT_LABELS = {
             sql: 'GigaChat Data',
@@ -306,7 +311,10 @@
             sel.classList.toggle('open');
             syncDropdownAria(sel);
         }
-        function setTargetAgent(value) {
+        function setTargetAgent(manual, value) {
+            // Если вызван с одним аргументом (classifier) — manual=false по умолчанию.
+            if (typeof value === 'undefined') { value = manual; manual = false; }
+            if (manual) userManuallySelected = true;
             currentAgent = value;
             var label = AGENT_LABELS[value] || value;
             var sel = document.getElementById('targetAgentSelect');
@@ -409,6 +417,9 @@
             // классификатором (иначе юзер видит текст и не знает в какой агент уйдёт).
             onSwitchExtra: function (sid, draft) {
                 agentHint.style.display = 'none';
+                // BUG-FIX #8: при смене сессии сбрасываем «ручной выбор» — это
+                // новый контекст, классификатор снова автоматический.
+                userManuallySelected = false;
                 if (draft) onInputExtra(draft);
             },
             onInputExtra: onInputExtra,
@@ -435,9 +446,16 @@
         // чтобы onSwitchExtra могла его вызвать для восстановленного draft.
         function onInputExtra(text) {
             text = (text || '').trim();
+            // BUG-FIX #8: если юзер вручную выбрал агент через dropdown,
+            // классификатор не переопределяет. Без этого юзер выбирал Prompt
+            // и получал SQL/Data по словам типа «клиент» в промпте.
+            if (userManuallySelected) {
+                agentHint.style.display = text.length >= 2 ? 'flex' : 'none';
+                return;
+            }
             if (text.length >= 2) {
                 var suggested = classify(text);
-                setTargetAgent(suggested);
+                setTargetAgent(false, suggested);
                 agentHint.style.display = 'flex';
             } else {
                 agentHint.style.display = 'none';
