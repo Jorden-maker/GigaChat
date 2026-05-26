@@ -2635,7 +2635,21 @@
             var deadlineEl = document.getElementById('cm-deadline');
             if (startEl) attachCustomDatepicker(startEl);
             if (deadlineEl) attachCustomDatepicker(deadlineEl);
-            document.getElementById('card-modal-backdrop').classList.add('show');
+            var backdrop = document.getElementById('card-modal-backdrop');
+            backdrop.classList.add('show');
+            // FORCE REFLOW: модалка иногда рендерится с не до конца применёнными
+            // стилями (особенно is-new padding-bottom), создавая пустоту снизу.
+            // Read offsetHeight форсит синхронный layout recalc → пустота уходит
+            // сразу, без необходимости клика юзером в поле.
+            var modalEl = backdrop.querySelector('.card-modal');
+            if (modalEl) {
+                // Двойной reflow через rAF — гарантирует что после layout-pass
+                // браузер применит все стили включая wrappers от attachCustom*.
+                requestAnimationFrame(function () {
+                    void modalEl.offsetHeight;
+                    requestAnimationFrame(function () { void modalEl.offsetHeight; });
+                });
+            }
             // Подгружаем комментарии асинхронно
             loadCardComments(issue);
         }
