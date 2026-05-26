@@ -564,6 +564,9 @@
             scrollbar-width: thin; scrollbar-color: var(--border) transparent;
             opacity: 0; visibility: hidden; transform: translateY(-4px);
             transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
+            /* border-box: max-height включает padding+border. Без этого
+               JS-кэп max-height не давал ожидаемой outer-height. */
+            box-sizing: border-box;
         }
         .gc-dropdown.open .gc-dropdown-menu {
             opacity: 1; visibility: visible; transform: translateY(0);
@@ -2996,8 +2999,9 @@
                 });
                 // NEW-14: меню ВСЕГДА открывается вниз. Если упирается в
                 // нижнюю границу card-modal-body — ограничиваем max-height
-                // так, чтобы между нижней кромкой меню и краем body
-                // оставалось 5px. Внутри меню сработает свой overflow-y:auto.
+                // (border-box, см. CSS) так, чтобы между нижней кромкой меню
+                // и краем body оставалось ровно 5px. Внутри меню сработает
+                // свой overflow-y:auto.
                 var willOpen = !wrap.classList.contains('open');
                 if (willOpen) {
                     var trgRect = trigger.getBoundingClientRect();
@@ -3006,18 +3010,14 @@
                     if (modalBody) {
                         bottomLimit = modalBody.getBoundingClientRect().bottom;
                     }
-                    // available = от низа триггера до нижней «стенки» минус
-                    // 4px gap (.gc-dropdown-menu top: calc(100% + 4px))
-                    // минус 5px желаемого зазора
-                    // минус 10px на padding+border самого меню (4px×2 + 1px×2),
-                    // т.к. max-height у content-box не включает их.
-                    var available = bottomLimit - trgRect.bottom - 4 - 5 - 10;
+                    // available = от низа триггера до нижней «стенки»
+                    //   минус 4px зазор сверху (top: calc(100% + 4px))
+                    //   минус 5px желаемый зазор снизу
+                    // С box-sizing: border-box max-height = outer height.
+                    var available = bottomLimit - trgRect.bottom - 4 - 5;
                     if (available > 60) {
-                        // Достаточно места — кэп ниже дефолтных 260px если надо.
                         menu.style.maxHeight = Math.min(260, available) + 'px';
                     } else {
-                        // Слишком тесно — оставляем дефолтный max-height: 260px
-                        // (CSS), скролл внутри меню вытянет.
                         menu.style.maxHeight = '';
                     }
                 }
