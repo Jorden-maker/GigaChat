@@ -576,6 +576,19 @@
         .activity-item-field { color: var(--text-secondary); }
         .activity-day { font-size: 11px; color: var(--text-muted); text-transform: uppercase;
             letter-spacing: 0.5px; padding: 12px 0 4px; font-weight: 500; }
+        /* === Phase 2 chat-render blocks (cycles/modules/notifications/activity/epic) === */
+        .chat-group-list { display: flex; flex-direction: column; gap: 6px; }
+        .chat-group-item { background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+        .chat-group-item.unread { border-left: 3px solid var(--accent); }
+        .chat-group-item .cgi-title { color: var(--text-primary); margin-bottom: 2px; }
+        .chat-group-item .cgi-meta { font-size: 11px; color: var(--text-muted); }
+        .chat-epic-card { background: var(--accent-light); border: 1px solid var(--accent);
+            border-radius: 8px; padding: 12px 14px; }
+        .chat-epic-card .cec-header { font-weight: 500; color: var(--accent); margin-bottom: 8px; font-size: 13px; }
+        .chat-epic-card .cec-children { margin: 0; padding-left: 20px; font-size: 12px;
+            color: var(--text-secondary); line-height: 1.6; }
+        .chat-epic-card .cec-children li { margin: 2px 0; }
         kbd {
             display: inline-block; padding: 2px 8px; font-family: 'Cascadia Code', Consolas, monospace;
             font-size: 12px; background: var(--bg-input); border: 1px solid var(--border);
@@ -1702,6 +1715,77 @@
                 (desc ? '<div class="pc-desc" style="margin-top:6px;color:var(--text-muted);font-size:12px;white-space:pre-wrap">' + escapeHtml(desc) + '</div>' : '') +
                 '</div>';
         }
+        // === Phase 2 chat-render helpers ===
+        function formatCyclesList(cycles) {
+            return '<div class="chat-group-list">' + cycles.map(function (c) {
+                var total = c.total_issues || 0;
+                var done = c.completed_issues || 0;
+                var pct = total ? Math.round(done/total*100) : 0;
+                var dates = (c.start_date ? String(c.start_date).slice(0,10) : '—') + ' → ' + (c.end_date ? String(c.end_date).slice(0,10) : '—');
+                return '<div class="chat-group-item">' +
+                    '<div class="cgi-title">' + escapeHtml(c.name || '—') + '</div>' +
+                    '<div class="cgi-meta">' + escapeHtml(dates) + ' · задач: ' + done + '/' + total + ' (' + pct + '%)</div>' +
+                '</div>';
+            }).join('') + '</div>';
+        }
+        function formatModulesList(modules) {
+            return '<div class="chat-group-list">' + modules.map(function (m) {
+                var dates = (m.start_date ? String(m.start_date).slice(0,10) : '—') + ' → ' + (m.target_date ? String(m.target_date).slice(0,10) : '—');
+                return '<div class="chat-group-item">' +
+                    '<div class="cgi-title">' + escapeHtml(m.name || '—') + '</div>' +
+                    '<div class="cgi-meta">' + escapeHtml(m.status || 'planned') + ' · ' + escapeHtml(dates) + ' · задач: ' + (m.completed_issues || 0) + '/' + (m.total_issues || 0) + '</div>' +
+                '</div>';
+            }).join('') + '</div>';
+        }
+        function formatNotificationsList(items) {
+            return '<div class="chat-group-list">' + items.slice(0, 12).map(function (n) {
+                var actor = '';
+                if (n.triggered_by && typeof n.triggered_by === 'object') actor = n.triggered_by.display_name || n.triggered_by.email || '';
+                else if (typeof n.triggered_by === 'string') actor = n.triggered_by;
+                var title = n.title || (n.data && n.data.issue && n.data.issue.name) || 'Событие';
+                var date = n.created_at ? String(n.created_at).slice(0, 16).replace('T', ' ') : '';
+                return '<div class="chat-group-item' + (n.read_at ? '' : ' unread') + '">' +
+                    '<div class="cgi-title">' + escapeHtml(title) + '</div>' +
+                    '<div class="cgi-meta">' + (actor ? escapeHtml(actor) + ' · ' : '') + escapeHtml(date) + '</div>' +
+                '</div>';
+            }).join('') + '</div>';
+        }
+        function formatActivitiesList(events) {
+            var FIELD_RU = { state:'статус',priority:'приоритет',assignees:'исполнители',labels:'метки',target_date:'срок',name:'название',description:'описание',comment:'комментарий',parent:'родитель',start_date:'дата начала' };
+            return '<div class="chat-group-list">' + events.slice(0, 12).map(function (e) {
+                var field = FIELD_RU[e.field] || e.field || '';
+                var when = e.created_at ? String(e.created_at).slice(0, 16).replace('T', ' ') : '';
+                var diff = '';
+                if (e.comment) diff = String(e.comment).replace(/<[^>]+>/g, '').slice(0, 100);
+                else if (e.new_value || e.old_value) diff = (e.old_value ? e.old_value + ' → ' : '') + (e.new_value || '');
+                return '<div class="chat-group-item">' +
+                    '<div class="cgi-title">' + escapeHtml(e.actor || '—') + ' изменил ' + escapeHtml(field) + (diff ? ': ' + escapeHtml(diff) : '') + '</div>' +
+                    '<div class="cgi-meta">' + (e.project ? escapeHtml(e.project) + ' · ' : '') + escapeHtml(when) + '</div>' +
+                '</div>';
+            }).join('') + '</div>';
+        }
+        function formatEpicCard(epic, children) {
+            var html = '<div class="chat-epic-card">' +
+                '<div class="cec-header">Эпик #' + escapeHtml(String(epic.sequence_id || '')) + ' · ' + escapeHtml(epic.name || '') + '</div>';
+            if (Array.isArray(children) && children.length) {
+                html += '<ul class="cec-children">';
+                children.forEach(function (ch) {
+                    html += '<li>#' + escapeHtml(String(ch.sequence_id || '')) + ' ' + escapeHtml(ch.name || '') + '</li>';
+                });
+                html += '</ul>';
+            }
+            html += '</div>';
+            return html;
+        }
+        function formatMembersList(members) {
+            return '<div class="chat-group-list">' + members.slice(0, 30).map(function (m) {
+                return '<div class="chat-group-item">' +
+                    '<div class="cgi-title">' + escapeHtml(m.display_name || m.email || m.id || '—') + '</div>' +
+                    (m.email ? '<div class="cgi-meta">' + escapeHtml(m.email) + '</div>' : '') +
+                '</div>';
+            }).join('') + '</div>';
+        }
+
         function formatBotMessage(msg) {
             var content = String(msg.content || '');
             // markdown: упрощённый — переводы строк, bold, italic
@@ -1715,6 +1799,13 @@
             if (ex.projects && ex.projects.length)  blocks += formatProjectsList(ex.projects);
             if (ex.issues && ex.issues.length)      blocks += formatIssuesList(ex.issues, ex.project);
             if (ex.issue)                           blocks += formatIssueCard(ex.issue);
+            // Phase 2 — рендер новых action-результатов в чат
+            if (ex.cycles && ex.cycles.length)              blocks += formatCyclesList(ex.cycles);
+            if (ex.modules && ex.modules.length)            blocks += formatModulesList(ex.modules);
+            if (ex.notifications && ex.notifications.length) blocks += formatNotificationsList(ex.notifications);
+            if (ex.activities && ex.activities.length)      blocks += formatActivitiesList(ex.activities);
+            if (ex.epic)                                    blocks += formatEpicCard(ex.epic, ex.children);
+            if (ex.members && ex.members.length)            blocks += formatMembersList(ex.members);
 
             // MED-3 fix: disambig и quick_replies строим через data-attr + дальнейший delegation.
             // Текст реплая хранится в data-reply (HTML-escaped), события навешиваются после
