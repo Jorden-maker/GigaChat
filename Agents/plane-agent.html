@@ -705,12 +705,18 @@
             background: var(--bg-card); border: 1px solid var(--border);
             border-radius: 12px; max-width: 620px; width: 92%;
             max-height: 90vh;
-            height: max-content;
             box-shadow: 0 16px 40px rgba(0,0,0,0.4);
             /* По умолчанию НЕТ скролла — модалка размером с контент.
                Если контент превышает 90vh — даём вертикальный скролл. */
             overflow: hidden;
             display: flex; flex-direction: column;
+        }
+        /* Для «Новая задача» — фиксированно по контенту, без max-height
+           заполнения. Иначе body внутри занимает 90vh минус footer и
+           образуется пустота под полями. */
+        .card-modal.is-new-modal {
+            max-height: none;
+            height: auto;
         }
         .card-modal-body {
             /* flex: 0 1 auto = НЕ растягиваться больше контента, но позволять
@@ -2616,10 +2622,12 @@
             // Восстанавливаем секцию комментариев (могла быть скрыта)
             var commSec = document.querySelector('.card-modal-comments');
             if (commSec) commSec.style.display = issue._isNew ? 'none' : '';
-            // Класс is-new убирает большой padding-bottom (170px → 24px),
-            // т.к. блок комментариев скрыт и пустота в модалке не нужна.
+            // Класс is-new убирает большой padding-bottom (170px → 0),
+            // is-new-modal на саму модалку убирает max-height (чтобы не было пустоты).
             var bodyEl = document.querySelector('.card-modal-body');
             if (bodyEl) bodyEl.classList.toggle('is-new', !!issue._isNew);
+            var modalEl = document.querySelector('.card-modal');
+            if (modalEl) modalEl.classList.toggle('is-new-modal', !!issue._isNew);
             // Selected state from issue.state_detail.group → map к нашим именам
             var g = (issue.state_detail && issue.state_detail.group) || 'unstarted';
             var stateSelect = document.getElementById('cm-state');
