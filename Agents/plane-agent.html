@@ -2999,8 +2999,8 @@
                 });
                 // NEW-14: меню ВСЕГДА открывается вниз. Если внутри card-modal-body —
                 // переводим на position:fixed и кэпаем max-height так, чтобы низ
-                // меню был на 5px выше нижнего края body. Это надёжнее CSS-абсолюта
-                // (раньше size-просчёт не сходился из-за padding/border/box-sizing).
+                // меню был на 5px выше нижнего края body. Также явно задаём min-width
+                // и width, потому что CSS min-width:100% с position:fixed = 100vw.
                 var willOpen = !wrap.classList.contains('open');
                 if (willOpen) {
                     var trgRect = trigger.getBoundingClientRect();
@@ -3011,6 +3011,9 @@
                         menu.style.top = (trgRect.bottom + 4) + 'px';
                         menu.style.left = trgRect.left + 'px';
                         menu.style.width = trgRect.width + 'px';
+                        // Гасим CSS min-width:100% (= 100vw при fixed) — иначе
+                        // меню распахивается на всю ширину окна.
+                        menu.style.minWidth = trgRect.width + 'px';
                         // bodyRect.bottom - (top меню) - 5px желаемый зазор
                         var maxH = bodyRect.bottom - (trgRect.bottom + 4) - 5;
                         menu.style.maxHeight = Math.max(40, Math.min(260, maxH)) + 'px';
@@ -3020,6 +3023,7 @@
                         menu.style.top = '';
                         menu.style.left = '';
                         menu.style.width = '';
+                        menu.style.minWidth = '';
                         menu.style.maxHeight = '';
                     }
                 }
