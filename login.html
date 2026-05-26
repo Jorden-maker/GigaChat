@@ -370,14 +370,18 @@
             </div>
 
             <div class="gc-login-form-area" id="gcLoginFormArea">
-            <form class="gc-login-form" data-form="login" onsubmit="event.preventDefault(); submitLogin()">
+            <form class="gc-login-form" data-form="login" autocomplete="off" translate="no" onsubmit="event.preventDefault(); submitLogin()">
                 <label>Имя
-                    <input type="text" id="loginUsername" maxlength="100" autocomplete="username"
+                    <input type="text" id="loginUsername" maxlength="100" autocomplete="off"
+                           autocorrect="off" autocapitalize="off" spellcheck="false"
+                           data-form-type="other" data-lpignore="true" data-1p-ignore="true"
                            placeholder="Иванов" data-next="loginPassword">
                 </label>
                 <label>Пароль
                     <span class="gc-pw-wrap">
-                        <input type="password" id="loginPassword" maxlength="200" autocomplete="current-password"
+                        <input type="password" id="loginPassword" maxlength="200" autocomplete="off"
+                               autocorrect="off" autocapitalize="off" spellcheck="false"
+                               data-form-type="other" data-lpignore="true" data-1p-ignore="true"
                                placeholder="••••••••" data-next="loginSubmitBtn">
                         <button type="button" class="gc-pw-toggle" aria-label="Показать пароль" onclick="togglePassword(this)"></button>
                     </span>
@@ -390,21 +394,27 @@
                 <div class="gc-login-error" id="loginError"></div>
             </form>
 
-            <form class="gc-login-form hidden" data-form="register" onsubmit="event.preventDefault(); submitRegister()">
+            <form class="gc-login-form hidden" data-form="register" autocomplete="off" translate="no" onsubmit="event.preventDefault(); submitRegister()">
                 <label>Имя
-                    <input type="text" id="regUsername" maxlength="100" autocomplete="username"
+                    <input type="text" id="regUsername" maxlength="100" autocomplete="off"
+                           autocorrect="off" autocapitalize="off" spellcheck="false"
+                           data-form-type="other" data-lpignore="true" data-1p-ignore="true"
                            placeholder="Иванов" data-next="regPassword">
                 </label>
                 <label>Пароль
                     <span class="gc-pw-wrap">
-                        <input type="password" id="regPassword" maxlength="200" autocomplete="new-password"
+                        <input type="password" id="regPassword" maxlength="200" autocomplete="off"
+                               autocorrect="off" autocapitalize="off" spellcheck="false"
+                               data-form-type="other" data-lpignore="true" data-1p-ignore="true"
                                placeholder="••••••••" data-next="regPassword2">
                         <button type="button" class="gc-pw-toggle" aria-label="Показать пароль" onclick="togglePassword(this)"></button>
                     </span>
                 </label>
                 <label>Повтор пароля
                     <span class="gc-pw-wrap">
-                        <input type="password" id="regPassword2" maxlength="200" autocomplete="new-password"
+                        <input type="password" id="regPassword2" maxlength="200" autocomplete="off"
+                               autocorrect="off" autocapitalize="off" spellcheck="false"
+                               data-form-type="other" data-lpignore="true" data-1p-ignore="true"
                                placeholder="ещё раз" data-next="loginSubmitBtn">
                         <button type="button" class="gc-pw-toggle" aria-label="Показать пароль" onclick="togglePassword(this)"></button>
                     </span>

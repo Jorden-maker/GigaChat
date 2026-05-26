@@ -116,7 +116,10 @@
         // extras.prompt в .prompt-block.
         function formatResponse(text) {
             var clean = (text || '').replace(/```[\s\S]*?```/g, '').trim();
-            return GigaChat.formatMarkdown(clean);
+            // BUG-FIX #3: явно передаём accent (#d4a574 — золотистый проектный)
+            // — иначе formatMarkdown подставляет дефолтный #7c3aed (фиолетовый),
+            // и заголовки ## ### в ответе выглядели чужеродно.
+            return GigaChat.formatMarkdown(clean, '#d4a574');
         }
 
         // Кастомный рендер bot-сообщения: content (без code) + extras.prompt в pre.
