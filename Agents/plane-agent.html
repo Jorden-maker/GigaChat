@@ -2637,16 +2637,21 @@
             if (deadlineEl) attachCustomDatepicker(deadlineEl);
             var backdrop = document.getElementById('card-modal-backdrop');
             backdrop.classList.add('show');
-            // SLEDGEHAMMER REFLOW: модалка рендерится с устаревшим layout
-            // (пустота снизу). rAF + offsetHeight не помогал. Делаем display:
-            // none → reflow → display:'' — это форсит ПОЛНЫЙ recompute из нуля.
+            // FORCE HEIGHT: измеряем реальные размеры детей модалки и явно
+            // ставим height = sum. Это убивает любую пустоту 100% — модалка
+            // буквально не может быть больше суммы своих компонентов.
             var modalEl = backdrop.querySelector('.card-modal');
             if (modalEl) {
                 requestAnimationFrame(function () {
-                    var prev = modalEl.style.display;
-                    modalEl.style.display = 'none';
-                    void modalEl.offsetHeight; // флашим layout
-                    modalEl.style.display = prev || '';
+                    var h = modalEl.querySelector('.card-modal-header');
+                    var b = modalEl.querySelector('.card-modal-body');
+                    var f = modalEl.querySelector('.card-modal-footer');
+                    var total = (h ? h.offsetHeight : 0)
+                              + (b ? b.offsetHeight : 0)
+                              + (f ? f.offsetHeight : 0);
+                    if (total > 0) {
+                        modalEl.style.height = total + 'px';
+                    }
                 });
             }
             // Подгружаем комментарии асинхронно
