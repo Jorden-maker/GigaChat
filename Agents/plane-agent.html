@@ -3143,25 +3143,30 @@
                     d.classList.remove('open');
                     d.dispatchEvent(new CustomEvent('gc-dp-closed'));
                 });
-                // Если dropdown внутри card-modal-body — выносим меню в
-                // document.body (portal) и позиционируем position:fixed.
-                // Так оно не зависит ни от каких стилей родителей.
+                // Если dropdown внутри card-modal-body — портал в document.body
+                // + smart-flip: открываем туда, где больше viewport-места.
+                // Без этого Status (последнее поле модалки) при открытии вниз
+                // перекрывал footer и юзер не мог нажать Отмена/Создать.
                 var willOpen = !wrap.classList.contains('open');
                 var inModal = !!trigger.closest('.card-modal-body');
                 if (willOpen && inModal) {
-                    // Запоминаем где меню было — чтобы вернуть назад на закрытии
                     if (!menu._origParent) menu._origParent = menu.parentNode;
                     if (menu.parentNode !== document.body) document.body.appendChild(menu);
                     var trgRect = trigger.getBoundingClientRect();
+                    var spaceBelow = window.innerHeight - trgRect.bottom - 8;
+                    var spaceAbove = trgRect.top - 8;
+                    var openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+                    var maxH = Math.max(120, Math.min(260, openUp ? spaceAbove : spaceBelow));
+                    var topPx = openUp
+                        ? (trgRect.top - 4 - maxH)
+                        : (trgRect.bottom + 4);
                     menu.style.cssText =
                         'position:fixed;' +
-                        'top:' + (trgRect.bottom + 4) + 'px;' +
-                        'bottom:auto;' +
+                        'top:' + topPx + 'px;' +
                         'left:' + trgRect.left + 'px;' +
-                        'right:auto;' +
                         'width:' + trgRect.width + 'px;' +
                         'min-width:' + trgRect.width + 'px;' +
-                        'max-height:260px;' +
+                        'max-height:' + maxH + 'px;' +
                         'transform:none;' +
                         'z-index:10000;' +
                         'opacity:1;visibility:visible;' +
@@ -3315,11 +3320,16 @@
             }
             popup.addEventListener('click', function (e) { e.stopPropagation(); });
 
-            // Хелпер: репозиционирует попап под триггером (всегда вниз, отступ 4px).
+            // Хелпер: репозиционирует попап под триггером с smart-flip.
+            // Если внизу мало места (триггер у footer'а модалки) — открывает вверх.
             function reposition() {
                 var rect = trigger.getBoundingClientRect();
+                var popupH = popup.offsetHeight || 320;
+                var spaceBelow = window.innerHeight - rect.bottom - 8;
+                var spaceAbove = rect.top - 8;
+                var openUp = spaceBelow < popupH && spaceAbove > spaceBelow;
                 popup.style.left = rect.left + 'px';
-                popup.style.top = (rect.bottom + 4) + 'px';
+                popup.style.top = (openUp ? (rect.top - 4 - popupH) : (rect.bottom + 4)) + 'px';
             }
             // Скролл-/resize-листенеры — чтобы при прокрутке модалки расстояние
             // между триггером и попапом не плыло (issue: «разрыв при скролле»).
