@@ -556,10 +556,11 @@
             border-color: var(--accent);
         }
         .gc-dropdown-menu {
-            /* В закрытом состоянии — top:0 чтобы не торчать вниз и не
-               создавать фантомного scroll-контента у parent body. */
+            /* В закрытом состоянии max-height:0 + overflow:hidden — меню
+               схлопнуто, не создаёт scroll-extent у parent body. */
             position: absolute; top: 0; left: 0;
-            min-width: 100%; max-height: 260px; overflow-y: auto;
+            min-width: 100%;
+            max-height: 0; overflow: hidden;
             background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
             padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);
             list-style: none; margin: 0; z-index: 200;
@@ -570,6 +571,7 @@
         }
         .gc-dropdown.open .gc-dropdown-menu {
             top: calc(100% + 4px);
+            max-height: 260px; overflow-y: auto;
             opacity: 1; visibility: visible;
             pointer-events: auto;
             transition: opacity 0.18s ease, visibility 0s linear 0s;
