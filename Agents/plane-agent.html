@@ -939,7 +939,7 @@
             <div class="header-left"><h1>GigaChat Plane</h1></div>
             <div class="header-right">
                 <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
-                <button class="btn-settings" id="boardToggleBtn" onclick="toggleBoard()">Доска</button>
+                <button class="btn-settings" id="boardToggleBtn" onclick="toggleBoard()">Дашборд</button>
                 <button class="btn-settings" onclick="openSettings()">Настройки</button>
                 <button class="btn-export" id="btnExport" onclick="exportChat()">Экспорт</button>
             </div>
@@ -1619,7 +1619,7 @@
             if (!panel || !btn) return;
             var show = typeof forceShow === 'boolean' ? forceShow : !panel.classList.contains('show');
             panel.classList.toggle('show', show);
-            btn.textContent = show ? 'Чат' : 'Доска';
+            btn.textContent = show ? 'Чат' : 'Дашборд';
             // Анимация: вешаем класс ТОЛЬКО на время transition (350ms),
             // потом снимаем — чтобы ручной drag-resize сайдбара был мгновенным.
             var sidebar = document.querySelector('.sidebar');
@@ -1788,10 +1788,27 @@
         // NEW-9: «Обновить» button — полный сброс: projects cache + issues.
         // Без этого, если cache был сломан (empty array после network error),
         // юзер никак не мог восстановить доску без F5 страницы.
+        var __forceReloadLastTs = 0;
+        var __forceReloadBusy = false;
         async function forceFullReload() {
-            BOARD_PROJECTS_CACHE = null;
-            BOARD_ALL_ISSUES = [];
-            await loadBoard();
+            // BUG-FIX (Обновить spam): жёсткий throttle 1500ms + флаг busy.
+            // Раньше частые клики запускали параллельные loadBoard, которые
+            // перетирали кэш и оставляли доску в случайном состоянии после F5.
+            var now = Date.now();
+            if (__forceReloadBusy) return;
+            if (now - __forceReloadLastTs < 1500) return;
+            __forceReloadLastTs = now;
+            __forceReloadBusy = true;
+            var btn = document.querySelector('.board-refresh');
+            if (btn) btn.disabled = true;
+            try {
+                BOARD_PROJECTS_CACHE = null;
+                BOARD_ALL_ISSUES = [];
+                await loadBoard();
+            } finally {
+                __forceReloadBusy = false;
+                if (btn) setTimeout(function () { btn.disabled = false; }, 800);
+            }
         }
         async function reloadBoard() {
             var panel = document.getElementById('board-panel');
