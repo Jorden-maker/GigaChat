@@ -754,7 +754,10 @@
         .card-modal-body { padding: 18px 24px 170px; }
         /* В режиме «Новая задача» секция комментариев скрыта → не нужен
            большой запас под её скролл. */
-        .card-modal-body.is-new { padding-bottom: 18px; }
+        .card-modal-body.is-new { padding-bottom: 4px; }
+        /* В is-new убираем margin-bottom у последней строки (Статус) —
+           чтобы не было лишнего gap между ней и footer'ом. */
+        .card-modal-body.is-new .card-modal-row:last-of-type { margin-bottom: 0; }
         .card-modal-row {
             display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;
         }
@@ -2644,33 +2647,6 @@
             if (deadlineEl) attachCustomDatepicker(deadlineEl);
             var backdrop = document.getElementById('card-modal-backdrop');
             backdrop.classList.add('show');
-            // FORCE HEIGHT + DIAGNOSTIC LOG
-            var modalEl = backdrop.querySelector('.card-modal');
-            if (modalEl) {
-                requestAnimationFrame(function () {
-                    var h = modalEl.querySelector('.card-modal-header');
-                    var b = modalEl.querySelector('.card-modal-body');
-                    var f = modalEl.querySelector('.card-modal-footer');
-                    var hH = h ? h.offsetHeight : 0;
-                    var bH = b ? b.offsetHeight : 0;
-                    var fH = f ? f.offsetHeight : 0;
-                    var total = hH + bH + fH;
-                    console.log('[MODAL DIAG]',
-                      'header:', hH,
-                      'body:', bH,
-                      'footer:', fH,
-                      'sum:', total,
-                      'modal:', modalEl.offsetHeight,
-                      'body scrollH:', b ? b.scrollHeight : 0,
-                      'body clientH:', b ? b.clientHeight : 0,
-                      'body children:', b ? Array.from(b.children).map(function(c){return c.tagName+'.'+c.className+'='+c.offsetHeight;}).join(' | ') : '',
-                      'is-new:', b ? b.classList.contains('is-new') : false
-                    );
-                    if (total > 0) {
-                        modalEl.style.height = total + 'px';
-                    }
-                });
-            }
             // Подгружаем комментарии асинхронно
             loadCardComments(issue);
         }
