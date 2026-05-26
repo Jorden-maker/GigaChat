@@ -476,6 +476,65 @@
         }
         .board-card .bc-deadline svg { flex-shrink: 0; }
         .board-card .bc-deadline.overdue { color: #ef4444; font-weight: 500; }
+        /* === Phase 2: View tabs (Канбан/Календарь/Таймлайн/Циклы/Модули) === */
+        .view-tabs { display: inline-flex; gap: 2px; background: var(--bg-input);
+            border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+        .view-tab { padding: 5px 12px; background: transparent; border: none;
+            color: var(--text-secondary); font-family: inherit; font-size: 12px;
+            cursor: pointer; border-radius: 4px; transition: all 0.15s; }
+        .view-tab:hover { color: var(--text-primary); }
+        .view-tab.active { background: var(--accent); color: #fff; }
+        .board-view { flex: 1; min-height: 0; overflow: auto; padding: 16px;
+            scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        /* Календарь */
+        .cal-wrap { display: flex; flex-direction: column; gap: 8px; }
+        .cal-header { display: flex; align-items: center; gap: 12px; padding: 0 4px 8px; }
+        .cal-header h3 { margin: 0; color: var(--text-primary); font-size: 16px; font-weight: 500; flex: 1; text-align: center; }
+        .cal-nav { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-secondary);
+            cursor: pointer; padding: 4px 12px; border-radius: 6px; font-family: inherit; font-size: 12px;
+            transition: all 0.15s; }
+        .cal-nav:hover { border-color: var(--accent); color: var(--accent); }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .cal-wd { text-align: center; padding: 6px; font-size: 11px; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
+        .cal-day { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px;
+            padding: 6px; min-height: 80px; display: flex; flex-direction: column; gap: 3px;
+            font-size: 11px; color: var(--text-secondary); }
+        .cal-day.other-month { opacity: 0.4; }
+        .cal-day.today { border-color: var(--accent); }
+        .cal-day .cal-day-num { font-weight: 500; color: var(--text-primary); }
+        .cal-day.today .cal-day-num { color: var(--accent); }
+        .cal-task { background: var(--accent-light); color: var(--text-primary); padding: 2px 6px;
+            border-radius: 3px; font-size: 10.5px; cursor: pointer; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; border-left: 2px solid var(--accent); }
+        .cal-task.overdue { border-left-color: #ef4444; }
+        .cal-task:hover { background: var(--accent); color: #fff; }
+        /* Таймлайн (Gantt) */
+        .timeline-wrap { display: flex; flex-direction: column; gap: 4px; }
+        .timeline-row { display: grid; grid-template-columns: 200px 1fr; gap: 8px; align-items: center;
+            padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+        .timeline-name { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; cursor: pointer; }
+        .timeline-name:hover { color: var(--accent); }
+        .timeline-bar-track { position: relative; height: 24px; background: var(--bg-input);
+            border-radius: 4px; overflow: hidden; }
+        .timeline-bar { position: absolute; top: 2px; bottom: 2px; background: var(--accent);
+            border-radius: 3px; display: flex; align-items: center; padding: 0 6px; color: #fff;
+            font-size: 10px; min-width: 4px; }
+        .timeline-bar.urgent { background: #ef4444; }
+        .timeline-bar.high { background: #d97757; }
+        .timeline-bar.completed { background: #4a9659; opacity: 0.7; }
+        /* Циклы / Модули — карточки */
+        .group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+        .group-card { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px;
+            padding: 14px; transition: border-color 0.15s; }
+        .group-card:hover { border-color: var(--accent); }
+        .group-card-title { color: var(--text-primary); font-weight: 500; margin-bottom: 8px; font-size: 14px; }
+        .group-card-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; display: flex;
+            gap: 8px; flex-wrap: wrap; }
+        .group-card-meta .gc-chip { background: var(--bg-secondary); padding: 2px 7px; border-radius: 3px; }
+        .group-card-stats { font-size: 12px; color: var(--text-secondary); }
+        .group-card-empty { color: var(--text-muted); text-align: center; padding: 40px 20px; font-size: 13px; }
         kbd {
             display: inline-block; padding: 2px 8px; font-family: 'Cascadia Code', Consolas, monospace;
             font-size: 12px; background: var(--bg-input); border: 1px solid var(--border);
@@ -984,6 +1043,14 @@
                         </div>
                         <ul class="board-select-menu" id="board-project-menu" role="listbox"></ul>
                     </div>
+                    <!-- Phase 2: переключатель видов доска/календарь/таймлайн/циклы/модули -->
+                    <div class="view-tabs" id="board-view-tabs">
+                        <button class="view-tab active" data-view="kanban" onclick="switchBoardView('kanban')">Канбан</button>
+                        <button class="view-tab" data-view="calendar" onclick="switchBoardView('calendar')">Календарь</button>
+                        <button class="view-tab" data-view="timeline" onclick="switchBoardView('timeline')">Таймлайн</button>
+                        <button class="view-tab" data-view="cycles" onclick="switchBoardView('cycles')">Циклы</button>
+                        <button class="view-tab" data-view="modules" onclick="switchBoardView('modules')">Модули</button>
+                    </div>
                     <button class="board-refresh" onclick="forceFullReload()">Обновить</button>
                     <span class="board-status" id="board-status"></span>
                 </div>
@@ -1028,6 +1095,11 @@
                         <div class="board-col-header">Отменено <span class="board-col-count" data-count></span></div>
                     </div>
                 </div>
+                <!-- Phase 2 views: контейнеры альтернативных представлений -->
+                <div id="view-calendar" class="board-view" style="display:none"></div>
+                <div id="view-timeline" class="board-view" style="display:none"></div>
+                <div id="view-cycles" class="board-view" style="display:none"></div>
+                <div id="view-modules" class="board-view" style="display:none"></div>
             </div>
             <!-- Phase 1: Sticky project pill (показывается когда set) -->
             <div id="sticky-project-pill" class="sticky-project-pill">
@@ -3596,6 +3668,232 @@
             var toRender = hasFilters ? filterIssues(BOARD_ALL_ISSUES) : issues;
             return __origRenderBoardIssues.call(this, toRender);
         };
+
+        // === Phase 2: переключение видов (kanban/calendar/timeline/cycles/modules) ===
+        var BOARD_VIEW = 'kanban';
+        var BOARD_CYCLES_CACHE = [];
+        var BOARD_MODULES_CACHE = [];
+        var CAL_VIEW_DATE = new Date();
+        function switchBoardView(view) {
+            BOARD_VIEW = view;
+            document.querySelectorAll('.view-tab').forEach(function (b) {
+                b.classList.toggle('active', b.dataset.view === view);
+            });
+            var kan = document.getElementById('board-columns');
+            var cal = document.getElementById('view-calendar');
+            var tl = document.getElementById('view-timeline');
+            var cy = document.getElementById('view-cycles');
+            var md = document.getElementById('view-modules');
+            if (kan) kan.style.display = view === 'kanban' ? '' : 'none';
+            if (cal) cal.style.display = view === 'calendar' ? '' : 'none';
+            if (tl) tl.style.display = view === 'timeline' ? '' : 'none';
+            if (cy) cy.style.display = view === 'cycles' ? '' : 'none';
+            if (md) md.style.display = view === 'modules' ? '' : 'none';
+            // toolbar-2 (фильтры) актуальны только для канбана
+            var t2 = document.querySelector('.board-toolbar-2');
+            if (t2) t2.style.display = view === 'kanban' ? '' : 'none';
+            if (view === 'calendar') renderCalendarView();
+            else if (view === 'timeline') renderTimelineView();
+            else if (view === 'cycles') renderCyclesView();
+            else if (view === 'modules') renderModulesView();
+        }
+
+        // CALENDAR VIEW — задачи по target_date.
+        function renderCalendarView() {
+            var host = document.getElementById('view-calendar');
+            if (!host) return;
+            var y = CAL_VIEW_DATE.getFullYear();
+            var m = CAL_VIEW_DATE.getMonth();
+            var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+            var WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+            var firstDay = new Date(y, m, 1).getDay();
+            var firstMon = (firstDay + 6) % 7;
+            var daysInMonth = new Date(y, m+1, 0).getDate();
+            var prevDays = new Date(y, m, 0).getDate();
+            // Группируем задачи по дате
+            var byDate = {};
+            (BOARD_ALL_ISSUES || []).forEach(function (i) {
+                if (!i.target_date) return;
+                var d = String(i.target_date).slice(0,10);
+                (byDate[d] = byDate[d] || []).push(i);
+            });
+            var today = new Date(); today.setHours(0,0,0,0);
+            var todayKey = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+            var html =
+                '<div class="cal-wrap">' +
+                  '<div class="cal-header">' +
+                    '<button class="cal-nav" onclick="navCal(-1)">‹</button>' +
+                    '<h3>' + MONTHS[m] + ' ' + y + '</h3>' +
+                    '<button class="cal-nav" onclick="navCal(0)">Сегодня</button>' +
+                    '<button class="cal-nav" onclick="navCal(1)">›</button>' +
+                  '</div>' +
+                  '<div class="cal-grid">' +
+                    WD.map(function (w) { return '<div class="cal-wd">' + w + '</div>'; }).join('');
+            // Дни прошлого месяца
+            for (var i = firstMon - 1; i >= 0; i--) {
+                html += '<div class="cal-day other-month"><div class="cal-day-num">' + (prevDays - i) + '</div></div>';
+            }
+            // Дни текущего месяца
+            for (var d = 1; d <= daysInMonth; d++) {
+                var key = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+                var tasks = byDate[key] || [];
+                var isToday = key === todayKey;
+                var thisDate = new Date(y, m, d);
+                html += '<div class="cal-day' + (isToday ? ' today' : '') + '"><div class="cal-day-num">' + d + '</div>';
+                tasks.slice(0, 4).forEach(function (t) {
+                    var overdue = thisDate < today;
+                    var group = (t.state_detail && t.state_detail.group) || '';
+                    var closed = group === 'completed' || group === 'cancelled';
+                    var cls = (overdue && !closed) ? 'cal-task overdue' : 'cal-task';
+                    html += '<div class="' + cls + '" data-issue-name="' + escapeAttr(t.name||'') + '" title="' + escapeAttr(t.name||'') + '">' + escapeHtml(t.name||'').slice(0,30) + '</div>';
+                });
+                if (tasks.length > 4) html += '<div style="font-size:10px;color:var(--text-muted)">+' + (tasks.length - 4) + '</div>';
+                html += '</div>';
+            }
+            // Хвост следующего месяца
+            var totalCells = firstMon + daysInMonth;
+            var trail = (7 - totalCells % 7) % 7;
+            for (var t = 1; t <= trail; t++) {
+                html += '<div class="cal-day other-month"><div class="cal-day-num">' + t + '</div></div>';
+            }
+            html += '</div></div>';
+            host.innerHTML = html;
+            // Клик на задачу → открыть модалку
+            host.querySelectorAll('.cal-task').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    var name = el.dataset.issueName;
+                    var iss = (BOARD_ALL_ISSUES || []).find(function (x) { return x.name === name; });
+                    if (iss) openCardModal(iss);
+                });
+            });
+        }
+        function navCal(delta) {
+            if (delta === 0) CAL_VIEW_DATE = new Date();
+            else CAL_VIEW_DATE = new Date(CAL_VIEW_DATE.getFullYear(), CAL_VIEW_DATE.getMonth() + delta, 1);
+            renderCalendarView();
+        }
+
+        // TIMELINE (Gantt) — задачи с start_date/target_date в виде полосок.
+        function renderTimelineView() {
+            var host = document.getElementById('view-timeline');
+            if (!host) return;
+            var issues = (BOARD_ALL_ISSUES || []).filter(function (i) {
+                return i.target_date || i.start_date;
+            });
+            if (!issues.length) {
+                host.innerHTML = '<div class="group-card-empty">Нет задач со сроками для отображения на таймлайне.</div>';
+                return;
+            }
+            // Определяем диапазон дат
+            var minDate = null, maxDate = null;
+            issues.forEach(function (i) {
+                var s = i.start_date ? new Date(i.start_date) : (i.target_date ? new Date(i.target_date) : null);
+                var e = i.target_date ? new Date(i.target_date) : s;
+                if (s && (!minDate || s < minDate)) minDate = s;
+                if (e && (!maxDate || e > maxDate)) maxDate = e;
+            });
+            if (!minDate || !maxDate) {
+                host.innerHTML = '<div class="group-card-empty">Не удалось определить временной диапазон.</div>';
+                return;
+            }
+            var totalMs = Math.max(86400000, maxDate - minDate);
+            // Сортируем по start_date
+            issues.sort(function (a, b) {
+                var ad = a.start_date || a.target_date;
+                var bd = b.start_date || b.target_date;
+                return new Date(ad) - new Date(bd);
+            });
+            function fmt(d) {
+                return String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0');
+            }
+            var rows = '<div style="display:grid;grid-template-columns:200px 1fr;gap:8px;padding:4px 0;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px"><div>Задача</div><div>' + fmt(minDate) + ' — ' + fmt(maxDate) + '</div></div>';
+            issues.forEach(function (i) {
+                var s = i.start_date ? new Date(i.start_date) : new Date(i.target_date);
+                var e = i.target_date ? new Date(i.target_date) : s;
+                var left = Math.max(0, (s - minDate) / totalMs * 100);
+                var width = Math.max(1, Math.min(100 - left, (e - s) / totalMs * 100 || 1));
+                var prio = String(i.priority || '').toLowerCase();
+                var group = (i.state_detail && i.state_detail.group) || '';
+                var cls = 'timeline-bar' + (group === 'completed' ? ' completed' : (prio === 'urgent' ? ' urgent' : (prio === 'high' ? ' high' : '')));
+                rows += '<div class="timeline-row">' +
+                    '<div class="timeline-name" data-issue-name="' + escapeAttr(i.name || '') + '">' + escapeHtml(i.name || '—') + '</div>' +
+                    '<div class="timeline-bar-track"><div class="' + cls + '" style="left:' + left + '%;width:' + width + '%">' + fmt(e) + '</div></div>' +
+                '</div>';
+            });
+            host.innerHTML = '<div class="timeline-wrap">' + rows + '</div>';
+            host.querySelectorAll('.timeline-name').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    var n = el.dataset.issueName;
+                    var iss = (BOARD_ALL_ISSUES || []).find(function (x) { return x.name === n; });
+                    if (iss) openCardModal(iss);
+                });
+            });
+        }
+
+        // CYCLES view — список циклов проекта (через planeDirect list_cycles)
+        async function renderCyclesView() {
+            var host = document.getElementById('view-cycles');
+            if (!host || !BOARD_CURRENT_PROJECT) return;
+            host.innerHTML = '<div class="group-card-empty">Загружаю циклы...</div>';
+            var res = await planeDirect('list_cycles', { project_name: BOARD_CURRENT_PROJECT });
+            if (!res || res.error || !res.data || !Array.isArray(res.data.cycles)) {
+                host.innerHTML = '<div class="group-card-empty">' + escapeHtml((res && res.response) || 'Не удалось загрузить циклы') + '</div>';
+                return;
+            }
+            var cycles = res.data.cycles;
+            BOARD_CYCLES_CACHE = cycles;
+            if (!cycles.length) {
+                host.innerHTML = '<div class="group-card-empty">В проекте нет циклов. Создайте их через интерфейс Plane.</div>';
+                return;
+            }
+            host.innerHTML = '<div class="group-grid">' + cycles.map(function (c) {
+                var status = '';
+                if (c.start_date && c.end_date) {
+                    var now = new Date();
+                    var s = new Date(c.start_date), e = new Date(c.end_date);
+                    if (now < s) status = '<span class="gc-chip">Предстоит</span>';
+                    else if (now > e) status = '<span class="gc-chip">Завершён</span>';
+                    else status = '<span class="gc-chip" style="color:var(--accent)">Активный</span>';
+                }
+                var dates = (c.start_date ? String(c.start_date).slice(0,10) : '—') + ' → ' + (c.end_date ? String(c.end_date).slice(0,10) : '—');
+                var total = c.total_issues || 0;
+                var done = c.completed_issues || 0;
+                var pct = total ? Math.round(done/total*100) : 0;
+                return '<div class="group-card">' +
+                    '<div class="group-card-title">' + escapeHtml(c.name || '—') + '</div>' +
+                    '<div class="group-card-meta">' + status + '<span class="gc-chip">' + dates + '</span></div>' +
+                    '<div class="group-card-stats">Задач: ' + done + ' / ' + total + ' (' + pct + '%)</div>' +
+                '</div>';
+            }).join('') + '</div>';
+        }
+
+        // MODULES view — модули проекта
+        async function renderModulesView() {
+            var host = document.getElementById('view-modules');
+            if (!host || !BOARD_CURRENT_PROJECT) return;
+            host.innerHTML = '<div class="group-card-empty">Загружаю модули...</div>';
+            var res = await planeDirect('list_modules', { project_name: BOARD_CURRENT_PROJECT });
+            if (!res || res.error || !res.data || !Array.isArray(res.data.modules)) {
+                host.innerHTML = '<div class="group-card-empty">' + escapeHtml((res && res.response) || 'Не удалось загрузить модули') + '</div>';
+                return;
+            }
+            var modules = res.data.modules;
+            BOARD_MODULES_CACHE = modules;
+            if (!modules.length) {
+                host.innerHTML = '<div class="group-card-empty">В проекте нет модулей.</div>';
+                return;
+            }
+            host.innerHTML = '<div class="group-grid">' + modules.map(function (m) {
+                var dates = (m.start_date ? String(m.start_date).slice(0,10) : '—') + ' → ' + (m.target_date ? String(m.target_date).slice(0,10) : '—');
+                var total = m.total_issues || 0;
+                var done = m.completed_issues || 0;
+                return '<div class="group-card">' +
+                    '<div class="group-card-title">' + escapeHtml(m.name || '—') + '</div>' +
+                    '<div class="group-card-meta"><span class="gc-chip">' + escapeHtml(m.status || 'planned') + '</span><span class="gc-chip">' + dates + '</span></div>' +
+                    '<div class="group-card-stats">Задач: ' + done + ' / ' + total + '</div>' +
+                '</div>';
+            }).join('') + '</div>';
+        }
 
         // KEYBOARD SHORTCUTS — глобальные горячие клавиши доски.
         // N — новая задача, / — поиск, Esc — закрыть модалку,
