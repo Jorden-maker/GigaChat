@@ -1199,7 +1199,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE $1 <> 'plane_board' AND LENGTH(TRIM($2)) > 0;",
         "options": {
-          "queryReplacement": "={{ [$('Контекст: проекты').first().json.session_id, $json.response || ''] }}"
+          "queryReplacement": "={{ [.first().json.session_id, (.response || '') + ( .data && ((.data.issues && .data.issues.length) || .data.issue || (.data.projects && .data.projects.length)) ? '\n\n[[EXTRAS:' + JSON.stringify(.data).slice(0, 12000) + ']]' : '')] }}"
         },
         "alwaysOutputData": true
       },

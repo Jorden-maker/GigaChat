@@ -2162,6 +2162,32 @@
                         extras: extras
                     };
                 },
+                // BUG-FIX #9: при загрузке истории из chat_memory достаём
+                // обратно extras из [[EXTRAS:...]]-маркера. Без этого после
+                // reload карточки задач/проектов пропадают — оставался только
+                // текстовый ответ. Маркер пишет workflow при INSERT assistant.
+                parseHistoryMessage: function (m) {
+                    var content = String(m.content || '');
+                    var extras = m.extras || {};
+                    var marker = /\n*\[\[EXTRAS:([\s\S]*?)\]\]\s*$/;
+                    var mm = content.match(marker);
+                    if (mm) {
+                        try {
+                            var parsed = JSON.parse(mm[1]);
+                            if (parsed && typeof parsed === 'object') {
+                                Object.keys(parsed).forEach(function (k) {
+                                    if (!(k in extras)) extras[k] = parsed[k];
+                                });
+                            }
+                        } catch (e) {}
+                        content = content.replace(marker, '');
+                    }
+                    return {
+                        role: m.role,
+                        content: content,
+                        extras: extras
+                    };
+                },
                 extraBody: function () {
                     // К каждому POST прикрепляем токен + Plane-настройки.
                     // Workflow проверит токен → если invalid вернёт {auth_required:true},
