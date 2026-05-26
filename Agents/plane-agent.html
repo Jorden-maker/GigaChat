@@ -564,9 +564,6 @@
             scrollbar-width: thin; scrollbar-color: var(--border) transparent;
             opacity: 0; visibility: hidden; transform: translateY(-4px);
             transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
-            /* border-box: max-height включает padding+border. Без этого
-               JS-кэп max-height не давал ожидаемой outer-height. */
-            box-sizing: border-box;
         }
         .gc-dropdown.open .gc-dropdown-menu {
             opacity: 1; visibility: visible; transform: translateY(0);
@@ -740,7 +737,10 @@
             font-family: inherit;
         }
         .card-modal-close:hover { color: var(--error); }
-        .card-modal-body { padding: 18px 24px; }
+        /* padding-bottom большой — чтобы при открытии dropdown'а Статус
+           (последний ряд) меню расширялось ВНИЗ внутри body и body
+           проскролливался, а не упирался в линию card-modal-footer. */
+        .card-modal-body { padding: 18px 24px 200px; }
         .card-modal-row {
             display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;
         }
@@ -2997,36 +2997,6 @@
                 document.querySelectorAll('.gc-dropdown.open').forEach(function (d) {
                     if (d !== wrap) d.classList.remove('open');
                 });
-                // NEW-14: меню ВСЕГДА открывается вниз. Если внутри card-modal-body —
-                // переводим на position:fixed и кэпаем max-height так, чтобы низ
-                // меню был на 5px выше нижнего края body. Также явно задаём min-width
-                // и width, потому что CSS min-width:100% с position:fixed = 100vw.
-                var willOpen = !wrap.classList.contains('open');
-                if (willOpen) {
-                    var trgRect = trigger.getBoundingClientRect();
-                    var modalBody = trigger.closest('.card-modal-body');
-                    if (modalBody) {
-                        var bodyRect = modalBody.getBoundingClientRect();
-                        menu.style.position = 'fixed';
-                        menu.style.top = (trgRect.bottom + 4) + 'px';
-                        menu.style.left = trgRect.left + 'px';
-                        menu.style.width = trgRect.width + 'px';
-                        // Гасим CSS min-width:100% (= 100vw при fixed) — иначе
-                        // меню распахивается на всю ширину окна.
-                        menu.style.minWidth = trgRect.width + 'px';
-                        // bodyRect.bottom - (top меню) - 5px желаемый зазор
-                        var maxH = bodyRect.bottom - (trgRect.bottom + 4) - 5;
-                        menu.style.maxHeight = Math.max(40, Math.min(260, maxH)) + 'px';
-                    } else {
-                        // Не в модалке — сброс на CSS-дефолт (position:absolute).
-                        menu.style.position = '';
-                        menu.style.top = '';
-                        menu.style.left = '';
-                        menu.style.width = '';
-                        menu.style.minWidth = '';
-                        menu.style.maxHeight = '';
-                    }
-                }
                 wrap.classList.toggle('open');
             });
         }
