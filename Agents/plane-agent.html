@@ -3603,7 +3603,12 @@
                     '</div>';
                 commentEl.appendChild(form);
                 commentEl.classList.add('is-editing');
-                var ta = form.querySelector('textarea'); ta.focus();
+                var ta = form.querySelector('textarea');
+                ta.focus();
+                // R7.23: курсор в конце текста, а не в начале (стандартное
+                // поведение textarea с pre-filled value)
+                var endPos = ta.value.length;
+                ta.setSelectionRange(endPos, endPos);
                 form.querySelector('.cm-cancel').addEventListener('click', function () {
                     form.remove();
                     commentEl.classList.remove('is-editing');
