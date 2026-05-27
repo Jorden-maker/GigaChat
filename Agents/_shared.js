@@ -3819,7 +3819,17 @@
         var draft = sessionStore.getDraft(sid) || '';
         input.value = draft;
         input.style.height = '';
-        if (draft) input.style.height = Math.min(input.scrollHeight, autosizeMax) + 'px';
+        input.style.overflowY = 'hidden';
+        if (draft) {
+          // R7.40: используем ту же логику auto/hidden что и в input listener.
+          var sh0 = input.scrollHeight;
+          if (sh0 > autosizeMax) {
+            input.style.height = autosizeMax + 'px';
+            input.style.overflowY = 'auto';
+          } else {
+            input.style.height = sh0 + 'px';
+          }
+        }
         var processing = !!sessionStore.getInflight(sid);
         input.disabled = processing;
         sendBtn.disabled = false;
@@ -3978,7 +3988,8 @@
         : [];
       input.disabled = true; sendBtn.disabled = true;
       if (attachment) attachment.setDisabled(true);
-      input.value = ''; input.style.height = 'auto';
+      // R7.40: после очистки сразу прячем скроллбар (контент пустой).
+      input.value = ''; input.style.height = 'auto'; input.style.overflowY = 'hidden';
       sessionStore.clearDraft(sendSessionId);
       onSendStart();
       var userMsg = { role: 'user', content: text, ts: Date.now() };
@@ -4233,8 +4244,21 @@
       }
     });
     input.addEventListener('input', function () {
+      // R7.40: overflow-y управляется динамически. С overflow-y:auto всегда
+      // браузер изредка показывал скроллбар при первом символе (пиксельное
+      // расхождение scrollHeight vs clientHeight). Теперь:
+      // - контент влезает в autosizeMax → overflow:hidden → нет скроллбара
+      // - контент превышает autosizeMax → overflow:auto → скроллбар появляется
+      // На пустом input scrollHeight ≈ один ряд + padding, всегда < autosizeMax.
       input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, autosizeMax) + 'px';
+      var sh = input.scrollHeight;
+      if (sh > autosizeMax) {
+        input.style.height = autosizeMax + 'px';
+        input.style.overflowY = 'auto';
+      } else {
+        input.style.height = sh + 'px';
+        input.style.overflowY = 'hidden';
+      }
       if (sessionStore.state.activeSessionId) {
         sessionStore.setDraft(sessionStore.state.activeSessionId, input.value);
       }
