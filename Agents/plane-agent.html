@@ -196,7 +196,7 @@
             transform: translateY(-1px);
         }
         .pc-inline-actions button.state-work:active { box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.28); }
-        /* state-pending (серый) — для backlog «Отложено» и unstarted «Запланировано». */
+        /* state-pending (серый) — для backlog «Отложено». */
         .pc-inline-actions button.state-pending {
             color: var(--text-secondary) !important;
             border-color: rgba(140, 140, 140, 0.35) !important;
@@ -210,6 +210,20 @@
             transform: translateY(-1px);
         }
         .pc-inline-actions button.state-pending:active { box-shadow: 0 0 0 2px rgba(140, 140, 140, 0.28); }
+        /* state-planned (фиолетовый) — для unstarted «Запланировано». */
+        .pc-inline-actions button.state-planned {
+            color: #8b5cf6 !important;
+            border-color: rgba(139, 92, 246, 0.40) !important;
+            background: rgba(139, 92, 246, 0.12) !important;
+        }
+        .pc-inline-actions button.state-planned:hover {
+            background: rgba(139, 92, 246, 0.22) !important;
+            border-color: rgba(139, 92, 246, 0.65) !important;
+            color: #8b5cf6 !important;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.18);
+            transform: translateY(-1px);
+        }
+        .pc-inline-actions button.state-planned:active { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.28); }
         /* R7 #9: cancelled task — заголовок и весь блок перечёркнуты */
         .pc-state.cancelled { text-decoration: line-through; }
         .plane-card.is-cancelled .pc-title { text-decoration: line-through; opacity: 0.7; }
@@ -2179,7 +2193,7 @@
             var ALLOWED_GROUP = { backlog:1, unstarted:1, started:1, completed:1, cancelled:1 };
             var prio = String(issue.priority || 'none').toLowerCase();
             var prioCls = ALLOWED_PRIO[prio] ? prio : '';
-            var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий'})[prio];
+            var prioLabel = ({urgent:'срочный',high:'высокий',medium:'средний',low:'низкий'})[prio];
             var prioBadge = (prioLabel && prioCls) ? ('<span class="pc-prio ' + prioCls + '">' + prioLabel + '</span>') : '';
             var group = (issue.state_detail && issue.state_detail.group) || '';
             // R7 #6: статусы started/completed уже показаны как цветные кнопки.
@@ -2777,7 +2791,7 @@
                 card.classList.add('selected');
             }
             var prio = String(issue.priority || 'none').toLowerCase();
-            var prioLabel = ({ urgent: 'срочно', high: 'высокий', medium: 'средний', low: 'низкий', none: '—' })[prio] || prio;
+            var prioLabel = ({ urgent: 'срочный', high: 'высокий', medium: 'средний', low: 'низкий', none: '—' })[prio] || prio;
             // Срок выполнения — справа от приоритета. Формат dd.mm (компактно).
             // Если просрочен (target_date < today) — красным. Иначе — обычный muted.
             var deadlineHtml = '';
@@ -6358,7 +6372,7 @@
             } else if (isBacklog) {
                 btnState = '<button data-act="backlog-current" class="state-active state-pending" title="Задача отложена">' + SVG_PAUSE + ' Отложено</button>';
             } else if (isUnstarted) {
-                btnState = '<button data-act="unstarted-current" class="state-active state-pending" title="Задача запланирована">' + SVG_PLAN + ' Запланировано</button>';
+                btnState = '<button data-act="unstarted-current" class="state-active state-planned" title="Задача запланирована">' + SVG_PLAN + ' Запланировано</button>';
             }
             // cancelled — btnState остаётся '' (бейдж «Отменено» уже показан).
 
