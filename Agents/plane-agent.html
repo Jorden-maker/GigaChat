@@ -936,7 +936,9 @@
             to   { opacity: 1; transform: translateY(0) scale(1); }
         }
         .chat-fade-in { animation: chatFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
-        .chat-stagger-in { animation: chatStaggerIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+        /* R7.30: .chat-stagger-in для карточек задач — медленнее (0.5s → 0.9s),
+           чтобы появление было заметнее и спокойнее. */
+        .chat-stagger-in { animation: chatStaggerIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
         /* Spinner для loader'ов */
         .msg-spinner { display: inline-block; width: 12px; height: 12px;
             border: 2px solid var(--accent-light); border-top-color: var(--accent);
