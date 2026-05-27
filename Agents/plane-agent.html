@@ -125,17 +125,25 @@
         .pc-state.started   { background: rgba(34, 197, 94, 0.18); color: #16a34a; }
         .pc-state.completed { background: rgba(34, 197, 94, 0.10); color: #16a34a; opacity: 0.8; }
         .pc-state.cancelled { background: rgba(120, 120, 120, 0.15); color: var(--text-muted); text-decoration: line-through; }
-        /* "В работе" — активный (текущий) state в inline-кнопках */
-        .pc-inline-actions button.active {
+        /* R7: state-active кнопки (current state — не кликабельны, зелёные).
+           cursor:default чтобы юзер видел что это индикатор, а не кнопка. */
+        .pc-inline-actions button.state-active {
             color: #16a34a !important;
             border-color: rgba(34, 197, 94, 0.35) !important;
             background: rgba(34, 197, 94, 0.10) !important;
-            cursor: default;
+            cursor: default !important;
+            pointer-events: none;
         }
-        .pc-inline-actions button.active:hover {
+        .pc-inline-actions button.state-active:hover {
             background: rgba(34, 197, 94, 0.10) !important;
             color: #16a34a !important;
+            transform: none !important;
+            box-shadow: none !important;
         }
+        /* R7 #9: cancelled task — заголовок и весь блок перечёркнуты */
+        .pc-state.cancelled { text-decoration: line-through; }
+        .plane-card.is-cancelled .pc-title { text-decoration: line-through; opacity: 0.7; }
+        .plane-card.is-cancelled { opacity: 0.85; }
         /* Settings modal */
         .modal-backdrop {
             position: fixed; top:0;right:0;bottom:0;left:0; background: rgba(0,0,0,0.55); z-index: 1000;
@@ -863,17 +871,17 @@
             color: var(--text-primary); font-size: 13px; }
         .multi-step-header .ms-counter { background: var(--accent-light); color: var(--accent);
             padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; margin-left: auto; }
-        /* R5 #3: плавные анимации появления сообщений и интерактивных полей */
+        /* R7 #16: более плавные и заметные анимации появления */
         @keyframes chatFadeIn {
-            from { opacity: 0; transform: translateY(6px); }
+            from { opacity: 0; transform: translateY(12px); }
             to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes chatStaggerIn {
-            from { opacity: 0; transform: translateY(4px) scale(0.98); }
+            from { opacity: 0; transform: translateY(10px) scale(0.96); }
             to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-        .chat-fade-in { animation: chatFadeIn 0.25s ease-out both; }
-        .chat-stagger-in { animation: chatStaggerIn 0.35s ease-out both; }
+        .chat-fade-in { animation: chatFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+        .chat-stagger-in { animation: chatStaggerIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
         /* Spinner для loader'ов */
         .msg-spinner { display: inline-block; width: 12px; height: 12px;
             border: 2px solid var(--accent-light); border-top-color: var(--accent);
@@ -2002,8 +2010,6 @@
         // none-приоритет НЕ рендерим (юзер не хочет видеть «—» в кружке).
         // Статус — справа от приоритета, цветной по группе.
         function _renderPrioStateBadges(issue) {
-            // R6 audit #5: whitelist для className — защита от XSS если Plane вернёт
-            // нестандартное значение priority/group.
             var ALLOWED_PRIO = { urgent:1, high:1, medium:1, low:1 };
             var ALLOWED_GROUP = { backlog:1, unstarted:1, started:1, completed:1, cancelled:1 };
             var prio = String(issue.priority || 'none').toLowerCase();
@@ -2011,16 +2017,21 @@
             var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий'})[prio];
             var prioBadge = (prioLabel && prioCls) ? ('<span class="pc-prio ' + prioCls + '">' + prioLabel + '</span>') : '';
             var group = (issue.state_detail && issue.state_detail.group) || '';
+            // R7 #6: «В работе» и «Готово» уже показаны как зелёные кнопки —
+            // дублировать в бейдже не нужно. Только cancelled/backlog/unstarted показываем.
+            var SHOWN = { backlog:'Отложено', unstarted:'В очереди', cancelled:'Отменено' };
+            var stateLabel = SHOWN[group] || '';
             var groupCls = ALLOWED_GROUP[group] ? group : '';
-            var stateLabel = ({backlog:'Отложено',unstarted:'В очереди',started:'В работе',completed:'Готово',cancelled:'Отменено'})[group] || '';
             var stateBadge = (stateLabel && groupCls) ? ('<span class="pc-state ' + groupCls + '">' + stateLabel + '</span>') : '';
             return prioBadge + stateBadge;
         }
         function formatIssuesList(issues, projectName) {
             if (!issues || !issues.length) return '';
             return issues.map(function (i) {
+                var group = (i.state_detail && i.state_detail.group) || '';
+                var cardCls = 'plane-card' + (group === 'cancelled' ? ' is-cancelled' : '') + (group === 'completed' ? ' is-completed' : '');
                 var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(Object.assign({ project: projectName }, i)) : '';
-                return '<div class="plane-card">' +
+                return '<div class="' + cardCls + '">' +
                     '<div class="pc-title">' + escapeHtml(i.name || '—') + _renderPrioStateBadges(i) + '</div>' +
                     actions +
                 '</div>';
@@ -2028,14 +2039,15 @@
         }
         function formatIssueCard(issue) {
             if (!issue) return '';
+            var group = (issue.state_detail && issue.state_detail.group) || '';
+            var cardCls = 'plane-card' + (group === 'cancelled' ? ' is-cancelled' : '') + (group === 'completed' ? ' is-completed' : '');
             var meta = [];
-            // Статус уже показан как badge в title — в meta не дублируем.
             if (issue.start_date) meta.push('Начало: ' + escapeHtml(issue.start_date));
             if (issue.target_date) meta.push('Срок: ' + escapeHtml(issue.target_date));
             if (issue.created_at) meta.push('Создана: ' + escapeHtml(String(issue.created_at).slice(0,10)));
             var desc = stripHtml(issue.description_html || issue.description || '').slice(0, 200);
             var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(issue) : '';
-            return '<div class="plane-card">' +
+            return '<div class="' + cardCls + '">' +
                 '<div class="pc-title">' + escapeHtml(issue.name || '—') + _renderPrioStateBadges(issue) + '</div>' +
                 (meta.length ? '<div class="pc-meta" style="margin-top:6px;color:var(--text-secondary);font-size:12px">' + meta.join(' · ') + '</div>' : '') +
                 (desc ? '<div class="pc-desc" style="margin-top:6px;color:var(--text-muted);font-size:12px;white-space:pre-wrap">' + escapeHtml(desc) + '</div>' : '') +
@@ -4346,32 +4358,38 @@
                     await dragUpdateIssue(issue, { target_date: newDate });
                 });
             });
-            // R6 #1: hover-to-switch на nav buttons. Юзер тянет задачу на «‹»
-            // или «›» — после 700мс показываем соседний месяц, drop отрабатывает
-            // на новой ячейке.
+            // R7 #14: упрощённый календарь DnD на чужой месяц.
+            // HTML5 drag не переживает re-render DOM (источник теряется), поэтому
+            // вместо hover-to-switch делаем 2 явные drop-zone-кнопки «‹ предыдущий»
+            // и «следующий ›» (отдельные от nav buttons) — при drop на них
+            // обновляем target_date с учётом направления (1-е число соседнего месяца).
+            // + ВСЕ ячейки .cal-day с data-day-key droppable.
             host.querySelectorAll('.cal-nav').forEach(function (nav) {
-                var hoverTimer = null;
                 nav.addEventListener('dragover', function (e) {
                     if (!__DRAG_ISSUE) return;
                     e.preventDefault();
                     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
                     nav.classList.add('drop-target');
-                    if (hoverTimer) return;
-                    var dir = nav.textContent.indexOf('›') !== -1 ? 1 : (nav.textContent.indexOf('‹') !== -1 ? -1 : 0);
-                    if (!dir) return;
-                    hoverTimer = setTimeout(function () {
-                        hoverTimer = null;
-                        // Сохраняем drag-state, переключаем месяц, заново вешаем listeners
-                        navCal(dir);
-                    }, 700);
                 });
                 nav.addEventListener('dragleave', function () {
                     nav.classList.remove('drop-target');
-                    if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
                 });
-                nav.addEventListener('drop', function (e) {
-                    if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+                nav.addEventListener('drop', async function (e) {
+                    e.preventDefault();
                     nav.classList.remove('drop-target');
+                    var issue = __DRAG_ISSUE;
+                    __DRAG_ISSUE = null;
+                    if (!issue) return;
+                    var dir = nav.textContent.indexOf('›') !== -1 ? 1 : (nav.textContent.indexOf('‹') !== -1 ? -1 : 0);
+                    if (!dir) return;
+                    // Сдвигаем target_date на 1 месяц в нужном направлении
+                    var cur = issue.target_date ? new Date(issue.target_date) : new Date();
+                    cur.setMonth(cur.getMonth() + dir);
+                    var newDate = cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0');
+                    await dragUpdateIssue(issue, { target_date: newDate });
+                    // Переключаем view на месяц новой даты
+                    CAL_VIEW_DATE = cur;
+                    renderCalendarView();
                 });
             });
         }
@@ -5555,16 +5573,24 @@
         // Каждая команда либо отправляется как text (LLM-параsed) либо запускается прямым
         // direct-вызовом planeDirect. Direct = быстрее и точнее.
         var SLASH_COMMANDS = [
-            { cmd: '/today',    desc: 'Что у меня сегодня — задачи со сроком сегодня',                 type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'today' }, fallbackText: 'Покажи все мои задачи со сроком сегодня' },
-            { cmd: '/me',       desc: 'Все мои задачи во всех проектах',                                type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'mine' } },
-            { cmd: '/overdue',  desc: 'Что просрочено — задачи с истекшим сроком',                      type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'overdue' } },
-            { cmd: '/urgent',   desc: 'Только срочные задачи',                                          type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'urgent' } },
-            { cmd: '/recent',   desc: 'Лента активности — что недавно менялось',                        type: 'direct', action: 'list_activity',          params: { scope: 'all' } },
-            { cmd: '/blocked',  desc: 'Что застряло — задачи в работе без движения',                     type: 'text',   text: 'Покажи задачи в статусе «В работе», которые давно (больше 3 дней) не обновлялись — это потенциальные блокеры.' },
-            { cmd: '/digest',   desc: 'Дайджест: создано/закрыто/просрочено по всем проектам',           type: 'text',   text: 'Сделай мини-дайджест по всем проектам: сколько задач создано сегодня, сколько закрыто, сколько просрочено. Цифрами.' },
-            { cmd: '/projects', desc: 'Список всех проектов',                                            type: 'direct', action: 'list_projects',          params: {} },
-            { cmd: '/notif',    desc: 'Уведомления — что новенького',                                    type: 'direct', action: 'list_notifications',     params: {} },
-            { cmd: '/help',     desc: 'Показать справку по командам',                                    type: 'special', handler: 'help' }
+            { cmd: '/today',    desc: 'Показать задачи с сегодняшним сроком выполнения',                type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'today' },
+              emptyMsg: 'Задач с сегодняшним сроком выполнения нет.',
+              foundMsg: 'Список задач с сегодняшним сроком выполнения:' },
+            { cmd: '/me',       desc: 'Все мои задачи по всем проектам',                                 type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'mine' },
+              emptyMsg: 'У тебя нет назначенных задач.',
+              foundCountSuffix: true /* «Найдено задач по всем проектам: N» */ },
+            { cmd: '/overdue',  desc: 'Задачи с истёкшим сроком',                                         type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'overdue' },
+              emptyMsg: 'Просроченных задач нет.',
+              foundMsg: 'Просроченные задачи:' },
+            { cmd: '/urgent',   desc: 'Только срочные задачи',                                            type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'urgent' },
+              emptyMsg: 'Срочных задач нет.',
+              foundMsg: 'Срочные задачи:' },
+            { cmd: '/recent',   desc: 'Лента активности — что недавно менялось',                          type: 'direct', action: 'list_activity',          params: { scope: 'all' } },
+            { cmd: '/blocked',  desc: 'Задачи «В работе» без движения 3+ дней',                            type: 'text',   text: 'Покажи задачи в статусе «В работе», которые давно (больше 3 дней) не обновлялись — это потенциальные блокеры.' },
+            { cmd: '/digest',   desc: 'Дайджест: создано/закрыто/просрочено по всем проектам',            type: 'text',   text: 'Сделай мини-дайджест по всем проектам: сколько задач создано сегодня, сколько закрыто, сколько просрочено. Цифрами.' },
+            { cmd: '/projects', desc: 'Список всех проектов',                                              type: 'direct', action: 'list_projects',          params: {} },
+            { cmd: '/notif',    desc: 'Уведомления — что новенького',                                      type: 'direct', action: 'list_notifications',     params: {} },
+            { cmd: '/help',     desc: 'Показать справку по командам',                                      type: 'special', handler: 'help' }
         ];
         var SLASH_MENU_INDEX = 0;
 
@@ -5650,17 +5676,29 @@
             );
             try {
                 var res = await planeDirect(c.action, c.params || {});
-                // R5: правильное удаление — closest('.message') а не parentElement (.message-content)
                 removeLoaderById(loadId);
-                // R6 audit #3: НЕ отбрасываем результат если есть error + data
-                // (partial failure: backend выдал список + флаг ошибки для второстепенного шага).
-                // Полный fail — только когда нет ни response, ни data.
                 if (!res || (res.error && !res.data && !res.response)) {
                     addAssistantMessage('Не удалось выполнить «' + escapeHtml(c.cmd) + '»: ' + escapeHtml((res && res.response) || 'нет соединения'));
                     return;
                 }
-                // R5 BUG-4: response может говорить «ничего не нашлось» — рендерим только текст без карточек.
-                var fakeMsg = { role: 'assistant', content: res.response || '', extras: (res.data || {}) };
+                // R7 #3,#4,#10: кастомные сообщения для каждой slash-команды.
+                var issues = (res.data && Array.isArray(res.data.issues)) ? res.data.issues : null;
+                var hasItems = (issues && issues.length > 0)
+                            || (res.data && Array.isArray(res.data.activities) && res.data.activities.length > 0)
+                            || (res.data && Array.isArray(res.data.notifications) && res.data.notifications.length > 0)
+                            || (res.data && Array.isArray(res.data.projects) && res.data.projects.length > 0);
+                var contentText;
+                if (!hasItems && c.emptyMsg) {
+                    contentText = c.emptyMsg;
+                } else if (hasItems && c.foundCountSuffix) {
+                    var n = (issues && issues.length) || 0;
+                    contentText = 'Найдено задач по всем проектам: ' + n;
+                } else if (hasItems && c.foundMsg) {
+                    contentText = c.foundMsg;
+                } else {
+                    contentText = res.response || (hasItems ? 'Результат:' : 'Ничего не найдено.');
+                }
+                var fakeMsg = { role: 'assistant', content: contentText, extras: (res.data || {}) };
                 var html = formatBotMessage(fakeMsg);
                 addAssistantMessage(html);
             } catch (e) {
@@ -5897,7 +5935,8 @@
             if (container.dataset) container.dataset.staggered = '1';
             var targets = container.querySelectorAll('.plane-card, .chat-group-item, .chat-epic-card, .quick-reply-btn, .disambig-item, .multi-step-row');
             targets.forEach(function (el, i) {
-                el.style.animationDelay = (i * 60) + 'ms';
+                // R7 #16: 90мс задержка между элементами — заметнее «волна»
+                el.style.animationDelay = (i * 90) + 'ms';
                 el.classList.add('chat-stagger-in');
             });
         }
@@ -5931,26 +5970,35 @@
         function inlineActionsHtml(issue) {
             if (!issue || !issue.name) return '';
             var group = (issue.state_detail && issue.state_detail.group) || '';
-            var isClosed = group === 'completed' || group === 'cancelled';
+            var isCompleted = group === 'completed';
+            var isCancelled = group === 'cancelled';
             var isStarted = group === 'started';
             var safeName = escapeAttr(issue.name);
             var safeId = escapeAttr(issue.id || '');
             var safeProj = escapeAttr(issue.project || BOARD_CURRENT_PROJECT || getStickyProjectName() || '');
 
-            // Готово / Вернуть
-            var btnDone = isClosed
-                ? '<button data-act="reopen" title="Вернуть в очередь"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Вернуть</button>'
-                : '<button data-act="done" class="primary" title="Перевести в Готово"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Готово</button>';
+            // R7 #8: «Готово» — если задача УЖЕ completed, зелёная неактивная кнопка с галкой.
+            //         Если cancelled — не показываем «Готово» (через Изменить можно восстановить).
+            //         Иначе — обычная кликабельная «Готово».
+            var btnDone;
+            if (isCompleted) {
+                btnDone = '<button data-act="done-current" class="state-active state-done" title="Задача в статусе Готово">' +
+                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+                    ' Готово</button>';
+            } else if (isCancelled) {
+                btnDone = '';
+            } else {
+                btnDone = '<button data-act="done" class="primary" title="Перевести в Готово"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Готово</button>';
+            }
 
-            // R5: В работу / В работе (active green)
-            // Если задача УЖЕ in_progress → показываем «В работе» с pause-иконкой (две вертикальные палочки), активный зелёный стиль, disabled (некуда переводить — уже в работе).
-            // Если задача не закрыта и не в работе → кнопка «В работу» (play-иконка), кликабельная.
+            // R7 #5,#7: «В работе» — зелёная активная (cursor:default) когда уже started.
+            //           Если не started и не closed → «В работу» (play), кликабельная.
             var btnWork = '';
             if (isStarted) {
-                btnWork = '<button data-act="in_progress" class="active" title="Задача в работе" disabled>' +
+                btnWork = '<button data-act="work-current" class="state-active state-work" title="Задача в работе">' +
                     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>' +
                     ' В работе</button>';
-            } else if (!isClosed) {
+            } else if (!isCompleted && !isCancelled) {
                 btnWork = '<button data-act="in_progress" title="Перевести в работу">' +
                     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>' +
                     ' В работу</button>';

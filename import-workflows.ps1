@@ -392,6 +392,26 @@ foreach ($file in $jsonFiles) {
 }
 
 Write-Host ""
+
+# R7 #1: post-import patch для plane-agent — подключаем Switch fallback output.
+# n8n Public API при импорте обрезает connections.main до rules.length,
+# поэтому fallback connection теряется. node-скрипт добавляет её через прямой PUT.
+$planePatchScript = Join-Path $folder "post-import-fallback.js"
+if (Test-Path $planePatchScript) {
+    Write-Host ""
+    Write-Host "==> Post-import patch: Switch fallback для plane-agent..." -ForegroundColor Cyan
+    try {
+        $nodeExe = Get-Command node -ErrorAction SilentlyContinue
+        if ($nodeExe) {
+            & node $planePatchScript
+        } else {
+            Write-Host "  node не найден — пропуск (запусти Workflow\post-import-fallback.js вручную)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WARN: patch упал: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
 Write-Host "=============================================================" -ForegroundColor Green
 Write-Host " ИТОГ:" -ForegroundColor Green
 Write-Host "   создано:           $created" -ForegroundColor Green

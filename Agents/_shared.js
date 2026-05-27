@@ -3655,6 +3655,10 @@
   function createChatAgent(opts) {
     opts = opts || {};
     injectAgentCss();
+    // R7 BUG #11/#12 fix: захватываем markdownAccent в outer scope.
+    // Иначе внутри sendMsg(opts) параметр перекрывает outer opts → opts.markdownAccent
+    // падает с «Cannot read properties of undefined» при отправке без args.
+    var __agentMarkdownAccent = opts.markdownAccent || null;
     var chat = opts.chatEl || document.getElementById('chat');
     var input = opts.inputEl || document.getElementById('msg');
     var sendBtn = opts.sendBtn || document.getElementById('send');
@@ -4084,7 +4088,7 @@
             input: input,
             // Прокидываем агентский accent чтобы streaming заголовки
             // были того же цвета что и финальный рендер.
-            accentColor: opts.markdownAccent || null
+            accentColor: __agentMarkdownAccent
           });
         } else {
           sessionStore.pushToSession(sendSessionId, botMsg);
