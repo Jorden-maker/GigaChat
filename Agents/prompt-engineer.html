@@ -166,6 +166,10 @@
             inflightLabel: 'Генерирую промпт',
             exportAgentName: 'GigaChat Prompt',
             autosizeMax: 200, // длинные ТЗ на промпт — поле выше стандартного
+            // BUG-FIX: во время псевдо-стриминга formatMarkdown без accentColor
+            // подставлял фиолетовый #7c3aed, а финал — золотистый. markdownAccent
+            // фиксит расхождение: всю печать заголовки сразу золотистые.
+            markdownAccent: '#d4a574',
             formatBotHtml: formatBotMessage,
             parseBotMessage: function (data) {
                 return {

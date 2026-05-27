@@ -3183,6 +3183,10 @@
     var containerSelector = options.containerSelector || '.msg.bot';
     var sendBtn = options.sendBtn || null;
     var inputEl = options.input || null;
+    // Цвет акцента для заголовков во время псевдо-стриминга. Без него
+    // formatMarkdown подставляет дефолтный фиолетовый (#7c3aed), что не
+    // совпадает с золотистым стилем prompt-engineer и других агентов.
+    var accentColor = options.accentColor || null;
     var tickFps = 30;
     var tickIntervalMs = 1000 / tickFps;
     var charsPerTick = Math.max(1, Math.round(cps / tickFps));
@@ -3343,7 +3347,7 @@
       var prefix = plainText.substring(0, i);
       // Прячем партиальные таблицы/код-блоки — иначе юзер видит сырой MD
       var safePrefix = trimUnsafeMarkdown(prefix);
-      lastBot.innerHTML = formatMarkdown(safePrefix);
+      lastBot.innerHTML = formatMarkdown(safePrefix, accentColor);
       // attachCopyButtons был тут на каждый тик (30 fps) — на длинных ответах
       // (10K+ символов) это лишние allocations querySelector + DOM-mutations.
       // Код-блоки во время typing всё равно incomplete (trimUnsafeMarkdown их
@@ -4077,7 +4081,10 @@
           typewriteAssistant(sessionStore, sendSessionId, botMsg, {
             cps: 200,
             sendBtn: sendBtn,
-            input: input
+            input: input,
+            // Прокидываем агентский accent чтобы streaming заголовки
+            // были того же цвета что и финальный рендер.
+            accentColor: opts.markdownAccent || null
           });
         } else {
           sessionStore.pushToSession(sendSessionId, botMsg);
