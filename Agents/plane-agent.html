@@ -1252,37 +1252,22 @@
             margin-bottom: 6px; font-size: 13px; color: var(--text-primary);
             border: 1px solid var(--border); line-height: 1.4;
         }
-        /* R7.16: каждый комментарий «раскрывается» сверху вниз через max-height.
-           Это плавно сдвигает всё что ниже (textarea, кнопки) — без рывка. */
+        /* R7.20: комментарии сразу занимают своё место в layout (поле ввода
+           внизу не прыгает), а потом fade-in через opacity + лёгкое
+           вертикальное смещение. Без max-height-коллапса — он создавал
+           upward-jump поля ввода в начале анимации. */
         @keyframes commentFadeDown {
             from {
                 opacity: 0;
-                max-height: 0;
-                padding-top: 0;
-                padding-bottom: 0;
-                margin-top: 0;
-                margin-bottom: 0;
-                border-top-width: 0;
-                border-bottom-width: 0;
-                transform: translateY(-4px);
+                transform: translateY(-6px);
             }
             to {
                 opacity: 1;
-                max-height: 300px;
-                padding-top: 10px;
-                padding-bottom: 10px;
-                margin-bottom: 6px;
-                border-top-width: 1px;
-                border-bottom-width: 1px;
                 transform: translateY(0);
             }
         }
         .card-modal-comment.cm-anim {
-            overflow: hidden;
-            animation: commentFadeDown 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-        #cm-comments-list {
-            transition: max-height 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            animation: commentFadeDown 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
         .card-modal-comment .cm-meta {
             color: var(--text-muted); font-size: 11px; margin-bottom: 4px;
