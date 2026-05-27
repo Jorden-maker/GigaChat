@@ -21,8 +21,13 @@
         html.gc-pending-auth, html.gc-pending-auth body { background: inherit !important }
         html.gc-pending-auth .sidebar,
         html.gc-pending-auth .main { display: none !important; }
+        /* R7.25: при перезагрузке если board был открыт — сразу показываем
+           board panel и прячем чат, чтобы не было flash чата перед
+           переключением на дашборд. JS позже плавно догрузит данные. */
+        html.plane-preboard #chat { visibility: hidden !important; opacity: 0 !important; }
+        html.plane-preboard #board-panel { opacity: 1 !important; visibility: visible !important; }
     </style>
-    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');document.documentElement.classList.add('gc-pending-auth');}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
+    <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');document.documentElement.classList.add('gc-pending-auth');if(localStorage.getItem('plane_board_open')==='1'){document.documentElement.classList.add('plane-preboard');}}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
     <style>
         :root {
             --bg-primary: #1f1f1e;
@@ -2319,6 +2324,9 @@
             if (!panel || !btn) return;
             var show = typeof forceShow === 'boolean' ? forceShow : !panel.classList.contains('show');
             panel.classList.toggle('show', show);
+            // R7.25: снимаем pre-board guard как только JS открыл доску по-настоящему
+            // (или юзер переключился обратно на чат)
+            document.documentElement.classList.remove('plane-preboard');
             btn.textContent = show ? 'Чат' : 'Дашборд';
             // Анимация: вешаем класс ТОЛЬКО на время transition (350ms),
             // потом снимаем — чтобы ручной drag-resize сайдбара был мгновенным.
