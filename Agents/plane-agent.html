@@ -3025,6 +3025,13 @@
             try {
                 if (localStorage.getItem('plane_board_open') === '1' && planeSettingsComplete()) {
                     var savedProj = localStorage.getItem('plane_board_project');
+                    // R7.26: показываем сохранённое имя проекта мгновенно (пока
+                    // данные грузятся в фоне). Иначе юзер видит «—» и думает
+                    // что всё пропало, пока Plane отвечает на retry.
+                    if (savedProj) {
+                        var lbl = document.getElementById('board-project-label');
+                        if (lbl) lbl.textContent = savedProj;
+                    }
                     setTimeout(function () {
                         toggleBoard(true);
                         // selectBoardProject вызовется внутри loadBoard через cache,
