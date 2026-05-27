@@ -1750,7 +1750,7 @@
                 <div class="gc-attach-chips" id="attachChips"></div>
                 <div id="input-area" class="gc-input-row">
                     <div class="gc-input-wrap">
-                        <textarea id="msg" rows="1" placeholder="" disabled></textarea>
+                        <textarea id="msg" rows="1" placeholder="Введите запрос в Plane" disabled></textarea>
                         <button id="send" class="gc-send-icon" onclick="sendMsg()" disabled aria-label="Отправить">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
                         </button>
@@ -2101,9 +2101,8 @@
             BOARD_PROJECTS_CACHE = null;
             BOARD_CURRENT_PROJECT = null;
             // Обновляем placeholder поля ввода + включаем send если был disabled
-            // R7.56: placeholder пустой по запросу юзера.
             var msgInput = document.getElementById('msg');
-            if (msgInput) msgInput.placeholder = '';
+            if (msgInput) msgInput.placeholder = 'Введите запрос в Plane';
         }
         // ESC закрывает modal'ы (settings + direct-test)
         document.addEventListener('keydown', function (e) {
