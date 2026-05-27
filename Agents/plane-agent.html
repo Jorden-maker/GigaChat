@@ -5740,14 +5740,13 @@
             if (!chat) return;
             var empty = chat.querySelector('.empty-chat');
             if (empty) empty.remove();
-            // R7.1 fix: правильные классы — .msg.user (а не .message.user),
-            // как делает _shared.js renderChat. Иначе CSS не применяется —
-            // нет бабла, неправильные отступы, накладывается на копи-иконку.
             var d = document.createElement('div');
             d.className = 'msg user';
             d.setAttribute('data-ts', String(Date.now()));
             d.textContent = text;
             chat.appendChild(d);
+            // R7.9: копи-иконка + таймер сразу (без F5)
+            if (GigaChat && GigaChat.attachCopyButtons) GigaChat.attachCopyButtons(d);
             chat.scrollTop = chat.scrollHeight;
             // Persist в displayMessages для reload-resilience.
             // R6 audit #1 fix: agent → window.__planeAgent (правильное имя глобала).
@@ -5941,6 +5940,8 @@
             div.setAttribute('data-ts', String(Date.now()));
             div.innerHTML = html;
             chat.appendChild(div);
+            // R7.9: копи-иконка + таймер сразу (без F5)
+            if (GigaChat && GigaChat.attachCopyButtons) GigaChat.attachCopyButtons(div);
             // R5: stagger-анимация для интерактивных блоков внутри сообщения
             applyStaggerAnimation(div);
             chat.scrollTop = chat.scrollHeight;
