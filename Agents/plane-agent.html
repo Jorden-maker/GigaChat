@@ -6133,7 +6133,12 @@
         }
         async function executeSlashDirect(c) {
             // R4 BUG-3 ФИКС: реально делаем direct-вызов, не отдаём LLM.
-            addUserMessageToChat(c.cmd);
+            // R7.49: в чате показываем читаемый текст («Задачи с сегодняшним
+            // сроком выполнения:») вместо технического /today. На backend
+            // (chat_memory) тоже сохраняем это — чтобы после F5 история
+            // показывала ровно то же, что и сразу после клика по команде.
+            var displayText = (c.desc || c.cmd) + ':';
+            addUserMessageToChat(displayText);
             // R5 BUG-2: loader = transient (не пишем в displayMessages, иначе
             // спиннер замораживается после reload).
             var loadId = 'sl-load-' + Date.now();
@@ -6144,14 +6149,14 @@
             );
             try {
                 // R7.4: передаём активный session_id и текст команды как message
-                // — workflow «INSERT user (direct)» сохранит «/today» в chat_memory,
-                // а INSERT assistant (после Формат ответа) сохранит ответ.
-                // После F5 история восстановит и slash-сообщение и ответ.
+                // — workflow «INSERT user (direct)» сохранит displayText в
+                // chat_memory, а INSERT assistant (после Формат ответа) сохранит
+                // ответ. После F5 история восстановит и user-сообщение и ответ.
                 var sidPersist = null;
                 try { sidPersist = window.__planeAgent && window.__planeAgent.sessionStore && window.__planeAgent.sessionStore.state && window.__planeAgent.sessionStore.state.activeSessionId; } catch(_) {}
                 var res = await planeDirect(c.action, c.params || {}, {
                     sessionId: sidPersist || undefined,
-                    message: c.cmd
+                    message: displayText
                 });
                 removeLoaderById(loadId);
                 if (!res || (res.error && !res.data && !res.response)) {
