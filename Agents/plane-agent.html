@@ -5862,6 +5862,17 @@
         function hideSlashMenu() {
             var menu = document.getElementById('slash-menu');
             if (menu) menu.style.display = 'none';
+            // R7.29: При обычном закрытии меню (blur, click outside, Esc)
+            // стираем висящий «/» из поля ввода — иначе повторный клик
+            // по кнопке «Команды» видит input.value === '/' (не пусто)
+            // и не диспатчит input-event, и меню не открывается.
+            // Очищаем только «голый» slash без текста после — если юзер
+            // успел дописать «/today» и потом закрыл меню (не выбрав),
+            // оставляем как есть, чтоб ввод не пропадал.
+            var input = document.getElementById('msg');
+            if (input && input.value === '/') {
+                input.value = '';
+            }
         }
         function selectSlashCommand(cmd) {
             var c = SLASH_COMMANDS.find(function (x) { return x.cmd === cmd; });
