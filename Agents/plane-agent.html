@@ -6361,6 +6361,21 @@
             if (container.dataset && container.dataset.staggered) return;
             if (container.dataset) container.dataset.staggered = '1';
             var targets = container.querySelectorAll('.plane-card, .chat-group-item, .chat-epic-card, .quick-reply-btn, .disambig-item, .multi-step-row');
+            // R7.38: для slash-команд карточки приходят из typewriter swap'а —
+            // у них уже есть class chat-stagger-in и старый animation-delay из
+            // первоначального рендера (до псевдо-стриминга). Если мы просто
+            // обновим animation-delay, браузер не рестартит CSS-анимацию —
+            // animation timeline считается «уже прошедшим» и карточки появляются
+            // мгновенно все вместе. Решение: сначала remove класс + delay,
+            // принудительный reflow (offsetWidth), затем добавление с новыми
+            // значениями — это перезапускает анимацию для всех карточек.
+            targets.forEach(function (el) {
+                el.classList.remove('chat-stagger-in');
+                el.style.animationDelay = '';
+            });
+            // void offsetWidth — sync reflow; без него браузер батчит
+            // remove+add класса в один тик и анимация НЕ рестартится.
+            if (targets.length) void container.offsetWidth;
             targets.forEach(function (el, i) {
                 // R7 #16: 90мс задержка между элементами — заметнее «волна»
                 el.style.animationDelay = (i * 90) + 'ms';
