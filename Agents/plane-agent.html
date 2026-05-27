@@ -4909,14 +4909,16 @@
                 var isToday = key === todayKey;
                 var thisDate = new Date(y, m, d);
                 html += '<div class="cal-day' + (isToday ? ' today' : '') + '" data-day-key="' + key + '"><div class="cal-day-num">' + d + '</div>';
-                tasks.slice(0, 4).forEach(function (t) {
+                // R7.61: убран лимит 4 задачи + «+N» badge — клетка растёт по
+                // содержимому, вся строка grid auto-подстраивается под высоту
+                // самой полной клетки. Юзер хочет видеть все задачи без обрезки.
+                tasks.forEach(function (t) {
                     var overdue = thisDate < today;
                     var group = (t.state_detail && t.state_detail.group) || '';
                     var closed = group === 'completed' || group === 'cancelled';
                     var cls = (overdue && !closed) ? 'cal-task overdue' : 'cal-task';
                     html += '<div class="' + cls + '" draggable="true" data-issue-id="' + escapeAttr(t.id||'') + '" data-issue-name="' + escapeAttr(t.name||'') + '" title="' + escapeAttr(t.name||'') + ' (перетащи на другой день — поменяется срок)">' + escapeHtml(t.name||'').slice(0,30) + '</div>';
                 });
-                if (tasks.length > 4) html += '<div style="font-size:10px;color:var(--text-muted)">+' + (tasks.length - 4) + '</div>';
                 html += '</div>';
             }
             // Хвост следующего месяца — R6 #1: тоже с data-day-key
