@@ -1243,17 +1243,37 @@
             margin-bottom: 6px; font-size: 13px; color: var(--text-primary);
             border: 1px solid var(--border); line-height: 1.4;
         }
-        /* R7.15: плавное появление комментариев сверху вниз. */
+        /* R7.16: каждый комментарий «раскрывается» сверху вниз через max-height.
+           Это плавно сдвигает всё что ниже (textarea, кнопки) — без рывка. */
         @keyframes commentFadeDown {
-            from { opacity: 0; transform: translateY(-8px); }
-            to   { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                max-height: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+                margin-top: 0;
+                margin-bottom: 0;
+                border-top-width: 0;
+                border-bottom-width: 0;
+                transform: translateY(-4px);
+            }
+            to {
+                opacity: 1;
+                max-height: 300px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+                margin-bottom: 6px;
+                border-top-width: 1px;
+                border-bottom-width: 1px;
+                transform: translateY(0);
+            }
         }
         .card-modal-comment.cm-anim {
-            animation: commentFadeDown 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+            overflow: hidden;
+            animation: commentFadeDown 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
-        /* Контейнер списка — плавный transition по высоте (max-height) для роста модалки */
         #cm-comments-list {
-            transition: max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+            transition: max-height 0.5s cubic-bezier(0.22, 1, 0.36, 1);
         }
         .card-modal-comment .cm-meta {
             color: var(--text-muted); font-size: 11px; margin-bottom: 4px;
@@ -3462,10 +3482,10 @@
                     '<div class="cm-text">' + escapeHtml(text) + '</div>' +
                 '</div>';
             }).join('');
-            // R7.15: ставим animation-delay per-item для stagger-эффекта
-            // (сверху вниз — 80мс между комментариями).
+            // R7.16: stagger 120мс между комментариями + max-height анимация
+            // дают плавное «расталкивание» элементов ниже без рывков.
             listEl.querySelectorAll('.card-modal-comment.cm-anim').forEach(function (el, i) {
-                el.style.animationDelay = (i * 80) + 'ms';
+                el.style.animationDelay = (i * 120) + 'ms';
             });
         }
 
