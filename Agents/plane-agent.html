@@ -1176,9 +1176,11 @@
             font-family: inherit;
         }
         .card-modal-close:hover { color: var(--error); }
-        /* padding-bottom — запас под dropdown «Статус» (5 пунктов ≈ 150px).
-           Меню расширяется внутри body, body скроллится, в footer не упирается. */
-        .card-modal-body { padding: 18px 24px 170px; }
+        /* R7.10: padding-bottom уменьшен с 170 до 18 — раньше держали запас под
+           dropdown «Статус» который раскрывался внутри body. Теперь dropdown'ы
+           position:fixed со smart-flip, отдельный запас не нужен. Юзер жаловался
+           на пустое пространство между комментариями и footer'ом. */
+        .card-modal-body { padding: 18px 24px; }
         /* В режиме «Новая задача» секция комментариев скрыта → не нужен
            большой запас под её скролл. */
         .card-modal-body.is-new { padding-bottom: 4px; }
