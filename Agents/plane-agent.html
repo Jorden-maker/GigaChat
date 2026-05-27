@@ -798,11 +798,12 @@
             border-width: 0 !important; opacity: 0;
             overflow: hidden; pointer-events: none;
         }
+        /* R7.13: никаких автоматических изменений высоты при клике.
+           Юзер растягивает вручную через resize-маячок в углу. */
         #cm-desc {
-            transition: max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-                        min-height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-                        padding 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-                        opacity 0.18s ease;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.15s ease;
         }
         .cm-desc-view .md-empty { color: var(--text-muted); font-style: italic; }
         .cm-desc-view p { margin: 0 0 8px; }
@@ -5419,38 +5420,18 @@
             return t.value.trim();
         }
         // Markdown-view над textarea: showing rendered text, click → редактирование.
-        // R7.12: view/edit с плавным max-height + opacity transition.
-        var DESC_EMPTY_HTML = '<span class="md-empty">Описания нет.</span>';
+        // R7.13: убран view/edit toggle полностью. Поле описания — обычная
+        // textarea с placeholder «Описания нет.». Никаких изменений высоты
+        // при клике. Юзер может растянуть вручную через resize-маячок
+        // в правом нижнем углу (CSS resize:vertical).
         function attachMarkdownDescriptionView() {
             var ta = document.getElementById('cm-desc');
             if (!ta) return;
             var rawHtml = (MODAL_CURRENT_ISSUE && (MODAL_CURRENT_ISSUE.description_html || MODAL_CURRENT_ISSUE.description)) || '';
-            var md = htmlToMd(rawHtml);
-            ta.value = md;
-            // Initial state: textarea collapsed, view visible
-            ta.classList.add('is-collapsed');
-            var parent = ta.parentNode;
-            if (!parent || parent.querySelector('.cm-desc-view')) return;
-            var view = document.createElement('div');
-            view.className = 'cm-desc-view';
-            view.innerHTML = md ? mdToHtml(md) : DESC_EMPTY_HTML;
-            parent.insertBefore(view, ta);
-            view.addEventListener('click', function () {
-                // Плавное переключение: view → collapsed, ta → expanded
-                view.classList.add('is-collapsed');
-                ta.classList.remove('is-collapsed');
-                // Чуть позже фокусируем — чтобы transition не «перешагнул» через 0
-                setTimeout(function () { ta.focus(); }, 50);
-            });
-            ta.addEventListener('blur', function () {
-                setTimeout(function () {
-                    if (document.activeElement === ta) return;
-                    var raw = ta.value;
-                    view.innerHTML = raw ? mdToHtml(raw) : DESC_EMPTY_HTML;
-                    ta.classList.add('is-collapsed');
-                    view.classList.remove('is-collapsed');
-                }, 100);
-            });
+            ta.value = htmlToMd(rawHtml);
+            ta.placeholder = 'Описания нет.';
+            // На всякий случай чистим класс is-collapsed (если был задан раньше)
+            ta.classList.remove('is-collapsed');
         }
 
         // === EXPORT ===
