@@ -26,6 +26,12 @@
            переключением на дашборд. JS позже плавно догрузит данные. */
         html.plane-preboard #chat { visibility: hidden !important; opacity: 0 !important; }
         html.plane-preboard #board-panel { opacity: 1 !important; visibility: visible !important; }
+        /* R7.27: сайдбар тоже скрываем мгновенно (без 1с slide-out) */
+        html.plane-preboard .sidebar {
+            width: 0 !important; min-width: 0 !important;
+            opacity: 0 !important; border-right-width: 0 !important;
+            transition: none !important;
+        }
     </style>
     <script>(function(){try{var t=localStorage.getItem('giga_theme')||'light';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.setProperty('background',t==='dark'?'#1f1f1e':'#fdfdfc','important');document.documentElement.classList.add('gc-pending-auth');if(localStorage.getItem('plane_board_open')==='1'){document.documentElement.classList.add('plane-preboard');}}catch(e){document.documentElement.setAttribute('data-theme','light')}})();</script>
     <style>
