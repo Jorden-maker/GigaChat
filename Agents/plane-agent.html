@@ -5709,7 +5709,8 @@
         function removeLoaderById(loadId) {
             var loader = document.getElementById(loadId);
             if (!loader) return;
-            var msgEl = loader.closest('.message');
+            // R7.1: .msg а не .message
+            var msgEl = loader.closest('.msg') || loader.closest('.message');
             if (msgEl) msgEl.remove();
         }
         // Helper: добавить юзер-сообщение в чат (для slash-команд и multi-step)
@@ -5718,9 +5719,13 @@
             if (!chat) return;
             var empty = chat.querySelector('.empty-chat');
             if (empty) empty.remove();
+            // R7.1 fix: правильные классы — .msg.user (а не .message.user),
+            // как делает _shared.js renderChat. Иначе CSS не применяется —
+            // нет бабла, неправильные отступы, накладывается на копи-иконку.
             var d = document.createElement('div');
-            d.className = 'message user';
-            d.innerHTML = '<div class="message-content">' + escapeHtml(text) + '</div>';
+            d.className = 'msg user';
+            d.setAttribute('data-ts', String(Date.now()));
+            d.textContent = text;
             chat.appendChild(d);
             chat.scrollTop = chat.scrollHeight;
             // Persist в displayMessages для reload-resilience.
@@ -5909,9 +5914,11 @@
             if (!chat) return;
             var empty = chat.querySelector('.empty-chat');
             if (empty) empty.remove();
+            // R7.1 fix: класс .msg.bot (не .message.bot) — соответствует _shared.js
             var div = document.createElement('div');
-            div.className = 'message bot chat-fade-in';  // R5: добавляем CSS-анимацию появления
-            div.innerHTML = '<div class="message-content">' + html + '</div>';
+            div.className = 'msg bot chat-fade-in';
+            div.setAttribute('data-ts', String(Date.now()));
+            div.innerHTML = html;
             chat.appendChild(div);
             // R5: stagger-анимация для интерактивных блоков внутри сообщения
             applyStaggerAnimation(div);
@@ -5952,7 +5959,8 @@
                     muts.forEach(function (m) {
                         m.addedNodes && m.addedNodes.forEach(function (n) {
                             if (n.nodeType !== 1) return;
-                            if (n.classList && n.classList.contains('message') && n.classList.contains('bot')) {
+                            // R7.1 fix: правильный класс — .msg.bot (соответствует _shared.js)
+                            if (n.classList && n.classList.contains('msg') && n.classList.contains('bot')) {
                                 if (!n.classList.contains('chat-fade-in')) n.classList.add('chat-fade-in');
                                 applyStaggerAnimation(n);
                             }
