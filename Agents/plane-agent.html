@@ -661,7 +661,9 @@
         .cal-task { background: var(--accent-light); color: var(--text-primary); padding: 2px 6px;
             border-radius: 3px; font-size: 10.5px; cursor: pointer; overflow: hidden;
             text-overflow: ellipsis; white-space: nowrap; border-left: 2px solid var(--accent); }
-        .cal-task.overdue { border-left-color: #ef4444; }
+        /* R7.64: текст просроченных задач — красный (не только border-left).
+           Цвет hover-state перебивается в .cal-task:hover ниже. */
+        .cal-task.overdue { border-left-color: #ef4444; color: #ef4444; }
         .cal-task:hover { background: var(--accent); color: #fff; }
         /* Таймлайн (Gantt) */
         .timeline-wrap { display: flex; flex-direction: column; gap: 4px; }
