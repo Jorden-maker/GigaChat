@@ -6020,8 +6020,8 @@
         // direct-вызовом planeDirect. Direct = быстрее и точнее.
         var SLASH_COMMANDS = [
             { cmd: '/today',    desc: 'Задачи с сегодняшним сроком выполнения',                        type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'today' },
-              emptyMsg: 'Задач с сегодняшним сроком выполнения нет.',
-              foundMsg: 'Список задач с сегодняшним сроком выполнения:' },
+              emptyMsg: 'Задачи с сегодняшним сроком выполнения отсутствуют.',
+              foundMsg: 'Задачи с сегодняшним сроком выполнения:' },
             { cmd: '/me',       desc: 'Все мои задачи по всем проектам',                                 type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'mine' },
               emptyMsg: 'У тебя нет назначенных задач.',
               foundCountSuffix: true /* «Найдено задач по всем проектам: N» */ },
