@@ -6019,7 +6019,7 @@
         // Каждая команда либо отправляется как text (LLM-параsed) либо запускается прямым
         // direct-вызовом planeDirect. Direct = быстрее и точнее.
         var SLASH_COMMANDS = [
-            { cmd: '/today',    desc: 'Показать задачи с сегодняшним сроком выполнения',                type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'today' },
+            { cmd: '/today',    desc: 'Задачи с сегодняшним сроком выполнения',                        type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'today' },
               emptyMsg: 'Задач с сегодняшним сроком выполнения нет.',
               foundMsg: 'Список задач с сегодняшним сроком выполнения:' },
             { cmd: '/me',       desc: 'Все мои задачи по всем проектам',                                 type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'mine' },
@@ -6062,10 +6062,11 @@
             if (!items.length) { hideSlashMenu(); return; }
             SLASH_MENU_INDEX = 0;
             menu.innerHTML = items.map(function (c, i) {
+                // R7.48: убран бейдж «Tab» — лишний шум в UI. Tab/Enter всё
+                // равно работают для выбора активного пункта (см. keydown handler).
                 return '<div class="slash-menu-item ' + (i === 0 ? 'active' : '') + '" data-cmd="' + escapeAttr(c.cmd) + '" data-idx="' + i + '">' +
                     '<span class="slash-menu-cmd">' + escapeHtml(c.cmd) + '</span>' +
                     '<span class="slash-menu-desc">' + escapeHtml(c.desc) + '</span>' +
-                    (i === 0 ? '<span class="slash-menu-kbd">Tab</span>' : '') +
                 '</div>';
             }).join('');
             menu.style.display = '';
