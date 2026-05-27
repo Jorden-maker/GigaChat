@@ -3495,7 +3495,7 @@
                     '</div>' : '') +
                 '<div class="card-modal-comments">' +
                     '<h4>Комментарии</h4>' +
-                    '<div id="cm-comments-list"><div style="color:var(--text-muted);font-size:12px;text-align:center;padding:8px">Загружаю...</div></div>' +
+                    '<div id="cm-comments-list"><div class="cm-empty">Загрузка...</div></div>' +
                     '<div class="card-modal-add-comment">' +
                         '<input type="text" id="cm-new-comment" placeholder="Текст комментария..." onkeydown="if(event.key===\'Enter\')modalAddComment()">' +
                         '<button onclick="modalAddComment()">Отправить</button>' +
@@ -3557,12 +3557,31 @@
         // Загрузка списка комментариев задачи — через workflow (direct mode).
         // НЕ через прямой fetch, т.к. Plane URL (host.docker.internal:8000)
         // резолвится только в n8n-контейнере, не из браузера.
-        async function loadCardComments(issue) {
+        //
+        // R7.35: юзер не должен видеть «технических» ошибок — только
+        // «Загрузка...» (любые проблемы, включая отсутствие проекта/задачи,
+        // 429, network, server error) или «Комментариев пока нет.» (реально
+        // пусто). Чтобы не зависнуть на transient ошибках, делаем до 3 авто-
+        // ретраев с интервалом 2с — большинство 429/timeout восстанавливаются
+        // за это время. После последнего фейла остаётся «Загрузка...».
+        async function loadCardComments(issue, attempt) {
+            attempt = attempt || 0;
             var listEl = document.getElementById('cm-comments-list');
             if (!listEl) return;
+            function showLoading() {
+                listEl.innerHTML = '<div class="cm-empty">Загрузка...</div>';
+            }
+            function retryOrStay() {
+                showLoading();
+                if (attempt < 3) {
+                    setTimeout(function () { loadCardComments(issue, attempt + 1); }, 2000);
+                }
+            }
             var projectName = getModalProject();
             if (!issue || !projectName) {
-                listEl.innerHTML = '<div class="cm-empty">Не удалось определить задачу</div>';
+                // issue/project ещё не определён — это transient (модалка
+                // могла открыться до того как сесть store успел подгрузить).
+                retryOrStay();
                 return;
             }
             try {
@@ -3571,14 +3590,13 @@
                     issue_name: issue.name
                 });
                 if (!res || res.action === 'error' || res.error) {
-                    listEl.innerHTML = '<div class="cm-empty">' +
-                        escapeHtml((res && res.response) || 'Не удалось загрузить') + '</div>';
+                    retryOrStay();
                     return;
                 }
                 var comments = (res.data && (res.data.comments || res.data.results)) || [];
                 renderCardComments(comments);
             } catch (e) {
-                listEl.innerHTML = '<div class="cm-empty">Ошибка: ' + escapeHtml(e.message || 'unknown') + '</div>';
+                retryOrStay();
             }
         }
         function renderCardComments(comments) {
@@ -3594,7 +3612,7 @@
             var countEl = hdr && hdr.querySelector('.cm-count');
             if (countEl) countEl.textContent = comments.length;
             if (!comments.length) {
-                listEl.innerHTML = '<div class="cm-empty">Комментариев пока нет</div>';
+                listEl.innerHTML = '<div class="cm-empty">Комментариев пока нет.</div>';
                 return;
             }
             // R7.21: подгружаем CURRENT_USER_ID если ещё не загружен (когда
