@@ -2455,7 +2455,7 @@
                 '</div>';
             }).join('') + '</div>';
         }
-        function formatActivitiesList(events) {
+        function formatActivitiesList(events, animate) {
             // R7.58: новый формат карточки активности:
             //   (иконка) (имя пользователя) (что сделал на русском)
             //           Задача: (название без #N)
@@ -2463,7 +2463,9 @@
             // Если e.field известен — формируем русское действие. Plane-auto
             // комментарии вида «updated the priority to ...» распознаются и
             // тоже переводятся (это не реальный комментарий, а аудит-запись).
-            return '<div class="chat-group-list">' + events.slice(0, 12).map(function (e) {
+            // R7.71: animate=true — inline stagger атрибуты на каждой строке,
+            // как у карточек задач. Для F5/повторов animate=false (без анимации).
+            return '<div class="chat-group-list">' + events.slice(0, 12).map(function (e, idx) {
                 var when = '';
                 if (e.created_at) {
                     // R7.60: формат «ДД.ММ.ГГГГ, ЧЧ:ММ» — единый с dashboard.
@@ -2481,7 +2483,9 @@
                 var action = _humanizeActivity(e);
                 var issueName = e.issue_name ? escapeHtml(e.issue_name) : '';
                 var project = e.project ? escapeHtml(e.project) : '';
-                return '<div class="chat-group-item chat-activity-item">' +
+                // R7.71: inline stagger атрибуты на каждом event'е — волна как у карточек.
+                var st = _staggerAttrs(animate, idx);
+                return '<div class="chat-group-item chat-activity-item' + st.cls + '"' + st.style + '>' +
                     '<span class="cgi-icon">' + icon + '</span>' +
                     '<div class="cgi-content">' +
                         '<div class="cgi-line1"><span class="cgi-actor">' + escapeHtml(_humanizeActor(e.actor)) + '</span> ' + escapeHtml(action) + '</div>' +
@@ -2623,7 +2627,7 @@
             if (ex.cycles && ex.cycles.length)              blocks += formatCyclesList(ex.cycles);
             if (ex.modules && ex.modules.length)            blocks += formatModulesList(ex.modules);
             if (ex.notifications && ex.notifications.length) blocks += formatNotificationsList(ex.notifications);
-            if (ex.activities && ex.activities.length)      blocks += formatActivitiesList(ex.activities);
+            if (ex.activities && ex.activities.length)      blocks += formatActivitiesList(ex.activities, animate);
             if (ex.epic)                                    blocks += formatEpicCard(ex.epic, ex.children);
             if (ex.members && ex.members.length)            blocks += formatMembersList(ex.members);
 
@@ -6288,7 +6292,9 @@
               emptyMsg: 'У вас нет задач с максимальным приоритетом.',
               foundMsg: 'Найдено задач с максимальным приоритетом: {N}',
               excludeCancelled: true },
-            { cmd: '/recent',   desc: 'Лента активности — что недавно менялось',                          type: 'direct', action: 'list_activity',          params: { scope: 'all' } },
+            { cmd: '/recent',   desc: 'Показать ленту активности',                                       type: 'direct', action: 'list_activity',          params: { scope: 'all' },
+              emptyMsg: 'Лента активности пустая.',
+              foundMsg: 'Показываю последние события:' },
             { cmd: '/blocked',  desc: 'Задачи «В работе» без движения 3+ дней',                            type: 'text',   text: 'Покажи задачи в статусе «В работе», которые давно (больше 3 дней) не обновлялись — это потенциальные блокеры.' },
             { cmd: '/digest',   desc: 'Дайджест: создано/закрыто/просрочено по всем проектам',            type: 'text',   text: 'Сделай мини-дайджест по всем проектам: сколько задач создано сегодня, сколько закрыто, сколько просрочено. Цифрами.' },
             { cmd: '/projects', desc: 'Список всех проектов',                                              type: 'direct', action: 'list_projects',          params: {},
