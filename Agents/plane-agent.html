@@ -724,18 +724,24 @@
         .activity-list { display: flex; flex-direction: column; gap: 8px; }
         .activity-item { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px;
             padding: 10px 12px; font-size: 13px; }
-        .activity-item-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex;
-            gap: 8px; flex-wrap: wrap; }
-        .activity-item-actor { color: var(--accent); font-weight: 500; }
-        .activity-item-field { color: var(--text-secondary); }
-        .activity-item-issue { color: var(--text-muted); font-style: italic; margin-top: 2px; font-size: 12px; }
+        .activity-item-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: flex;
+            gap: 6px; align-items: center; flex-wrap: wrap; }
+        .activity-item-actor { color: var(--accent); font-weight: 600; }
+        .activity-item-field { color: var(--text-primary); }
+        /* R7.58: «Задача: …» без italic, normal weight. */
+        .activity-item-issue { color: var(--text-secondary); margin-top: 3px; font-size: 12px; }
         .activity-item .ai-row { display: flex; gap: 10px; align-items: flex-start; }
-        .activity-item .ai-icon { flex-shrink: 0; font-size: 16px; line-height: 1.2; width: 24px;
-            text-align: center; padding-top: 2px; }
+        /* R7.57: ai-icon под SVG (не emoji) — inline-flex с currentColor. */
+        .activity-item .ai-icon {
+            flex-shrink: 0; width: 22px; height: 22px;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--accent); margin-top: 1px;
+        }
         .activity-item .ai-body { flex: 1; min-width: 0; }
         .activity-item .ai-line { line-height: 1.4; }
-        .activity-item .ai-diff { color: var(--text-primary); }
-        .activity-item .ai-diff::before { content: '«'; color: var(--text-muted); }
+        /* «Задача:» / «Проект:» — приглушённый label. */
+        .activity-item .ai-label { color: var(--text-muted); }
+        .activity-item .ai-sep { color: var(--text-muted); opacity: 0.6; }
         .activity-item .ai-diff::after { content: '»'; color: var(--text-muted); }
         .activity-day { font-size: 11px; color: var(--text-muted); text-transform: uppercase;
             letter-spacing: 0.5px; padding: 12px 0 4px; font-weight: 500; }
@@ -5412,18 +5418,15 @@
             Object.keys(byDay).sort().reverse().forEach(function (d) {
                 html += '<div class="activity-day">' + escapeHtml(humanDay(d)) + '</div>';
                 byDay[d].forEach(function (e) {
-                    // Backend теперь возвращает human_action и human_diff (R6 #4).
-                    // Fallback на старый формат если бэкенд не обновлён.
-                    var action = e.human_action || ((e.field || e.verb) ? ('изменил ' + (e.field || e.verb)) : 'обновил');
-                    var diff = e.human_diff || '';
-                    if (!diff && (e.new_value || e.comment)) {
-                        diff = e.comment ? String(e.comment).replace(/<[^>]+>/g, '').slice(0, 200) : (e.new_value || '');
-                    }
+                    // R7.58: единый формат с чатом — _humanizeActivity парсит
+                    // Plane-auto «updated the X to» и переводит на русский.
+                    var action = (typeof _humanizeActivity === 'function')
+                        ? _humanizeActivity(e)
+                        : (e.human_action || 'обновил');
                     var actor = escapeHtml(e.actor || '—');
-                    var issueLabel = '';
-                    if (e.issue_name) {
-                        issueLabel = (e.issue_sequence_id ? '#' + escapeHtml(String(e.issue_sequence_id)) + ' ' : '') + escapeHtml(e.issue_name);
-                    }
+                    var issueName = e.issue_name ? escapeHtml(e.issue_name) : '';
+                    var project = e.project ? escapeHtml(e.project) : '';
+                    var when = fmtTime(e.created_at);
                     html += '<div class="activity-item">' +
                         '<div class="ai-row">' +
                             '<span class="ai-icon">' + eventIcon(e) + '</span>' +
@@ -5431,14 +5434,14 @@
                                 '<div class="ai-line">' +
                                     '<span class="activity-item-actor">' + actor + '</span> ' +
                                     '<span class="activity-item-field">' + escapeHtml(action) + '</span>' +
-                                    (diff ? ' <span class="ai-diff">' + escapeHtml(diff) + '</span>' : '') +
                                 '</div>' +
-                                (issueLabel ? '<div class="activity-item-issue">→ ' + issueLabel + '</div>' : '') +
+                                (issueName ? '<div class="activity-item-issue"><span class="ai-label">Задача:</span> ' + issueName + '</div>' : '') +
+                                (project || when ? '<div class="activity-item-meta">' +
+                                    (project ? '<span class="ai-label">Проект:</span> ' + project : '') +
+                                    (project && when ? '<span class="ai-sep">·</span>' : '') +
+                                    (when ? '<span>' + when + '</span>' : '') +
+                                '</div>' : '') +
                             '</div>' +
-                        '</div>' +
-                        '<div class="activity-item-meta">' +
-                        (e.project ? '<span>' + escapeHtml(e.project) + '</span>' : '') +
-                        '<span>' + fmtTime(e.created_at) + '</span>' +
                         '</div></div>';
                 });
             });
