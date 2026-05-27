@@ -3455,6 +3455,16 @@
 
         async function openCardModal(issue) {
             ensureModalDom();
+            // R7.36: issue из BOARD_ALL_ISSUES или get_issue не всегда содержит
+            // .project (поле имени проекта-владельца). list_comments / save /
+            // delete без project_name молча возвращают пустой результат → юзер
+            // видит «Комментариев пока нет.» вместо реальных комментов. Дописываем
+            // project из глобала, если в issue он отсутствует. Делаем копию, чтобы
+            // не мутировать оригинал в BOARD_ALL_ISSUES.
+            if (issue && !issue.project) {
+                var _fallbackProj = BOARD_CURRENT_PROJECT || (typeof getStickyProjectName === 'function' ? getStickyProjectName() : null);
+                if (_fallbackProj) issue = Object.assign({}, issue, { project: _fallbackProj });
+            }
             // issue — объект из BOARD_ALL_ISSUES (имеет name, priority, target_date, sequence_id)
             MODAL_CURRENT_ISSUE = issue;
             document.getElementById('cm-title').textContent = issue.name || '—';
@@ -6461,11 +6471,15 @@
             wrap.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
             try {
                 if (act === 'open') {
-                    if (issue) openCardModal(issue);
+                    // R7.36: явно прикрепляем project к issue — модалка использует
+                    // MODAL_CURRENT_ISSUE.project для list_comments / save / delete.
+                    // Без этого list_comments идёт с пустым project_name и backend
+                    // молча возвращает [] → «Комментариев пока нет.» вместо реальных.
+                    if (issue) openCardModal(Object.assign({}, issue, { project: project }));
                     else {
                         // Подгружаем детали
                         var r = await planeDirect('get_issue', { project_name: project, issue_name: issueName });
-                        if (r && r.data && r.data.issue) openCardModal(r.data.issue);
+                        if (r && r.data && r.data.issue) openCardModal(Object.assign({}, r.data.issue, { project: project }));
                     }
                 } else if (act === 'delete') {
                     if (!confirm('Удалить задачу «' + issueName + '»?')) return;
