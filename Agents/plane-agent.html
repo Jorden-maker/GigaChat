@@ -6271,20 +6271,17 @@
             var lines = SLASH_COMMANDS.filter(function (c) { return c.cmd !== '/help'; }).map(function (c) {
                 return '<tr><td><kbd>' + escapeHtml(c.cmd) + '</kbd></td><td>' + escapeHtml(c.desc) + '</td></tr>';
             }).join('');
-            // R7.51: slash-help модалка — overrides backdrop'а: align-items:center
-            // и padding-top:0 (вместо flex-start + 5vh из общего .card-modal-backdrop)
-            // чтобы модалка стояла строго по центру экрана.
-            // Стрелки ↑/↓ через HTML entities (&uarr;/&darr;) — некоторые шрифты
-            // не рендерят literal Unicode, рисуется «1/↓». Entities точнее.
-            // line-height: 1.85 (было 1.7) — +~2px между строками команд.
+            // R7.52: заголовок «Команды чата» → «Команды», подсказка укорочена
+            // (без «Начни ввод с / в чате — появится автокомплит.»), line-height
+            // table 1.85 → 2.0 (+~2px между строками команд).
             var html =
                 '<div class="card-modal-backdrop show" id="slash-help-bd" style="z-index:2000;align-items:center;padding-top:0">' +
                 '<div class="card-modal" style="max-width:560px">' +
-                '<div class="card-modal-header"><h3>Команды чата</h3>' +
+                '<div class="card-modal-header"><h3>Команды</h3>' +
                 '<button class="card-modal-close" onclick="document.getElementById(\'slash-help-bd\').remove()">×</button>' +
                 '</div><div class="card-modal-body" style="padding:18px 24px">' +
-                '<p style="color:var(--text-secondary);font-size:13px;margin:0 0 12px">Начни ввод с <kbd>/</kbd> в чате — появится автокомплит. Tab/Enter для выбора, &uarr;/&darr; для навигации, Esc для отмены.</p>' +
-                '<table style="width:100%;font-size:13px;line-height:1.85">' + lines + '</table>' +
+                '<p style="color:var(--text-secondary);font-size:13px;margin:0 0 12px">Tab/Enter для выбора, &uarr;/&darr; для навигации, Esc для отмены.</p>' +
+                '<table style="width:100%;font-size:13px;line-height:2.0">' + lines + '</table>' +
                 '</div></div></div>';
             var d = document.createElement('div'); d.innerHTML = html;
             document.body.appendChild(d.firstChild);
