@@ -744,6 +744,62 @@
             text-align: left; transition: background 0.1s; }
         .export-menu-list button:hover { background: var(--accent-light); color: var(--accent); }
         .export-menu-list button svg { width: 14px; height: 14px; flex-shrink: 0; }
+        /* === Slash-команды в чате === */
+        .slash-menu { position: absolute; bottom: 100%; left: 0; margin-bottom: 6px;
+            background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px;
+            box-shadow: 0 -4px 16px rgba(0,0,0,0.35); min-width: 280px; max-width: 380px;
+            max-height: 280px; overflow-y: auto; z-index: 200;
+            scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        .slash-menu-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+            cursor: pointer; transition: background 0.1s; border-bottom: 1px solid var(--border); }
+        .slash-menu-item:last-child { border-bottom: none; }
+        .slash-menu-item:hover, .slash-menu-item.active { background: var(--accent-light); }
+        .slash-menu-cmd { color: var(--accent); font-family: 'Cascadia Code', Consolas, monospace;
+            font-size: 12px; font-weight: 500; min-width: 80px; }
+        .slash-menu-desc { color: var(--text-secondary); font-size: 12px; flex: 1; }
+        .slash-menu-kbd { font-size: 10px; color: var(--text-muted); padding: 1px 6px;
+            border: 1px solid var(--border); border-radius: 3px; }
+        .gc-input-wrap { position: relative; flex: 1; }
+        /* === Inline actions на issue-карточках в чате === */
+        .plane-card { position: relative; }
+        .pc-inline-actions { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap;
+            padding-top: 8px; border-top: 1px solid var(--border); }
+        .pc-inline-actions button { display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 10px; background: var(--bg-input); border: 1px solid var(--border);
+            color: var(--text-secondary); border-radius: 5px; cursor: pointer;
+            font-family: inherit; font-size: 11px; transition: all 0.15s; }
+        .pc-inline-actions button:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+        .pc-inline-actions button.danger { color: #ef4444; }
+        .pc-inline-actions button.danger:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+        .pc-inline-actions button.primary { color: var(--accent); }
+        .pc-inline-actions button:disabled { opacity: 0.4; cursor: wait; }
+        .pc-inline-actions svg { width: 11px; height: 11px; }
+        /* === Multi-step progress === */
+        .multi-step-list { display: flex; flex-direction: column; gap: 6px;
+            margin: 10px 0; padding: 12px;
+            background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; }
+        .multi-step-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px;
+            background: var(--bg-secondary); border-radius: 5px; font-size: 13px;
+            opacity: 0; animation: stepFadeIn 0.4s forwards; }
+        @keyframes stepFadeIn { to { opacity: 1; } }
+        .multi-step-row .ms-icon { width: 18px; height: 18px; flex-shrink: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 50%; font-size: 11px; font-weight: 700; }
+        .multi-step-row.pending .ms-icon { background: var(--bg-input); color: var(--text-muted); border: 1px solid var(--border); }
+        .multi-step-row.running .ms-icon { background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent);
+            animation: msSpin 1s linear infinite; }
+        @keyframes msSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .multi-step-row.ok .ms-icon { background: #4a9659; color: #fff; }
+        .multi-step-row.fail .ms-icon { background: #ef4444; color: #fff; }
+        .multi-step-row .ms-text { color: var(--text-primary); flex: 1; overflow: hidden;
+            text-overflow: ellipsis; }
+        .multi-step-row.fail .ms-text { color: #ef4444; }
+        .multi-step-row .ms-error { color: #ef4444; font-size: 11px; margin-top: 2px; }
+        .multi-step-header { display: flex; align-items: center; gap: 8px; padding-bottom: 6px;
+            margin-bottom: 4px; border-bottom: 1px solid var(--border); font-weight: 500;
+            color: var(--text-primary); font-size: 13px; }
+        .multi-step-header .ms-counter { background: var(--accent-light); color: var(--accent);
+            padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; margin-left: auto; }
         kbd {
             display: inline-block; padding: 2px 8px; font-family: 'Cascadia Code', Consolas, monospace;
             font-size: 12px; background: var(--bg-input); border: 1px solid var(--border);
@@ -1867,10 +1923,14 @@
             return issues.map(function (i) {
                 var prio = String(i.priority || 'none').toLowerCase();
                 var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий',none:'—'})[prio] || prio;
+                // Phase 4: + inline actions
+                var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(Object.assign({ project: projectName }, i)) : '';
                 return '<div class="plane-card">' +
                     '<div class="pc-title">' + escapeHtml(i.name || '—') +
                     '<span class="pc-prio ' + prio + '">' + prioLabel + '</span>' +
-                    '</div></div>';
+                    '</div>' +
+                    actions +
+                    '</div>';
             }).join('');
         }
         function formatIssueCard(issue) {
@@ -1889,12 +1949,15 @@
             if (issue.target_date) meta.push('Срок: ' + escapeHtml(issue.target_date));
             if (issue.created_at) meta.push('Создана: ' + escapeHtml(String(issue.created_at).slice(0,10)));
             var desc = stripHtml(issue.description_html || issue.description || '').slice(0, 200);
+            // Phase 4: inline actions
+            var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(issue) : '';
             return '<div class="plane-card">' +
                 '<div class="pc-title">' + escapeHtml(issue.name || '—') +
                 '<span class="pc-prio ' + prio + '">' + prioLabel + '</span>' +
                 '</div>' +
                 (meta.length ? '<div class="pc-meta" style="margin-top:6px;color:var(--text-secondary);font-size:12px">' + meta.join(' · ') + '</div>' : '') +
                 (desc ? '<div class="pc-desc" style="margin-top:6px;color:var(--text-muted);font-size:12px;white-space:pre-wrap">' + escapeHtml(desc) + '</div>' : '') +
+                actions +
                 '</div>';
         }
         // === Phase 2 chat-render helpers ===
@@ -1969,6 +2032,13 @@
         }
 
         function formatBotMessage(msg) {
+            var exEarly = msg.extras || {};
+            // R4 BUG-2: addAssistantMessage хранит готовый HTML в extras._html
+            // (multi-step прогресс, inline-action подтверждения). При reload надо
+            // отрендерить именно его — content пустой.
+            if (exEarly._html && !msg.content) {
+                return exEarly._html;
+            }
             var content = String(msg.content || '');
             // markdown: упрощённый — переводы строк, bold, italic
             var html = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2804,11 +2874,16 @@
                     // Считаем sticky актуальным 1 час
                     if (s && s.name && s.ts && (Date.now() - s.ts < 3600000)) {
                         STICKY_PROJECT = s;
-                        return;
+                        return s.name;
                     }
                 }
             } catch (e) {}
             STICKY_PROJECT = null;
+            return null;
+        }
+        // Phase 4 helper: безопасный геттер текущего sticky-имени
+        function getStickyProjectName() {
+            return (STICKY_PROJECT && STICKY_PROJECT.name) || loadStickyProject() || null;
         }
         function saveStickyProject(name) {
             if (!name) { localStorage.removeItem('plane_sticky_project'); STICKY_PROJECT = null; }
@@ -5217,6 +5292,445 @@
         }
 
         // ============================================================
+        // Phase 4: Chat — Slash-команды, Multi-step, Inline actions
+        // ============================================================
+
+        // === SLASH COMMANDS ===
+        // Каждая команда либо отправляется как text (LLM-параsed) либо запускается прямым
+        // direct-вызовом planeDirect. Direct = быстрее и точнее.
+        var SLASH_COMMANDS = [
+            { cmd: '/today',    desc: 'Что у меня сегодня — задачи со сроком сегодня',                 type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'today' }, fallbackText: 'Покажи все мои задачи со сроком сегодня' },
+            { cmd: '/me',       desc: 'Все мои задачи во всех проектах',                                type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'mine' } },
+            { cmd: '/overdue',  desc: 'Что просрочено — задачи с истекшим сроком',                      type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'overdue' } },
+            { cmd: '/urgent',   desc: 'Только срочные задачи',                                          type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'urgent' } },
+            { cmd: '/recent',   desc: 'Лента активности — что недавно менялось',                        type: 'direct', action: 'list_activity',          params: { scope: 'all' } },
+            { cmd: '/standup',  desc: 'Сводка для стендапа: что вчера, что сегодня, что блокирует',     type: 'text',   text: 'Сделай сводку для стендапа: что я делал вчера (по активности), что у меня запланировано сегодня, и есть ли блокеры. В одном сообщении, кратко.' },
+            { cmd: '/blocked',  desc: 'Что застряло — задачи в работе, но без движения 3+ дней',         type: 'text',   text: 'Покажи задачи в статусе «В работе», которые давно (больше 3 дней) не обновлялись — это потенциальные блокеры.' },
+            { cmd: '/digest',   desc: 'Дайджест дня: создано/закрыто/просрочено по всем проектам',       type: 'text',   text: 'Сделай мини-дайджест по всем проектам: сколько задач создано сегодня, сколько закрыто, сколько просрочено. Цифрами.' },
+            { cmd: '/projects', desc: 'Список всех проектов',                                            type: 'direct', action: 'list_projects',          params: {} },
+            { cmd: '/notif',    desc: 'Уведомления — что новенького',                                    type: 'direct', action: 'list_notifications',     params: {} },
+            { cmd: '/multi',    desc: 'Multi-step (пример: /multi создай Login, Register, Reset в Office)', type: 'multi' },
+            { cmd: '/help',     desc: 'Показать справку по командам',                                    type: 'special', handler: 'help' }
+        ];
+        var SLASH_MENU_INDEX = 0;
+
+        function ensureSlashMenu() {
+            var wrap = document.querySelector('.gc-input-wrap');
+            if (!wrap) return null;
+            var menu = document.getElementById('slash-menu');
+            if (!menu) {
+                menu = document.createElement('div');
+                menu.id = 'slash-menu';
+                menu.className = 'slash-menu';
+                menu.style.display = 'none';
+                wrap.appendChild(menu);
+            }
+            return menu;
+        }
+        function showSlashMenu(filter) {
+            var menu = ensureSlashMenu();
+            if (!menu) return;
+            var items = SLASH_COMMANDS.filter(function (c) {
+                return !filter || c.cmd.indexOf(filter) === 0;
+            });
+            if (!items.length) { hideSlashMenu(); return; }
+            SLASH_MENU_INDEX = 0;
+            menu.innerHTML = items.map(function (c, i) {
+                return '<div class="slash-menu-item ' + (i === 0 ? 'active' : '') + '" data-cmd="' + escapeAttr(c.cmd) + '" data-idx="' + i + '">' +
+                    '<span class="slash-menu-cmd">' + escapeHtml(c.cmd) + '</span>' +
+                    '<span class="slash-menu-desc">' + escapeHtml(c.desc) + '</span>' +
+                    (i === 0 ? '<span class="slash-menu-kbd">Tab</span>' : '') +
+                '</div>';
+            }).join('');
+            menu.style.display = '';
+            menu.querySelectorAll('.slash-menu-item').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    selectSlashCommand(el.dataset.cmd);
+                });
+                el.addEventListener('mouseenter', function () {
+                    menu.querySelectorAll('.slash-menu-item').forEach(function (x) { x.classList.remove('active'); });
+                    el.classList.add('active');
+                    SLASH_MENU_INDEX = parseInt(el.dataset.idx, 10) || 0;
+                });
+            });
+        }
+        function hideSlashMenu() {
+            var menu = document.getElementById('slash-menu');
+            if (menu) menu.style.display = 'none';
+        }
+        function selectSlashCommand(cmd) {
+            var c = SLASH_COMMANDS.find(function (x) { return x.cmd === cmd; });
+            if (!c) return;
+            hideSlashMenu();
+            var input = document.getElementById('msg');
+            if (!input) return;
+            if (c.type === 'multi') {
+                input.value = '/multi ';
+                input.focus();
+                return;
+            }
+            if (c.type === 'special' && c.handler === 'help') {
+                input.value = '';
+                showSlashHelp();
+                return;
+            }
+            // Очищаем input и запускаем команду
+            input.value = '';
+            if (c.type === 'direct') {
+                executeSlashDirect(c);
+            } else {
+                input.value = c.text || c.cmd;
+                if (typeof sendMsg === 'function') sendMsg();
+            }
+        }
+        async function executeSlashDirect(c) {
+            // R4 BUG-3 ФИКС: реально делаем direct-вызов, не отдаём LLM.
+            // 1) Показываем юзерское сообщение в чате
+            addUserMessageToChat(c.cmd);
+            // 2) Показываем индикатор загрузки
+            var loadId = 'sl-load-' + Date.now();
+            addAssistantMessage('<span id="' + loadId + '" style="color:var(--text-muted);font-size:13px">⟳ Выполняю ' + escapeHtml(c.cmd) + '...</span>');
+            try {
+                var res = await planeDirect(c.action, c.params || {});
+                // Убираем loader
+                var loader = document.getElementById(loadId);
+                if (loader && loader.parentElement) loader.parentElement.remove();
+                if (!res || res.error) {
+                    addAssistantMessage('Не удалось выполнить ' + escapeHtml(c.cmd) + ': ' + escapeHtml((res && res.response) || 'нет соединения'));
+                    return;
+                }
+                // Рендерим ответ через тот же formatBotMessage чтобы был единый стиль
+                var fakeMsg = { role: 'assistant', content: res.response || '', extras: (res.data || {}) };
+                var html = formatBotMessage(fakeMsg);
+                addAssistantMessage(html, res);
+            } catch (e) {
+                var loader2 = document.getElementById(loadId);
+                if (loader2 && loader2.parentElement) loader2.parentElement.remove();
+                addAssistantMessage('Ошибка: ' + escapeHtml(e.message || String(e)));
+            }
+        }
+        // Helper: добавить юзер-сообщение в чат (для slash-команд и multi-step)
+        function addUserMessageToChat(text) {
+            var chat = document.getElementById('chat');
+            if (!chat) return;
+            var empty = chat.querySelector('.empty-chat');
+            if (empty) empty.remove();
+            var d = document.createElement('div');
+            d.className = 'message user';
+            d.innerHTML = '<div class="message-content">' + escapeHtml(text) + '</div>';
+            chat.appendChild(d);
+            chat.scrollTop = chat.scrollHeight;
+            // Persist в displayMessages для reload-resilience
+            try {
+                if (typeof agent !== 'undefined' && agent && agent.sessionStore && agent.sessionStore.state) {
+                    var s = agent.sessionStore.state;
+                    s.displayMessages = s.displayMessages || [];
+                    s.displayMessages.push({ role: 'user', content: text });
+                }
+            } catch(_) {}
+        }
+        function showSlashHelp() {
+            var lines = SLASH_COMMANDS.filter(function (c) { return c.cmd !== '/help'; }).map(function (c) {
+                return '<tr><td><kbd>' + escapeHtml(c.cmd) + '</kbd></td><td>' + escapeHtml(c.desc) + '</td></tr>';
+            }).join('');
+            var html =
+                '<div class="card-modal-backdrop show" id="slash-help-bd" style="z-index:2000">' +
+                '<div class="card-modal" style="max-width:560px">' +
+                '<div class="card-modal-header"><h3>Команды чата</h3>' +
+                '<button class="card-modal-close" onclick="document.getElementById(\'slash-help-bd\').remove()">×</button>' +
+                '</div><div class="card-modal-body" style="padding:18px 24px">' +
+                '<p style="color:var(--text-secondary);font-size:13px;margin:0 0 12px">Начни ввод с <kbd>/</kbd> в чате — появится автокомплит. Tab/Enter для выбора, ↑/↓ для навигации, Esc для отмены.</p>' +
+                '<table style="width:100%;font-size:13px;line-height:1.7">' + lines + '</table>' +
+                '</div></div></div>';
+            var d = document.createElement('div'); d.innerHTML = html;
+            document.body.appendChild(d.firstChild);
+        }
+        function bindSlashCommandsInput() {
+            var input = document.getElementById('msg');
+            if (!input || input.__slashBound) return;
+            input.__slashBound = true;
+            input.addEventListener('input', function () {
+                var v = input.value;
+                if (v.length === 0) { hideSlashMenu(); return; }
+                // Только если ввод начинается с / И каретка в начале токена
+                if (v[0] === '/' && !v.includes(' ')) {
+                    showSlashMenu(v);
+                } else {
+                    hideSlashMenu();
+                }
+            });
+            input.addEventListener('keydown', function (e) {
+                var menu = document.getElementById('slash-menu');
+                if (!menu || menu.style.display === 'none') return;
+                var items = menu.querySelectorAll('.slash-menu-item');
+                if (!items.length) return;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    SLASH_MENU_INDEX = Math.min(items.length - 1, SLASH_MENU_INDEX + 1);
+                    items.forEach(function (x, i) { x.classList.toggle('active', i === SLASH_MENU_INDEX); });
+                    var act = items[SLASH_MENU_INDEX]; if (act && act.scrollIntoView) act.scrollIntoView({block:'nearest'});
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    SLASH_MENU_INDEX = Math.max(0, SLASH_MENU_INDEX - 1);
+                    items.forEach(function (x, i) { x.classList.toggle('active', i === SLASH_MENU_INDEX); });
+                    var act2 = items[SLASH_MENU_INDEX]; if (act2 && act2.scrollIntoView) act2.scrollIntoView({block:'nearest'});
+                } else if (e.key === 'Tab' || e.key === 'Enter') {
+                    e.preventDefault();
+                    var act3 = items[SLASH_MENU_INDEX];
+                    if (act3) selectSlashCommand(act3.dataset.cmd);
+                } else if (e.key === 'Escape') {
+                    hideSlashMenu();
+                }
+            });
+            input.addEventListener('blur', function () {
+                // Задержка чтобы клик по пункту меню успел сработать
+                setTimeout(hideSlashMenu, 200);
+            });
+        }
+
+        // === MULTI-STEP ORCHESTRATOR ===
+        // Парсит "/multi создай A, B, C в Office" → массив create_issue actions.
+        // Поддерживаем простые шаблоны.
+        function parseMultiCommand(raw) {
+            var text = String(raw || '').replace(/^\/multi\s*/i, '').trim();
+            if (!text) return null;
+            var VERBS = ['создай','создать','удали','удалить','закрой','закрыть','переведи в работу','в работу'];
+            var VERBS_RE_SRC = VERBS.map(function (v) { return v.replace(/\s+/g, '\\s+'); }).join('|');
+            var verb = null, rest = null, project = null;
+            // R4 BUG-5: поддержка обоих порядков — "<verb> X, Y в P" И "в P <verb> X, Y"
+            // Сначала пробуем project-first: "в <Project> <verb> ..."
+            var pf = text.match(new RegExp('^в\\s+([^,]+?)\\s+(' + VERBS_RE_SRC + ')\\s+', 'i'));
+            if (pf) {
+                project = pf[1].trim();
+                verb = pf[2].toLowerCase().replace(/\s+/g, ' ');
+                rest = text.slice(pf[0].length);
+            } else {
+                // verb-first: "<verb> X, Y в P"
+                var vf = text.match(new RegExp('^(' + VERBS_RE_SRC + ')\\s+', 'i'));
+                if (!vf) return null;
+                verb = vf[1].toLowerCase().replace(/\s+/g, ' ');
+                rest = text.slice(vf[0].length);
+                // Извлекаем "в <project>" в конце — но не путаем с "переведи в работу"
+                // (последнее уже съел verb). Ищем " в <PROJECT>$" с защитой от
+                // токенов внутри items (только если 1+ запятых внутри rest или
+                // выглядит как проект — слова с большой буквы).
+                var pMatch = rest.match(/\s+в\s+([A-Za-zА-Яа-я0-9_\-\s]+?)\s*$/i);
+                if (pMatch) {
+                    project = pMatch[1].trim();
+                    rest = rest.slice(0, rest.length - pMatch[0].length);
+                }
+            }
+            project = project || BOARD_CURRENT_PROJECT || getStickyProjectName();
+            if (!project) return { error: 'Не указан проект. Добавь «в <имя_проекта>» или закрепи проект на доске.' };
+            // Список items через запятую
+            var items = rest.split(/[,;]/).map(function (x) { return x.trim(); }).filter(Boolean);
+            if (!items.length) return { error: 'Не указаны элементы. Пример: /multi создай Login, Register в Office' };
+            var actionMap = { 'создай': 'create_issue', 'создать': 'create_issue', 'удали': 'delete_issue', 'удалить': 'delete_issue', 'закрой': 'change_status', 'закрыть': 'change_status', 'переведи в работу': 'change_status', 'в работу': 'change_status' };
+            var actType = actionMap[verb] || 'create_issue';
+            var subActions = items.map(function (name) {
+                var p = { project_name: project };
+                if (actType === 'create_issue') p.name = name;
+                else { p.issue_name = name; if (actType === 'change_status') p.state = (verb.indexOf('закр') === 0) ? 'done' : 'in_progress'; }
+                return { action: actType, params: p, label: name };
+            });
+            return { project: project, verb: verb, actions: subActions };
+        }
+        async function runMultiStepFromChat(rawText) {
+            var parsed = parseMultiCommand(rawText);
+            if (!parsed) {
+                addAssistantMessage('Не понял команду. Пример: <kbd>/multi создай Login, Register, Reset в Office</kbd>');
+                return;
+            }
+            if (parsed.error) {
+                addAssistantMessage(parsed.error);
+                return;
+            }
+            // Рендерим контейнер прогресса в чат
+            var msgId = 'multi-' + Date.now();
+            var html = '<div class="multi-step-list" id="' + msgId + '">' +
+                '<div class="multi-step-header">Multi-step: ' + escapeHtml(parsed.verb) + ' (' + parsed.actions.length + ' шт.) в «' + escapeHtml(parsed.project) + '»' +
+                    '<span class="ms-counter" id="' + msgId + '-counter">0 / ' + parsed.actions.length + '</span>' +
+                '</div>' +
+                parsed.actions.map(function (a, i) {
+                    return '<div class="multi-step-row pending" id="' + msgId + '-row-' + i + '" style="animation-delay:' + (i*60) + 'ms">' +
+                        '<span class="ms-icon">' + (i+1) + '</span>' +
+                        '<span class="ms-text">' + escapeHtml(a.label) + '</span>' +
+                    '</div>';
+                }).join('') +
+            '</div>';
+            addAssistantMessage(html);
+            // Выполняем по очереди
+            var okCount = 0, failCount = 0;
+            for (var i = 0; i < parsed.actions.length; i++) {
+                var row = document.getElementById(msgId + '-row-' + i);
+                if (row) {
+                    row.classList.remove('pending'); row.classList.add('running');
+                    var ic = row.querySelector('.ms-icon');
+                    if (ic) ic.innerHTML = '⟳';
+                }
+                try {
+                    var a = parsed.actions[i];
+                    var res = await planeDirect(a.action, a.params);
+                    var ok = !(res && (res.error || res.action === 'error'));
+                    if (row) {
+                        row.classList.remove('running');
+                        row.classList.add(ok ? 'ok' : 'fail');
+                        var ic2 = row.querySelector('.ms-icon');
+                        if (ic2) ic2.innerHTML = ok ? '✓' : '✗';
+                        if (!ok && res && res.response) {
+                            var errDiv = document.createElement('div');
+                            errDiv.className = 'ms-error';
+                            errDiv.textContent = res.response;
+                            row.appendChild(errDiv);
+                        }
+                    }
+                    if (ok) okCount++; else failCount++;
+                } catch (e) {
+                    failCount++;
+                    if (row) { row.classList.remove('running'); row.classList.add('fail'); var ic3 = row.querySelector('.ms-icon'); if (ic3) ic3.innerHTML = '✗'; }
+                }
+                var counter = document.getElementById(msgId + '-counter');
+                if (counter) counter.textContent = (okCount + failCount) + ' / ' + parsed.actions.length;
+            }
+            // Обновляем доску
+            if (typeof reloadBoard === 'function') reloadBoard(true);
+            // Финальное summary
+            addAssistantMessage('Готово. Успешно: ' + okCount + (failCount ? ', с ошибкой: ' + failCount : '') + '.');
+        }
+
+        // Helper: добавить ассистент-сообщение в чат напрямую (минуя backend).
+        function addAssistantMessage(html) {
+            var chat = document.getElementById('chat');
+            if (!chat) return;
+            var empty = chat.querySelector('.empty-chat');
+            if (empty) empty.remove();
+            var div = document.createElement('div');
+            div.className = 'message bot';
+            div.innerHTML = '<div class="message-content">' + html + '</div>';
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+            // Сохраняем в displayMessages чтобы не пропало при перерисовке
+            try {
+                if (typeof agent !== 'undefined' && agent && agent.sessionStore && agent.sessionStore.state) {
+                    var s = agent.sessionStore.state;
+                    s.displayMessages = s.displayMessages || [];
+                    s.displayMessages.push({ role: 'assistant', content: '', extras: { _html: html } });
+                }
+            } catch(_) {}
+        }
+
+        // === INLINE ACTIONS NA KARTACH ===
+        // Добавляем кнопки на issue-карточку в чате. Каждая кнопка делает direct-вызов
+        // и обновляет соответствующую карточку in-place.
+        function inlineActionsHtml(issue) {
+            if (!issue || !issue.name) return '';
+            var group = (issue.state_detail && issue.state_detail.group) || '';
+            var isClosed = group === 'completed' || group === 'cancelled';
+            var safeName = escapeAttr(issue.name);
+            var safeId = escapeAttr(issue.id || '');
+            // R4 BUG-6: проект в data-attr — не зависим от BOARD_ALL_ISSUES/sticky.
+            // Источники: явный issue.project (cross_project_search), либо BOARD_CURRENT_PROJECT, либо sticky.
+            var safeProj = escapeAttr(issue.project || BOARD_CURRENT_PROJECT || getStickyProjectName() || '');
+            return '<div class="pc-inline-actions" data-issue-name="' + safeName + '" data-issue-id="' + safeId + '" data-project="' + safeProj + '">' +
+                (isClosed
+                    ? '<button data-act="reopen" title="Вернуть в работу"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Вернуть</button>'
+                    : '<button data-act="done" class="primary" title="Перевести в Готово"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Готово</button>') +
+                (!isClosed && group !== 'started'
+                    ? '<button data-act="in_progress" title="В работу"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> В работу</button>'
+                    : '') +
+                '<button data-act="open" title="Открыть в модалке"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/></svg> Изменить</button>' +
+                '<button data-act="delete" class="danger" title="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+            '</div>';
+        }
+        // Делегатор кликов по inline-кнопкам
+        document.addEventListener('click', async function (e) {
+            var btn = e.target.closest('.pc-inline-actions button');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var wrap = btn.closest('.pc-inline-actions');
+            var card = btn.closest('.plane-card');
+            var issueName = wrap.dataset.issueName;
+            var issueId = wrap.dataset.issueId;
+            var act = btn.dataset.act;
+            if (!issueName) return;
+            // R4 BUG-6: сначала смотрим в data-project на самой карточке
+            var project = wrap.dataset.project || BOARD_CURRENT_PROJECT || getStickyProjectName();
+            // Найдём issue (если есть в кэше) — для модалки полезно
+            var issue = (BOARD_ALL_ISSUES || []).find(function (x) { return x.id === issueId || x.name === issueName; });
+            if (!project && issue && issue.project) project = issue.project;
+            if (!project) { addAssistantMessage('Не могу определить проект для «' + escapeHtml(issueName) + '». Открой доску и выбери проект, или закрепи.'); return; }
+            // Подсветка процесса
+            wrap.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+            try {
+                if (act === 'open') {
+                    if (issue) openCardModal(issue);
+                    else {
+                        // Подгружаем детали
+                        var r = await planeDirect('get_issue', { project_name: project, issue_name: issueName });
+                        if (r && r.data && r.data.issue) openCardModal(r.data.issue);
+                    }
+                } else if (act === 'delete') {
+                    if (!confirm('Удалить задачу «' + issueName + '»?')) return;
+                    await planeDirect('delete_issue', { project_name: project, issue_name: issueName });
+                    if (card) { card.style.transition = 'opacity 0.3s'; card.style.opacity = '0.3'; }
+                    addAssistantMessage('Удалена задача «' + escapeHtml(issueName) + '».');
+                    if (typeof reloadBoard === 'function') reloadBoard(true);
+                } else if (act === 'done' || act === 'in_progress' || act === 'reopen') {
+                    var state = act === 'done' ? 'done' : (act === 'reopen' ? 'todo' : 'in_progress');
+                    await planeDirect('change_status', { project_name: project, issue_name: issueName, state: state });
+                    var labelMap = { done: 'Готово', in_progress: 'В работу', reopen: 'В очередь' };
+                    addAssistantMessage('Перевёл «' + escapeHtml(issueName) + '» в статус «' + labelMap[act] + '».');
+                    if (typeof reloadBoard === 'function') reloadBoard(true);
+                    // Обновим карточку (визуально)
+                    if (card) {
+                        var prioEl = card.querySelector('.pc-prio');
+                        if (act === 'done') card.style.opacity = '0.7';
+                    }
+                }
+            } catch (err) {
+                addAssistantMessage('Ошибка: ' + escapeHtml(err.message || String(err)));
+            } finally {
+                wrap.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+            }
+        });
+
+        // Перехват sendMsg для /multi: если ввод начинается с /multi, обрабатываем
+        // через runMultiStepFromChat вместо обычной отправки.
+        // R4 BUG-4 ФИКС: sendMsg создаётся в createChatAgent после auth — DOMContentLoaded
+        // может выстрелить раньше. Используем polling вместо одноразового listener'а.
+        (function pollForSendMsg() {
+            var WRAPPED = false;
+            function tryWrap() {
+                if (WRAPPED || typeof window.sendMsg !== 'function') return false;
+                var origSend = window.sendMsg;
+                if (origSend.__slashWrapped) { WRAPPED = true; return true; }
+                window.sendMsg = function () {
+                    var input = document.getElementById('msg');
+                    if (input && input.value && input.value.trim().toLowerCase().indexOf('/multi') === 0) {
+                        var raw = input.value.trim();
+                        input.value = '';
+                        addUserMessageToChat(raw);
+                        runMultiStepFromChat(raw);
+                        return;
+                    }
+                    return origSend.apply(this, arguments);
+                };
+                window.sendMsg.__slashWrapped = true;
+                WRAPPED = true;
+                return true;
+            }
+            // Пробуем сразу
+            if (tryWrap()) return;
+            // Polling: проверяем каждые 100мс до 30 секунд
+            var attempts = 0;
+            var iv = setInterval(function () {
+                attempts++;
+                if (tryWrap() || attempts > 300) clearInterval(iv);
+            }, 100);
+        })();
+
+        // ============================================================
         // Phase 3: DnD в Календаре / Диаграмме + helper для обновления issue
         // ============================================================
         var __DRAG_ISSUE = null; // текущая перетаскиваемая задача
@@ -5293,6 +5807,7 @@
             bindKeyboardShortcuts();
             startNotifPolling();
             updateHeaderTimer();
+            bindSlashCommandsInput();
         }
         document.addEventListener('DOMContentLoaded', _planeInitOnce);
         _planeInitOnce();
