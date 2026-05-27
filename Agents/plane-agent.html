@@ -1243,6 +1243,18 @@
             margin-bottom: 6px; font-size: 13px; color: var(--text-primary);
             border: 1px solid var(--border); line-height: 1.4;
         }
+        /* R7.15: плавное появление комментариев сверху вниз. */
+        @keyframes commentFadeDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .card-modal-comment.cm-anim {
+            animation: commentFadeDown 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        /* Контейнер списка — плавный transition по высоте (max-height) для роста модалки */
+        #cm-comments-list {
+            transition: max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
         .card-modal-comment .cm-meta {
             color: var(--text-muted); font-size: 11px; margin-bottom: 4px;
             display: flex; justify-content: space-between; align-items: center;
@@ -3442,7 +3454,7 @@
                         author = String(actorId).slice(-8);
                     }
                 }
-                return '<div class="card-modal-comment">' +
+                return '<div class="card-modal-comment cm-anim" style="animation-delay:0ms">' +
                     '<div class="cm-meta">' +
                         '<span>' + escapeHtml(author || '—') + '</span>' +
                         '<span>' + escapeHtml(date) + '</span>' +
@@ -3450,6 +3462,11 @@
                     '<div class="cm-text">' + escapeHtml(text) + '</div>' +
                 '</div>';
             }).join('');
+            // R7.15: ставим animation-delay per-item для stagger-эффекта
+            // (сверху вниз — 80мс между комментариями).
+            listEl.querySelectorAll('.card-modal-comment.cm-anim').forEach(function (el, i) {
+                el.style.animationDelay = (i * 80) + 'ms';
+            });
         }
 
         function closeCardModal() {
