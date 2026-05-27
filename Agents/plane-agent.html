@@ -1161,7 +1161,12 @@
         .card-modal-backdrop {
             position: fixed; top:0;right:0;bottom:0;left:0; background: rgba(0,0,0,0.5);
             display: none; z-index: 999;
-            align-items: center; justify-content: center;
+            /* R7.18: align-items:flex-start вместо center — модалка прикреплена
+               к верху, при росте контента (комментарии подгружаются) только
+               НИЖНЯЯ граница уезжает вниз, верх и заголовок остаются на месте. */
+            align-items: flex-start; justify-content: center;
+            padding-top: 5vh;
+            overflow-y: auto;
         }
         .card-modal-backdrop.show { display: flex; }
         .card-modal {
