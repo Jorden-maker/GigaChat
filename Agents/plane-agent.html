@@ -2286,12 +2286,15 @@
             };
         }
 
-        function formatProjectsList(projects) {
+        function formatProjectsList(projects, animate) {
             if (!projects || !projects.length) return '';
-            return projects.map(function (p) {
-                var ident = p.identifier ? ' <span style="color:var(--text-secondary);font-size:12px">' + escapeHtml(p.identifier) + '</span>' : '';
-                return '<div class="plane-card">' +
-                    '<div class="pc-title">' + escapeHtml(p.name || '—') + ident + '</div>' +
+            // R7.55: убран identifier (ID) рядом с названием — юзер не хочет
+            // его видеть. Карточка содержит только pc-title с именем проекта.
+            // animate→inline stagger атрибуты (chat-stagger-in + animation-delay).
+            return projects.map(function (p, idx) {
+                var st = _staggerAttrs(animate, idx);
+                return '<div class="plane-card' + st.cls + '"' + st.style + '>' +
+                    '<div class="pc-title">' + escapeHtml(p.name || '—') + '</div>' +
                     '</div>';
             }).join('');
         }
@@ -2449,7 +2452,7 @@
             // Доп-блоки из extras (action-результаты)
             var ex = msg.extras || {};
             var blocks = '';
-            if (ex.projects && ex.projects.length)  blocks += formatProjectsList(ex.projects);
+            if (ex.projects && ex.projects.length)  blocks += formatProjectsList(ex.projects, animate);
             if (ex.issues && ex.issues.length)      blocks += formatIssuesList(ex.issues, ex.project, animate);
             if (ex.issue)                           blocks += formatIssueCard(ex.issue, animate);
             // Phase 2 — рендер новых action-результатов в чат
@@ -6035,7 +6038,9 @@
             { cmd: '/recent',   desc: 'Лента активности — что недавно менялось',                          type: 'direct', action: 'list_activity',          params: { scope: 'all' } },
             { cmd: '/blocked',  desc: 'Задачи «В работе» без движения 3+ дней',                            type: 'text',   text: 'Покажи задачи в статусе «В работе», которые давно (больше 3 дней) не обновлялись — это потенциальные блокеры.' },
             { cmd: '/digest',   desc: 'Дайджест: создано/закрыто/просрочено по всем проектам',            type: 'text',   text: 'Сделай мини-дайджест по всем проектам: сколько задач создано сегодня, сколько закрыто, сколько просрочено. Цифрами.' },
-            { cmd: '/projects', desc: 'Список всех проектов',                                              type: 'direct', action: 'list_projects',          params: {} },
+            { cmd: '/projects', desc: 'Список всех проектов',                                              type: 'direct', action: 'list_projects',          params: {},
+              emptyMsg: 'У вас нет проектов.',
+              foundMsg: 'Показываю список всех проектов:' },
             { cmd: '/notif',    desc: 'Уведомления — что новенького',                                      type: 'direct', action: 'list_notifications',     params: {} },
             { cmd: '/help',     desc: 'Показать справку по командам',                                      type: 'special', handler: 'help' }
         ];
