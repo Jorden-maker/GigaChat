@@ -125,20 +125,26 @@
         .pc-state.started   { background: rgba(34, 197, 94, 0.18); color: #16a34a; }
         .pc-state.completed { background: rgba(34, 197, 94, 0.10); color: #16a34a; opacity: 0.8; }
         .pc-state.cancelled { background: rgba(120, 120, 120, 0.15); color: var(--text-muted); text-decoration: line-through; }
-        /* R7: state-active кнопки (current state — не кликабельны, зелёные).
-           cursor:default чтобы юзер видел что это индикатор, а не кнопка. */
+        /* R7.3: state-active кнопки — индикатор текущего состояния.
+           Не выполняют действия (data-act="work-current"/"done-current" — нет
+           обработчика), но имеют hover-эффект для интерактивного фидбэка. */
         .pc-inline-actions button.state-active {
             color: #16a34a !important;
             border-color: rgba(34, 197, 94, 0.35) !important;
-            background: rgba(34, 197, 94, 0.10) !important;
+            background: rgba(34, 197, 94, 0.12) !important;
             cursor: default !important;
-            pointer-events: none;
+            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
         }
         .pc-inline-actions button.state-active:hover {
-            background: rgba(34, 197, 94, 0.10) !important;
+            background: rgba(34, 197, 94, 0.22) !important;
+            border-color: rgba(34, 197, 94, 0.6) !important;
             color: #16a34a !important;
-            transform: none !important;
-            box-shadow: none !important;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15);
+            transform: translateY(-1px);
+        }
+        .pc-inline-actions button.state-active:active {
+            transform: translateY(0);
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
         }
         /* R7 #9: cancelled task — заголовок и весь блок перечёркнуты */
         .pc-state.cancelled { text-decoration: line-through; }
