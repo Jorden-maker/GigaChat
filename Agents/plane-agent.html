@@ -590,6 +590,160 @@
         .chat-epic-card .cec-children { margin: 0; padding-left: 20px; font-size: 12px;
             color: var(--text-secondary); line-height: 1.6; }
         .chat-epic-card .cec-children li { margin: 2px 0; }
+        /* === DnD: Calendar / Timeline === */
+        .cal-task { cursor: grab; -webkit-user-select: none; user-select: none; }
+        .cal-task:active { cursor: grabbing; }
+        .cal-task.dragging { opacity: 0.4; }
+        .cal-day.drop-target { background: var(--accent-light) !important;
+            outline: 2px dashed var(--accent); outline-offset: -2px; }
+        .timeline-bar { cursor: grab; -webkit-user-select: none; user-select: none;
+            transition: filter 0.1s; }
+        .timeline-bar:hover { filter: brightness(1.1); }
+        .timeline-bar.dragging { opacity: 0.6; cursor: grabbing; }
+        .timeline-bar-edge { position: absolute; top: 0; bottom: 0; width: 6px;
+            cursor: ew-resize; background: rgba(255,255,255,0.18); }
+        .timeline-bar-edge.left { left: 0; border-radius: 3px 0 0 3px; }
+        .timeline-bar-edge.right { right: 0; border-radius: 0 3px 3px 0; }
+        .timeline-bar:hover .timeline-bar-edge { background: rgba(255,255,255,0.35); }
+        .timeline-tooltip { position: fixed; padding: 6px 10px; background: var(--bg-secondary);
+            border: 1px solid var(--accent); border-radius: 6px; font-size: 11px;
+            color: var(--text-primary); pointer-events: none; z-index: 3000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); white-space: nowrap; }
+        /* === Subtasks (модалка) === */
+        .cm-subtasks { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .cm-subtasks h4 { margin: 0 0 10px; font-size: 13px; color: var(--text-primary); font-weight: 500;
+            display: flex; align-items: center; gap: 8px; }
+        .cm-subtasks .sub-count { background: var(--accent-light); color: var(--accent);
+            padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+        .cm-subtasks .sub-progress { height: 6px; background: var(--bg-input); border-radius: 3px;
+            overflow: hidden; margin-bottom: 10px; border: 1px solid var(--border); }
+        .cm-subtasks .sub-progress-fill { height: 100%; background: var(--accent);
+            transition: width 0.3s; }
+        .cm-subtasks .sub-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+        .cm-subtasks .sub-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+            background: var(--bg-input); border: 1px solid var(--border); border-radius: 5px;
+            font-size: 13px; cursor: pointer; transition: border-color 0.15s; }
+        .cm-subtasks .sub-item:hover { border-color: var(--accent); }
+        .cm-subtasks .sub-item.done { opacity: 0.55; }
+        .cm-subtasks .sub-item.done .sub-name { text-decoration: line-through; }
+        .cm-subtasks .sub-check { width: 16px; height: 16px; border-radius: 4px;
+            border: 1.5px solid var(--text-muted); flex-shrink: 0; position: relative;
+            cursor: pointer; }
+        .cm-subtasks .sub-item.done .sub-check { background: var(--accent); border-color: var(--accent); }
+        .cm-subtasks .sub-item.done .sub-check::after { content: ''; position: absolute;
+            left: 4px; top: 1px; width: 5px; height: 9px; border: solid #fff;
+            border-width: 0 2px 2px 0; transform: rotate(45deg); }
+        .cm-subtasks .sub-name { flex: 1; color: var(--text-primary); overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; }
+        .cm-subtasks .sub-seq { font-size: 11px; color: var(--text-muted); }
+        .cm-subtasks .sub-add { display: flex; gap: 6px; margin-top: 6px; }
+        .cm-subtasks .sub-add input { flex: 1; padding: 6px 10px; background: var(--bg-input);
+            border: 1px solid var(--border); border-radius: 5px; font-family: inherit;
+            font-size: 13px; color: var(--text-primary); outline: none; transition: border-color 0.15s; }
+        .cm-subtasks .sub-add input:focus { border-color: var(--accent); }
+        .cm-subtasks .sub-add button { padding: 6px 14px; background: var(--accent); border: none;
+            color: #fff; border-radius: 5px; font-family: inherit; font-size: 12px; cursor: pointer;
+            font-weight: 500; transition: background 0.15s; }
+        .cm-subtasks .sub-add button:hover { background: var(--accent-hover); }
+        /* === Watchers === */
+        .cm-watchers { margin-top: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .cm-watch-btn { display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 5px; color: var(--text-secondary); cursor: pointer; font-size: 12px;
+            transition: all 0.15s; font-family: inherit; }
+        .cm-watch-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .cm-watch-btn.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+        .cm-watch-btn svg { width: 14px; height: 14px; }
+        .cm-watchers-list { display: flex; flex-wrap: wrap; gap: 4px; font-size: 11px; color: var(--text-muted); }
+        .cm-watcher-chip { background: var(--bg-input); padding: 2px 8px; border-radius: 3px; }
+        /* === Time tracking === */
+        .cm-time { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+        .cm-time h4 { margin: 0 0 10px; font-size: 13px; color: var(--text-primary); font-weight: 500;
+            display: flex; align-items: center; gap: 8px; }
+        .cm-time .tt-total { background: var(--accent-light); color: var(--accent);
+            padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+        .cm-time .tt-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .cm-time .tt-btn { display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; background: var(--accent); border: none; color: #fff;
+            border-radius: 5px; font-family: inherit; font-size: 12px; cursor: pointer;
+            font-weight: 500; transition: background 0.15s; }
+        .cm-time .tt-btn:hover { background: var(--accent-hover); }
+        .cm-time .tt-btn.stop { background: #ef4444; }
+        .cm-time .tt-btn.stop:hover { background: #dc2626; }
+        .cm-time .tt-running { color: #4a9659; font-size: 12px; font-family: 'Cascadia Code', Consolas, monospace; }
+        .cm-time .tt-list { display: flex; flex-direction: column; gap: 4px; max-height: 200px;
+            overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        .cm-time .tt-entry { display: flex; align-items: center; gap: 10px;
+            padding: 5px 10px; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 4px; font-size: 12px; }
+        .cm-time .tt-entry .tt-dur { color: var(--accent); font-weight: 500; font-family: 'Cascadia Code', Consolas, monospace; min-width: 60px; }
+        .cm-time .tt-entry .tt-cmt { flex: 1; color: var(--text-secondary); overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; }
+        .cm-time .tt-entry .tt-date { color: var(--text-muted); font-size: 10px; }
+        .cm-time .tt-entry .tt-del { background: transparent; border: none; color: var(--text-muted);
+            cursor: pointer; font-size: 14px; padding: 0 4px; }
+        .cm-time .tt-entry .tt-del:hover { color: #ef4444; }
+        .cm-time .tt-manual { display: flex; gap: 6px; margin-top: 8px; }
+        .cm-time .tt-manual input { padding: 5px 8px; background: var(--bg-input);
+            border: 1px solid var(--border); border-radius: 4px; font-family: inherit;
+            font-size: 12px; color: var(--text-primary); outline: none; transition: border-color 0.15s; }
+        .cm-time .tt-manual input:focus { border-color: var(--accent); }
+        .cm-time .tt-manual input.tt-mins { width: 70px; }
+        .cm-time .tt-manual input.tt-cmt-input { flex: 1; }
+        .cm-time .tt-manual button { padding: 5px 12px; background: transparent;
+            border: 1px solid var(--accent); color: var(--accent); border-radius: 4px;
+            font-family: inherit; font-size: 11px; cursor: pointer; transition: all 0.15s; }
+        .cm-time .tt-manual button:hover { background: var(--accent); color: #fff; }
+        /* Глобальный индикатор активного таймера в шапке */
+        .header-timer { display: none; align-items: center; gap: 6px; padding: 4px 10px;
+            background: var(--accent-light); border: 1px solid var(--accent); border-radius: 6px;
+            color: var(--accent); font-size: 12px; cursor: pointer; margin-right: 6px;
+            font-family: 'Cascadia Code', Consolas, monospace; transition: all 0.15s; }
+        .header-timer.show { display: inline-flex; }
+        .header-timer:hover { background: var(--accent); color: #fff; }
+        .header-timer svg { width: 12px; height: 12px; }
+        /* === Markdown в описании === */
+        .cm-desc-view { background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 6px; padding: 10px 12px; min-height: 60px; max-height: 240px;
+            overflow-y: auto; color: var(--text-primary); font-size: 13px; line-height: 1.55;
+            cursor: text; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+        .cm-desc-view:hover { border-color: var(--accent); }
+        .cm-desc-view .md-empty { color: var(--text-muted); font-style: italic; }
+        .cm-desc-view p { margin: 0 0 8px; }
+        .cm-desc-view p:last-child { margin-bottom: 0; }
+        .cm-desc-view strong { color: var(--text-primary); font-weight: 600; }
+        .cm-desc-view em { font-style: italic; }
+        .cm-desc-view code { background: var(--bg-secondary); padding: 1px 5px;
+            border-radius: 3px; font-family: 'Cascadia Code', Consolas, monospace; font-size: 12px; }
+        .cm-desc-view pre { background: var(--bg-secondary); padding: 8px 10px; border-radius: 5px;
+            overflow-x: auto; font-family: 'Cascadia Code', Consolas, monospace; font-size: 12px;
+            margin: 6px 0; }
+        .cm-desc-view ul, .cm-desc-view ol { margin: 4px 0; padding-left: 22px; }
+        .cm-desc-view li { margin: 2px 0; }
+        .cm-desc-view a { color: var(--accent); text-decoration: underline; }
+        .cm-desc-view h1, .cm-desc-view h2, .cm-desc-view h3 { margin: 8px 0 4px;
+            font-weight: 600; color: var(--text-primary); }
+        .cm-desc-view h1 { font-size: 16px; } .cm-desc-view h2 { font-size: 15px; } .cm-desc-view h3 { font-size: 14px; }
+        .cm-desc-edit-tools { display: flex; gap: 4px; padding: 4px; background: var(--bg-input);
+            border: 1px solid var(--border); border-bottom: none; border-radius: 6px 6px 0 0; }
+        .cm-desc-edit-tools button { background: transparent; border: none; color: var(--text-secondary);
+            cursor: pointer; padding: 4px 8px; border-radius: 4px; font-family: inherit;
+            font-size: 12px; font-weight: 500; transition: all 0.1s; min-width: 28px; }
+        .cm-desc-edit-tools button:hover { background: var(--accent-light); color: var(--accent); }
+        .cm-desc-edit-tools .md-sep { width: 1px; background: var(--border); margin: 2px 0; }
+        /* === Export menu === */
+        .export-menu { position: relative; }
+        .export-menu-list { position: absolute; top: 100%; right: 0; margin-top: 4px;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 6px; min-width: 140px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            display: none; z-index: 100; overflow: hidden; }
+        .export-menu.open .export-menu-list { display: block; }
+        .export-menu-list button { display: flex; align-items: center; gap: 8px;
+            width: 100%; padding: 8px 12px; background: transparent; border: none;
+            color: var(--text-primary); cursor: pointer; font-family: inherit; font-size: 12px;
+            text-align: left; transition: background 0.1s; }
+        .export-menu-list button:hover { background: var(--accent-light); color: var(--accent); }
+        .export-menu-list button svg { width: 14px; height: 14px; flex-shrink: 0; }
         kbd {
             display: inline-block; padding: 2px 8px; font-family: 'Cascadia Code', Consolas, monospace;
             font-size: 12px; background: var(--bg-input); border: 1px solid var(--border);
@@ -1080,6 +1234,12 @@
             <div class="header-left"><h1>GigaChat Plane</h1></div>
             <div class="header-right">
                 <div class="status" id="statusBar"><span class="dot checking" id="statusDot"></span><span id="statusText">проверка...</span></div>
+                <span class="header-timer" id="header-timer" onclick="openActiveTimerIssue()" title="Активный таймер — клик откроет задачу">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>
+                    </svg>
+                    <span id="header-timer-text">00:00</span>
+                </span>
                 <button class="notif-btn" id="notif-btn" onclick="toggleNotifications()" aria-label="Уведомления" title="Уведомления">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
@@ -1126,6 +1286,27 @@
                         <button class="view-tab" data-view="activity" onclick="switchBoardView('activity')">Активность</button>
                     </div>
                     <button class="board-refresh" onclick="forceFullReload()">Обновить</button>
+                    <div class="export-menu" id="export-menu">
+                        <button class="board-refresh" onclick="toggleExportMenu(event)" title="Экспорт проекта">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-2px">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>Экспорт
+                        </button>
+                        <div class="export-menu-list">
+                            <button onclick="exportBoard('csv')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                Сохранить как CSV
+                            </button>
+                            <button onclick="exportBoard('xlsx')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+                                Сохранить как Excel
+                            </button>
+                            <button onclick="exportBoard('pdf')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                Распечатать / PDF
+                            </button>
+                        </div>
+                    </div>
                     <span class="board-status" id="board-status"></span>
                 </div>
                 <!-- Phase 1: вторая полоса с поиском, фильтрами, сортировкой -->
@@ -2903,6 +3084,10 @@
                 (issue.created_at ? '<div class="cm-created">Создана: ' +
                     escapeHtml(new Date(issue.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })) +
                     '</div>' : '') +
+                // Subtasks, Watchers, Time tracking — секции под общими полями.
+                '<div class="cm-watchers" id="cm-watchers-section"></div>' +
+                '<div class="cm-subtasks" id="cm-subtasks-section"></div>' +
+                '<div class="cm-time" id="cm-time-section"></div>' +
                 '<div class="card-modal-comments">' +
                     '<h4>Комментарии</h4>' +
                     '<div id="cm-comments-list"><div style="color:var(--text-muted);font-size:12px;text-align:center;padding:8px">Загружаю...</div></div>' +
@@ -2946,6 +3131,19 @@
             backdrop.classList.add('show');
             // Подгружаем комментарии асинхронно
             loadCardComments(issue);
+            // Phase 3: рендерим Subtasks / Watchers / Time tracking
+            // (только в режиме просмотра — не для is-new)
+            if (!issue._isNew) {
+                renderSubtasksSection(issue);
+                renderWatchersSection(issue);
+                renderTimeTrackingSection(issue);
+                // Markdown-просмотр описания (поверх textarea)
+                attachMarkdownDescriptionView();
+            } else {
+                ['cm-subtasks-section','cm-watchers-section','cm-time-section'].forEach(function (id) {
+                    var el = document.getElementById(id); if (el) el.style.display = 'none';
+                });
+            }
         }
 
         // Загрузка списка комментариев задачи — через workflow (direct mode).
@@ -3120,7 +3318,16 @@
             var statusEl = document.getElementById('board-status');
             var origName = MODAL_CURRENT_ISSUE.name;
             var newName = (document.getElementById('cm-name').value || '').trim();
-            var newDesc = (document.getElementById('cm-desc').value || '').trim();
+            // Phase 3: описание теперь в Markdown — конвертируем в HTML перед save.
+            // Workflow всё равно завернёт строку в <p>...</p>, но мы передаём
+            // уже отформатированный markdown как plain — для корректного round-trip
+            // вшиваем сырое HTML напрямую через description (workflow обнаружит теги).
+            var newDescRaw = (document.getElementById('cm-desc').value || '').trim();
+            var newDesc = newDescRaw; // workflow.create/update сам обернёт в <p>; markdown сохраняется как plain-text внутри HTML.
+            // AUDIT R3-A: сравниваем с оригиналом (markdown-round-trip),
+            // чтобы юзер мог очистить описание (раньше пустая строка молча игнорилась).
+            var origDesc = htmlToMd(MODAL_CURRENT_ISSUE.description_html || MODAL_CURRENT_ISSUE.description || '');
+            var descChanged = newDesc !== origDesc;
             var newPrio = document.getElementById('cm-prio').value;
             var newStart = document.getElementById('cm-start') ? document.getElementById('cm-start').value : '';
             var newDeadline = document.getElementById('cm-deadline').value;
@@ -3148,7 +3355,7 @@
                 // 2) Update name/description/priority/deadline
                 var updateParams = { project_name: BOARD_CURRENT_PROJECT, issue_name: origName };
                 if (newName && newName !== origName) updateParams.name = newName;
-                if (newDesc) updateParams.description = newDesc;
+                if (descChanged) updateParams.description = newDesc; // R3-A: пустая строка теперь тоже пройдёт
                 if (newPrio !== String(MODAL_CURRENT_ISSUE.priority || 'none')) updateParams.priority = newPrio;
                 if (newStart && newStart !== (MODAL_CURRENT_ISSUE.start_date || '')) updateParams.start_date = newStart;
                 if (newDeadline && newDeadline !== (MODAL_CURRENT_ISSUE.target_date || '')) updateParams.target_date = newDeadline;
@@ -3895,13 +4102,13 @@
                 var tasks = byDate[key] || [];
                 var isToday = key === todayKey;
                 var thisDate = new Date(y, m, d);
-                html += '<div class="cal-day' + (isToday ? ' today' : '') + '"><div class="cal-day-num">' + d + '</div>';
+                html += '<div class="cal-day' + (isToday ? ' today' : '') + '" data-day-key="' + key + '"><div class="cal-day-num">' + d + '</div>';
                 tasks.slice(0, 4).forEach(function (t) {
                     var overdue = thisDate < today;
                     var group = (t.state_detail && t.state_detail.group) || '';
                     var closed = group === 'completed' || group === 'cancelled';
                     var cls = (overdue && !closed) ? 'cal-task overdue' : 'cal-task';
-                    html += '<div class="' + cls + '" data-issue-name="' + escapeAttr(t.name||'') + '" title="' + escapeAttr(t.name||'') + '">' + escapeHtml(t.name||'').slice(0,30) + '</div>';
+                    html += '<div class="' + cls + '" draggable="true" data-issue-id="' + escapeAttr(t.id||'') + '" data-issue-name="' + escapeAttr(t.name||'') + '" title="' + escapeAttr(t.name||'') + ' (перетащи на другой день — поменяется срок)">' + escapeHtml(t.name||'').slice(0,30) + '</div>';
                 });
                 if (tasks.length > 4) html += '<div style="font-size:10px;color:var(--text-muted)">+' + (tasks.length - 4) + '</div>';
                 html += '</div>';
@@ -3916,10 +4123,50 @@
             host.innerHTML = html;
             // Клик на задачу → открыть модалку
             host.querySelectorAll('.cal-task').forEach(function (el) {
-                el.addEventListener('click', function () {
+                el.addEventListener('click', function (e) {
+                    // Игнорируем клик после перетаскивания
+                    if (el.__justDragged) { el.__justDragged = false; return; }
                     var name = el.dataset.issueName;
                     var iss = (BOARD_ALL_ISSUES || []).find(function (x) { return x.name === name; });
                     if (iss) openCardModal(iss);
+                });
+                // DnD: начало
+                el.addEventListener('dragstart', function (e) {
+                    el.classList.add('dragging');
+                    __DRAG_ISSUE = (BOARD_ALL_ISSUES || []).find(function (x) {
+                        return x.id === el.dataset.issueId || x.name === el.dataset.issueName;
+                    });
+                    if (e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'move';
+                        try { e.dataTransfer.setData('text/plain', el.dataset.issueName || ''); } catch(_) {}
+                    }
+                });
+                el.addEventListener('dragend', function () {
+                    el.classList.remove('dragging');
+                    el.__justDragged = true;
+                    setTimeout(function () { el.__justDragged = false; }, 100);
+                });
+            });
+            // DnD: drop-зоны = ячейки cal-day (не other-month)
+            host.querySelectorAll('.cal-day:not(.other-month)').forEach(function (cell) {
+                cell.addEventListener('dragover', function (e) {
+                    if (!__DRAG_ISSUE) return;
+                    e.preventDefault();
+                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+                    cell.classList.add('drop-target');
+                });
+                cell.addEventListener('dragleave', function () {
+                    cell.classList.remove('drop-target');
+                });
+                cell.addEventListener('drop', async function (e) {
+                    e.preventDefault();
+                    cell.classList.remove('drop-target');
+                    var issue = __DRAG_ISSUE;
+                    __DRAG_ISSUE = null;
+                    if (!issue) return;
+                    var newDate = cell.dataset.dayKey;
+                    if (!newDate || newDate === issue.target_date) return;
+                    await dragUpdateIssue(issue, { target_date: newDate });
                 });
             });
         }
@@ -3971,9 +4218,15 @@
                 var prio = String(i.priority || '').toLowerCase();
                 var group = (i.state_detail && i.state_detail.group) || '';
                 var cls = 'timeline-bar' + (group === 'completed' ? ' completed' : (prio === 'urgent' ? ' urgent' : (prio === 'high' ? ' high' : '')));
-                rows += '<div class="timeline-row">' +
+                rows += '<div class="timeline-row" data-issue-id="' + escapeAttr(i.id || '') + '">' +
                     '<div class="timeline-name" data-issue-name="' + escapeAttr(i.name || '') + '">' + escapeHtml(i.name || '—') + '</div>' +
-                    '<div class="timeline-bar-track"><div class="' + cls + '" style="left:' + left + '%;width:' + width + '%">' + fmt(e) + '</div></div>' +
+                    '<div class="timeline-bar-track">' +
+                        '<div class="' + cls + '" data-issue-id="' + escapeAttr(i.id || '') + '" data-issue-name="' + escapeAttr(i.name || '') + '" style="left:' + left + '%;width:' + width + '%" title="' + escapeAttr(i.name || '') + ' — тяни за центр чтобы сдвинуть, за края чтобы растянуть">' +
+                            '<span class="timeline-bar-edge left" data-edge="left"></span>' +
+                            fmt(e) +
+                            '<span class="timeline-bar-edge right" data-edge="right"></span>' +
+                        '</div>' +
+                    '</div>' +
                 '</div>';
             });
             host.innerHTML = '<div class="timeline-wrap">' + rows + '</div>';
@@ -3983,6 +4236,109 @@
                     var iss = (BOARD_ALL_ISSUES || []).find(function (x) { return x.name === n; });
                     if (iss) openCardModal(iss);
                 });
+            });
+            // DnD: тяни bar за центр (move) или края (resize start/target).
+            // Pointer-events позволяют работать и с touch и с mouse.
+            host.querySelectorAll('.timeline-bar').forEach(function (bar) {
+                attachTimelineBarDrag(bar, minDate, totalMs);
+            });
+        }
+        // Pointer-based drag для timeline bar.
+        function attachTimelineBarDrag(bar, minDate, totalMs) {
+            var track = bar.parentElement; // .timeline-bar-track
+            var issueId = bar.dataset.issueId;
+            var issueName = bar.dataset.issueName;
+            var issue = (BOARD_ALL_ISSUES || []).find(function (x) {
+                return x.id === issueId || x.name === issueName;
+            });
+            if (!issue) return;
+            var dragState = null;
+            var tooltip = null;
+            function pxToMs(px) {
+                var w = track.getBoundingClientRect().width;
+                return (px / w) * totalMs;
+            }
+            function startDrag(e, mode) {
+                e.preventDefault();
+                e.stopPropagation();
+                var startX = e.clientX;
+                var rect = bar.getBoundingClientRect();
+                var origLeftPx = rect.left - track.getBoundingClientRect().left;
+                var origWidthPx = rect.width;
+                var origStart = issue.start_date ? new Date(issue.start_date) : (issue.target_date ? new Date(issue.target_date) : new Date());
+                var origEnd = issue.target_date ? new Date(issue.target_date) : origStart;
+                dragState = { mode: mode, startX: startX, origLeftPx: origLeftPx, origWidthPx: origWidthPx, origStart: origStart, origEnd: origEnd };
+                bar.classList.add('dragging');
+                // Tooltip
+                tooltip = document.createElement('div');
+                tooltip.className = 'timeline-tooltip';
+                document.body.appendChild(tooltip);
+                updateTooltip(e, origStart, origEnd);
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onUp);
+            }
+            function updateTooltip(e, s, en) {
+                if (!tooltip) return;
+                function fmtRu(d) { return String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear(); }
+                tooltip.textContent = fmtRu(s) + (s.getTime() !== en.getTime() ? ' — ' + fmtRu(en) : '');
+                tooltip.style.left = (e.clientX + 14) + 'px';
+                tooltip.style.top = (e.clientY - 30) + 'px';
+            }
+            function onMove(e) {
+                if (!dragState) return;
+                var deltaPx = e.clientX - dragState.startX;
+                var deltaMs = pxToMs(deltaPx);
+                var newStart = new Date(dragState.origStart);
+                var newEnd = new Date(dragState.origEnd);
+                if (dragState.mode === 'move') {
+                    newStart = new Date(dragState.origStart.getTime() + deltaMs);
+                    newEnd = new Date(dragState.origEnd.getTime() + deltaMs);
+                    bar.style.left = (dragState.origLeftPx + deltaPx) / track.getBoundingClientRect().width * 100 + '%';
+                } else if (dragState.mode === 'resize-right') {
+                    newEnd = new Date(dragState.origEnd.getTime() + deltaMs);
+                    if (newEnd < newStart) newEnd = newStart;
+                    var newWidthPx = dragState.origWidthPx + deltaPx;
+                    if (newWidthPx < 6) newWidthPx = 6;
+                    bar.style.width = newWidthPx / track.getBoundingClientRect().width * 100 + '%';
+                } else if (dragState.mode === 'resize-left') {
+                    newStart = new Date(dragState.origStart.getTime() + deltaMs);
+                    if (newStart > newEnd) newStart = newEnd;
+                    var newLeftPx = dragState.origLeftPx + deltaPx;
+                    var newWidthPx2 = dragState.origWidthPx - deltaPx;
+                    if (newWidthPx2 < 6) newWidthPx2 = 6;
+                    bar.style.left = newLeftPx / track.getBoundingClientRect().width * 100 + '%';
+                    bar.style.width = newWidthPx2 / track.getBoundingClientRect().width * 100 + '%';
+                }
+                updateTooltip(e, newStart, newEnd);
+                dragState.newStart = newStart;
+                dragState.newEnd = newEnd;
+            }
+            async function onUp() {
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onUp);
+                bar.classList.remove('dragging');
+                if (tooltip) { tooltip.remove(); tooltip = null; }
+                if (!dragState || !dragState.newStart) { dragState = null; return; }
+                var fields = {};
+                var startISO = fmtDateISO(dragState.newStart);
+                var endISO = fmtDateISO(dragState.newEnd);
+                if (dragState.mode === 'move' || dragState.mode === 'resize-left') {
+                    if (startISO !== issue.start_date) fields.start_date = startISO;
+                }
+                if (dragState.mode === 'move' || dragState.mode === 'resize-right') {
+                    if (endISO !== issue.target_date) fields.target_date = endISO;
+                }
+                dragState = null;
+                if (Object.keys(fields).length === 0) { rerenderCurrentBoardView(); return; }
+                await dragUpdateIssue(issue, fields);
+            }
+            // Привязка обработчиков
+            bar.addEventListener('pointerdown', function (e) {
+                if (e.button !== 0) return; // только левая кнопка
+                var edge = e.target && e.target.classList && e.target.classList.contains('timeline-bar-edge')
+                    ? (e.target.dataset.edge === 'left' ? 'resize-left' : 'resize-right')
+                    : 'move';
+                startDrag(e, edge);
             });
         }
 
@@ -4281,6 +4637,646 @@
             document.body.appendChild(d.firstChild);
         }
 
+        // ============================================================
+        // Phase 3: Subtasks, Watchers, Time tracking, Markdown, Export
+        // ============================================================
+
+        // === SUBTASKS ===
+        function renderSubtasksSection(issue) {
+            var host = document.getElementById('cm-subtasks-section');
+            if (!host || !issue || !issue.id) return;
+            // Дети — задачи где parent === issue.id
+            var children = (BOARD_ALL_ISSUES || []).filter(function (x) {
+                return x.parent === issue.id || (x.parent_detail && x.parent_detail.id === issue.id);
+            });
+            var done = children.filter(function (c) {
+                var g = c.state_detail && c.state_detail.group;
+                return g === 'completed' || g === 'cancelled';
+            }).length;
+            var total = children.length;
+            var pct = total ? Math.round(done / total * 100) : 0;
+            var html = '<h4>Подзадачи <span class="sub-count">' + done + ' / ' + total + '</span></h4>';
+            if (total > 0) {
+                html += '<div class="sub-progress"><div class="sub-progress-fill" style="width:' + pct + '%"></div></div>';
+                html += '<div class="sub-list">';
+                children.forEach(function (c) {
+                    var g = (c.state_detail && c.state_detail.group) || '';
+                    var isDone = g === 'completed' || g === 'cancelled';
+                    html += '<div class="sub-item ' + (isDone ? 'done' : '') + '" data-sub-id="' + escapeAttr(c.id) + '" data-sub-name="' + escapeAttr(c.name) + '">' +
+                        '<div class="sub-check" data-toggle-done></div>' +
+                        '<span class="sub-name">' + escapeHtml(c.name || '—') + '</span>' +
+                        (c.sequence_id ? '<span class="sub-seq">#' + escapeHtml(String(c.sequence_id)) + '</span>' : '') +
+                    '</div>';
+                });
+                html += '</div>';
+            } else {
+                html += '<div style="color:var(--text-muted);font-size:12px;padding:6px 0">Подзадач нет.</div>';
+            }
+            html += '<div class="sub-add">' +
+                '<input type="text" id="cm-sub-new" placeholder="Название новой подзадачи..." onkeydown="if(event.key===\'Enter\')addSubtask()">' +
+                '<button onclick="addSubtask()">Добавить</button>' +
+            '</div>';
+            host.innerHTML = html;
+            // Toggle done клик на чек-бокс
+            host.querySelectorAll('.sub-item').forEach(function (el) {
+                var checkEl = el.querySelector('.sub-check');
+                if (checkEl) {
+                    checkEl.addEventListener('click', async function (e) {
+                        e.stopPropagation();
+                        // R3-B fix: ищем по id, иначе при одинаковых именах меняется не тот.
+                        var subId = el.dataset.subId;
+                        var sub = (BOARD_ALL_ISSUES || []).find(function (x) { return x.id === subId; });
+                        if (!sub) return;
+                        var isDone = el.classList.contains('done');
+                        await planeDirect('change_status', {
+                            project_name: BOARD_CURRENT_PROJECT,
+                            issue_name: sub.name,
+                            state: isDone ? 'todo' : 'done'
+                        });
+                        // Reload board (subtasks come from BOARD_ALL_ISSUES, need fresh state)
+                        if (typeof reloadBoard === 'function') await reloadBoard(true);
+                        renderSubtasksSection(MODAL_CURRENT_ISSUE);
+                    });
+                }
+                // Клик по имени → открыть саму подзадачу
+                var nameEl = el.querySelector('.sub-name');
+                if (nameEl) {
+                    nameEl.addEventListener('click', function () {
+                        var subId = el.dataset.subId;
+                        var sub = (BOARD_ALL_ISSUES || []).find(function (x) { return x.id === subId; });
+                        if (sub) openCardModal(sub);
+                    });
+                }
+            });
+        }
+        async function addSubtask() {
+            var input = document.getElementById('cm-sub-new');
+            if (!input || !MODAL_CURRENT_ISSUE) return;
+            var name = (input.value || '').trim();
+            if (!name) return;
+            var btn = input.nextElementSibling;
+            if (btn) btn.disabled = true;
+            input.disabled = true;
+            try {
+                var res = await planeDirect('create_issue', {
+                    project_name: BOARD_CURRENT_PROJECT,
+                    name: name,
+                    parent: MODAL_CURRENT_ISSUE.id
+                });
+                if (res && (res.error || res.action === 'error')) {
+                    alert(res.response || 'Не удалось создать подзадачу');
+                    return;
+                }
+                input.value = '';
+                if (typeof reloadBoard === 'function') await reloadBoard(true);
+                renderSubtasksSection(MODAL_CURRENT_ISSUE);
+            } finally {
+                if (btn) btn.disabled = false;
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        // === WATCHERS ===
+        function renderWatchersSection(issue) {
+            var host = document.getElementById('cm-watchers-section');
+            if (!host || !issue || !issue.id) return;
+            host.innerHTML = '<button class="cm-watch-btn" id="cm-watch-toggle" onclick="toggleWatchIssue()">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' +
+                '<span id="cm-watch-label">Подписаться</span></button>' +
+                '<div class="cm-watchers-list" id="cm-watchers-list"></div>';
+            loadWatchers(issue);
+        }
+        async function loadWatchers(issue) {
+            var labelEl = document.getElementById('cm-watch-label');
+            var btnEl = document.getElementById('cm-watch-toggle');
+            var listEl = document.getElementById('cm-watchers-list');
+            if (!labelEl) return;
+            try {
+                var res = await planeDirect('list_subscribers', {
+                    project_name: BOARD_CURRENT_PROJECT,
+                    issue_name: issue.name
+                });
+                if (!res || res.error) {
+                    if (listEl) listEl.textContent = '';
+                    if (labelEl) labelEl.textContent = 'Подписаться';
+                    return;
+                }
+                var subs = (res.data && res.data.subscribers) || [];
+                var meId = res.data && res.data.me_id;
+                var iAmSubbed = !!(meId && subs.some(function (s) { return String(s.id || s.user || s.subscriber) === String(meId); }));
+                if (btnEl) btnEl.classList.toggle('active', iAmSubbed);
+                if (labelEl) labelEl.textContent = iAmSubbed ? 'Отписаться' : 'Подписаться';
+                if (listEl) {
+                    if (subs.length) {
+                        listEl.innerHTML = subs.map(function (s) {
+                            var name = s.display_name || s.email || (BOARD_MEMBERS_CACHE || []).find(function(m){return m.id === (s.id || s.user || s.subscriber);});
+                            if (name && typeof name === 'object') name = name.display_name || name.email || name.id;
+                            return '<span class="cm-watcher-chip">' + escapeHtml(name || '—') + '</span>';
+                        }).join('');
+                    } else {
+                        listEl.textContent = '';
+                    }
+                }
+            } catch (e) { /* silent */ }
+        }
+        async function toggleWatchIssue() {
+            if (!MODAL_CURRENT_ISSUE) return;
+            var labelEl = document.getElementById('cm-watch-label');
+            var btnEl = document.getElementById('cm-watch-toggle');
+            var wasSubbed = btnEl && btnEl.classList.contains('active');
+            var action = wasSubbed ? 'unsubscribe_issue' : 'subscribe_issue';
+            if (labelEl) labelEl.textContent = '...';
+            try {
+                var res = await planeDirect(action, {
+                    project_name: BOARD_CURRENT_PROJECT,
+                    issue_name: MODAL_CURRENT_ISSUE.name
+                });
+                if (res && (res.error || res.action === 'error')) {
+                    alert(res.response || 'Не удалось изменить подписку');
+                }
+                loadWatchers(MODAL_CURRENT_ISSUE);
+            } catch (e) {
+                loadWatchers(MODAL_CURRENT_ISSUE);
+            }
+        }
+
+        // === TIME TRACKING (локально, через localStorage) ===
+        function ttUserKey() {
+            try { var u = GigaChat.auth && GigaChat.auth.currentUser && GigaChat.auth.currentUser(); return (u && u.id) || 'anon'; }
+            catch(_) { return 'anon'; }
+        }
+        function ttEntriesKey() { return 'plane_time_entries_' + ttUserKey(); }
+        function ttActiveKey() { return 'plane_active_timer_' + ttUserKey(); }
+        function ttLoadEntries() {
+            try { return JSON.parse(localStorage.getItem(ttEntriesKey()) || '[]') || []; }
+            catch(_) { return []; }
+        }
+        function ttSaveEntries(arr) {
+            try { localStorage.setItem(ttEntriesKey(), JSON.stringify(arr)); } catch(_) {}
+        }
+        function ttGetActive() {
+            try { return JSON.parse(localStorage.getItem(ttActiveKey()) || 'null'); }
+            catch(_) { return null; }
+        }
+        function ttSetActive(active) {
+            try {
+                if (active) localStorage.setItem(ttActiveKey(), JSON.stringify(active));
+                else localStorage.removeItem(ttActiveKey());
+            } catch(_) {}
+        }
+        function ttFmtDuration(min) {
+            if (min < 60) return min + ' мин';
+            var h = Math.floor(min/60), m = min % 60;
+            return h + 'ч ' + (m ? m + 'м' : '');
+        }
+        function ttFmtClock(sec) {
+            var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec % 60;
+            if (h) return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+            return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+        }
+        function ttEntriesForIssue(issueId) {
+            return ttLoadEntries().filter(function (e) { return e.issue_id === issueId; });
+        }
+        function renderTimeTrackingSection(issue) {
+            var host = document.getElementById('cm-time-section');
+            if (!host || !issue || !issue.id) return;
+            var entries = ttEntriesForIssue(issue.id);
+            var total = entries.reduce(function (s, e) { return s + (e.duration_min || 0); }, 0);
+            var active = ttGetActive();
+            var isActive = active && active.issue_id === issue.id;
+            var html = '<h4>Учёт времени <span class="tt-total">' + ttFmtDuration(total) + '</span></h4>' +
+                '<div class="tt-controls">' +
+                    (isActive
+                        ? '<button class="tt-btn stop" onclick="ttStop()">⏸ Стоп</button><span class="tt-running" id="cm-tt-running">' + ttFmtClock(Math.floor((Date.now()-new Date(active.started_at))/1000)) + '</span>'
+                        : '<button class="tt-btn" onclick="ttStart()">▶ Старт</button>') +
+                '</div>' +
+                '<div class="tt-list" id="cm-tt-list">' +
+                (entries.length
+                    ? entries.slice().reverse().map(function (e) {
+                        var dt = new Date(e.ended_at || e.started_at);
+                        var dateStr = dt.toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit' }) + ' ' + dt.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
+                        return '<div class="tt-entry">' +
+                            '<span class="tt-dur">' + ttFmtDuration(e.duration_min) + '</span>' +
+                            '<span class="tt-cmt" title="' + escapeAttr(e.comment || '') + '">' + escapeHtml(e.comment || '—') + '</span>' +
+                            '<span class="tt-date">' + dateStr + '</span>' +
+                            '<button class="tt-del" title="Удалить запись" onclick="ttDelete(\'' + e.id + '\')">×</button>' +
+                        '</div>';
+                    }).join('')
+                    : '<div style="color:var(--text-muted);font-size:12px;padding:6px 0">Записей нет.</div>'
+                ) +
+                '</div>' +
+                '<div class="tt-manual">' +
+                    '<input type="number" class="tt-mins" id="cm-tt-mins" min="1" placeholder="мин">' +
+                    '<input type="text" class="tt-cmt-input" id="cm-tt-cmt" placeholder="Комментарий (что делал)">' +
+                    '<button onclick="ttManualAdd()">+ Добавить</button>' +
+                '</div>';
+            host.innerHTML = html;
+        }
+        function ttStart() {
+            if (!MODAL_CURRENT_ISSUE) return;
+            // Если уже активен другой таймер — останавливаем
+            var active = ttGetActive();
+            if (active && active.issue_id !== MODAL_CURRENT_ISSUE.id) ttStopGlobal();
+            ttSetActive({
+                issue_id: MODAL_CURRENT_ISSUE.id,
+                issue_name: MODAL_CURRENT_ISSUE.name,
+                project: BOARD_CURRENT_PROJECT,
+                started_at: new Date().toISOString()
+            });
+            renderTimeTrackingSection(MODAL_CURRENT_ISSUE);
+            updateHeaderTimer();
+        }
+        function ttStop() {
+            ttStopGlobal();
+            if (MODAL_CURRENT_ISSUE) renderTimeTrackingSection(MODAL_CURRENT_ISSUE);
+        }
+        function ttStopGlobal(comment) {
+            var active = ttGetActive();
+            if (!active) return;
+            var elapsedMs = Date.now() - new Date(active.started_at).getTime();
+            var min = Math.max(1, Math.round(elapsedMs / 60000));
+            var entries = ttLoadEntries();
+            entries.push({
+                id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+                issue_id: active.issue_id,
+                issue_name: active.issue_name,
+                project: active.project,
+                started_at: active.started_at,
+                ended_at: new Date().toISOString(),
+                duration_min: min,
+                comment: comment || ''
+            });
+            ttSaveEntries(entries);
+            ttSetActive(null);
+            updateHeaderTimer();
+        }
+        function ttManualAdd() {
+            if (!MODAL_CURRENT_ISSUE) return;
+            var minEl = document.getElementById('cm-tt-mins');
+            var cmtEl = document.getElementById('cm-tt-cmt');
+            // R3-D: DOM мог обновиться → guard на null.
+            if (!minEl) return;
+            var min = parseInt(minEl.value, 10);
+            if (!min || min < 1) { alert('Укажи минуты (число)'); return; }
+            var entries = ttLoadEntries();
+            var now = new Date();
+            entries.push({
+                id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+                issue_id: MODAL_CURRENT_ISSUE.id,
+                issue_name: MODAL_CURRENT_ISSUE.name,
+                project: BOARD_CURRENT_PROJECT,
+                started_at: new Date(now.getTime() - min*60000).toISOString(),
+                ended_at: now.toISOString(),
+                duration_min: min,
+                comment: ((cmtEl && cmtEl.value) || '').trim()
+            });
+            ttSaveEntries(entries);
+            renderTimeTrackingSection(MODAL_CURRENT_ISSUE);
+        }
+        function ttDelete(id) {
+            if (!confirm('Удалить запись времени?')) return;
+            var entries = ttLoadEntries().filter(function (e) { return e.id !== id; });
+            ttSaveEntries(entries);
+            if (MODAL_CURRENT_ISSUE) renderTimeTrackingSection(MODAL_CURRENT_ISSUE);
+        }
+        var HEADER_TIMER_TICK = null;
+        function updateHeaderTimer() {
+            var el = document.getElementById('header-timer');
+            var txt = document.getElementById('header-timer-text');
+            if (!el || !txt) return;
+            var active = ttGetActive();
+            if (!active) {
+                el.classList.remove('show');
+                if (HEADER_TIMER_TICK) { clearInterval(HEADER_TIMER_TICK); HEADER_TIMER_TICK = null; }
+                return;
+            }
+            el.classList.add('show');
+            function tick() {
+                var sec = Math.floor((Date.now() - new Date(active.started_at).getTime()) / 1000);
+                txt.textContent = ttFmtClock(sec);
+                // Также обновляем в модалке если открыта
+                var inModal = document.getElementById('cm-tt-running');
+                if (inModal) inModal.textContent = ttFmtClock(sec);
+            }
+            tick();
+            if (HEADER_TIMER_TICK) clearInterval(HEADER_TIMER_TICK);
+            HEADER_TIMER_TICK = setInterval(tick, 1000);
+        }
+        function openActiveTimerIssue() {
+            var active = ttGetActive();
+            if (!active) return;
+            var iss = (BOARD_ALL_ISSUES || []).find(function (x) { return x.id === active.issue_id; });
+            if (iss) { openCardModal(iss); return; }
+            // Если задача не в текущем кэше — показываем уведомление
+            alert('Активный таймер: ' + active.issue_name + ' (проект: ' + active.project + ')');
+        }
+
+        // === MARKDOWN ===
+        function mdToHtml(md) {
+            if (!md) return '';
+            var s = String(md);
+            // Escape HTML first
+            s = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // Code blocks ```...```
+            s = s.replace(/```([\s\S]*?)```/g, function (_, c) { return '<pre><code>' + c + '</code></pre>'; });
+            // Headers
+            s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+            s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+            s = s.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+            // Bold, italic, inline code
+            s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+            s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+            // Links [text](url)
+            s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+            // Lists: lines starting with - or *
+            s = s.replace(/(?:^|\n)([\-\*] .+(?:\n[\-\*] .+)*)/g, function (_, block) {
+                var items = block.split(/\n/).map(function (l) { return l.replace(/^[\-\*]\s+/, ''); });
+                return '\n<ul>' + items.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</ul>';
+            });
+            // Numbered lists
+            s = s.replace(/(?:^|\n)(\d+\.\s.+(?:\n\d+\.\s.+)*)/g, function (_, block) {
+                var items = block.split(/\n/).map(function (l) { return l.replace(/^\d+\.\s+/, ''); });
+                return '\n<ol>' + items.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</ol>';
+            });
+            // Paragraphs
+            var blocks = s.split(/\n{2,}/);
+            s = blocks.map(function (b) {
+                b = b.trim();
+                if (!b) return '';
+                if (/^<(h\d|ul|ol|pre|p)/.test(b)) return b;
+                return '<p>' + b.replace(/\n/g, '<br>') + '</p>';
+            }).join('\n');
+            return s;
+        }
+        function htmlToMd(html) {
+            if (!html) return '';
+            var s = String(html);
+            // Простой обратный конверт основных тегов (для preserve markdown round-trip)
+            s = s.replace(/<br\s*\/?>/gi, '\n');
+            s = s.replace(/<\/p>\s*<p>/gi, '\n\n');
+            s = s.replace(/<p>/gi, '').replace(/<\/p>/gi, '');
+            s = s.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
+            s = s.replace(/<b>(.*?)<\/b>/gi, '**$1**');
+            s = s.replace(/<em>(.*?)<\/em>/gi, '*$1*');
+            s = s.replace(/<i>(.*?)<\/i>/gi, '*$1*');
+            s = s.replace(/<code>(.*?)<\/code>/gi, '`$1`');
+            s = s.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/gi, '```\n$1\n```');
+            s = s.replace(/<h1>(.*?)<\/h1>/gi, '# $1');
+            s = s.replace(/<h2>(.*?)<\/h2>/gi, '## $1');
+            s = s.replace(/<h3>(.*?)<\/h3>/gi, '### $1');
+            s = s.replace(/<a\s+href="([^"]+)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)');
+            s = s.replace(/<li>(.*?)<\/li>/gi, '- $1\n');
+            s = s.replace(/<\/?(ul|ol)>/gi, '');
+            // strip оставшиеся теги
+            s = s.replace(/<[^>]+>/g, '');
+            // decode entities
+            var t = document.createElement('textarea');
+            t.innerHTML = s;
+            return t.value.trim();
+        }
+        // Markdown-view над textarea: showing rendered text, click → редактирование.
+        function attachMarkdownDescriptionView() {
+            var ta = document.getElementById('cm-desc');
+            if (!ta) return;
+            // Initial value уже в textarea (stripHtml версия) — поменяем на raw markdown
+            var rawHtml = (MODAL_CURRENT_ISSUE && (MODAL_CURRENT_ISSUE.description_html || MODAL_CURRENT_ISSUE.description)) || '';
+            var md = htmlToMd(rawHtml);
+            ta.value = md;
+            ta.style.display = 'none';
+            // Создаём view-блок над textarea + панель инструментов
+            var parent = ta.parentNode;
+            if (!parent || parent.querySelector('.cm-desc-view')) return;
+            var tools = document.createElement('div');
+            tools.className = 'cm-desc-edit-tools';
+            tools.style.display = 'none';
+            tools.innerHTML =
+                '<button type="button" title="Полужирный" data-md="bold"><b>B</b></button>' +
+                '<button type="button" title="Курсив" data-md="italic"><i>I</i></button>' +
+                '<button type="button" title="Код" data-md="code">&lt;/&gt;</button>' +
+                '<span class="md-sep"></span>' +
+                '<button type="button" title="Заголовок" data-md="h">H</button>' +
+                '<button type="button" title="Список" data-md="list">• список</button>' +
+                '<button type="button" title="Ссылка" data-md="link">🔗 link</button>' +
+                '<span class="md-sep" style="flex:1"></span>' +
+                '<button type="button" title="Готово (предпросмотр)" data-md="preview" style="color:var(--accent)">✓ Готово</button>';
+            parent.insertBefore(tools, ta);
+            // Style textarea как часть toolbar (закругление снизу)
+            ta.style.borderRadius = '0 0 6px 6px';
+            ta.style.borderTopWidth = '0';
+            var view = document.createElement('div');
+            view.className = 'cm-desc-view';
+            view.innerHTML = md ? mdToHtml(md) : '<span class="md-empty">Описания нет. Клик чтобы добавить...</span>';
+            parent.insertBefore(view, ta);
+            view.addEventListener('click', function () {
+                view.style.display = 'none';
+                tools.style.display = 'flex';
+                ta.style.display = '';
+                ta.style.borderRadius = '0 0 6px 6px';
+                ta.style.borderTopWidth = '0';
+                ta.focus();
+            });
+            tools.addEventListener('click', function (e) {
+                var b = e.target.closest('button');
+                if (!b) return;
+                var mode = b.dataset.md;
+                if (mode === 'preview') {
+                    // Render md to view, hide editor
+                    var raw = ta.value;
+                    view.innerHTML = raw ? mdToHtml(raw) : '<span class="md-empty">Описания нет. Клик чтобы добавить...</span>';
+                    view.style.display = '';
+                    tools.style.display = 'none';
+                    ta.style.display = 'none';
+                    return;
+                }
+                // Insert markdown around selection
+                var ss = ta.selectionStart, ee = ta.selectionEnd;
+                var before = ta.value.slice(0, ss), sel = ta.value.slice(ss, ee), after = ta.value.slice(ee);
+                var wrap = { bold: ['**', '**'], italic: ['*', '*'], code: ['`', '`'], h: ['## ', ''], list: ['- ', ''], link: ['[', '](https://)'] }[mode];
+                if (!wrap) return;
+                if (mode === 'h' || mode === 'list') {
+                    // в начало строки
+                    var lineStart = before.lastIndexOf('\n') + 1;
+                    ta.value = ta.value.slice(0, lineStart) + wrap[0] + ta.value.slice(lineStart);
+                    ta.selectionStart = ta.selectionEnd = lineStart + wrap[0].length;
+                } else {
+                    ta.value = before + wrap[0] + (sel || 'текст') + wrap[1] + after;
+                    ta.selectionStart = ss + wrap[0].length;
+                    ta.selectionEnd = ss + wrap[0].length + (sel || 'текст').length;
+                }
+                ta.focus();
+            });
+        }
+
+        // === EXPORT ===
+        function toggleExportMenu(e) {
+            if (e) { e.stopPropagation(); e.preventDefault(); }
+            var m = document.getElementById('export-menu');
+            if (m) m.classList.toggle('open');
+        }
+        document.addEventListener('click', function (e) {
+            var m = document.getElementById('export-menu');
+            if (m && m.classList.contains('open') && !m.contains(e.target)) m.classList.remove('open');
+        });
+        function exportBoard(format) {
+            var m = document.getElementById('export-menu');
+            if (m) m.classList.remove('open');
+            var issues = BOARD_ALL_ISSUES || [];
+            if (!issues.length) {
+                alert('Нет задач для экспорта. Открой проект на доске.');
+                return;
+            }
+            var project = BOARD_CURRENT_PROJECT || 'project';
+            var STATE_RU = { unstarted:'Запланирована', backlog:'Отложена', started:'В работе', completed:'Готово', cancelled:'Отменена' };
+            var PRIO_RU = { urgent:'Срочный', high:'Высокий', medium:'Средний', low:'Низкий', none:'—' };
+            var headers = ['ID', 'Название', 'Статус', 'Приоритет', 'Дата начала', 'Срок', 'Создана'];
+            var rows = issues.map(function (i) {
+                var g = (i.state_detail && i.state_detail.group) || 'unstarted';
+                return [
+                    i.sequence_id ? '#' + i.sequence_id : (i.id || ''),
+                    i.name || '',
+                    STATE_RU[g] || g,
+                    PRIO_RU[String(i.priority||'none').toLowerCase()] || (i.priority || ''),
+                    i.start_date || '',
+                    i.target_date || '',
+                    i.created_at ? String(i.created_at).slice(0,10) : ''
+                ];
+            });
+            var filenameBase = 'plane_' + project.replace(/[^a-zA-Z0-9а-яА-Я]/g,'_') + '_' + fmtDateISO(new Date());
+            if (format === 'csv') exportAsCsv(filenameBase, headers, rows);
+            else if (format === 'xlsx') exportAsXlsx(filenameBase, headers, rows);
+            else if (format === 'pdf') exportAsPdf(project, headers, rows);
+        }
+        function exportAsCsv(filename, headers, rows) {
+            var lines = [headers.join(';')];
+            rows.forEach(function (r) {
+                lines.push(r.map(function (c) {
+                    var s = String(c == null ? '' : c);
+                    // R3-C: защита от CSV-injection — префикс ' если значение начинается
+                    // с = + - @ \t \r (Excel/LibreOffice интерпретируют как формулу).
+                    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+                    if (s.indexOf(';') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) {
+                        s = '"' + s.replace(/"/g, '""') + '"';
+                    }
+                    return s;
+                }).join(';'));
+            });
+            // BOM для корректного открытия в Excel
+            var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+            downloadBlob(blob, filename + '.csv');
+        }
+        async function exportAsXlsx(filename, headers, rows) {
+            try {
+                if (GigaChat && typeof GigaChat.buildXlsx === 'function') {
+                    var blob = await GigaChat.buildXlsx(headers, rows);
+                    downloadBlob(blob, filename + '.xlsx');
+                    return;
+                }
+            } catch (e) {}
+            // Fallback на CSV если XLSX-builder недоступен
+            alert('XLSX-конструктор недоступен. Сохраняю как CSV (открывается в Excel).');
+            exportAsCsv(filename, headers, rows);
+        }
+        function exportAsPdf(projectName, headers, rows) {
+            // Открываем print-окно с HTML-таблицей и зовём window.print()
+            var win = window.open('', '_blank', 'width=900,height=700');
+            if (!win) { alert('Браузер заблокировал всплывающее окно. Разреши попапы для этого сайта.'); return; }
+            var th = headers.map(function (h) { return '<th>' + escapeHtml(h) + '</th>'; }).join('');
+            var tr = rows.map(function (r) {
+                return '<tr>' + r.map(function (c) { return '<td>' + escapeHtml(c == null ? '' : String(c)) + '</td>'; }).join('') + '</tr>';
+            }).join('');
+            win.document.write(
+                '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">' +
+                '<title>Plane — ' + escapeHtml(projectName) + '</title>' +
+                '<style>' +
+                'body { font-family: Segoe UI, Tahoma, sans-serif; padding: 20px; color: #1f1f1e; }' +
+                'h1 { font-size: 18px; margin-bottom: 4px; }' +
+                '.meta { color: #6b6b68; font-size: 12px; margin-bottom: 16px; }' +
+                'table { width: 100%; border-collapse: collapse; font-size: 12px; }' +
+                'th, td { padding: 6px 8px; border: 1px solid #d4d4d4; text-align: left; vertical-align: top; }' +
+                'th { background: #f3f1ec; font-weight: 600; }' +
+                'tr:nth-child(even) td { background: #fbfaf6; }' +
+                '@media print { body { padding: 0; } @page { size: A4 landscape; margin: 12mm; } }' +
+                '</style></head><body>' +
+                '<h1>Plane — ' + escapeHtml(projectName) + '</h1>' +
+                '<div class="meta">Экспорт: ' + new Date().toLocaleString('ru-RU') + ' · задач: ' + rows.length + '</div>' +
+                '<table><thead><tr>' + th + '</tr></thead><tbody>' + tr + '</tbody></table>' +
+                '<script>setTimeout(function(){ window.print(); }, 300);<\/script>' +
+                '</body></html>'
+            );
+            win.document.close();
+        }
+        function downloadBlob(blob, filename) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+        }
+
+        // ============================================================
+        // Phase 3: DnD в Календаре / Диаграмме + helper для обновления issue
+        // ============================================================
+        var __DRAG_ISSUE = null; // текущая перетаскиваемая задача
+
+        function fmtDateISO(d) {
+            if (!(d instanceof Date)) d = new Date(d);
+            var y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+            return y + '-' + m + '-' + dd;
+        }
+
+        // Универсальный апдейт задачи с обновлением локального кэша + перерисовкой view.
+        async function dragUpdateIssue(issue, fields) {
+            if (!issue || !BOARD_CURRENT_PROJECT) return false;
+            var statusEl = document.getElementById('board-status');
+            var prev = {};
+            Object.keys(fields).forEach(function (k) { prev[k] = issue[k]; });
+            // Оптимистично применяем локально
+            Object.keys(fields).forEach(function (k) { issue[k] = fields[k]; });
+            if (statusEl) statusEl.textContent = 'Сохраняю...';
+            try {
+                var params = Object.assign({
+                    project_name: BOARD_CURRENT_PROJECT,
+                    issue_name: issue.name
+                }, fields);
+                var res = await planeDirect('update_issue', params);
+                if (res && (res.error || res.action === 'error')) {
+                    // Откатываем
+                    Object.keys(prev).forEach(function (k) { issue[k] = prev[k]; });
+                    if (statusEl) statusEl.textContent = res.response || 'Не удалось обновить';
+                    setTimeout(function () { if (statusEl) statusEl.textContent = ''; }, 3000);
+                    rerenderCurrentBoardView();
+                    return false;
+                }
+                if (statusEl) statusEl.textContent = 'Сохранено';
+                setTimeout(function () { if (statusEl) statusEl.textContent = ''; }, 2000);
+                rerenderCurrentBoardView();
+                return true;
+            } catch (e) {
+                Object.keys(prev).forEach(function (k) { issue[k] = prev[k]; });
+                if (statusEl) statusEl.textContent = 'Ошибка: ' + (e.message || e);
+                setTimeout(function () { if (statusEl) statusEl.textContent = ''; }, 3000);
+                rerenderCurrentBoardView();
+                return false;
+            }
+        }
+
+        function rerenderCurrentBoardView() {
+            if (BOARD_VIEW === 'calendar') renderCalendarView();
+            else if (BOARD_VIEW === 'timeline') renderTimelineView();
+            else if (typeof reloadBoard === 'function') reloadBoard(true);
+        }
+
+        // === Phase 3: Калькуляция дней для DnD на таймлайне ===
+        function shiftDate(dateStr, deltaDays) {
+            if (!dateStr) return null;
+            var d = new Date(dateStr);
+            d.setDate(d.getDate() + deltaDays);
+            return fmtDateISO(d);
+        }
+
         // ИНИТ: на загрузке — sticky pill, modal infra, кастомизация sort-select
         // BUG-FIX: guard от двойного выполнения. Раньше вешали DOMContentLoaded
         // И вызывали сразу — оба триггерили bindKeyboardShortcuts(), и при
@@ -4296,6 +5292,7 @@
             if (sortSel) attachCustomDropdown(sortSel);
             bindKeyboardShortcuts();
             startNotifPolling();
+            updateHeaderTimer();
         }
         document.addEventListener('DOMContentLoaded', _planeInitOnce);
         _planeInitOnce();
