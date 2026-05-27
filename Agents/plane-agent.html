@@ -5946,8 +5946,25 @@
                     contentText = res.response || (hasItems ? 'Результат:' : 'Ничего не найдено.');
                 }
                 var fakeMsg = { role: 'assistant', content: contentText, extras: (res.data || {}) };
-                var html = formatBotMessage(fakeMsg);
-                addAssistantMessage(html);
+                // R7.30: псевдо-стриминг текста через typewriteAssistant —
+                // юзер видит как печатается «Список задач…», потом swap на
+                // финальный HTML с карточками. Карточки получат stagger через
+                // MutationObserver на subtree (см. watchChatForNewMessages).
+                // addAssistantMessage здесь больше не подходит — он вставляет
+                // готовый HTML мгновенно, без эффекта печати.
+                var ssRef = (window.__planeAgent && window.__planeAgent.sessionStore) || null;
+                var sidRef = ssRef && ssRef.state && ssRef.state.activeSessionId;
+                if (ssRef && sidRef && GigaChat && GigaChat.typewriteAssistant) {
+                    GigaChat.typewriteAssistant(ssRef, sidRef, fakeMsg, {
+                        cps: 60,
+                        sendBtn: document.getElementById('send'),
+                        input: document.getElementById('msg'),
+                        accentColor: '#d4a574'
+                    });
+                } else {
+                    // Fallback — на случай если sessionStore ещё не готов
+                    addAssistantMessage(formatBotMessage(fakeMsg));
+                }
             } catch (e) {
                 removeLoaderById(loadId);
                 addAssistantMessage('Ошибка: ' + escapeHtml(e.message || String(e)));
@@ -6212,12 +6229,22 @@
         }
         // R5 #3: автоматическое применение к любым новым .message.bot
         // (LLM-routed messages идут через _shared.js, не через addAssistantMessage).
+        // R7.30: subtree:true — следим и за внутренностями .msg.bot, чтобы
+        // ловить карточки, инжектируемые позже (typewriter swap-on-final).
         (function watchChatForNewMessages() {
             function watch() {
                 var chat = document.getElementById('chat');
                 if (!chat) { setTimeout(watch, 200); return; }
                 if (chat.__staggerWatched) return;
                 chat.__staggerWatched = true;
+                var CARD_CLASSES = ['plane-card', 'chat-epic-card', 'chat-group-item', 'quick-reply-btn', 'disambig-item', 'multi-step-row'];
+                function isCard(el) {
+                    if (!el || !el.classList) return false;
+                    for (var i = 0; i < CARD_CLASSES.length; i++) {
+                        if (el.classList.contains(CARD_CLASSES[i])) return true;
+                    }
+                    return false;
+                }
                 var mo = new MutationObserver(function (muts) {
                     muts.forEach(function (m) {
                         m.addedNodes && m.addedNodes.forEach(function (n) {
@@ -6227,10 +6254,20 @@
                                 if (!n.classList.contains('chat-fade-in')) n.classList.add('chat-fade-in');
                                 applyStaggerAnimation(n);
                             }
+                            // R7.30: карточка появилась внутри уже существующего .msg.bot
+                            // (typewriter swap на финале) → сбрасываем staggered-флаг и
+                            // применяем анимацию заново.
+                            else if (isCard(n)) {
+                                var bot = n.closest && n.closest('.msg.bot');
+                                if (bot) {
+                                    if (bot.dataset) delete bot.dataset.staggered;
+                                    applyStaggerAnimation(bot);
+                                }
+                            }
                         });
                     });
                 });
-                mo.observe(chat, { childList: true });
+                mo.observe(chat, { childList: true, subtree: true });
             }
             watch();
         })();
