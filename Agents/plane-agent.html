@@ -725,7 +725,9 @@
         .activity-item { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px;
             padding: 10px 12px; font-size: 13px; }
         .activity-item-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: flex;
-            gap: 6px; align-items: center; flex-wrap: wrap; }
+            gap: 6px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+        /* R7.59: «Время: ЧЧ:ММ» — в правый нижний угол через margin-left:auto */
+        .activity-item-meta .ai-time { margin-left: auto; }
         .activity-item-actor { color: var(--accent); font-weight: 600; }
         .activity-item-field { color: var(--text-primary); }
         /* R7.58: «Задача: …» без italic, normal weight. */
@@ -768,8 +770,11 @@
         }
         .chat-activity-item .cgi-meta {
             font-size: 11px; color: var(--text-muted); line-height: 1.4;
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
         }
         .chat-activity-item .cgi-label { color: var(--text-muted); }
+        /* R7.59: «Время: ЧЧ:ММ» — в правый нижний угол */
+        .chat-activity-item .cgi-time { margin-left: auto; }
         .chat-epic-card { background: var(--accent-light); border: 1px solid var(--accent);
             border-radius: 8px; padding: 12px 14px; }
         .chat-epic-card .cec-header { font-weight: 500; color: var(--accent); margin-bottom: 8px; font-size: 13px; }
@@ -2438,9 +2443,8 @@
                         '<div class="cgi-line1"><span class="cgi-actor">' + escapeHtml(e.actor || '—') + '</span> ' + escapeHtml(action) + '</div>' +
                         (issueName ? '<div class="cgi-task"><span class="cgi-label">Задача:</span> ' + issueName + '</div>' : '') +
                         (project || when ? '<div class="cgi-meta">' +
-                            (project ? '<span class="cgi-label">Проект:</span> ' + project : '') +
-                            (project && when ? '&nbsp;&nbsp;&nbsp;' : '') +
-                            (when ? escapeHtml(when) : '') +
+                            (project ? '<span><span class="cgi-label">Проект:</span> ' + project + '</span>' : '') +
+                            (when ? '<span class="cgi-time"><span class="cgi-label">Время:</span> ' + escapeHtml(when) + '</span>' : '') +
                         '</div>' : '') +
                     '</div>' +
                 '</div>';
@@ -5437,9 +5441,8 @@
                                 '</div>' +
                                 (issueName ? '<div class="activity-item-issue"><span class="ai-label">Задача:</span> ' + issueName + '</div>' : '') +
                                 (project || when ? '<div class="activity-item-meta">' +
-                                    (project ? '<span class="ai-label">Проект:</span> ' + project : '') +
-                                    (project && when ? '<span class="ai-sep">·</span>' : '') +
-                                    (when ? '<span>' + when + '</span>' : '') +
+                                    (project ? '<span><span class="ai-label">Проект:</span> ' + project + '</span>' : '') +
+                                    (when ? '<span class="ai-time"><span class="ai-label">Время:</span> ' + when + '</span>' : '') +
                                 '</div>' : '') +
                             '</div>' +
                         '</div></div>';
