@@ -2910,7 +2910,14 @@
             // успела зафиксировать последний обмен (запись асинхронна).
             // В этом случае оставляем кэш — лучше показать пользователю
             // его сообщение, даже если оно «отстаёт» от сервера на 1-2 секунды.
-            if (msgs.length >= store.displayMessages.length) {
+            //
+            // R7.37: skip rerender, если backend вернул столько же msgs,
+            // сколько уже отрисовано из snapshot. На F5 это типичный кейс —
+            // мы уже отрендерили локальный snapshot, и второй rerender
+            // переигрывает stagger-анимацию карточек: юзер видит как поля
+            // задач «прыгают» — появляются дважды. При msgs.length > snapshot
+            // (реально прибавилось) — rerender нужен.
+            if (msgs.length > store.displayMessages.length) {
               store.displayMessages = msgs;
               saveSnapshot();
               renderMessages(store.displayMessages);

@@ -242,6 +242,16 @@
             transform: translateY(-1px);
         }
         .pc-inline-actions button.state-cancelled:active { box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.28); }
+        /* R7.37: приоритет в правом нижнем углу карточки — рядом с action-кнопками. */
+        .pc-prio-line {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .pc-prio-line .pc-prio-label { color: var(--text-secondary); }
         /* R7.33: cancelled task — больше НЕ перечёркивается и НЕ блёкнет.
            Юзер хочет видеть приоритет в обычных цветах, заголовок без line-through,
            а статус показывается через нижнюю кнопку «Отменено» (state-cancelled).
@@ -2229,8 +2239,10 @@
                 var group = (i.state_detail && i.state_detail.group) || '';
                 var cardCls = 'plane-card' + (group === 'cancelled' ? ' is-cancelled' : '') + (group === 'completed' ? ' is-completed' : '');
                 var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(Object.assign({ project: projectName }, i)) : '';
+                // R7.37: бейдж приоритета теперь рендерится внутри inlineActionsHtml
+                // в правом нижнем углу карточки. В строке с title его больше нет.
                 return '<div class="' + cardCls + '">' +
-                    '<div class="pc-title">' + escapeHtml(i.name || '—') + _renderPrioStateBadges(i) + '</div>' +
+                    '<div class="pc-title">' + escapeHtml(i.name || '—') + '</div>' +
                     actions +
                 '</div>';
             }).join('');
@@ -2246,7 +2258,7 @@
             var desc = stripHtml(issue.description_html || issue.description || '').slice(0, 200);
             var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(issue) : '';
             return '<div class="' + cardCls + '">' +
-                '<div class="pc-title">' + escapeHtml(issue.name || '—') + _renderPrioStateBadges(issue) + '</div>' +
+                '<div class="pc-title">' + escapeHtml(issue.name || '—') + '</div>' +
                 (meta.length ? '<div class="pc-meta" style="margin-top:6px;color:var(--text-secondary);font-size:12px">' + meta.join(' · ') + '</div>' : '') +
                 (desc ? '<div class="pc-desc" style="margin-top:6px;color:var(--text-muted);font-size:12px;white-space:pre-wrap">' + escapeHtml(desc) + '</div>' : '') +
                 actions +
@@ -6443,10 +6455,25 @@
                 btnState = '<button data-act="cancelled-current" class="state-active state-cancelled" title="Задача отменена">' + SVG_CANCEL + ' Отменено</button>';
             }
 
+            // R7.37: приоритет — в правом нижнем углу (margin-left:auto). НЕ
+            // показываем для отменённых задач (логически бесполезно).
+            var prioHtml = '';
+            if (!isCancelled) {
+                var ALLOWED_PRIO = { urgent:1, high:1, medium:1, low:1 };
+                var prio = String(issue.priority || 'none').toLowerCase();
+                if (ALLOWED_PRIO[prio]) {
+                    var prioLabel = ({urgent:'срочный',high:'высокий',medium:'средний',low:'низкий'})[prio];
+                    prioHtml = '<div class="pc-prio-line">' +
+                        '<span class="pc-prio-label">Приоритет:</span>' +
+                        '<span class="pc-prio ' + prio + '">' + prioLabel + '</span>' +
+                    '</div>';
+                }
+            }
             return '<div class="pc-inline-actions" data-issue-name="' + safeName + '" data-issue-id="' + safeId + '" data-project="' + safeProj + '">' +
                 btnState +
                 '<button data-act="open" title="Открыть в модалке"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/></svg> Изменить</button>' +
                 '<button data-act="delete" class="danger" title="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+                prioHtml +
             '</div>';
         }
         // Делегатор кликов по inline-кнопкам
