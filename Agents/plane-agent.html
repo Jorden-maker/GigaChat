@@ -4117,6 +4117,18 @@
             var open = panel.classList.toggle('show');
             if (open) loadNotifications();
         }
+        // last_seen_at в localStorage per-user — для активити-фоллбэка,
+        // где read_at от Plane не приходит.
+        function notifLastSeenKey() {
+            try { var u = GigaChat.auth && GigaChat.auth.currentUser && GigaChat.auth.currentUser(); return 'plane_notif_last_seen_' + ((u && u.id) || 'anon'); }
+            catch(_) { return 'plane_notif_last_seen_anon'; }
+        }
+        function getNotifLastSeen() {
+            try { return localStorage.getItem(notifLastSeenKey()) || ''; } catch(_) { return ''; }
+        }
+        function setNotifLastSeen(iso) {
+            try { localStorage.setItem(notifLastSeenKey(), iso || new Date().toISOString()); } catch(_) {}
+        }
         async function loadNotifications(silent) {
             var body = document.getElementById('notif-panel-body');
             var badge = document.getElementById('notif-badge');
@@ -4128,12 +4140,25 @@
                 return;
             }
             var list = res.data.notifications;
-            var unread = (res.data.unread || list.filter(function (n) { return !n.read_at; }).length) || 0;
+            // Если backend пришёл из activity-fallback — read_at пуст у всех.
+            // Считаем unread по last_seen_at из localStorage.
+            var lastSeen = getNotifLastSeen();
+            list.forEach(function (n) {
+                if (!n.read_at && lastSeen && n.created_at && String(n.created_at) <= lastSeen) {
+                    n.read_at = lastSeen; // считаем прочитанным
+                }
+            });
+            var unread = list.filter(function (n) { return !n.read_at; }).length;
             if (badge) {
                 if (unread > 0) { badge.textContent = unread > 99 ? '99+' : String(unread); badge.style.display = ''; }
                 else { badge.style.display = 'none'; }
             }
             if (silent) return;
+            // При открытии панели — отмечаем всё как прочитанное (текущий момент).
+            if (list.length) {
+                var newest = list[0].created_at;
+                if (newest) setNotifLastSeen(newest);
+            }
             if (!list.length) {
                 body.innerHTML = '<div class="notif-empty">Уведомлений нет.</div>';
                 return;
