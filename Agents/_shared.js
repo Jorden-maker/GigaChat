@@ -3919,9 +3919,17 @@
       // сбрасывает scrollTop в 0, и юзер видит «прыжок в самый верх + рывок
       // обратно вниз». Если юзер читает старые сообщения — сохраняем позицию.
       var savedScrollTop = chat.scrollTop;
+      // R7.46: первый рендер чата (после F5 / boot) — instant scroll к низу.
+      // Иначе юзер видит чат сверху и плавную прокрутку вниз. После первого
+      // рендера переключаемся на плавный режим (для push новых сообщений).
+      var isFirstRender = !chat.__rendered;
+      chat.__rendered = true;
       chat.innerHTML = html;
       attachCopyButtons(chat);
-      if (wasAtBottom) {
+      if (isFirstRender) {
+        // Instant — без анимации, до того как браузер успел нарисовать первый кадр.
+        chat.scrollTop = chat.scrollHeight;
+      } else if (wasAtBottom) {
         // Плавный scroll к низу — раньше при таблице/вложениях скачок.
         smoothScrollChat(chat);
       } else {
