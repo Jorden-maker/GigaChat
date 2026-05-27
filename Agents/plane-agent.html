@@ -1173,6 +1173,10 @@
                (включая header и footer). Это проще чем body-only скролл. */
             max-height: 90vh;
             overflow-y: auto;
+            /* R7.17: заранее резервируем место под скроллбар чтобы при
+               появлении контента (комментарии подгрузились) layout не
+               прыгал горизонтально на ~15px. */
+            scrollbar-gutter: stable;
         }
         .card-modal-body {
             /* Block layout. Body — обычный div, размер строго по контенту.
@@ -1291,6 +1295,9 @@
             max-height: 200px; overflow-y: auto;
             margin-bottom: 10px; padding-right: 2px;
             scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+            /* R7.17: пред-резерв скроллбара чтобы при появлении 4+ комментариев
+               не было горизонтального скачка списка влево. */
+            scrollbar-gutter: stable;
         }
         #cm-comments-list::-webkit-scrollbar { width: 6px; }
         #cm-comments-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
