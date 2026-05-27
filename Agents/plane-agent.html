@@ -5597,7 +5597,7 @@
             if (!ta) return;
             var rawHtml = (MODAL_CURRENT_ISSUE && (MODAL_CURRENT_ISSUE.description_html || MODAL_CURRENT_ISSUE.description)) || '';
             ta.value = htmlToMd(rawHtml);
-            ta.placeholder = 'Описания нет.';
+            ta.placeholder = 'Описание...';
             // На всякий случай чистим класс is-collapsed (если был задан раньше)
             ta.classList.remove('is-collapsed');
         }
