@@ -6268,8 +6268,14 @@
             }
         }
         function showSlashHelp() {
+            // R7.53: kbd с фиксированной шириной — все «окошки» команд одной
+            // длины (самая длинная /projects = 9 символов). td с padding-top
+            // даёт +2px между строками поверх line-height.
             var lines = SLASH_COMMANDS.filter(function (c) { return c.cmd !== '/help'; }).map(function (c) {
-                return '<tr><td><kbd>' + escapeHtml(c.cmd) + '</kbd></td><td>' + escapeHtml(c.desc) + '</td></tr>';
+                return '<tr>' +
+                    '<td style="padding:3px 0"><kbd style="min-width:78px;display:inline-block">' + escapeHtml(c.cmd) + '</kbd></td>' +
+                    '<td style="padding:3px 0">' + escapeHtml(c.desc) + '</td>' +
+                '</tr>';
             }).join('');
             // R7.52: заголовок «Команды чата» → «Команды», подсказка укорочена
             // (без «Начни ввод с / в чате — появится автокомплит.»), line-height
