@@ -6028,9 +6028,10 @@
             { cmd: '/overdue',  desc: 'Задачи с истёкшим сроком выполнения',                              type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'overdue' },
               emptyMsg: 'Задачи с истёкшим сроком выполнения отсутствуют.',
               foundMsg: 'Задачи с истёкшим сроком выполнения:' },
-            { cmd: '/urgent',   desc: 'Только срочные задачи',                                            type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'urgent' },
-              emptyMsg: 'Срочных задач нет.',
-              foundMsg: 'Срочные задачи:' },
+            { cmd: '/urgent',   desc: 'Задачи с максимальным приоритетом',                                 type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'urgent' },
+              emptyMsg: 'У вас нет задач с максимальным приоритетом.',
+              foundMsg: 'Найдено задач с максимальным приоритетом: {N}',
+              excludeCancelled: true },
             { cmd: '/recent',   desc: 'Лента активности — что недавно менялось',                          type: 'direct', action: 'list_activity',          params: { scope: 'all' } },
             { cmd: '/blocked',  desc: 'Задачи «В работе» без движения 3+ дней',                            type: 'text',   text: 'Покажи задачи в статусе «В работе», которые давно (больше 3 дней) не обновлялись — это потенциальные блокеры.' },
             { cmd: '/digest',   desc: 'Дайджест: создано/закрыто/просрочено по всем проектам',            type: 'text',   text: 'Сделай мини-дайджест по всем проектам: сколько задач создано сегодня, сколько закрыто, сколько просрочено. Цифрами.' },
@@ -6164,6 +6165,16 @@
                     return;
                 }
                 // R7 #3,#4,#10: кастомные сообщения для каждой slash-команды.
+                // R7.50: excludeCancelled — фильтруем отменённые задачи из
+                // результатов. Используется в /urgent: backend возвращает все
+                // urgent-приоритетные включая cancelled, но для пользователя
+                // эти задачи бесполезны (отменены — не требуют внимания).
+                if (c.excludeCancelled && res.data && Array.isArray(res.data.issues)) {
+                    res.data.issues = res.data.issues.filter(function (i) {
+                        var group = (i.state_detail && i.state_detail.group) || '';
+                        return group !== 'cancelled';
+                    });
+                }
                 var issues = (res.data && Array.isArray(res.data.issues)) ? res.data.issues : null;
                 var hasItems = (issues && issues.length > 0)
                             || (res.data && Array.isArray(res.data.activities) && res.data.activities.length > 0)
@@ -6176,7 +6187,11 @@
                     var n = (issues && issues.length) || 0;
                     contentText = 'Найдено задач по всем проектам: ' + n;
                 } else if (hasItems && c.foundMsg) {
-                    contentText = c.foundMsg;
+                    // R7.50: foundMsg может содержать плейсхолдер {N} — подменяется
+                    // на количество задач. Например «Найдено задач с максимальным
+                    // приоритетом: {N}» → «Найдено задач с максимальным приоритетом: 3».
+                    var nFound = (issues && issues.length) || 0;
+                    contentText = c.foundMsg.replace('{N}', String(nFound));
                 } else {
                     contentText = res.response || (hasItems ? 'Результат:' : 'Ничего не найдено.');
                 }
