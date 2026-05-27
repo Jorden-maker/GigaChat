@@ -161,7 +161,9 @@
            (Готово / В работе / Отложено / Запланировано), визуально ровно. */
         .pc-inline-actions button.state-active {
             cursor: default !important;
-            min-width: 108px;
+            /* min-width рассчитан под самую длинную метку «Запланировано»
+               (13 символов + SVG-иконка). Все state-кнопки одной ширины. */
+            min-width: 140px;
             justify-content: center;
             transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
         }
