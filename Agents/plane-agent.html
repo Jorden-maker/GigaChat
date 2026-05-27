@@ -3517,11 +3517,17 @@
                         author = String(actorId).slice(-8);
                     }
                 }
-                // R7.19: actor-ID комментария — для проверки права на edit.
-                // Plane может вернуть актора в разных полях, в т.ч. actor_detail.id.
+                // R7.22: показываем карандашик ВСЕГДА. Plane API сам проверит
+                // право на редактирование через X-API-Key и отклонит чужое
+                // (вернёт 403). Прежняя проверка через CURRENT_USER_ID была
+                // ненадёжной (planeDirect('me') не всегда возвращает корректный
+                // user_id когда вызов идёт через X-API-Key).
                 var commentActorId = c.actor || c.created_by || c.actor_id
                                   || (c.actor_detail && c.actor_detail.id) || '';
-                var canEdit = CURRENT_USER_ID && String(commentActorId) === String(CURRENT_USER_ID);
+                // Если бэкенд явно говорит «не твой комментарий» (CURRENT_USER_ID
+                // загружен и не совпадает с actor) — прячем. В остальных случаях — показываем.
+                var canEdit = !CURRENT_USER_ID || !commentActorId
+                           || String(commentActorId) === String(CURRENT_USER_ID);
                 var commentId = String(c.id || '');
                 return '<div class="card-modal-comment cm-anim" style="animation-delay:0ms" data-comment-id="' + escapeAttr(commentId) + '" data-actor-id="' + escapeAttr(commentActorId) + '">' +
                     '<div class="cm-meta">' +
@@ -3624,7 +3630,12 @@
                     } else {
                         saveBtn.disabled = false;
                         saveBtn.textContent = 'Сохранить';
-                        alert((res && res.response) || 'Не удалось обновить комментарий');
+                        var msg = (res && res.response) || 'Не удалось обновить комментарий';
+                        // R7.22: понятное сообщение при 403 (чужой комментарий)
+                        if (/403|forbidden|permission/i.test(msg)) {
+                            msg = 'Нельзя редактировать чужой комментарий.';
+                        }
+                        alert(msg);
                     }
                 });
             }
