@@ -5874,6 +5874,16 @@
             var input = document.getElementById('msg');
             if (input && input.value === '/') {
                 input.value = '';
+                // R7.31: input event на ручную мутацию value не диспатчится,
+                // поэтому setDraft не сработает — в localStorage останется «/»,
+                // и после F5 поле восстановится с «/». Чистим draft руками.
+                try {
+                    var ss = window.__planeAgent && window.__planeAgent.sessionStore;
+                    var sid = ss && ss.state && ss.state.activeSessionId;
+                    if (ss && sid && typeof ss.setDraft === 'function') {
+                        ss.setDraft(sid, '');
+                    }
+                } catch (_) {}
             }
         }
         function selectSlashCommand(cmd) {
