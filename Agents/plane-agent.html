@@ -800,6 +800,23 @@
             color: var(--text-primary); font-size: 13px; }
         .multi-step-header .ms-counter { background: var(--accent-light); color: var(--accent);
             padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; margin-left: auto; }
+        /* R5 #3: плавные анимации появления сообщений и интерактивных полей */
+        @keyframes chatFadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes chatStaggerIn {
+            from { opacity: 0; transform: translateY(4px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .chat-fade-in { animation: chatFadeIn 0.25s ease-out both; }
+        .chat-stagger-in { animation: chatStaggerIn 0.35s ease-out both; }
+        /* Spinner для loader'ов */
+        .msg-spinner { display: inline-block; width: 12px; height: 12px;
+            border: 2px solid var(--accent-light); border-top-color: var(--accent);
+            border-radius: 50%; vertical-align: -2px; margin-right: 4px;
+            animation: msgSpin 0.8s linear infinite; }
+        @keyframes msgSpin { to { transform: rotate(360deg); } }
         kbd {
             display: inline-block; padding: 2px 8px; font-family: 'Cascadia Code', Consolas, monospace;
             font-size: 12px; background: var(--bg-input); border: 1px solid var(--border);
@@ -2293,25 +2310,41 @@
         // юзер никак не мог восстановить доску без F5 страницы.
         var __forceReloadLastTs = 0;
         var __forceReloadBusy = false;
+        // R5 BUG-5: rapid spam защита.
+        // — Сильнее throttle (2500мс) чтобы вторичные клики игнорировались.
+        // — Promise-кэш: если loadBoard уже в полёте, кликом возвращаем тот же
+        //   promise, не запускаем второй. Без этого старый параллельный loadBoard
+        //   мог перезаписать кэш свежего.
+        // — Визуальная пометка кнопки (текст «Загружаю...» + spinner-класс).
+        var __forceReloadInflight = null;
         async function forceFullReload() {
-            // BUG-FIX (Обновить spam): жёсткий throttle 1500ms + флаг busy.
-            // Раньше частые клики запускали параллельные loadBoard, которые
-            // перетирали кэш и оставляли доску в случайном состоянии после F5.
             var now = Date.now();
+            if (__forceReloadInflight) return __forceReloadInflight;
             if (__forceReloadBusy) return;
-            if (now - __forceReloadLastTs < 1500) return;
+            if (now - __forceReloadLastTs < 2500) return;
             __forceReloadLastTs = now;
             __forceReloadBusy = true;
             var btn = document.querySelector('.board-refresh');
-            if (btn) btn.disabled = true;
-            try {
-                BOARD_PROJECTS_CACHE = null;
-                BOARD_ALL_ISSUES = [];
-                await loadBoard();
-            } finally {
-                __forceReloadBusy = false;
-                if (btn) setTimeout(function () { btn.disabled = false; }, 800);
-            }
+            var origText = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.classList.add('is-loading'); btn.textContent = 'Загружаю...'; }
+            __forceReloadInflight = (async function () {
+                try {
+                    BOARD_PROJECTS_CACHE = null;
+                    BOARD_ALL_ISSUES = [];
+                    await loadBoard();
+                } finally {
+                    __forceReloadBusy = false;
+                    __forceReloadInflight = null;
+                    if (btn) {
+                        setTimeout(function () {
+                            btn.disabled = false;
+                            btn.classList.remove('is-loading');
+                            btn.textContent = origText || 'Обновить';
+                        }, 600);
+                    }
+                }
+            })();
+            return __forceReloadInflight;
         }
         async function reloadBoard() {
             var panel = document.getElementById('board-panel');
@@ -2699,7 +2732,9 @@
         }
 
         function bootAgent() {
-            GigaChat.createChatAgent({
+            // R5: сохраняем экземпляр в window.__planeAgent чтобы addAssistantMessage
+            // и multi-step могли пушить в displayMessages.
+            window.__planeAgent = GigaChat.createChatAgent({
                 userScoped: true,  // sessions-sync + global auth_required handler из _shared.js
                 webhookPath: 'plane-agent',
                 historyPath: 'history',
@@ -5304,12 +5339,10 @@
             { cmd: '/overdue',  desc: 'Что просрочено — задачи с истекшим сроком',                      type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'overdue' } },
             { cmd: '/urgent',   desc: 'Только срочные задачи',                                          type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'urgent' } },
             { cmd: '/recent',   desc: 'Лента активности — что недавно менялось',                        type: 'direct', action: 'list_activity',          params: { scope: 'all' } },
-            { cmd: '/standup',  desc: 'Сводка для стендапа: что вчера, что сегодня, что блокирует',     type: 'text',   text: 'Сделай сводку для стендапа: что я делал вчера (по активности), что у меня запланировано сегодня, и есть ли блокеры. В одном сообщении, кратко.' },
-            { cmd: '/blocked',  desc: 'Что застряло — задачи в работе, но без движения 3+ дней',         type: 'text',   text: 'Покажи задачи в статусе «В работе», которые давно (больше 3 дней) не обновлялись — это потенциальные блокеры.' },
-            { cmd: '/digest',   desc: 'Дайджест дня: создано/закрыто/просрочено по всем проектам',       type: 'text',   text: 'Сделай мини-дайджест по всем проектам: сколько задач создано сегодня, сколько закрыто, сколько просрочено. Цифрами.' },
+            { cmd: '/blocked',  desc: 'Что застряло — задачи в работе без движения',                     type: 'text',   text: 'Покажи задачи в статусе «В работе», которые давно (больше 3 дней) не обновлялись — это потенциальные блокеры.' },
+            { cmd: '/digest',   desc: 'Дайджест: создано/закрыто/просрочено по всем проектам',           type: 'text',   text: 'Сделай мини-дайджест по всем проектам: сколько задач создано сегодня, сколько закрыто, сколько просрочено. Цифрами.' },
             { cmd: '/projects', desc: 'Список всех проектов',                                            type: 'direct', action: 'list_projects',          params: {} },
             { cmd: '/notif',    desc: 'Уведомления — что новенького',                                    type: 'direct', action: 'list_notifications',     params: {} },
-            { cmd: '/multi',    desc: 'Multi-step (пример: /multi создай Login, Register, Reset в Office)', type: 'multi' },
             { cmd: '/help',     desc: 'Показать справку по командам',                                    type: 'special', handler: 'help' }
         ];
         var SLASH_MENU_INDEX = 0;
@@ -5385,29 +5418,37 @@
         }
         async function executeSlashDirect(c) {
             // R4 BUG-3 ФИКС: реально делаем direct-вызов, не отдаём LLM.
-            // 1) Показываем юзерское сообщение в чате
             addUserMessageToChat(c.cmd);
-            // 2) Показываем индикатор загрузки
+            // R5 BUG-2: loader = transient (не пишем в displayMessages, иначе
+            // спиннер замораживается после reload).
             var loadId = 'sl-load-' + Date.now();
-            addAssistantMessage('<span id="' + loadId + '" style="color:var(--text-muted);font-size:13px">⟳ Выполняю ' + escapeHtml(c.cmd) + '...</span>');
+            addAssistantMessage(
+                '<span id="' + loadId + '" style="color:var(--text-muted);font-size:13px">' +
+                '<span class="msg-spinner"></span> ' + escapeHtml((c.desc || 'Выполняю запрос')) + '...</span>',
+                { transient: true }
+            );
             try {
                 var res = await planeDirect(c.action, c.params || {});
-                // Убираем loader
-                var loader = document.getElementById(loadId);
-                if (loader && loader.parentElement) loader.parentElement.remove();
+                // R5: правильное удаление — closest('.message') а не parentElement (.message-content)
+                removeLoaderById(loadId);
                 if (!res || res.error) {
-                    addAssistantMessage('Не удалось выполнить ' + escapeHtml(c.cmd) + ': ' + escapeHtml((res && res.response) || 'нет соединения'));
+                    addAssistantMessage('Не удалось выполнить «' + escapeHtml(c.cmd) + '»: ' + escapeHtml((res && res.response) || 'нет соединения'));
                     return;
                 }
-                // Рендерим ответ через тот же formatBotMessage чтобы был единый стиль
+                // R5 BUG-4: response может говорить «ничего не нашлось» — рендерим только текст без карточек.
                 var fakeMsg = { role: 'assistant', content: res.response || '', extras: (res.data || {}) };
                 var html = formatBotMessage(fakeMsg);
-                addAssistantMessage(html, res);
+                addAssistantMessage(html);
             } catch (e) {
-                var loader2 = document.getElementById(loadId);
-                if (loader2 && loader2.parentElement) loader2.parentElement.remove();
+                removeLoaderById(loadId);
                 addAssistantMessage('Ошибка: ' + escapeHtml(e.message || String(e)));
             }
+        }
+        function removeLoaderById(loadId) {
+            var loader = document.getElementById(loadId);
+            if (!loader) return;
+            var msgEl = loader.closest('.message');
+            if (msgEl) msgEl.remove();
         }
         // Helper: добавить юзер-сообщение в чат (для slash-команд и multi-step)
         function addUserMessageToChat(text) {
@@ -5599,25 +5640,65 @@
         }
 
         // Helper: добавить ассистент-сообщение в чат напрямую (минуя backend).
-        function addAssistantMessage(html) {
+        function addAssistantMessage(html, opts) {
+            opts = opts || {};
             var chat = document.getElementById('chat');
             if (!chat) return;
             var empty = chat.querySelector('.empty-chat');
             if (empty) empty.remove();
             var div = document.createElement('div');
-            div.className = 'message bot';
+            div.className = 'message bot chat-fade-in';  // R5: добавляем CSS-анимацию появления
             div.innerHTML = '<div class="message-content">' + html + '</div>';
             chat.appendChild(div);
+            // R5: stagger-анимация для интерактивных блоков внутри сообщения
+            applyStaggerAnimation(div);
             chat.scrollTop = chat.scrollHeight;
-            // Сохраняем в displayMessages чтобы не пропало при перерисовке
-            try {
-                if (typeof agent !== 'undefined' && agent && agent.sessionStore && agent.sessionStore.state) {
-                    var s = agent.sessionStore.state;
-                    s.displayMessages = s.displayMessages || [];
-                    s.displayMessages.push({ role: 'assistant', content: '', extras: { _html: html } });
-                }
-            } catch(_) {}
+            // Persist в displayMessages (только не для transient — loader'ов).
+            if (!opts.transient) {
+                try {
+                    if (typeof window.__planeAgent !== 'undefined' && window.__planeAgent && window.__planeAgent.sessionStore) {
+                        var s = window.__planeAgent.sessionStore.state;
+                        s.displayMessages = s.displayMessages || [];
+                        s.displayMessages.push({ role: 'assistant', content: '', extras: { _html: html } });
+                    }
+                } catch(_) {}
+            }
         }
+        // R5 #3: плавное появление дочерних элементов с задержкой
+        function applyStaggerAnimation(container) {
+            if (!container) return;
+            // Не применяем повторно
+            if (container.dataset && container.dataset.staggered) return;
+            if (container.dataset) container.dataset.staggered = '1';
+            var targets = container.querySelectorAll('.plane-card, .chat-group-item, .chat-epic-card, .quick-reply-btn, .disambig-item, .multi-step-row');
+            targets.forEach(function (el, i) {
+                el.style.animationDelay = (i * 60) + 'ms';
+                el.classList.add('chat-stagger-in');
+            });
+        }
+        // R5 #3: автоматическое применение к любым новым .message.bot
+        // (LLM-routed messages идут через _shared.js, не через addAssistantMessage).
+        (function watchChatForNewMessages() {
+            function watch() {
+                var chat = document.getElementById('chat');
+                if (!chat) { setTimeout(watch, 200); return; }
+                if (chat.__staggerWatched) return;
+                chat.__staggerWatched = true;
+                var mo = new MutationObserver(function (muts) {
+                    muts.forEach(function (m) {
+                        m.addedNodes && m.addedNodes.forEach(function (n) {
+                            if (n.nodeType !== 1) return;
+                            if (n.classList && n.classList.contains('message') && n.classList.contains('bot')) {
+                                if (!n.classList.contains('chat-fade-in')) n.classList.add('chat-fade-in');
+                                applyStaggerAnimation(n);
+                            }
+                        });
+                    });
+                });
+                mo.observe(chat, { childList: true });
+            }
+            watch();
+        })();
 
         // === INLINE ACTIONS NA KARTACH ===
         // Добавляем кнопки на issue-карточку в чате. Каждая кнопка делает direct-вызов
