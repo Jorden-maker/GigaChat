@@ -2251,7 +2251,12 @@
             }
         }
 
-        async function planeDirect(action, params) {
+        // R7.4: planeDirect — добавлен 3-й arg opts с {sessionId, message}.
+        // По умолчанию session_id='plane_board' (NOT persist в chat_memory).
+        // Slash-команды передают актуальный session_id чтобы /today /me и т.п.
+        // сохранялись в истории и переживали F5.
+        async function planeDirect(action, params, opts) {
+            opts = opts || {};
             var s = loadPlaneSettings();
             var token = getAuthToken();
             if (!token || !s.url || !s.slug || !s.token) return { response: 'error', error: 'no creds' };
@@ -2259,7 +2264,8 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json; charset=utf-8' },
                 body: JSON.stringify({
-                    message: '__board_' + action, session_id: 'plane_board',
+                    message: opts.message || ('__board_' + action),
+                    session_id: opts.sessionId || 'plane_board',
                     token: token, workspace_slug: s.slug, plane_url: s.url, plane_token: s.token,
                     action: action, params: params
                 })
@@ -5681,7 +5687,16 @@
                 { transient: true }
             );
             try {
-                var res = await planeDirect(c.action, c.params || {});
+                // R7.4: передаём активный session_id и текст команды как message
+                // — workflow «INSERT user (direct)» сохранит «/today» в chat_memory,
+                // а INSERT assistant (после Формат ответа) сохранит ответ.
+                // После F5 история восстановит и slash-сообщение и ответ.
+                var sidPersist = null;
+                try { sidPersist = window.__planeAgent && window.__planeAgent.sessionStore && window.__planeAgent.sessionStore.state && window.__planeAgent.sessionStore.state.activeSessionId; } catch(_) {}
+                var res = await planeDirect(c.action, c.params || {}, {
+                    sessionId: sidPersist || undefined,
+                    message: c.cmd
+                });
                 removeLoaderById(loadId);
                 if (!res || (res.error && !res.data && !res.response)) {
                     addAssistantMessage('Не удалось выполнить «' + escapeHtml(c.cmd) + '»: ' + escapeHtml((res && res.response) || 'нет соединения'));

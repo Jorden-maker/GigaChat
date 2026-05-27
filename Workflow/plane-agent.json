@@ -1436,6 +1436,32 @@
       ],
       "id": "plane-stats-cross-V1",
       "name": "Stats/CrossProject handler"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'user', $2 WHERE $1 <> 'plane_board' AND LENGTH(TRIM($2)) > 0;",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, $json.message || ''] }}"
+        },
+        "alwaysOutputData": true
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2520,
+        -60
+      ],
+      "id": "plane-ins-user-direct-V1",
+      "name": "INSERT user (direct)",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -1546,6 +1572,11 @@
         [
           {
             "node": "Direct resolve",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "INSERT user (direct)",
             "type": "main",
             "index": 0
           }
