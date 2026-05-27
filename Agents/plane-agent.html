@@ -115,6 +115,27 @@
         .pc-prio.medium { background: rgba(202, 138, 4, 0.18); color: #ca8a04; }
         .pc-prio.low    { background: rgba(34, 197, 94, 0.18); color: #16a34a; }
         .pc-prio.none   { background: rgba(120, 120, 120, 0.18); color: var(--text-secondary); }
+        /* Бейдж статуса задачи на карточке в чате (правее priority) */
+        .plane-card .pc-state {
+            display: inline-block; padding: 1px 8px; border-radius: 10px;
+            font-size: 11px; margin-left: 6px; vertical-align: middle;
+        }
+        .pc-state.backlog   { background: rgba(120, 120, 120, 0.15); color: var(--text-secondary); }
+        .pc-state.unstarted { background: rgba(99, 102, 241, 0.18); color: #6366f1; }
+        .pc-state.started   { background: rgba(34, 197, 94, 0.18); color: #16a34a; }
+        .pc-state.completed { background: rgba(34, 197, 94, 0.10); color: #16a34a; opacity: 0.8; }
+        .pc-state.cancelled { background: rgba(120, 120, 120, 0.15); color: var(--text-muted); text-decoration: line-through; }
+        /* "В работе" — активный (текущий) state в inline-кнопках */
+        .pc-inline-actions button.active {
+            color: #16a34a !important;
+            border-color: rgba(34, 197, 94, 0.35) !important;
+            background: rgba(34, 197, 94, 0.10) !important;
+            cursor: default;
+        }
+        .pc-inline-actions button.active:hover {
+            background: rgba(34, 197, 94, 0.10) !important;
+            color: #16a34a !important;
+        }
         /* Settings modal */
         .modal-backdrop {
             position: fixed; top:0;right:0;bottom:0;left:0; background: rgba(0,0,0,0.55); z-index: 1000;
@@ -1935,47 +1956,43 @@
                     '</div>';
             }).join('');
         }
+        // R5: helper для бейджей приоритета и статуса.
+        // none-приоритет НЕ рендерим (юзер не хочет видеть «—» в кружке).
+        // Статус — справа от приоритета, цветной по группе.
+        function _renderPrioStateBadges(issue) {
+            var prio = String(issue.priority || 'none').toLowerCase();
+            var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий'})[prio];
+            var prioBadge = prioLabel ? ('<span class="pc-prio ' + prio + '">' + prioLabel + '</span>') : '';
+            var group = (issue.state_detail && issue.state_detail.group) || '';
+            var stateLabel = ({backlog:'Отложено',unstarted:'В очереди',started:'В работе',completed:'Готово',cancelled:'Отменено'})[group] || '';
+            var stateBadge = stateLabel ? ('<span class="pc-state ' + group + '">' + stateLabel + '</span>') : '';
+            return prioBadge + stateBadge;
+        }
         function formatIssuesList(issues, projectName) {
             if (!issues || !issues.length) return '';
             return issues.map(function (i) {
-                var prio = String(i.priority || 'none').toLowerCase();
-                var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий',none:'—'})[prio] || prio;
-                // Phase 4: + inline actions
                 var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(Object.assign({ project: projectName }, i)) : '';
                 return '<div class="plane-card">' +
-                    '<div class="pc-title">' + escapeHtml(i.name || '—') +
-                    '<span class="pc-prio ' + prio + '">' + prioLabel + '</span>' +
-                    '</div>' +
+                    '<div class="pc-title">' + escapeHtml(i.name || '—') + _renderPrioStateBadges(i) + '</div>' +
                     actions +
-                    '</div>';
+                '</div>';
             }).join('');
         }
         function formatIssueCard(issue) {
-            // BUG-FIX #11: расширенная карточка — показываем приоритет, статус,
-            // дату начала, срок, описание (обрезано). Раньше показывали только
-            // название + приоритет, юзер жаловался «не показывает параметры».
             if (!issue) return '';
-            var prio = String(issue.priority || 'none').toLowerCase();
-            var prioLabel = ({urgent:'срочно',high:'высокий',medium:'средний',low:'низкий',none:'—'})[prio] || prio;
-            var stateGroup = (issue.state_detail && issue.state_detail.group) || '';
-            var stateLabel = ({backlog:'Отложенные',unstarted:'Запланированные',started:'В работе',completed:'Готово',cancelled:'Отменено'})[stateGroup]
-                            || (issue.state_detail && issue.state_detail.name) || '';
             var meta = [];
-            if (stateLabel) meta.push('Статус: ' + escapeHtml(stateLabel));
+            // Статус уже показан как badge в title — в meta не дублируем.
             if (issue.start_date) meta.push('Начало: ' + escapeHtml(issue.start_date));
             if (issue.target_date) meta.push('Срок: ' + escapeHtml(issue.target_date));
             if (issue.created_at) meta.push('Создана: ' + escapeHtml(String(issue.created_at).slice(0,10)));
             var desc = stripHtml(issue.description_html || issue.description || '').slice(0, 200);
-            // Phase 4: inline actions
             var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(issue) : '';
             return '<div class="plane-card">' +
-                '<div class="pc-title">' + escapeHtml(issue.name || '—') +
-                '<span class="pc-prio ' + prio + '">' + prioLabel + '</span>' +
-                '</div>' +
+                '<div class="pc-title">' + escapeHtml(issue.name || '—') + _renderPrioStateBadges(issue) + '</div>' +
                 (meta.length ? '<div class="pc-meta" style="margin-top:6px;color:var(--text-secondary);font-size:12px">' + meta.join(' · ') + '</div>' : '') +
                 (desc ? '<div class="pc-desc" style="margin-top:6px;color:var(--text-muted);font-size:12px;white-space:pre-wrap">' + escapeHtml(desc) + '</div>' : '') +
                 actions +
-                '</div>';
+            '</div>';
         }
         // === Phase 2 chat-render helpers ===
         function formatCyclesList(cycles) {
@@ -5694,18 +5711,32 @@
             if (!issue || !issue.name) return '';
             var group = (issue.state_detail && issue.state_detail.group) || '';
             var isClosed = group === 'completed' || group === 'cancelled';
+            var isStarted = group === 'started';
             var safeName = escapeAttr(issue.name);
             var safeId = escapeAttr(issue.id || '');
-            // R4 BUG-6: проект в data-attr — не зависим от BOARD_ALL_ISSUES/sticky.
-            // Источники: явный issue.project (cross_project_search), либо BOARD_CURRENT_PROJECT, либо sticky.
             var safeProj = escapeAttr(issue.project || BOARD_CURRENT_PROJECT || getStickyProjectName() || '');
+
+            // Готово / Вернуть
+            var btnDone = isClosed
+                ? '<button data-act="reopen" title="Вернуть в очередь"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Вернуть</button>'
+                : '<button data-act="done" class="primary" title="Перевести в Готово"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Готово</button>';
+
+            // R5: В работу / В работе (active green)
+            // Если задача УЖЕ in_progress → показываем «В работе» с pause-иконкой (две вертикальные палочки), активный зелёный стиль, disabled (некуда переводить — уже в работе).
+            // Если задача не закрыта и не в работе → кнопка «В работу» (play-иконка), кликабельная.
+            var btnWork = '';
+            if (isStarted) {
+                btnWork = '<button data-act="in_progress" class="active" title="Задача в работе" disabled>' +
+                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>' +
+                    ' В работе</button>';
+            } else if (!isClosed) {
+                btnWork = '<button data-act="in_progress" title="Перевести в работу">' +
+                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>' +
+                    ' В работу</button>';
+            }
+
             return '<div class="pc-inline-actions" data-issue-name="' + safeName + '" data-issue-id="' + safeId + '" data-project="' + safeProj + '">' +
-                (isClosed
-                    ? '<button data-act="reopen" title="Вернуть в работу"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Вернуть</button>'
-                    : '<button data-act="done" class="primary" title="Перевести в Готово"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Готово</button>') +
-                (!isClosed && group !== 'started'
-                    ? '<button data-act="in_progress" title="В работу"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> В работу</button>'
-                    : '') +
+                btnDone + btnWork +
                 '<button data-act="open" title="Открыть в модалке"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/></svg> Изменить</button>' +
                 '<button data-act="delete" class="danger" title="Удалить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
             '</div>';
