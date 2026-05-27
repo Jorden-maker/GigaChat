@@ -102,10 +102,10 @@
             flex: 1; padding: 10px 16px; word-break: break-word; overflow-wrap: anywhere; border-radius: 10px; border: 1px solid var(--border);
             background: var(--bg-input); color: var(--text-primary);
             font-family: Segoe UI, Tahoma, sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s;
-            resize: none; min-height: 36px; max-height: 130px; line-height: 1.5;
-            /* R7.40: default overflow:hidden — скроллбар не появляется на
-               одной строке. JS в _shared.js переключает на auto, когда
-               контент превышает autosizeMax (2-я строка и далее). */
+            /* R7.41: фиксированная высота одной строки. При вводе 2-й строки
+               JS в _shared.js переключает overflow-y на auto — скроллбар
+               появляется внутри textarea, само поле не растёт. */
+            resize: none; min-height: 44px; max-height: 44px; line-height: 1.5;
             overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
         }
         #msg::-webkit-scrollbar { width: 4px; }
@@ -3058,6 +3058,9 @@
                 namePrefix: 'Plane-',
                 inflightLabel: 'Обрабатываю',
                 exportAgentName: 'GigaChat Plane',
+                // R7.41: поле одной строки — скроллбар появляется со 2-й.
+                // 44px ≈ padding 20 + line-height (15px × 1.5 = 22.5) + бордеры.
+                autosizeMax: 44,
                 emptyChatHtml: '<div class="empty-chat">Создайте новую сессию для начала работы</div>',
                 historyErrorHtml: '<div class="empty-chat">Не удалось загрузить историю.</div>',
                 historyLoadingHtml: '<div class="empty-chat">Загружаю историю...</div>',
