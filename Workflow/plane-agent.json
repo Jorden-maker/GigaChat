@@ -994,7 +994,10 @@
       ],
       "id": "plane-agent-create-issue-0014",
       "name": "create_issue: POST",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
     },
     {
       "parameters": {
@@ -1028,7 +1031,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify((() => {\n  const out = {};\n  if ($json.params.name) out.name = $json.params.name;\n  if ($json.params.description) out.description_html = '<p>' + String($json.params.description).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</p>';\n  if (['urgent','high','medium','low','none'].includes($json.params.priority)) out.priority = $json.params.priority;\n  // Расширения (Phase 2):\n  if ($json.state_id) out.state = $json.state_id;\n  if ($json.params.target_date) out.target_date = $json.params.target_date;\n  if ($json.params.start_date) out.start_date = $json.params.start_date;\n  if (Array.isArray($json.params.assignees) && $json.params.assignees.length) out.assignees = $json.params.assignees;\n  if (Array.isArray($json.params.labels) && $json.params.labels.length) out.labels = $json.params.labels;\n  return out;\n})()) }}",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const out = {};\n  if ($json.params.name) out.name = $json.params.name;\n  if ($json.params.description !== undefined && $json.params.description !== null) {\n    out.description_html = $json.params.description ? '<p>' + String($json.params.description).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</p>' : '<p></p>';\n  }\n  if (['urgent','high','medium','low','none'].includes($json.params.priority)) out.priority = $json.params.priority;\n  // Расширения (Phase 2):\n  if ($json.state_id) out.state = $json.state_id;\n  if ($json.params.target_date) out.target_date = $json.params.target_date;\n  if ($json.params.start_date) out.start_date = $json.params.start_date;\n  if (Array.isArray($json.params.assignees) && $json.params.assignees.length) out.assignees = $json.params.assignees;\n  if (Array.isArray($json.params.labels) && $json.params.labels.length) out.labels = $json.params.labels;\n  return out;\n})()) }}",
         "options": {
           "timeout": 15000
         }
@@ -1041,7 +1044,10 @@
       ],
       "id": "plane-agent-update-issue-0016",
       "name": "update_issue: PATCH",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
     },
     {
       "parameters": {
@@ -1085,7 +1091,10 @@
       ],
       "id": "plane-agent-delete-issue-0018",
       "name": "delete_issue: DELETE",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
     },
     {
       "parameters": {
@@ -1116,7 +1125,10 @@
       ],
       "id": "plane-agent-search-issues-0019",
       "name": "search_issues: GET",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
     },
     {
       "parameters": {
@@ -1207,7 +1219,10 @@
       ],
       "id": "plane-get-issue-V1",
       "name": "get_issue: GET",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
     },
     {
       "parameters": {
@@ -1241,7 +1256,10 @@
       ],
       "id": "plane-add-comment-V1",
       "name": "add_comment: POST",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
     },
     {
       "parameters": {
