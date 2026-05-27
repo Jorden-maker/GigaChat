@@ -2218,6 +2218,56 @@
         // data из workflow: { response, action, data: {projects?, issues?, issue?}, error? }
         // В parseBotMessage сохраняем всё в extras, в formatBotHtml — собираем красивый HTML.
 
+        // R7.45: ANIMATED_TS — Set timestamps уже один раз показанных сообщений.
+        // Цель: анимация stagger-волной только при ПЕРВОМ показе. F5 / переключение
+        // сессии / новые запросы НЕ должны заново анимировать старые карты.
+        // Хранится в localStorage, ограничен 500 элементами.
+        var ANIMATED_KEY = 'plane_animated_ts';
+        var ANIMATED_TS = (function () {
+            try {
+                var arr = JSON.parse(localStorage.getItem(ANIMATED_KEY) || '[]');
+                return new Set(arr);
+            } catch (_) { return new Set(); }
+        })();
+        function _saveAnimatedTs() {
+            try {
+                var arr = Array.from(ANIMATED_TS);
+                if (arr.length > 500) {
+                    arr = arr.slice(-500);
+                    ANIMATED_TS = new Set(arr);
+                }
+                localStorage.setItem(ANIMATED_KEY, JSON.stringify(arr));
+            } catch (_) {}
+        }
+        // R7.45: момент когда страница готова показывать новые сообщения с
+        // анимацией. До этого момента ничего не анимируется (F5-restore идёт
+        // мгновенно, как просил юзер). После — только msg с ts > этого
+        // момента (т.е. появившиеся после загрузки) получают stagger.
+        var _ANIMATE_READY_TS = null;
+        setTimeout(function () { _ANIMATE_READY_TS = Date.now(); }, 100);
+
+        function _shouldAnimate(msg) {
+            if (!msg || !msg.ts) return false;
+            // Страница ещё инициализируется — никакой анимации (F5 restore).
+            if (_ANIMATE_READY_TS === null) return false;
+            // Сообщение «из прошлого» (snapshot/history) — не анимируем.
+            if (msg.ts < _ANIMATE_READY_TS) return false;
+            // Уже показывали с анимацией — повторно не анимируем.
+            if (ANIMATED_TS.has(msg.ts)) return false;
+            ANIMATED_TS.add(msg.ts);
+            _saveAnimatedTs();
+            return true;
+        }
+        // Helper: HTML inline stagger атрибутов для idx-той карты.
+        // animate=true → class + animation-delay. animate=false → пусто.
+        function _staggerAttrs(animate, idx) {
+            if (!animate) return { cls: '', style: '' };
+            return {
+                cls: ' chat-stagger-in',
+                style: ' style="animation-delay:' + (idx * 150) + 'ms"'
+            };
+        }
+
         function formatProjectsList(projects) {
             if (!projects || !projects.length) return '';
             return projects.map(function (p) {
@@ -2247,21 +2297,23 @@
             var stateBadge = (stateLabel && groupCls) ? ('<span class="pc-state ' + groupCls + '">' + stateLabel + '</span>') : '';
             return prioBadge + stateBadge;
         }
-        function formatIssuesList(issues, projectName) {
+        function formatIssuesList(issues, projectName, animate) {
             if (!issues || !issues.length) return '';
-            return issues.map(function (i) {
+            return issues.map(function (i, idx) {
                 var group = (i.state_detail && i.state_detail.group) || '';
                 var cardCls = 'plane-card' + (group === 'cancelled' ? ' is-cancelled' : '') + (group === 'completed' ? ' is-completed' : '');
                 var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(Object.assign({ project: projectName }, i)) : '';
+                // R7.45: inline stagger — анимация только если animate=true (msg.ts впервые).
+                var st = _staggerAttrs(animate, idx);
                 // R7.37: бейдж приоритета теперь рендерится внутри inlineActionsHtml
                 // в правом нижнем углу карточки. В строке с title его больше нет.
-                return '<div class="' + cardCls + '">' +
+                return '<div class="' + cardCls + st.cls + '"' + st.style + '>' +
                     '<div class="pc-title">' + escapeHtml(i.name || '—') + '</div>' +
                     actions +
                 '</div>';
             }).join('');
         }
-        function formatIssueCard(issue) {
+        function formatIssueCard(issue, animate) {
             if (!issue) return '';
             var group = (issue.state_detail && issue.state_detail.group) || '';
             var cardCls = 'plane-card' + (group === 'cancelled' ? ' is-cancelled' : '') + (group === 'completed' ? ' is-completed' : '');
@@ -2271,7 +2323,9 @@
             if (issue.created_at) meta.push('Создана: ' + escapeHtml(String(issue.created_at).slice(0,10)));
             var desc = stripHtml(issue.description_html || issue.description || '').slice(0, 200);
             var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(issue) : '';
-            return '<div class="' + cardCls + '">' +
+            // R7.45: одиночная карта — анимация если animate=true.
+            var st = _staggerAttrs(animate, 0);
+            return '<div class="' + cardCls + st.cls + '"' + st.style + '>' +
                 '<div class="pc-title">' + escapeHtml(issue.name || '—') + '</div>' +
                 (meta.length ? '<div class="pc-meta" style="margin-top:6px;color:var(--text-secondary);font-size:12px">' + meta.join(' · ') + '</div>' : '') +
                 (desc ? '<div class="pc-desc" style="margin-top:6px;color:var(--text-muted);font-size:12px;white-space:pre-wrap">' + escapeHtml(desc) + '</div>' : '') +
@@ -2365,6 +2419,9 @@
             if (exEarly._html) {
                 return exEarly._html;
             }
+            // R7.45: animate=true только для первого показа msg (по ts).
+            // F5 / переключение / новые запросы — animate=false для старых.
+            var animate = _shouldAnimate(msg);
             var content = String(msg.content || '');
             // markdown: упрощённый — переводы строк, bold, italic
             var html = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2375,8 +2432,8 @@
             var ex = msg.extras || {};
             var blocks = '';
             if (ex.projects && ex.projects.length)  blocks += formatProjectsList(ex.projects);
-            if (ex.issues && ex.issues.length)      blocks += formatIssuesList(ex.issues, ex.project);
-            if (ex.issue)                           blocks += formatIssueCard(ex.issue);
+            if (ex.issues && ex.issues.length)      blocks += formatIssuesList(ex.issues, ex.project, animate);
+            if (ex.issue)                           blocks += formatIssueCard(ex.issue, animate);
             // Phase 2 — рендер новых action-результатов в чат
             if (ex.cycles && ex.cycles.length)              blocks += formatCyclesList(ex.cycles);
             if (ex.modules && ex.modules.length)            blocks += formatModulesList(ex.modules);
@@ -6099,7 +6156,8 @@
                 } else {
                     contentText = res.response || (hasItems ? 'Результат:' : 'Ничего не найдено.');
                 }
-                var fakeMsg = { role: 'assistant', content: contentText, extras: (res.data || {}) };
+                // R7.45: ts нужен для _shouldAnimate — без него анимация не запустится.
+                var fakeMsg = { role: 'assistant', content: contentText, extras: (res.data || {}), ts: Date.now() };
                 // R7.30: псевдо-стриминг текста через typewriteAssistant —
                 // юзер видит как печатается «Список задач…», потом swap на
                 // финальный HTML с карточками. Карточки получат stagger через
@@ -6370,32 +6428,12 @@
         }
         // R5 #3: плавное появление дочерних элементов с задержкой
         function applyStaggerAnimation(container) {
-            if (!container) return;
-            // Не применяем повторно
-            if (container.dataset && container.dataset.staggered) return;
-            if (container.dataset) container.dataset.staggered = '1';
-            var targets = container.querySelectorAll('.plane-card, .chat-group-item, .chat-epic-card, .quick-reply-btn, .disambig-item, .multi-step-row');
-            // R7.38: для slash-команд карточки приходят из typewriter swap'а —
-            // у них уже есть class chat-stagger-in и старый animation-delay из
-            // первоначального рендера (до псевдо-стриминга). Если мы просто
-            // обновим animation-delay, браузер не рестартит CSS-анимацию —
-            // animation timeline считается «уже прошедшим» и карточки появляются
-            // мгновенно все вместе. Решение: сначала remove класс + delay,
-            // принудительный reflow (offsetWidth), затем добавление с новыми
-            // значениями — это перезапускает анимацию для всех карточек.
-            targets.forEach(function (el) {
-                el.classList.remove('chat-stagger-in');
-                el.style.animationDelay = '';
-            });
-            // void offsetWidth — sync reflow; без него браузер батчит
-            // remove+add класса в один тик и анимация НЕ рестартится.
-            if (targets.length) void container.offsetWidth;
-            targets.forEach(function (el, i) {
-                // R7.42: 150мс задержка (было 90мс) — растягиваем волну,
-                // юзер успевает заметить как карточки появляются по очереди.
-                el.style.animationDelay = (i * 150) + 'ms';
-                el.classList.add('chat-stagger-in');
-            });
+            // R7.45: оставлена как no-op для обратной совместимости с
+            // addAssistantMessage, multi-step и др. Stagger-атрибуты теперь
+            // инлайнятся в HTML строке через _staggerAttrs(animate, idx) при
+            // первом showe сообщения (animate=true только когда msg.ts впервые
+            // в ANIMATED_TS). F5/повторный показ — animate=false, без stagger.
+            return;
         }
         // R5 #3: автоматическое применение к любым новым .message.bot
         // (LLM-routed messages идут через _shared.js, не через addAssistantMessage).
@@ -6415,34 +6453,18 @@
                     }
                     return false;
                 }
-                // R7.44: применяем stagger СИНХРОННО в MO callback с дедупликацией
-                // ботов через Set. MO callback — это microtask, выполняется ДО
-                // первого paint. rAF (использовался раньше) запускается ПОСЛЕ paint
-                // — браузер успевал отрисовать карты без stagger-анимации, юзер
-                // видел их «резко появившимися». Sync apply + Set дедуп = один
-                // вызов applyStaggerAnimation на каждый bot, до первого paint.
+                // R7.45: MO теперь только проставляет chat-fade-in на новые .msg.bot.
+                // Stagger карт инлайнится в HTML через _staggerAttrs() в format-функциях
+                // (только при animate=true — первый показ msg). Без MO-логики stagger
+                // нет race между paint и MO callback — карты сразу с правильным CSS.
                 var mo = new MutationObserver(function (muts) {
-                    var affectedBots = new Set();
                     muts.forEach(function (m) {
                         m.addedNodes && m.addedNodes.forEach(function (n) {
                             if (n.nodeType !== 1) return;
-                            // R7.1 fix: правильный класс — .msg.bot (соответствует _shared.js)
                             if (n.classList && n.classList.contains('msg') && n.classList.contains('bot')) {
                                 if (!n.classList.contains('chat-fade-in')) n.classList.add('chat-fade-in');
-                                affectedBots.add(n);
-                            }
-                            // R7.30: карточка появилась внутри уже существующего .msg.bot
-                            // (typewriter swap на финале) → сбрасываем staggered-флаг и
-                            // применяем анимацию заново.
-                            else if (isCard(n)) {
-                                var bot = n.closest && n.closest('.msg.bot');
-                                if (bot) affectedBots.add(bot);
                             }
                         });
-                    });
-                    affectedBots.forEach(function (bot) {
-                        if (bot.dataset) delete bot.dataset.staggered;
-                        applyStaggerAnimation(bot);
                     });
                 });
                 mo.observe(chat, { childList: true, subtree: true });
