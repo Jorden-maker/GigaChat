@@ -2428,10 +2428,16 @@
             return '<div class="chat-group-list">' + events.slice(0, 12).map(function (e) {
                 var when = '';
                 if (e.created_at) {
+                    // R7.60: формат «ДД.ММ.ГГГГ, ЧЧ:ММ» — единый с dashboard.
                     try {
                         var d = new Date(e.created_at);
-                        when = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                    } catch(_) { when = String(e.created_at).slice(11, 16); }
+                        var DD = String(d.getDate()).padStart(2,'0');
+                        var MM = String(d.getMonth() + 1).padStart(2,'0');
+                        var YYYY = d.getFullYear();
+                        var hh = String(d.getHours()).padStart(2,'0');
+                        var mm = String(d.getMinutes()).padStart(2,'0');
+                        when = DD + '.' + MM + '.' + YYYY + ', ' + hh + ':' + mm;
+                    } catch(_) { when = String(e.created_at).slice(0, 16).replace('T', ', '); }
                 }
                 var icon = (typeof _chatEventIcon === 'function') ? _chatEventIcon(e) : '';
                 var action = _humanizeActivity(e);
@@ -2444,7 +2450,7 @@
                         (issueName ? '<div class="cgi-task"><span class="cgi-label">Задача:</span> ' + issueName + '</div>' : '') +
                         (project || when ? '<div class="cgi-meta">' +
                             (project ? '<span><span class="cgi-label">Проект:</span> ' + project + '</span>' : '') +
-                            (when ? '<span class="cgi-time"><span class="cgi-label">Время:</span> ' + escapeHtml(when) + '</span>' : '') +
+                            (when ? '<span class="cgi-time"><span class="cgi-label">Дата/Время:</span> ' + escapeHtml(when) + '</span>' : '') +
                         '</div>' : '') +
                     '</div>' +
                 '</div>';
@@ -5366,8 +5372,16 @@
                 (byDay[d] = byDay[d] || []).push(e);
             });
             function fmtTime(s) {
-                try { var d = new Date(s); var hh = String(d.getHours()).padStart(2,'0'); var mm = String(d.getMinutes()).padStart(2,'0'); return hh + ':' + mm; }
-                catch(_) { return ''; }
+                // R7.60: формат «ДД.ММ.ГГГГ, ЧЧ:ММ» — для подписи «Дата/Время:»
+                try {
+                    var d = new Date(s);
+                    var DD = String(d.getDate()).padStart(2,'0');
+                    var MM = String(d.getMonth() + 1).padStart(2,'0');
+                    var YYYY = d.getFullYear();
+                    var hh = String(d.getHours()).padStart(2,'0');
+                    var mm = String(d.getMinutes()).padStart(2,'0');
+                    return DD + '.' + MM + '.' + YYYY + ', ' + hh + ':' + mm;
+                } catch(_) { return ''; }
             }
             // R6 #4: «Сегодня/Вчера» вместо ISO-даты для большей читаемости
             function humanDay(iso) {
@@ -5442,7 +5456,7 @@
                                 (issueName ? '<div class="activity-item-issue"><span class="ai-label">Задача:</span> ' + issueName + '</div>' : '') +
                                 (project || when ? '<div class="activity-item-meta">' +
                                     (project ? '<span><span class="ai-label">Проект:</span> ' + project + '</span>' : '') +
-                                    (when ? '<span class="ai-time"><span class="ai-label">Время:</span> ' + when + '</span>' : '') +
+                                    (when ? '<span class="ai-time"><span class="ai-label">Дата/Время:</span> ' + when + '</span>' : '') +
                                 '</div>' : '') +
                             '</div>' +
                         '</div></div>';
