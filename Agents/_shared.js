@@ -2646,12 +2646,25 @@
     }
     function clearInflight(sid) {
       if (!sid) return;
+      // R7.2: минимальное время показа loader'а 700мс. Если LLM отдаёт
+      // ошибку моментально (network fail → пустой ответ → "Не удалось получить
+      // ответ от LLM"), весь цикл проходил за ~100мс и юзер не успевал
+      // увидеть таймер. Без этого юзеры жалуются «куда таймер пропал».
+      var inflight = getInflight(sid);
+      var MIN_VISIBLE_MS = 700;
+      if (inflight && inflight.startedAt) {
+        var elapsed = Date.now() - inflight.startedAt;
+        if (elapsed < MIN_VISIBLE_MS) {
+          var remaining = MIN_VISIBLE_MS - elapsed;
+          setTimeout(function () { _doClearInflight(sid); }, remaining);
+          return;
+        }
+      }
+      _doClearInflight(sid);
+    }
+    function _doClearInflight(sid) {
       try { localStorage.removeItem(KEY_INFLIGHT + sid); } catch (e) {}
       stopInflightTicker();
-      // Удаляем loader из DOM напрямую вместо полного renderMessages —
-      // иначе chat.innerHTML=html перестраивает весь чат и вызывает
-      // визуальный «рывок» (особенно при отмене запроса). Следующий
-      // push (assistant msg в успехе) сам триггерит renderMessages.
       var loaders = document.querySelectorAll('.gc-inflight-loader');
       for (var i = 0; i < loaders.length; i++) loaders[i].remove();
     }
