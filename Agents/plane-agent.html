@@ -2484,7 +2484,7 @@
                 return '<div class="chat-group-item chat-activity-item">' +
                     '<span class="cgi-icon">' + icon + '</span>' +
                     '<div class="cgi-content">' +
-                        '<div class="cgi-line1"><span class="cgi-actor">' + escapeHtml(e.actor || '—') + '</span> ' + escapeHtml(action) + '</div>' +
+                        '<div class="cgi-line1"><span class="cgi-actor">' + escapeHtml(_humanizeActor(e.actor)) + '</span> ' + escapeHtml(action) + '</div>' +
                         (issueName ? '<div class="cgi-task"><span class="cgi-label">Задача:</span> ' + issueName + '</div>' : '') +
                         (project || when ? '<div class="cgi-meta">' +
                             (project ? '<span><span class="cgi-label">Проект:</span> ' + project + '</span>' : '') +
@@ -2493,6 +2493,19 @@
                     '</div>' +
                 '</div>';
             }).join('') + '</div>';
+        }
+        // R7.70: если actor выглядит как UUID (backend не успел резолвить
+        // через members), показываем «Пользователь» вместо «6bf5db53…».
+        // Покрывает: full UUID 8-4-4-4-12, 32 hex без дефисов, и truncated
+        // вида «6bf5db53…» которые делает backend.
+        function _humanizeActor(actor) {
+            if (!actor) return '—';
+            var s = String(actor).trim();
+            if (!s) return '—';
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return 'Пользователь';
+            if (/^[0-9a-f]{32}$/i.test(s)) return 'Пользователь';
+            if (/^[0-9a-f]{6,}…?\.?\.?\.?$/i.test(s)) return 'Пользователь';
+            return s;
         }
         // R7.58: преобразование event'а в русскоязычное описание действия.
         // Учитывает Plane-auto комментарии («updated the priority to ...») —
@@ -5546,7 +5559,7 @@
                     var action = (typeof _humanizeActivity === 'function')
                         ? _humanizeActivity(e)
                         : (e.human_action || 'обновил');
-                    var actor = escapeHtml(e.actor || '—');
+                    var actor = escapeHtml(_humanizeActor(e.actor));
                     var issueName = e.issue_name ? escapeHtml(e.issue_name) : '';
                     var project = e.project ? escapeHtml(e.project) : '';
                     var when = fmtTime(e.created_at);
