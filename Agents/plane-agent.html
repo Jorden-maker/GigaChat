@@ -612,7 +612,11 @@
         .board-card .bc-meta {
             display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
             font-size: 11px;
+            /* R7.68: дата (.bc-deadline) → правый нижний угол через
+               margin-left:auto. Приоритет остаётся слева. */
+            justify-content: space-between;
         }
+        .board-card .bc-meta .bc-deadline { margin-left: auto; }
         .board-card .bc-seq { color: var(--text-muted); }
         .board-card .bc-prio {
             display: inline-flex; align-items: center;
