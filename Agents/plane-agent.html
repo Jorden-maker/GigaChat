@@ -28,20 +28,20 @@
         .sidebar { display: flex; flex-direction: column; }
         .sidebar .session-list { flex: 1; min-height: 0; }
         .sidebar-footer {
-            border-top: 1px solid var(--border); padding: 10px; flex-shrink: 0;
+            border-top: 1px solid var(--border); padding: 8px 10px; flex-shrink: 0;
+            display: flex; justify-content: flex-end;
         }
         .sidebar-slash-btn {
-            width: 100%; display: flex; align-items: center; justify-content: center;
-            gap: 8px; padding: 9px 12px; background: var(--bg-input);
-            border: 1px solid var(--border); color: var(--text-secondary);
-            border-radius: 8px; font-family: inherit; font-size: 13px;
-            cursor: pointer; transition: all 0.15s;
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            color: var(--text-secondary); border-radius: 5px;
+            font-family: inherit; font-size: 11px; cursor: pointer;
+            transition: all 0.15s;
         }
         .sidebar-slash-btn:hover {
             border-color: var(--accent); color: var(--accent);
             background: var(--accent-light);
         }
-        .sidebar-slash-btn svg { color: var(--accent); flex-shrink: 0; }
         html.plane-preboard #chat { visibility: hidden !important; opacity: 0 !important; }
         html.plane-preboard #board-panel { opacity: 1 !important; visibility: visible !important; }
         /* R7.27: сайдбар тоже скрываем мгновенно (без 1с slide-out) */
@@ -1498,12 +1498,7 @@
         <div class="session-list" id="sessionList"></div>
         <!-- R7.28: кнопка slash-команд внизу сайдбара (альтернатива вводу /) -->
         <div class="sidebar-footer">
-            <button class="sidebar-slash-btn" onclick="openSlashMenuFromButton()" title="Команды чата">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <line x1="9" y1="3" x2="15" y2="21"/>
-                </svg>
-                <span>Команды</span>
-            </button>
+            <button class="sidebar-slash-btn" onclick="openSlashMenuFromButton()" title="Команды чата">Команды</button>
         </div>
     </div>
     <div class="main">
