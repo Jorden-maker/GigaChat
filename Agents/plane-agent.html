@@ -5400,75 +5400,38 @@
             return t.value.trim();
         }
         // Markdown-view над textarea: showing rendered text, click → редактирование.
+        // R7.11: упрощённый view/edit для описания.
+        // — Убрана панель инструментов B/I/H/список/link/Готово (юзер не использует).
+        // — Placeholder: «Описания нет.» (без «Клик чтобы добавить…»).
+        // — Клик по view → textarea. Blur с textarea → обратно view с рендером md.
+        var DESC_EMPTY_HTML = '<span class="md-empty">Описания нет.</span>';
         function attachMarkdownDescriptionView() {
             var ta = document.getElementById('cm-desc');
             if (!ta) return;
-            // Initial value уже в textarea (stripHtml версия) — поменяем на raw markdown
             var rawHtml = (MODAL_CURRENT_ISSUE && (MODAL_CURRENT_ISSUE.description_html || MODAL_CURRENT_ISSUE.description)) || '';
             var md = htmlToMd(rawHtml);
             ta.value = md;
             ta.style.display = 'none';
-            // Создаём view-блок над textarea + панель инструментов
             var parent = ta.parentNode;
             if (!parent || parent.querySelector('.cm-desc-view')) return;
-            var tools = document.createElement('div');
-            tools.className = 'cm-desc-edit-tools';
-            tools.style.display = 'none';
-            tools.innerHTML =
-                '<button type="button" title="Полужирный" data-md="bold"><b>B</b></button>' +
-                '<button type="button" title="Курсив" data-md="italic"><i>I</i></button>' +
-                '<button type="button" title="Код" data-md="code">&lt;/&gt;</button>' +
-                '<span class="md-sep"></span>' +
-                '<button type="button" title="Заголовок" data-md="h">H</button>' +
-                '<button type="button" title="Список" data-md="list">• список</button>' +
-                '<button type="button" title="Ссылка" data-md="link">🔗 link</button>' +
-                '<span class="md-sep" style="flex:1"></span>' +
-                '<button type="button" title="Готово (предпросмотр)" data-md="preview" style="color:var(--accent)">✓ Готово</button>';
-            parent.insertBefore(tools, ta);
-            // Style textarea как часть toolbar (закругление снизу)
-            ta.style.borderRadius = '0 0 6px 6px';
-            ta.style.borderTopWidth = '0';
             var view = document.createElement('div');
             view.className = 'cm-desc-view';
-            view.innerHTML = md ? mdToHtml(md) : '<span class="md-empty">Описания нет. Клик чтобы добавить...</span>';
+            view.innerHTML = md ? mdToHtml(md) : DESC_EMPTY_HTML;
             parent.insertBefore(view, ta);
             view.addEventListener('click', function () {
                 view.style.display = 'none';
-                tools.style.display = 'flex';
                 ta.style.display = '';
-                ta.style.borderRadius = '0 0 6px 6px';
-                ta.style.borderTopWidth = '0';
                 ta.focus();
             });
-            tools.addEventListener('click', function (e) {
-                var b = e.target.closest('button');
-                if (!b) return;
-                var mode = b.dataset.md;
-                if (mode === 'preview') {
-                    // Render md to view, hide editor
+            // Возврат к preview по blur textarea (если не сфокусирован обратно)
+            ta.addEventListener('blur', function () {
+                setTimeout(function () {
+                    if (document.activeElement === ta) return; // юзер вернулся
                     var raw = ta.value;
-                    view.innerHTML = raw ? mdToHtml(raw) : '<span class="md-empty">Описания нет. Клик чтобы добавить...</span>';
+                    view.innerHTML = raw ? mdToHtml(raw) : DESC_EMPTY_HTML;
                     view.style.display = '';
-                    tools.style.display = 'none';
                     ta.style.display = 'none';
-                    return;
-                }
-                // Insert markdown around selection
-                var ss = ta.selectionStart, ee = ta.selectionEnd;
-                var before = ta.value.slice(0, ss), sel = ta.value.slice(ss, ee), after = ta.value.slice(ee);
-                var wrap = { bold: ['**', '**'], italic: ['*', '*'], code: ['`', '`'], h: ['## ', ''], list: ['- ', ''], link: ['[', '](https://)'] }[mode];
-                if (!wrap) return;
-                if (mode === 'h' || mode === 'list') {
-                    // в начало строки
-                    var lineStart = before.lastIndexOf('\n') + 1;
-                    ta.value = ta.value.slice(0, lineStart) + wrap[0] + ta.value.slice(lineStart);
-                    ta.selectionStart = ta.selectionEnd = lineStart + wrap[0].length;
-                } else {
-                    ta.value = before + wrap[0] + (sel || 'текст') + wrap[1] + after;
-                    ta.selectionStart = ss + wrap[0].length;
-                    ta.selectionEnd = ss + wrap[0].length + (sel || 'текст').length;
-                }
-                ta.focus();
+                }, 100);
             });
         }
 
