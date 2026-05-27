@@ -746,14 +746,24 @@
         .chat-group-item.unread { border-left: 3px solid var(--accent); }
         .chat-group-item .cgi-title { color: var(--text-primary); margin-bottom: 2px; }
         .chat-group-item .cgi-meta { font-size: 11px; color: var(--text-muted); }
-        /* R7.57: activity item с SVG-иконкой слева */
+        /* R7.57/R7.58: activity item — три строки + SVG-иконка слева. */
         .chat-activity-item { display: flex; align-items: flex-start; gap: 10px; }
         .chat-activity-item .cgi-icon {
             flex-shrink: 0; width: 22px; height: 22px;
             display: inline-flex; align-items: center; justify-content: center;
-            color: var(--accent); margin-top: 2px;
+            color: var(--accent); margin-top: 1px;
         }
         .chat-activity-item .cgi-content { flex: 1; min-width: 0; }
+        .chat-activity-item .cgi-line1 { color: var(--text-primary); margin-bottom: 3px; line-height: 1.4; }
+        .chat-activity-item .cgi-actor { color: var(--accent); font-weight: 600; }
+        .chat-activity-item .cgi-task {
+            color: var(--text-secondary); font-size: 12px; line-height: 1.45;
+            margin-bottom: 2px;
+        }
+        .chat-activity-item .cgi-meta {
+            font-size: 11px; color: var(--text-muted); line-height: 1.4;
+        }
+        .chat-activity-item .cgi-label { color: var(--text-muted); }
         .chat-epic-card { background: var(--accent-light); border: 1px solid var(--accent);
             border-radius: 8px; padding: 12px 14px; }
         .chat-epic-card .cec-header { font-weight: 500; color: var(--accent); margin-bottom: 8px; font-size: 13px; }
@@ -2397,32 +2407,81 @@
             }).join('') + '</div>';
         }
         function formatActivitiesList(events) {
-            // R6 audit #2: используем backend-considered human_action/human_diff
-            // (с verb-переводом + actor name resolve через members). Fallback на
-            // старый формат для совместимости.
-            // R7.57: SVG-иконка типа события через _chatEventIcon — те же
-            // символы что в renderActivityFeed (dashboard), визуально единый стиль.
-            var FIELD_RU = { state:'статус',priority:'приоритет',assignees:'исполнители',labels:'метки',target_date:'срок',name:'название',description:'описание',comment:'комментарий',parent:'родитель',start_date:'дата начала' };
+            // R7.58: новый формат карточки активности:
+            //   (иконка) (имя пользователя) (что сделал на русском)
+            //           Задача: (название без #N)
+            //           Проект: (название)  (время)
+            // Если e.field известен — формируем русское действие. Plane-auto
+            // комментарии вида «updated the priority to ...» распознаются и
+            // тоже переводятся (это не реальный комментарий, а аудит-запись).
             return '<div class="chat-group-list">' + events.slice(0, 12).map(function (e) {
-                var when = e.created_at ? String(e.created_at).slice(0, 16).replace('T', ' ') : '';
-                var action = e.human_action || ('изменил ' + (FIELD_RU[e.field] || e.field || ''));
-                var diff = e.human_diff || (
-                    e.comment ? String(e.comment).replace(/<[^>]+>/g, '').slice(0, 100)
-                    : (e.new_value || e.old_value ? ((e.old_value ? e.old_value + ' → ' : '') + (e.new_value || '')) : '')
-                );
-                var issueLabel = '';
-                if (e.issue_name) {
-                    issueLabel = ' → ' + (e.issue_sequence_id ? '#' + e.issue_sequence_id + ' ' : '') + e.issue_name;
+                var when = '';
+                if (e.created_at) {
+                    try {
+                        var d = new Date(e.created_at);
+                        when = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                    } catch(_) { when = String(e.created_at).slice(11, 16); }
                 }
                 var icon = (typeof _chatEventIcon === 'function') ? _chatEventIcon(e) : '';
+                var action = _humanizeActivity(e);
+                var issueName = e.issue_name ? escapeHtml(e.issue_name) : '';
+                var project = e.project ? escapeHtml(e.project) : '';
                 return '<div class="chat-group-item chat-activity-item">' +
                     '<span class="cgi-icon">' + icon + '</span>' +
                     '<div class="cgi-content">' +
-                        '<div class="cgi-title">' + escapeHtml(e.actor || '—') + ' ' + escapeHtml(action) + (diff ? ': ' + escapeHtml(diff) : '') + escapeHtml(issueLabel) + '</div>' +
-                        '<div class="cgi-meta">' + (e.project ? escapeHtml(e.project) + ' · ' : '') + escapeHtml(when) + '</div>' +
+                        '<div class="cgi-line1"><span class="cgi-actor">' + escapeHtml(e.actor || '—') + '</span> ' + escapeHtml(action) + '</div>' +
+                        (issueName ? '<div class="cgi-task"><span class="cgi-label">Задача:</span> ' + issueName + '</div>' : '') +
+                        (project || when ? '<div class="cgi-meta">' +
+                            (project ? '<span class="cgi-label">Проект:</span> ' + project : '') +
+                            (project && when ? '&nbsp;&nbsp;&nbsp;' : '') +
+                            (when ? escapeHtml(when) : '') +
+                        '</div>' : '') +
                     '</div>' +
                 '</div>';
             }).join('') + '</div>';
+        }
+        // R7.58: преобразование event'а в русскоязычное описание действия.
+        // Учитывает Plane-auto комментарии («updated the priority to ...») —
+        // они не реальные комментарии, а аудит-записи, переводим их по field.
+        function _humanizeActivity(e) {
+            var ACTION_RU = {
+                priority: 'изменил приоритет',
+                state: 'изменил статус',
+                target_date: 'изменил срок выполнения',
+                start_date: 'изменил дату начала',
+                assignees: 'изменил исполнителей',
+                labels: 'изменил метки',
+                name: 'изменил название',
+                description: 'изменил описание',
+                parent: 'изменил родителя',
+                modules: 'изменил модуль',
+                cycle: 'изменил цикл',
+                estimate_point: 'изменил оценку'
+            };
+            var f = (e.field || '').toLowerCase();
+            var v = (e.verb || '').toLowerCase();
+            if (v === 'created' && !f) return 'создал задачу';
+            if (v === 'deleted') return 'удалил задачу';
+            if (e.comment) {
+                var c = String(e.comment).replace(/<[^>]+>/g, '').trim();
+                // Plane-auto: «updated the <field> to ...» / «added <field>»
+                var auto = c.match(/^updated the ([a-z\s]+?) to/i);
+                if (auto) {
+                    var apiF = auto[1].toLowerCase().trim().replace(/\s+/g, '_');
+                    return ACTION_RU[apiF] || ('изменил ' + apiF);
+                }
+                if (/^added\s+/i.test(c)) {
+                    var added = c.match(/^added\s+([a-z\s]+)/i);
+                    if (added) {
+                        var aF = added[1].toLowerCase().trim().replace(/\s+/g, '_');
+                        return 'добавил ' + (ACTION_RU[aF] ? ACTION_RU[aF].replace(/^изменил /, '') : aF);
+                    }
+                }
+                // Настоящий комментарий — короткое превью.
+                return 'оставил комментарий: ' + c.slice(0, 60) + (c.length > 60 ? '…' : '');
+            }
+            if (ACTION_RU[f]) return ACTION_RU[f];
+            return e.human_action || 'обновил задачу';
         }
         // R7.57: SVG-иконки для типов событий — используются в чате
         // (formatActivitiesList) и совпадают с теми что в dashboard
