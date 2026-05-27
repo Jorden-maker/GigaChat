@@ -252,6 +252,15 @@
             color: var(--text-muted);
         }
         .pc-prio-line .pc-prio-label { color: var(--text-secondary); }
+        /* R7.39: бейдж приоритета фиксированной ширины — иначе «Приоритет:»
+           «плавает» влево/вправо в зависимости от длины метки (срочный/низкий)
+           и выглядит неровно между несколькими карточками. */
+        .pc-prio-line .pc-prio {
+            min-width: 70px;
+            text-align: center;
+            box-sizing: border-box;
+            margin-left: 0;
+        }
         /* R7.33: cancelled task — больше НЕ перечёркивается и НЕ блёкнет.
            Юзер хочет видеть приоритет в обычных цветах, заголовок без line-through,
            а статус показывается через нижнюю кнопку «Отменено» (state-cancelled).
