@@ -2571,8 +2571,8 @@
         // между перерисовками (баг 15: при рекурсивных вызовах querySelector мог
         // вернуть null, col.appendChild(null) — TypeError, колонка оставалась пустой).
         var BOARD_COL_TITLES = {
-            backlog: 'Отложенные',
-            unstarted: 'Запланированные',
+            backlog: 'Отложено',
+            unstarted: 'Запланировано',
             started: 'В работе',
             completed: 'Готово',
             cancelled: 'Отменено'
@@ -3877,8 +3877,8 @@
             }
             function mkHr() { return document.createElement('hr'); }
             cm.appendChild(mkBtn('edit', 'Изменить', function () { openCardModal(issue); }));
-            cm.appendChild(mkBtn('arrow', 'Отложенные', function () { ctxMenuStatusFor(issue, 'backlog'); }));
-            cm.appendChild(mkBtn('arrow', 'Запланированные', function () { ctxMenuStatusFor(issue, 'todo'); }));
+            cm.appendChild(mkBtn('arrow', 'Отложено', function () { ctxMenuStatusFor(issue, 'backlog'); }));
+            cm.appendChild(mkBtn('arrow', 'Запланировано', function () { ctxMenuStatusFor(issue, 'todo'); }));
             cm.appendChild(mkBtn('arrow', 'В работе', function () { ctxMenuStatusFor(issue, 'in_progress'); }));
             cm.appendChild(mkBtn('arrow', 'Готово', function () { ctxMenuStatusFor(issue, 'done'); }));
             cm.appendChild(mkBtn('arrow', 'Отменено', function () { ctxMenuStatusFor(issue, 'cancelled'); }));
@@ -4002,7 +4002,7 @@
             var msg = action === 'delete'
                 ? 'Удалить ' + names.length + ' задач безвозвратно?'
                 : 'Перенести ' + names.length + ' задач в «' +
-                    ({todo:'Запланированные',in_progress:'В работе',done:'Готово'}[action]||action) + '»?';
+                    ({todo:'Запланировано',in_progress:'В работе',done:'Готово'}[action]||action) + '»?';
             if (!confirm(msg)) return;
 
             var statusEl = document.getElementById('board-status');
