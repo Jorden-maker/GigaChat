@@ -3106,10 +3106,16 @@
             if (assigneeCount > 0) counters.push('<span>👤 ' + assigneeCount + '</span>');
             var countersHtml = counters.length ? '<span class="bc-counters">' + counters.join('') + '</span>' : '';
 
+            // R7.69: бейдж приоритета не показываем, если none — пустой «—»
+            // в сером кружке выглядел шумно. Дата всё равно отрисуется
+            // справа через margin-left:auto.
+            var prioHtml = (prio && prio !== 'none')
+                ? '<span class="bc-prio ' + prio + '">' + prioLabel + '</span>'
+                : '';
             card.innerHTML =
                 '<div class="bc-title">' + escapeHtml(issue.name || '—') + '</div>' +
                 '<div class="bc-meta">' +
-                    '<span class="bc-prio ' + prio + '">' + prioLabel + '</span>' +
+                    prioHtml +
                     deadlineHtml +
                 '</div>' +
                 labelsHtml +
