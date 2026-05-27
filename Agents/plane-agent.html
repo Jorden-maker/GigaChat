@@ -3194,10 +3194,6 @@
                 (issue.created_at ? '<div class="cm-created">Создана: ' +
                     escapeHtml(new Date(issue.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })) +
                     '</div>' : '') +
-                // Subtasks, Watchers, Time tracking — секции под общими полями.
-                '<div class="cm-watchers" id="cm-watchers-section"></div>' +
-                '<div class="cm-subtasks" id="cm-subtasks-section"></div>' +
-                '<div class="cm-time" id="cm-time-section"></div>' +
                 '<div class="card-modal-comments">' +
                     '<h4>Комментарии</h4>' +
                     '<div id="cm-comments-list"><div style="color:var(--text-muted);font-size:12px;text-align:center;padding:8px">Загружаю...</div></div>' +
@@ -3241,18 +3237,9 @@
             backdrop.classList.add('show');
             // Подгружаем комментарии асинхронно
             loadCardComments(issue);
-            // Phase 3: рендерим Subtasks / Watchers / Time tracking
-            // (только в режиме просмотра — не для is-new)
+            // Markdown-просмотр описания (поверх textarea)
             if (!issue._isNew) {
-                renderSubtasksSection(issue);
-                renderWatchersSection(issue);
-                renderTimeTrackingSection(issue);
-                // Markdown-просмотр описания (поверх textarea)
                 attachMarkdownDescriptionView();
-            } else {
-                ['cm-subtasks-section','cm-watchers-section','cm-time-section'].forEach(function (id) {
-                    var el = document.getElementById(id); if (el) el.style.display = 'none';
-                });
             }
         }
 
