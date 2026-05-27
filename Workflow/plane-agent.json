@@ -163,7 +163,10 @@
       ],
       "id": "plane-agent-fetch-projects-0007",
       "name": "Plane API: projects",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
     },
     {
       "parameters": {
@@ -954,7 +957,10 @@
       ],
       "id": "plane-agent-list-issues-0013",
       "name": "list_issues: GET",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
     },
     {
       "parameters": {
@@ -1316,7 +1322,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Enrich issues со state_group через GET /states/ — Plane v0.27 не поддерживает\n// ?expand=state_detail.\n//\n// ROOT-FIX: НЕ возвращаем ошибку при провале enrich. Просто отдаём issues\n// с полем `state` (UUID). Frontend кэширует state-map в localStorage и\n// сам восстановит state_detail из cache. Это гарантирует, что rapid\n// Обновить + перегрузка Plane больше НЕ приводят к коллапсу всех задач\n// в одну колонку.\nlet src = {};\ntry { src = $('Direct resolve').first().json; } catch(_) {}\nif (!src || !src.project_id) { try { src = $('Parse LLM').first().json; } catch(_) {} }\nconst input = $input.first().json || {};\nconst issues = Array.isArray(input) ? input : (input.results || []);\n\nlet states = [];\nconst delays = [0, 500, 1500];\nfor (let attempt = 0; attempt < delays.length; attempt++) {\n  if (delays[attempt]) await new Promise(r => setTimeout(r, delays[attempt]));\n  try {\n    const resp = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `${src.plane_url}/api/v1/workspaces/${src.workspace_slug}/projects/${src.project_id}/states/`,\n      headers: { 'X-API-Key': src.plane_token, 'Content-Type': 'application/json' },\n      timeout: 10000, json: true\n    });\n    states = Array.isArray(resp) ? resp : (resp.results || []);\n    if (states.length) break;\n  } catch (e) { /* continue */ }\n}\n\nconst stateMap = {};\nstates.forEach(s => { stateMap[s.id] = { id: s.id, name: s.name, group: s.group, color: s.color }; });\n\n// Enrich. Если state_detail не найден — оставляем null, но `state` UUID\n// в issue ОБЯЗАТЕЛЬНО присутствует чтобы фронт мог использовать своё кэшированное\n// state-mapping.\nconst enriched = issues.map(i => ({\n  ...i,\n  state_detail: stateMap[i.state] || null\n}));\n\n// Дополнительно прокидываем весь state-map отдельным полем data.states —\n// frontend сохранит его в localStorage per project, и на следующих\n// загрузках сможет резолвить state_detail даже если enrich упал.\nreturn [{ json: { results: enriched, _enriched: true, _states_map: stateMap, _project_id: src.project_id } }];\n"
+        "jsCode": "// Enrich issues со state_group через GET /states/ — Plane v0.27 не поддерживает\n// ?expand=state_detail.\n//\n// ROOT-FIX: НЕ возвращаем ошибку при провале enrich. Просто отдаём issues\n// с полем `state` (UUID). Frontend кэширует state-map в localStorage и\n// сам восстановит state_detail из cache. Это гарантирует, что rapid\n// Обновить + перегрузка Plane больше НЕ приводят к коллапсу всех задач\n// в одну колонку.\nlet src = {};\ntry { src = $('Direct resolve').first().json; } catch(_) {}\nif (!src || !src.project_id) { try { src = $('Parse LLM').first().json; } catch(_) {} }\nconst input = $input.first().json || {};\n\n// R5 BUG: если list_issues GET упал (429/timeout/500), input = error-объект.\n// Без этой проверки issues становится [] и frontend рендерит пустые колонки —\n// как будто задач нет, хотя они в Plane есть.\nconst inputErr = input && (input.error || (typeof input === 'object' && input.code && input.code >= 400));\nif (inputErr) {\n  return [{ json: {\n    results: [],\n    error: 'Plane перегружен — попробуй обновить ещё раз через несколько секунд',\n    _enrich_error: true\n  } }];\n}\n\nconst issues = Array.isArray(input) ? input : (input.results || []);\n\nlet states = [];\nconst delays = [0, 500, 1500];\nfor (let attempt = 0; attempt < delays.length; attempt++) {\n  if (delays[attempt]) await new Promise(r => setTimeout(r, delays[attempt]));\n  try {\n    const resp = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `${src.plane_url}/api/v1/workspaces/${src.workspace_slug}/projects/${src.project_id}/states/`,\n      headers: { 'X-API-Key': src.plane_token, 'Content-Type': 'application/json' },\n      timeout: 10000, json: true\n    });\n    states = Array.isArray(resp) ? resp : (resp.results || []);\n    if (states.length) break;\n  } catch (e) { /* continue */ }\n}\n\nconst stateMap = {};\nstates.forEach(s => { stateMap[s.id] = { id: s.id, name: s.name, group: s.group, color: s.color }; });\n\n// Enrich. Если state_detail не найден — оставляем null, но `state` UUID\n// в issue ОБЯЗАТЕЛЬНО присутствует чтобы фронт мог использовать своё кэшированное\n// state-mapping.\nconst enriched = issues.map(i => ({\n  ...i,\n  state_detail: stateMap[i.state] || null\n}));\n\n// Дополнительно прокидываем весь state-map отдельным полем data.states —\n// frontend сохранит его в localStorage per project, и на следующих\n// загрузках сможет резолвить state_detail даже если enrich упал.\nreturn [{ json: { results: enriched, _enriched: true, _states_map: stateMap, _project_id: src.project_id } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
