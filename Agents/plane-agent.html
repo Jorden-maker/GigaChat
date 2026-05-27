@@ -5006,9 +5006,15 @@
         function _attachCalendarEdgeAutoSwitch(host) {
             if (!host || host.__edgeSwitchBound) return;
             host.__edgeSwitchBound = true;
-            var EDGE_PX = 60;          // зона у края, в которой считаем что юзер «подтащил»
-            var SWITCH_DELAY_MS = 700;  // сколько надо удерживать у края до переключения
-            var pendingDir = 0;         // -1 = left/prev, +1 = right/next, 0 = вне зоны
+            // R7.63: считаем от КРАЯ ЭКРАНА (window.innerWidth), а не от host'а.
+            // Когда юзер тащит «вплотную» к экрану — курсор может быть за
+            // пределами host'а (там может быть padding/margin) и dragover на
+            // host не приходил. Теперь слушаем на document — детектируем
+            // близость к самому краю viewport. EDGE_PX уменьшен до 40px —
+            // нужно реально подтащить почти впритык.
+            var EDGE_PX = 40;
+            var SWITCH_DELAY_MS = 700;
+            var pendingDir = 0;
             var timerId = null;
             function clearTimer() {
                 if (timerId) { clearTimeout(timerId); timerId = null; }
@@ -5016,7 +5022,7 @@
                 host.classList.remove('cal-edge-left', 'cal-edge-right');
             }
             function scheduleSwitch(dir) {
-                if (pendingDir === dir && timerId) return; // уже запланировано
+                if (pendingDir === dir && timerId) return;
                 clearTimer();
                 pendingDir = dir;
                 host.classList.add(dir < 0 ? 'cal-edge-left' : 'cal-edge-right');
@@ -5025,32 +5031,28 @@
                     if (!__DRAG_ISSUE) { clearTimer(); return; }
                     host.classList.remove('cal-edge-left', 'cal-edge-right');
                     navCal(dir);
-                    // После re-render таймер сбросится; если юзер всё ещё держит
-                    // у края — следующий dragover снова запланирует switch.
                     pendingDir = 0;
                 }, SWITCH_DELAY_MS);
             }
-            // Слушаем dragover ПО ВСЕМУ host'у (calendar wrap), не только cells.
-            host.addEventListener('dragover', function (e) {
+            // Сохраняем handler чтобы можно было снять при размонтировании
+            // (на случай если view-calendar когда-то будет detached).
+            function onDocDragover(e) {
                 if (!__DRAG_ISSUE) return;
-                var rect = host.getBoundingClientRect();
+                // Реагируем только когда календарь видим (иначе для DnD на доске
+                // тоже зацепимся).
+                if (!host.isConnected || host.offsetParent === null) return;
                 var x = e.clientX;
-                if (x < rect.left + EDGE_PX) {
+                var w = window.innerWidth;
+                if (x <= EDGE_PX) {
                     scheduleSwitch(-1);
-                } else if (x > rect.right - EDGE_PX) {
+                } else if (x >= w - EDGE_PX) {
                     scheduleSwitch(1);
                 } else {
                     clearTimer();
                 }
-            });
-            host.addEventListener('dragleave', function (e) {
-                // dragleave у host'а срабатывает при пересечении любого child border —
-                // фильтруем: сбрасываем только если действительно покинули host.
-                if (e.relatedTarget && host.contains(e.relatedTarget)) return;
-                clearTimer();
-            });
-            host.addEventListener('drop', clearTimer);
-            // Глобальный safety — если юзер отпустил мышь вне host'а.
+            }
+            document.addEventListener('dragover', onDocDragover);
+            document.addEventListener('drop', clearTimer);
             document.addEventListener('dragend', clearTimer);
         }
         function navCal(delta) {
