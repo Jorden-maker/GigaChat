@@ -153,7 +153,7 @@
         .pc-state.unstarted { background: rgba(99, 102, 241, 0.18); color: #6366f1; }
         .pc-state.started   { background: rgba(34, 197, 94, 0.18); color: #16a34a; }
         .pc-state.completed { background: rgba(34, 197, 94, 0.10); color: #16a34a; opacity: 0.8; }
-        .pc-state.cancelled { background: rgba(120, 120, 120, 0.15); color: var(--text-muted); text-decoration: line-through; }
+        .pc-state.cancelled { background: rgba(185, 28, 28, 0.15); color: #b91c1c; }
         /* R7.3: state-active кнопки — индикатор текущего состояния.
            Не выполняют действия (data-act="*-current" — нет обработчика),
            но имеют hover-эффект для интерактивного фидбэка.
@@ -224,10 +224,26 @@
             transform: translateY(-1px);
         }
         .pc-inline-actions button.state-planned:active { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.28); }
-        /* R7 #9: cancelled task — заголовок и весь блок перечёркнуты */
-        .pc-state.cancelled { text-decoration: line-through; }
-        .plane-card.is-cancelled .pc-title { text-decoration: line-through; opacity: 0.7; }
-        .plane-card.is-cancelled { opacity: 0.85; }
+        /* state-cancelled (приглушённый красный) — для cancelled «Отменено».
+           НЕ ярко-красный (#ef4444 у danger-кнопки удалить), а тёмно-красный
+           #b91c1c, чтобы визуально отличать индикатор статуса от опасного действия. */
+        .pc-inline-actions button.state-cancelled {
+            color: #b91c1c !important;
+            border-color: rgba(185, 28, 28, 0.40) !important;
+            background: rgba(185, 28, 28, 0.12) !important;
+        }
+        .pc-inline-actions button.state-cancelled:hover {
+            background: rgba(185, 28, 28, 0.22) !important;
+            border-color: rgba(185, 28, 28, 0.65) !important;
+            color: #b91c1c !important;
+            box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.18);
+            transform: translateY(-1px);
+        }
+        .pc-inline-actions button.state-cancelled:active { box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.28); }
+        /* R7.33: cancelled task — больше НЕ перечёркивается и НЕ блёкнет.
+           Юзер хочет видеть приоритет в обычных цветах, заголовок без line-through,
+           а статус показывается через нижнюю кнопку «Отменено» (state-cancelled).
+           is-cancelled класс оставлен — может пригодиться для других стилей. */
         /* Settings modal */
         .modal-backdrop {
             position: fixed; top:0;right:0;bottom:0;left:0; background: rgba(0,0,0,0.55); z-index: 1000;
@@ -2196,13 +2212,10 @@
             var prioLabel = ({urgent:'срочный',high:'высокий',medium:'средний',low:'низкий'})[prio];
             var prioBadge = (prioLabel && prioCls) ? ('<span class="pc-prio ' + prioCls + '">' + prioLabel + '</span>') : '';
             var group = (issue.state_detail && issue.state_detail.group) || '';
-            // R7 #6: статусы started/completed уже показаны как цветные кнопки.
-            // R7.32: backlog/unstarted теперь тоже показываются как serbra
-            // кнопки-индикаторы (Отложено/Запланировано) — бейдж справа от
-            // приоритета убран, чтобы не дублировать информацию.
-            // Только cancelled оставляем бейджем — для отменённых задач кнопки
-            // нет, нужно как-то показать статус.
-            var SHOWN = { cancelled: 'Отменено' };
+            // R7 #6: статусы started/completed/backlog/unstarted/cancelled
+            // показаны как цветные кнопки-индикаторы внизу карточки. Бейджей
+            // справа от приоритета больше нет — всё унифицировано.
+            var SHOWN = {};
             var stateLabel = SHOWN[group] || '';
             var groupCls = ALLOWED_GROUP[group] ? group : '';
             var stateBadge = (stateLabel && groupCls) ? ('<span class="pc-state ' + groupCls + '">' + stateLabel + '</span>') : '';
@@ -6364,6 +6377,7 @@
             var SVG_WORK  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>';
             var SVG_PAUSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
             var SVG_PLAN  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>';
+            var SVG_CANCEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="8" x2="16" y2="16"/><line x1="16" y1="8" x2="8" y2="16"/></svg>';
             var btnState = '';
             if (isCompleted) {
                 btnState = '<button data-act="done-current" class="state-active state-done" title="Задача в статусе Готово">' + SVG_DONE + ' Готово</button>';
@@ -6373,8 +6387,9 @@
                 btnState = '<button data-act="backlog-current" class="state-active state-pending" title="Задача отложена">' + SVG_PAUSE + ' Отложено</button>';
             } else if (isUnstarted) {
                 btnState = '<button data-act="unstarted-current" class="state-active state-planned" title="Задача запланирована">' + SVG_PLAN + ' Запланировано</button>';
+            } else if (isCancelled) {
+                btnState = '<button data-act="cancelled-current" class="state-active state-cancelled" title="Задача отменена">' + SVG_CANCEL + ' Отменено</button>';
             }
-            // cancelled — btnState остаётся '' (бейдж «Отменено» уже показан).
 
             return '<div class="pc-inline-actions" data-issue-name="' + safeName + '" data-issue-id="' + safeId + '" data-project="' + safeProj + '">' +
                 btnState +
