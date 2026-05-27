@@ -3471,6 +3471,14 @@
                 listEl.innerHTML = '<div class="cm-empty">Комментариев пока нет</div>';
                 return;
             }
+            // R7.21: подгружаем CURRENT_USER_ID если ещё не загружен (когда
+            // юзер открыл задачу из чата без открытия дашборда). Без этого
+            // карандашик редактирования не появится — canEdit будет всегда false.
+            if (!CURRENT_USER_ID && comments.length) {
+                loadCurrentUser().then(function () {
+                    if (CURRENT_USER_ID) renderCardComments(comments);
+                });
+            }
             // Если кэш мемберов пуст и есть актёры — догружаем фоном
             // (на случай если loadBoard ещё не успел или упал).
             if ((!BOARD_MEMBERS_CACHE || !BOARD_MEMBERS_CACHE.length) && comments.length) {
@@ -3509,8 +3517,10 @@
                         author = String(actorId).slice(-8);
                     }
                 }
-                // R7.19: actor-ID комментария — для проверки права на edit
-                var commentActorId = c.actor || c.created_by || c.actor_id || '';
+                // R7.19: actor-ID комментария — для проверки права на edit.
+                // Plane может вернуть актора в разных полях, в т.ч. actor_detail.id.
+                var commentActorId = c.actor || c.created_by || c.actor_id
+                                  || (c.actor_detail && c.actor_detail.id) || '';
                 var canEdit = CURRENT_USER_ID && String(commentActorId) === String(CURRENT_USER_ID);
                 var commentId = String(c.id || '');
                 return '<div class="card-modal-comment cm-anim" style="animation-delay:0ms" data-comment-id="' + escapeAttr(commentId) + '" data-actor-id="' + escapeAttr(commentActorId) + '">' +
