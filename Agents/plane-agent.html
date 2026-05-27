@@ -1022,14 +1022,32 @@
             to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes chatStaggerIn {
-            from { opacity: 0; transform: translateY(10px) scale(0.96); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+                max-height: 0;
+                padding-block: 0;
+                margin-block: 0;
+                border-block-width: 0;
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+                max-height: 800px;
+                padding-block: 10px;
+                margin-block: 6px;
+                border-block-width: 1px;
+            }
         }
         .chat-fade-in { animation: chatFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
-        /* R7.42: длительность каждой карточки увеличена 0.9s → 1.2s,
-           чтобы появление было заметно медленнее. Combine с stagger 150мс
-           даёт визуально спокойную волну. */
-        .chat-stagger-in { animation: chatStaggerIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+        /* R7.47: карта «разворачивается» снизу вверх (max-height + paddings
+           растут от 0), а не просто появляется opacity. Это меняет
+           scrollHeight чата — smoothScrollChat следит за ним и
+           автоматически скроллит вниз, как при псевдо-стриминге. */
+        .chat-stagger-in {
+            animation: chatStaggerIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+            overflow: hidden;
+        }
         /* Spinner для loader'ов */
         .msg-spinner { display: inline-block; width: 12px; height: 12px;
             border: 2px solid var(--accent-light); border-top-color: var(--accent);
@@ -6466,6 +6484,17 @@
                             }
                         });
                     });
+                });
+                // R7.47: после chatStaggerIn animation убираем max-height и
+                // overflow:hidden — иначе длинный контент (>800px) останется
+                // обрезан. animation-fill-mode:both держит «to» state с
+                // max-height:800px, поэтому надо явно сбросить.
+                chat.addEventListener('animationend', function (e) {
+                    if (e.animationName !== 'chatStaggerIn') return;
+                    var el = e.target;
+                    if (!el.classList || !el.classList.contains('chat-stagger-in')) return;
+                    el.style.maxHeight = 'none';
+                    el.style.overflow = 'visible';
                 });
                 mo.observe(chat, { childList: true, subtree: true });
             }
