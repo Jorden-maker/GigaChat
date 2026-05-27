@@ -59,7 +59,9 @@
             font-size: 15px; outline: none;
             transition: border-color 0.2s;
             resize: none; min-height: 36px; max-height: 130px; line-height: 1.5;
-            overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+            /* R7.40: overflow-y: hidden — JS в _shared.js переключает на auto,
+               когда контент превышает autosizeMax (нет ложного скроллбара на 1-й строке). */
+            overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
         }
         #msg::-webkit-scrollbar { width: 4px; }
         #msg::-webkit-scrollbar-track { background: transparent; }
