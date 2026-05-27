@@ -783,8 +783,27 @@
         .cm-desc-view { background: var(--bg-input); border: 1px solid var(--border);
             border-radius: 6px; padding: 10px 12px; min-height: 60px; max-height: 240px;
             overflow-y: auto; color: var(--text-primary); font-size: 13px; line-height: 1.55;
-            cursor: text; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+            cursor: text; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+            /* R7.12: плавная анимация переключения view ↔ edit */
+            transition: max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+                        min-height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+                        padding 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+                        opacity 0.18s ease,
+                        border-color 0.15s ease; }
         .cm-desc-view:hover { border-color: var(--accent); }
+        /* R7.12: collapsed state — schrumpft с opacity и max-height до 0 */
+        .cm-desc-view.is-collapsed, #cm-desc.is-collapsed {
+            max-height: 0 !important; min-height: 0 !important;
+            padding-top: 0 !important; padding-bottom: 0 !important;
+            border-width: 0 !important; opacity: 0;
+            overflow: hidden; pointer-events: none;
+        }
+        #cm-desc {
+            transition: max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+                        min-height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+                        padding 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+                        opacity 0.18s ease;
+        }
         .cm-desc-view .md-empty { color: var(--text-muted); font-style: italic; }
         .cm-desc-view p { margin: 0 0 8px; }
         .cm-desc-view p:last-child { margin-bottom: 0; }
@@ -5400,10 +5419,7 @@
             return t.value.trim();
         }
         // Markdown-view над textarea: showing rendered text, click → редактирование.
-        // R7.11: упрощённый view/edit для описания.
-        // — Убрана панель инструментов B/I/H/список/link/Готово (юзер не использует).
-        // — Placeholder: «Описания нет.» (без «Клик чтобы добавить…»).
-        // — Клик по view → textarea. Blur с textarea → обратно view с рендером md.
+        // R7.12: view/edit с плавным max-height + opacity transition.
         var DESC_EMPTY_HTML = '<span class="md-empty">Описания нет.</span>';
         function attachMarkdownDescriptionView() {
             var ta = document.getElementById('cm-desc');
@@ -5411,7 +5427,8 @@
             var rawHtml = (MODAL_CURRENT_ISSUE && (MODAL_CURRENT_ISSUE.description_html || MODAL_CURRENT_ISSUE.description)) || '';
             var md = htmlToMd(rawHtml);
             ta.value = md;
-            ta.style.display = 'none';
+            // Initial state: textarea collapsed, view visible
+            ta.classList.add('is-collapsed');
             var parent = ta.parentNode;
             if (!parent || parent.querySelector('.cm-desc-view')) return;
             var view = document.createElement('div');
@@ -5419,18 +5436,19 @@
             view.innerHTML = md ? mdToHtml(md) : DESC_EMPTY_HTML;
             parent.insertBefore(view, ta);
             view.addEventListener('click', function () {
-                view.style.display = 'none';
-                ta.style.display = '';
-                ta.focus();
+                // Плавное переключение: view → collapsed, ta → expanded
+                view.classList.add('is-collapsed');
+                ta.classList.remove('is-collapsed');
+                // Чуть позже фокусируем — чтобы transition не «перешагнул» через 0
+                setTimeout(function () { ta.focus(); }, 50);
             });
-            // Возврат к preview по blur textarea (если не сфокусирован обратно)
             ta.addEventListener('blur', function () {
                 setTimeout(function () {
-                    if (document.activeElement === ta) return; // юзер вернулся
+                    if (document.activeElement === ta) return;
                     var raw = ta.value;
                     view.innerHTML = raw ? mdToHtml(raw) : DESC_EMPTY_HTML;
-                    view.style.display = '';
-                    ta.style.display = 'none';
+                    ta.classList.add('is-collapsed');
+                    view.classList.remove('is-collapsed');
                 }, 100);
             });
         }
