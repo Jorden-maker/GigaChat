@@ -746,6 +746,14 @@
         .chat-group-item.unread { border-left: 3px solid var(--accent); }
         .chat-group-item .cgi-title { color: var(--text-primary); margin-bottom: 2px; }
         .chat-group-item .cgi-meta { font-size: 11px; color: var(--text-muted); }
+        /* R7.57: activity item с SVG-иконкой слева */
+        .chat-activity-item { display: flex; align-items: flex-start; gap: 10px; }
+        .chat-activity-item .cgi-icon {
+            flex-shrink: 0; width: 22px; height: 22px;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--accent); margin-top: 2px;
+        }
+        .chat-activity-item .cgi-content { flex: 1; min-width: 0; }
         .chat-epic-card { background: var(--accent-light); border: 1px solid var(--accent);
             border-radius: 8px; padding: 12px 14px; }
         .chat-epic-card .cec-header { font-weight: 500; color: var(--accent); margin-bottom: 8px; font-size: 13px; }
@@ -2392,6 +2400,8 @@
             // R6 audit #2: используем backend-considered human_action/human_diff
             // (с verb-переводом + actor name resolve через members). Fallback на
             // старый формат для совместимости.
+            // R7.57: SVG-иконка типа события через _chatEventIcon — те же
+            // символы что в renderActivityFeed (dashboard), визуально единый стиль.
             var FIELD_RU = { state:'статус',priority:'приоритет',assignees:'исполнители',labels:'метки',target_date:'срок',name:'название',description:'описание',comment:'комментарий',parent:'родитель',start_date:'дата начала' };
             return '<div class="chat-group-list">' + events.slice(0, 12).map(function (e) {
                 var when = e.created_at ? String(e.created_at).slice(0, 16).replace('T', ' ') : '';
@@ -2404,11 +2414,39 @@
                 if (e.issue_name) {
                     issueLabel = ' → ' + (e.issue_sequence_id ? '#' + e.issue_sequence_id + ' ' : '') + e.issue_name;
                 }
-                return '<div class="chat-group-item">' +
-                    '<div class="cgi-title">' + escapeHtml(e.actor || '—') + ' ' + escapeHtml(action) + (diff ? ': ' + escapeHtml(diff) : '') + escapeHtml(issueLabel) + '</div>' +
-                    '<div class="cgi-meta">' + (e.project ? escapeHtml(e.project) + ' · ' : '') + escapeHtml(when) + '</div>' +
+                var icon = (typeof _chatEventIcon === 'function') ? _chatEventIcon(e) : '';
+                return '<div class="chat-group-item chat-activity-item">' +
+                    '<span class="cgi-icon">' + icon + '</span>' +
+                    '<div class="cgi-content">' +
+                        '<div class="cgi-title">' + escapeHtml(e.actor || '—') + ' ' + escapeHtml(action) + (diff ? ': ' + escapeHtml(diff) : '') + escapeHtml(issueLabel) + '</div>' +
+                        '<div class="cgi-meta">' + (e.project ? escapeHtml(e.project) + ' · ' : '') + escapeHtml(when) + '</div>' +
+                    '</div>' +
                 '</div>';
             }).join('') + '</div>';
+        }
+        // R7.57: SVG-иконки для типов событий — используются в чате
+        // (formatActivitiesList) и совпадают с теми что в dashboard
+        // renderActivityFeed. Дублирую как helper наружу, т.к. eventIcon
+        // там был локальным.
+        function _chatEventIcon(e) {
+            var f = (e.field || '').toLowerCase();
+            var v = (e.verb || '').toLowerCase();
+            var svgWrap = function (path) {
+                return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" ' +
+                    'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+                    'stroke-linejoin="round">' + path + '</svg>';
+            };
+            if (e.comment) return svgWrap('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>');
+            if (v === 'created' && !f) return svgWrap('<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>');
+            if (v === 'deleted') return svgWrap('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>');
+            if (f === 'state') return svgWrap('<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>');
+            if (f === 'priority') return svgWrap('<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>');
+            if (f === 'assignees') return svgWrap('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
+            if (f === 'target_date' || f === 'start_date') return svgWrap('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
+            if (f === 'name') return svgWrap('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>');
+            if (f === 'description') return svgWrap('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>');
+            if (f === 'labels') return svgWrap('<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>');
+            return svgWrap('<circle cx="12" cy="12" r="3"/>');
         }
         function formatEpicCard(epic, children) {
             var html = '<div class="chat-epic-card">' +
@@ -5277,21 +5315,39 @@
                     return d.getDate() + ' ' + MNS[d.getMonth()] + ' ' + d.getFullYear();
                 } catch(_) { return iso; }
             }
-            // Иконка для типа события — визуально проще читать
+            // R7.57: кастомные SVG-иконки для каждого типа события вместо emoji.
+            // Все используют currentColor, stroke-based — наследуют цвет от .ai-icon
+            // (можно тематизировать через CSS).
             function eventIcon(e) {
                 var f = (e.field || '').toLowerCase();
                 var v = (e.verb || '').toLowerCase();
-                if (e.comment) return '💬';
-                if (v === 'created' && !f) return '✨';
-                if (v === 'deleted') return '🗑';
-                if (f === 'state') return '🔄';
-                if (f === 'priority') return '🔥';
-                if (f === 'assignees') return '👥';
-                if (f === 'target_date' || f === 'start_date') return '📅';
-                if (f === 'name') return '✏️';
-                if (f === 'description') return '📝';
-                if (f === 'labels') return '🏷';
-                return '•';
+                var svgWrap = function (path, extraAttrs) {
+                    return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" ' +
+                        'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+                        'stroke-linejoin="round"' + (extraAttrs || '') + '>' + path + '</svg>';
+                };
+                // comment — речевой пузырь
+                if (e.comment) return svgWrap('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>');
+                // created — плюс в круге
+                if (v === 'created' && !f) return svgWrap('<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>');
+                // deleted — мусорная корзина
+                if (v === 'deleted') return svgWrap('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>');
+                // state — круглая стрелка (refresh)
+                if (f === 'state') return svgWrap('<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>');
+                // priority — флажок
+                if (f === 'priority') return svgWrap('<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>');
+                // assignees — пользователи
+                if (f === 'assignees') return svgWrap('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
+                // target_date / start_date — календарь
+                if (f === 'target_date' || f === 'start_date') return svgWrap('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
+                // name — карандаш
+                if (f === 'name') return svgWrap('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>');
+                // description — документ со строками
+                if (f === 'description') return svgWrap('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>');
+                // labels — ярлык
+                if (f === 'labels') return svgWrap('<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>');
+                // default — точка
+                return svgWrap('<circle cx="12" cy="12" r="3"/>');
             }
             var html = '<div class="activity-list">';
             Object.keys(byDay).sort().reverse().forEach(function (d) {
