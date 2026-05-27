@@ -6280,8 +6280,9 @@
             // R7.52: заголовок «Команды чата» → «Команды», подсказка укорочена
             // (без «Начни ввод с / в чате — появится автокомплит.»), line-height
             // table 1.85 → 2.0 (+~2px между строками команд).
+            // R7.54: клик вне модалки (по backdrop'у) и Esc закрывают окно.
             var html =
-                '<div class="card-modal-backdrop show" id="slash-help-bd" style="z-index:2000;align-items:center;padding-top:0">' +
+                '<div class="card-modal-backdrop show" id="slash-help-bd" style="z-index:2000;align-items:center;padding-top:0" onclick="if(event.target===this)this.remove()">' +
                 '<div class="card-modal" style="max-width:560px">' +
                 '<div class="card-modal-header"><h3>Команды</h3>' +
                 '<button class="card-modal-close" onclick="document.getElementById(\'slash-help-bd\').remove()">×</button>' +
@@ -6290,7 +6291,16 @@
                 '<table style="width:100%;font-size:13px;line-height:2.0">' + lines + '</table>' +
                 '</div></div></div>';
             var d = document.createElement('div'); d.innerHTML = html;
-            document.body.appendChild(d.firstChild);
+            var bd = d.firstChild;
+            document.body.appendChild(bd);
+            // Esc — отдельный listener, snimaется при удалении backdrop'а.
+            function _escClose(e) {
+                if (e.key === 'Escape') {
+                    if (bd && bd.parentNode) bd.remove();
+                    document.removeEventListener('keydown', _escClose);
+                }
+            }
+            document.addEventListener('keydown', _escClose);
         }
         function bindSlashCommandsInput() {
             var input = document.getElementById('msg');
