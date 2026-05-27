@@ -1422,6 +1422,23 @@
         .card-modal-row textarea:focus,
         .card-modal-row select:focus { outline: none; border-color: var(--accent); }
         .card-modal-row textarea { min-height: 76px; resize: vertical; }
+        /* R7.65: «Срок выполнения» при просроченной задаче (статусы
+           backlog / unstarted / started) — красный текст + красный
+           кружок с крестиком справа. */
+        .cm-deadline-wrap.cm-overdue { position: relative; }
+        .cm-deadline-wrap.cm-overdue input {
+            color: #ef4444 !important;
+            border-color: rgba(239, 68, 68, 0.5);
+            padding-right: 38px;
+        }
+        .cm-deadline-wrap .cm-overdue-mark {
+            position: absolute;
+            right: 10px; top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex; align-items: center; justify-content: center;
+            pointer-events: none;
+            line-height: 0;
+        }
         .cm-created {
             margin-top: 12px; color: var(--text-muted); font-size: 11px;
             text-align: right; font-style: italic;
@@ -3722,9 +3739,32 @@
                 '<div class="card-modal-row"><label>Дата начала</label><div class="field-value">' +
                     '<input type="date" id="cm-start" value="' + escapeAttr(issue.start_date || '') + '">' +
                 '</div></div>' +
-                '<div class="card-modal-row"><label>Срок выполнения</label><div class="field-value">' +
-                    '<input type="date" id="cm-deadline" value="' + escapeAttr(issue.target_date || '') + '">' +
-                '</div></div>' +
+                (function () {
+                    // R7.65: «Срок выполнения» — если просрочено И статус в
+                    // активных (backlog/unstarted/started), красим текст красным
+                    // и ставим красный кружок с крестиком справа. Для готовых
+                    // и отменённых — обычный вид.
+                    var _grp = (issue.state_detail && issue.state_detail.group) || '';
+                    var _active = _grp === 'backlog' || _grp === 'unstarted' || _grp === 'started';
+                    var _today = new Date(); _today.setHours(0,0,0,0);
+                    var _dl = issue.target_date ? new Date(issue.target_date) : null;
+                    if (_dl) _dl.setHours(0,0,0,0);
+                    var _overdue = !!(_dl && _dl < _today && _active);
+                    var _mark = _overdue
+                        ? '<span class="cm-overdue-mark" title="Просрочено">' +
+                            '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" ' +
+                                'stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                                '<circle cx="12" cy="12" r="10" fill="rgba(239,68,68,0.15)"/>' +
+                                '<line x1="8" y1="8" x2="16" y2="16"/>' +
+                                '<line x1="16" y1="8" x2="8" y2="16"/>' +
+                            '</svg>' +
+                        '</span>' : '';
+                    return '<div class="card-modal-row"><label>Срок выполнения</label>' +
+                        '<div class="field-value cm-deadline-wrap' + (_overdue ? ' cm-overdue' : '') + '">' +
+                            '<input type="date" id="cm-deadline" value="' + escapeAttr(issue.target_date || '') + '">' +
+                            _mark +
+                        '</div></div>';
+                })() +
                 '<div class="card-modal-row"><label>Статус</label><div class="field-value">' +
                     '<select id="cm-state">' +
                         '<option value="backlog">Отложено</option>' +
