@@ -6415,6 +6415,29 @@
                     }
                     return false;
                 }
+                // R7.43: батчуем re-apply через rAF. Когда typewriter делает
+                // innerHTML = finalHtml, MO получает N мутаций для N карточек.
+                // Раньше applyStaggerAnimation срабатывал N раз — анимация
+                // перезапускалась каждые ~1мс и не успевала доиграть → юзер
+                // видел «быстро». Теперь все мутации в одном кадре сливаются
+                // в один rAF-вызов apply, анимация играет 1.2с без перерывов.
+                var _pendingBots = new Set();
+                var _rafScheduled = false;
+                function _scheduleApply(bot) {
+                    _pendingBots.add(bot);
+                    if (_rafScheduled) return;
+                    _rafScheduled = true;
+                    requestAnimationFrame(function () {
+                        _rafScheduled = false;
+                        _pendingBots.forEach(function (b) {
+                            if (b && b.isConnected) {
+                                if (b.dataset) delete b.dataset.staggered;
+                                applyStaggerAnimation(b);
+                            }
+                        });
+                        _pendingBots.clear();
+                    });
+                }
                 var mo = new MutationObserver(function (muts) {
                     muts.forEach(function (m) {
                         m.addedNodes && m.addedNodes.forEach(function (n) {
@@ -6422,17 +6445,14 @@
                             // R7.1 fix: правильный класс — .msg.bot (соответствует _shared.js)
                             if (n.classList && n.classList.contains('msg') && n.classList.contains('bot')) {
                                 if (!n.classList.contains('chat-fade-in')) n.classList.add('chat-fade-in');
-                                applyStaggerAnimation(n);
+                                _scheduleApply(n);
                             }
                             // R7.30: карточка появилась внутри уже существующего .msg.bot
                             // (typewriter swap на финале) → сбрасываем staggered-флаг и
                             // применяем анимацию заново.
                             else if (isCard(n)) {
                                 var bot = n.closest && n.closest('.msg.bot');
-                                if (bot) {
-                                    if (bot.dataset) delete bot.dataset.staggered;
-                                    applyStaggerAnimation(bot);
-                                }
+                                if (bot) _scheduleApply(bot);
                             }
                         });
                     });
