@@ -3609,6 +3609,18 @@
                 // поведение textarea с pre-filled value)
                 var endPos = ta.value.length;
                 ta.setSelectionRange(endPos, endPos);
+                // R7.24: Enter → Сохранить, Shift+Enter → перенос строки, Esc → Отмена
+                ta.addEventListener('keydown', function (ev) {
+                    if (ev.key === 'Enter' && !ev.shiftKey) {
+                        ev.preventDefault();
+                        var sb = form.querySelector('.cm-save');
+                        if (sb && !sb.disabled) sb.click();
+                    } else if (ev.key === 'Escape') {
+                        ev.preventDefault();
+                        var cb = form.querySelector('.cm-cancel');
+                        if (cb) cb.click();
+                    }
+                });
                 form.querySelector('.cm-cancel').addEventListener('click', function () {
                     form.remove();
                     commentEl.classList.remove('is-editing');
