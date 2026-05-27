@@ -5956,7 +5956,7 @@
                 var sidRef = ssRef && ssRef.state && ssRef.state.activeSessionId;
                 if (ssRef && sidRef && GigaChat && GigaChat.typewriteAssistant) {
                     GigaChat.typewriteAssistant(ssRef, sidRef, fakeMsg, {
-                        cps: 60,
+                        cps: 100,
                         sendBtn: document.getElementById('send'),
                         input: document.getElementById('msg'),
                         accentColor: '#d4a574'
