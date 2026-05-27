@@ -3542,19 +3542,32 @@
             }
         }
 
+        // R7.34: модалка может быть открыта из чата для задачи проекта B,
+        // когда на доске выбран проект A (или вообще не выбран). issue.project
+        // приходит из formatIssuesList(ex.project) и/или из карточки в чате
+        // и точнее идентифицирует владельца задачи, чем BOARD_CURRENT_PROJECT.
+        // getStickyProjectName — последний fallback (закреплённый юзером проект).
+        function getModalProject() {
+            if (MODAL_CURRENT_ISSUE && MODAL_CURRENT_ISSUE.project) return MODAL_CURRENT_ISSUE.project;
+            if (BOARD_CURRENT_PROJECT) return BOARD_CURRENT_PROJECT;
+            if (typeof getStickyProjectName === 'function') return getStickyProjectName();
+            return null;
+        }
+
         // Загрузка списка комментариев задачи — через workflow (direct mode).
         // НЕ через прямой fetch, т.к. Plane URL (host.docker.internal:8000)
         // резолвится только в n8n-контейнере, не из браузера.
         async function loadCardComments(issue) {
             var listEl = document.getElementById('cm-comments-list');
             if (!listEl) return;
-            if (!issue || !BOARD_CURRENT_PROJECT) {
+            var projectName = getModalProject();
+            if (!issue || !projectName) {
                 listEl.innerHTML = '<div class="cm-empty">Не удалось определить задачу</div>';
                 return;
             }
             try {
                 var res = await planeDirect('list_comments', {
-                    project_name: BOARD_CURRENT_PROJECT,
+                    project_name: projectName,
                     issue_name: issue.name
                 });
                 if (!res || res.action === 'error' || res.error) {
@@ -3674,7 +3687,9 @@
             if (!commentEl) return;
             var commentId = commentEl.dataset.commentId;
             if (!commentId) return;
-            var projectName = BOARD_CURRENT_PROJECT || (typeof getStickyProjectName === 'function' ? getStickyProjectName() : null);
+            // R7.34: getModalProject() — приоритет MODAL_CURRENT_ISSUE.project
+            // над BOARD_CURRENT_PROJECT (задача может быть из другого проекта).
+            var projectName = getModalProject();
             var issueName = MODAL_CURRENT_ISSUE && MODAL_CURRENT_ISSUE.name;
             if (!projectName || !issueName) return;
             if (btn.classList.contains('cm-delete')) {
@@ -3845,7 +3860,10 @@
         }
 
         async function modalSave() {
-            if (!MODAL_CURRENT_ISSUE || !BOARD_CURRENT_PROJECT) return;
+            // R7.34: getModalProject() — fallback на issue.project, если
+            // BOARD_CURRENT_PROJECT пуст (модалка открыта из чата).
+            var _mProject = getModalProject();
+            if (!MODAL_CURRENT_ISSUE || !_mProject) return;
             // AUDIT-M9: если модалка в режиме «Новая задача», routerим в createNew.
             // Защита от race: footer мог не успеть обновиться после быстрых
             // открытий, и старый «Сохранить» дёрнул бы modalSave вместо create.
@@ -3878,7 +3896,7 @@
                 // и показывал «Сохранено» — юзер не понимал что статус не сменился.
                 if (stateMap[origGroup] !== newState) {
                     var rState = await planeDirect('change_status', {
-                        project_name: BOARD_CURRENT_PROJECT,
+                        project_name: _mProject,
                         issue_name: origName,
                         state: newState
                     });
@@ -3888,7 +3906,7 @@
                     }
                 }
                 // 2) Update name/description/priority/deadline
-                var updateParams = { project_name: BOARD_CURRENT_PROJECT, issue_name: origName };
+                var updateParams = { project_name: _mProject, issue_name: origName };
                 if (newName && newName !== origName) updateParams.name = newName;
                 if (descChanged) updateParams.description = newDesc; // R3-A: пустая строка теперь тоже пройдёт
                 if (newPrio !== String(MODAL_CURRENT_ISSUE.priority || 'none')) updateParams.priority = newPrio;
@@ -3912,13 +3930,15 @@
         }
 
         async function modalDelete() {
-            if (!MODAL_CURRENT_ISSUE || !BOARD_CURRENT_PROJECT) return;
+            // R7.34: getModalProject() — fallback на issue.project.
+            var _mProject = getModalProject();
+            if (!MODAL_CURRENT_ISSUE || !_mProject) return;
             if (!confirm('Удалить задачу «' + (MODAL_CURRENT_ISSUE.name || '?') + '»?')) return;
             var statusEl = document.getElementById('board-status');
             statusEl.textContent = 'Удаляю...';
             try {
                 await planeDirect('delete_issue', {
-                    project_name: BOARD_CURRENT_PROJECT,
+                    project_name: _mProject,
                     issue_name: MODAL_CURRENT_ISSUE.name
                 });
                 statusEl.textContent = 'Удалено';
@@ -3938,8 +3958,10 @@
             var statusEl = document.getElementById('board-status');
             statusEl.textContent = 'Добавляю...';
             try {
+                // R7.34: getModalProject() — задача может быть из другого
+                // проекта, чем BOARD_CURRENT_PROJECT (модалка из чата).
                 await planeDirect('add_comment', {
-                    project_name: BOARD_CURRENT_PROJECT,
+                    project_name: getModalProject(),
                     issue_name: MODAL_CURRENT_ISSUE.name,
                     comment: text
                 });
