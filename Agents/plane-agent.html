@@ -6357,7 +6357,9 @@
             { cmd: '/projects', desc: 'Список всех проектов',                                              type: 'direct', action: 'list_projects',          params: {},
               emptyMsg: 'У вас нет проектов.',
               foundMsg: 'Показываю список всех проектов:' },
-            { cmd: '/notif',    desc: 'Уведомления — что новенького',                                      type: 'direct', action: 'list_notifications',     params: {} },
+            { cmd: '/notif',    desc: 'Показать уведомления',                                              type: 'direct', action: 'list_notifications',     params: {},
+              emptyMsg: 'Уведомлений нет.',
+              foundMsg: 'Показываю последние уведомления:' },
             { cmd: '/help',     desc: 'Показать справку по командам',                                      type: 'special', handler: 'help' }
         ];
         var SLASH_MENU_INDEX = 0;
