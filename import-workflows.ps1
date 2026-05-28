@@ -395,44 +395,123 @@ Write-Host ""
 
 # R7 #1: post-import patch для plane-agent — подключаем Switch fallback output.
 # n8n Public API при импорте обрезает connections.main до rules.length,
-# поэтому fallback connection теряется. node-скрипт добавляет её через прямой PUT.
+# поэтому fallback connection теряется.
 #
-# R7.83: пробрасываем N8N_HOST + N8N_API_KEY в env, проверяем $LASTEXITCODE
-# и кричим если node вернул != 0. Раньше — провал был молчаливым
-# (PS не видел exit code от & node), юзер думал что всё ок,
-# а в n8n fallback не появлялся.
-$planePatchScript = Join-Path $folder "post-import-fallback.js"
-$patchOk = $false
-$patchSkipped = $false
-if (Test-Path $planePatchScript) {
-    Write-Host ""
-    Write-Host "==> Post-import patch: Switch fallback для plane-agent..." -ForegroundColor Cyan
-    $nodeExe = Get-Command node -ErrorAction SilentlyContinue
-    if (-not $nodeExe) {
-        Write-Host "  ВНИМАНИЕ: node.exe не найден в PATH." -ForegroundColor Yellow
-        Write-Host "  Fallback-connection в Switch action НЕ БУДЕТ подключена автоматически." -ForegroundColor Yellow
-        Write-Host "  Установи Node.js https://nodejs.org/ и перезапусти скрипт," -ForegroundColor Yellow
-        Write-Host "  либо подключи fallback вручную в UI n8n (от output Switch action идёт в 'Формат ответа')." -ForegroundColor Yellow
-        $patchSkipped = $true
+# R7.95: ВСТРОЕННЫЙ PowerShell-нативный фикс (не требует node.exe).
+# Раньше использовали отдельный post-import-fallback.js — на офисе нет
+# Node.js, поэтому он молча скипался. Теперь работает на чистом PS.
+function Invoke-PlaneSwitchFallbackPatch {
+    param(
+        [string]$N8nHost,
+        [string]$ApiKey,
+        [string]$WfNameHint = 'Plane-агент',
+        [string]$SwitchNode = 'Switch action',
+        [string]$FallbackTarget = 'Формат ответа'
+    )
+    $h = @{ 'X-N8N-API-KEY' = $ApiKey; 'Content-Type' = 'application/json; charset=utf-8' }
+    Write-Host "  Хост n8n: $N8nHost" -ForegroundColor DarkGray
+    # 1) Список workflow
+    try {
+        $list = Invoke-RestMethod -Method GET -Uri "$N8nHost/api/v1/workflows?limit=250" -Headers $h
+    } catch {
+        throw "Не удалось получить список workflow: $($_.Exception.Message)"
+    }
+    $items = if ($list.data) { $list.data } else { $list }
+    # 2) Фильтр по имени + не архивные
+    $matching = @($items | Where-Object { $_.name -like "*$WfNameHint*" })
+    if (-not $matching.Count) {
+        throw "Не нашёл workflow с «$WfNameHint» в имени. Запусти сначала import-workflows."
+    }
+    $live = @($matching | Where-Object { -not $_.isArchived })
+    if (-not $live.Count) {
+        throw "Все workflow с «$WfNameHint» в имени — архивные. Разархивируй один."
+    }
+    if ($matching.Count -gt $live.Count) {
+        Write-Host "  Игнорирую $($matching.Count - $live.Count) архивных Plane-agent workflow" -ForegroundColor DarkGray
+    }
+    # Берём активный или первый из живых
+    $active = @($live | Where-Object { $_.active })
+    $chosen = if ($active.Count) { $active[0] } else { $live[0] }
+    if ($live.Count -gt 1) {
+        Write-Host "  Найдено $($live.Count) живых Plane-agent workflow. Беру: $($chosen.name) [id=$($chosen.id)]" -ForegroundColor DarkGray
+    }
+    $wfId = $chosen.id
+    Write-Host "  Plane workflow ID: $wfId" -ForegroundColor DarkGray
+    # 3) Получить детали
+    $wf = Invoke-RestMethod -Method GET -Uri "$N8nHost/api/v1/workflows/$wfId" -Headers $h
+    if (-not $wf.connections.$SwitchNode) {
+        throw "У workflow нет node «$SwitchNode» в connections"
+    }
+    $conn = $wf.connections.$SwitchNode.main
+    $switchNd = @($wf.nodes | Where-Object { $_.name -eq $SwitchNode })[0]
+    if (-not $switchNd.parameters.rules.values) {
+        throw "У «$SwitchNode» нет parameters.rules.values"
+    }
+    $rules = @($switchNd.parameters.rules.values).Count
+    $connCount = @($conn).Count
+    Write-Host "  Switch.rules: $rules, connections.main.length: $connCount" -ForegroundColor DarkGray
+    # 4) Проверка нужен ли патч
+    if ($connCount -gt $rules) {
+        $last = $conn[$connCount - 1]
+        $lastNodes = @($last | ForEach-Object { $_.node })
+        if ($lastNodes -contains $FallbackTarget) {
+            Write-Host "  OK: fallback уже подключён к «$FallbackTarget» (idx=$($connCount - 1)). Ничего не делаю." -ForegroundColor Green
+            return $true
+        }
+        Write-Host "  Fallback есть, но указывает не на «$FallbackTarget». Перезаписываю." -ForegroundColor Yellow
+        $conn[$connCount - 1] = @(@{ node = $FallbackTarget; type = 'main'; index = 0 })
     } else {
-        # Прокидываем настройки через env, чтобы node-скрипт использовал ровно
-        # те же $n8n и $apiKey что и PS — иначе скрипт мог идти на другой n8n.
-        $env:N8N_HOST = $n8n
-        $env:N8N_API_KEY = $apiKey
-        & node $planePatchScript
-        $patchExit = $LASTEXITCODE
-        Remove-Item Env:N8N_HOST -ErrorAction SilentlyContinue
-        Remove-Item Env:N8N_API_KEY -ErrorAction SilentlyContinue
-        if ($patchExit -eq 0) {
-            $patchOk = $true
-        } else {
-            Write-Host ""
-            Write-Host "  ОШИБКА: post-import-fallback.js завершился с кодом $patchExit." -ForegroundColor Red
-            Write-Host "  Fallback-connection в Switch action НЕ подключена." -ForegroundColor Red
-            Write-Host "  Открой workflow «Plane-агент. Поток» в n8n UI и подключи" -ForegroundColor Red
-            Write-Host "  последний выход узла 'Switch action' к узлу 'Формат ответа'." -ForegroundColor Red
+        # Дополним пустыми массивами до rules длины, потом добавим fallback
+        while (@($conn).Count -lt $rules) {
+            $conn = @($conn) + ,@()
+        }
+        $conn = @($conn) + ,@(@{ node = $FallbackTarget; type = 'main'; index = 0 })
+        Write-Host "  Добавляю fallback connection на index=$(@($conn).Count - 1)" -ForegroundColor DarkGray
+    }
+    $wf.connections.$SwitchNode.main = $conn
+    # 5) PUT — Public API строго фильтрует settings (только executionOrder)
+    $cleanSettings = @{}
+    if ($wf.settings -and $wf.settings.executionOrder) {
+        $cleanSettings.executionOrder = $wf.settings.executionOrder
+    }
+    $payload = @{
+        name = $wf.name
+        nodes = $wf.nodes
+        connections = $wf.connections
+        settings = $cleanSettings
+    }
+    $body = $payload | ConvertTo-Json -Depth 100 -Compress
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+    Invoke-RestMethod -Method PUT -Uri "$N8nHost/api/v1/workflows/$wfId" `
+        -Headers @{ 'X-N8N-API-KEY' = $ApiKey } `
+        -ContentType "application/json; charset=utf-8" `
+        -Body $bytes | Out-Null
+    # 6) VERIFY
+    $after = Invoke-RestMethod -Method GET -Uri "$N8nHost/api/v1/workflows/$wfId" -Headers $h
+    $afterConn = $after.connections.$SwitchNode.main
+    $afterCount = @($afterConn).Count
+    if ($afterCount -gt $rules) {
+        $afterLast = $afterConn[$afterCount - 1]
+        $afterNodes = @($afterLast | ForEach-Object { $_.node })
+        if ($afterNodes -contains $FallbackTarget) {
+            Write-Host "  ВЕРИФИКАЦИЯ: fallback сохранён в n8n. connections.length=$afterCount, target=«$FallbackTarget»." -ForegroundColor Green
+            return $true
         }
     }
+    throw "ВЕРИФИКАЦИЯ FAILED: после PUT connections.length=$afterCount, rules=$rules. n8n отверг изменения."
+}
+
+$patchOk = $false
+Write-Host ""
+Write-Host "==> Post-import patch: Switch fallback для plane-agent..." -ForegroundColor Cyan
+try {
+    $patchOk = Invoke-PlaneSwitchFallbackPatch -N8nHost $n8n -ApiKey $apiKey
+} catch {
+    Write-Host ""
+    Write-Host "  FAIL: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "  Fallback-connection в Switch action НЕ подключена." -ForegroundColor Red
+    Write-Host "  Открой workflow «Plane-агент. Поток» в n8n UI и подключи" -ForegroundColor Red
+    Write-Host "  последний выход узла 'Switch action' к узлу 'Формат ответа'." -ForegroundColor Red
 }
 
 Write-Host "=============================================================" -ForegroundColor Green
@@ -443,14 +522,10 @@ if ($renamed -gt 0) {
     Write-Host "   переименовано:     $renamed   (старый workflow без префикса дополнен префиксом)" -ForegroundColor Magenta
 }
 Write-Host "   ошибок:            $failed" -ForegroundColor $(if ($failed) { 'Red' } else { 'DarkGray' })
-if (Test-Path $planePatchScript) {
-    if ($patchOk) {
-        Write-Host "   Switch fallback:   OK" -ForegroundColor Green
-    } elseif ($patchSkipped) {
-        Write-Host "   Switch fallback:   ПРОПУЩЕН (нет node.exe) — подключи вручную" -ForegroundColor Yellow
-    } else {
-        Write-Host "   Switch fallback:   FAILED — подключи вручную в UI n8n" -ForegroundColor Red
-    }
+if ($patchOk) {
+    Write-Host "   Switch fallback:   OK" -ForegroundColor Green
+} else {
+    Write-Host "   Switch fallback:   FAILED — подключи вручную в UI n8n" -ForegroundColor Red
 }
 Write-Host "=============================================================" -ForegroundColor Green
 Write-Host ""
@@ -459,7 +534,7 @@ Write-Host " 1. Обнови страницу n8n (F5)."
 Write-Host " 2. Для НОВЫХ workflow привяжи credentials в узлах и активируй."
 Write-Host "    Для ОБНОВЛЁННЫХ / ПЕРЕИМЕНОВАННЫХ — credentials остались,"
 Write-Host "    ничего делать не надо."
-if (-not $patchOk -and (Test-Path $planePatchScript)) {
+if (-not $patchOk) {
     Write-Host " 3. Для Plane-агента: в узле 'Switch action' соедини ПОСЛЕДНИЙ" -ForegroundColor Yellow
     Write-Host "    (fallback) выход с узлом 'Формат ответа'." -ForegroundColor Yellow
 }
