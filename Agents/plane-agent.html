@@ -6633,7 +6633,13 @@
                                 (res.data.digest.overdue || 0) > 0
                             ));
                 var contentText;
-                if (!hasItems && c.emptyMsg) {
+                // R8.07: если бэк прислал error+response — приоритет диагностике.
+                // Раньше emptyMsg c.emptyMsg перебивал диагностику от workflow
+                // (юзер видел «Вы не создавали задач» вместо реального текста
+                // про несовпадение meId/creator UUID).
+                if (res && res.error && res.response) {
+                    contentText = res.response;
+                } else if (!hasItems && c.emptyMsg) {
                     contentText = c.emptyMsg;
                 } else if (hasItems && c.foundMsg) {
                     // R7.84: убрана foundCountSuffix-логика и {N}-плейсхолдер
