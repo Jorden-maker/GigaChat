@@ -479,8 +479,13 @@
             position: absolute; top:0;right:0;bottom:0;left:0;
             background: var(--bg-primary);
             padding: 14px 18px 18px;
-            overflow: auto;
-            scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+            /* R8.30: страница САМА не скроллится. Скроллбар появляется
+               внутри каждой board-col отдельно (тонкий, в стиле дизайна).
+               Колонки растягиваются ровно на оставшуюся высоту — без
+               вертикального переполнения страницы. */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
             z-index: 5;
             opacity: 0; visibility: hidden;
             transition: opacity 0.22s ease, visibility 0s linear 0.22s;
@@ -565,7 +570,12 @@
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 12px;
-            min-height: 400px;
+            /* R8.30: занимаем всю оставшуюся высоту после двух toolbar'ов,
+               чтобы все 5 колонок были одинаковой высоты и не вылезали
+               за пределы #board-panel. min-height:0 разрешает усадку
+               внутри flex-родителя. */
+            flex: 1;
+            min-height: 0;
         }
         /* Sidebar полностью сворачивается при открытии доски (slide-left).
            Доска получает всю ширину. ВАЖНО: transition применяется ТОЛЬКО
@@ -584,7 +594,23 @@
             background: var(--bg-secondary); border: 1px solid var(--border);
             border-radius: 10px; padding: 10px;
             display: flex; flex-direction: column; gap: 8px;
-            min-height: 200px;
+            /* R8.30: своя вертикальная прокрутка у каждой колонки.
+               Тонкий скроллбар в стиле дизайна (как в #chat). min-height:0
+               чтобы flex-родитель мог сжать колонку до высоты контейнера. */
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        /* Webkit (Chrome/Edge/Safari) — тонкий, в цветах дизайна */
+        .board-col::-webkit-scrollbar { width: 6px; }
+        .board-col::-webkit-scrollbar-track { background: transparent; }
+        .board-col::-webkit-scrollbar-thumb {
+            background: var(--border); border-radius: 3px;
+        }
+        .board-col::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
         }
         .board-col.drag-over {
             border-color: var(--accent);
@@ -595,6 +621,14 @@
             padding: 4px 4px 8px; border-bottom: 1px solid var(--border);
             font-size: 12px; font-weight: 600; color: var(--text-primary);
             text-transform: uppercase; letter-spacing: 0.5px;
+            /* R8.30: заголовок не уезжает при прокрутке карточек —
+               остаётся видим вверху колонки. flex-shrink:0 чтобы
+               flex-родитель не пытался его сжать. */
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            z-index: 1;
+            flex-shrink: 0;
         }
         .board-col-count {
             font-weight: 400; color: var(--text-muted); font-size: 11px;
