@@ -6926,7 +6926,14 @@
                 closed
             );
             // Шаг 3: с истекающим сегодня сроком (target_date == today)
-            var overdue = digest.overdue_issues || [];
+            // R7.88: показываем ТОЛЬКО активные задачи (backlog/unstarted/started).
+            // Бэк уже фильтрует через !isClosed, но дублируем на фронте на случай
+            // старой версии workflow в офисе или regression'а в digest-ветке.
+            var ACTIVE_GROUPS = { backlog: 1, unstarted: 1, started: 1 };
+            var overdue = (digest.overdue_issues || []).filter(function (i) {
+                var g = (i && i.state_detail && i.state_detail.group) || '';
+                return ACTIVE_GROUPS[g] === 1;
+            });
             await showStep(
                 overdue.length
                     ? 'Показываю задачи у которых сегодня истекает срок выполнения:'
