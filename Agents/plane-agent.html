@@ -1168,6 +1168,13 @@
         .chat-stagger-in {
             animation: chatStaggerIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
             overflow: hidden;
+            /* R8.20: will-change: transform держит GPU-композитный слой и
+               после окончания анимации. Иначе браузер деоптимизирует слой
+               и translateY(0) ре-растеризуется в обычный поток, что даёт
+               1-2px subpixel-сдвиг — визуально это и есть «вибрация после
+               окончания анимации». GPU-слой остаётся, сдвига нет.
+               Затраты памяти на 10-30 карт-слоёв минимальные. */
+            will-change: transform;
         }
         /* Spinner для loader'ов */
         .msg-spinner { display: inline-block; width: 12px; height: 12px;
@@ -7144,35 +7151,60 @@
                 var staggerRafId = null;
                 function startStaggerAutoscroll() {
                     if (staggerScrollActive) {
-                        // Уже идёт — продлеваем время старта (новая карта добавилась).
-                        chat.__staggerStartedAt = performance.now();
+                        // Уже идёт — сбрасываем стабильные кадры (новая карта
+                        // добавилась → scrollHeight скоро снова поедет).
+                        chat.__staggerStableFrames = 0;
+                        chat.__staggerLastSh = chat.scrollHeight;
                         return;
                     }
                     // Если юзер был не у дна (на 100px и выше) — не вмешиваемся.
                     if (chat.scrollHeight - chat.scrollTop - chat.clientHeight > 100) return;
                     staggerScrollActive = true;
                     staggerCancelled = false;
+                    // R8.20: вместо фиксированного 2.5-секундного окна (R7.98)
+                    // отслеживаем scrollHeight чата. Пока он меняется — карточки
+                    // ещё разворачиваются, держим scroll у дна. Как только он
+                    // стабилен ~5 кадров (~83мс при 60fps) — выходим. Это
+                    // принципиально решает «вибрацию полей после окончания
+                    // анимации»: раньше RAF-tracker крутился ещё 1.3 сек после
+                    // того, как анимация карт закончилась, и любое микро-
+                    // изменение scrollHeight (subpixel reflow, font swap)
+                    // дёргало scrollTop. Теперь tick умирает почти сразу
+                    // после стабилизации высоты.
                     chat.__staggerStartedAt = performance.now();
+                    chat.__staggerLastSh = chat.scrollHeight;
+                    chat.__staggerStableFrames = 0;
                     function tick() {
                         staggerRafId = null;
                         if (staggerCancelled) { staggerScrollActive = false; return; }
+                        // Safety cap: даже если scrollHeight никогда не стабилизируется
+                        // (например бесконечный typewriter) — выходим через 5 сек.
                         var elapsed = performance.now() - chat.__staggerStartedAt;
-                        if (elapsed > 2500) { staggerScrollActive = false; return; }
-                        // R8.18: если юзер ушёл далеко вверх (>100px от низа) во
-                        // время автоскролла — тоже прекращаем. Это защита если
-                        // wheel-handler не успел сработать раньше следующего tick.
+                        if (elapsed > 5000) { staggerScrollActive = false; return; }
+                        // R8.18: юзер ушёл вверх руками — прекращаем.
                         if (chat.scrollHeight - chat.scrollTop - chat.clientHeight > 100) {
                             staggerCancelled = true;
                             staggerScrollActive = false;
                             return;
                         }
-                        // R8.19: ставим scrollTop ТОЛЬКО если есть реальная
-                        // разница (>1px). Раньше каждый кадр писали один
-                        // и тот же scrollTop — браузер всё равно делал
-                        // repaint, и карточки визуально «дрожали».
-                        var distance = chat.scrollHeight - chat.scrollTop - chat.clientHeight;
-                        if (distance > 1) {
-                            chat.scrollTop = chat.scrollHeight;
+                        var sh = chat.scrollHeight;
+                        if (sh === chat.__staggerLastSh) {
+                            // scrollHeight стабилен — НЕ трогаем scrollTop.
+                            chat.__staggerStableFrames++;
+                            if (chat.__staggerStableFrames > 5) {
+                                // 5 кадров без изменений → анимация завершена.
+                                staggerScrollActive = false;
+                                return;
+                            }
+                        } else {
+                            // scrollHeight реально изменился (карта развернулась
+                            // ещё на пиксель) — синкаем к дну. Это единственный
+                            // момент когда мы пишем scrollTop — никаких пустых
+                            // write'ов в frames-без-изменений → нет ре-paint'а
+                            // → нет вибрации.
+                            chat.__staggerStableFrames = 0;
+                            chat.__staggerLastSh = sh;
+                            chat.scrollTop = sh;
                         }
                         staggerRafId = requestAnimationFrame(tick);
                     }
