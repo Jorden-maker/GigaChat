@@ -489,6 +489,11 @@
             opacity: 1; visibility: visible;
             transition: opacity 0.22s ease, visibility 0s linear 0s;
         }
+        /* R7.76: при открытой доске прячем chat-only элементы поверх неё:
+           - .gc-scroll-bottom-btn (стрелка перемотки чата вниз) — она в
+             .bottom-area, у которой position в layout, а кнопка absolute,
+             top:-44px → визуально парит поверх dashboard'а. */
+        body.board-fullscreen .gc-scroll-bottom-btn { display: none !important; }
         .board-toolbar {
             display: flex; gap: 10px; align-items: center; margin-bottom: 14px;
         }
