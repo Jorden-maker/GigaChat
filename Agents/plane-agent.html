@@ -2220,8 +2220,9 @@
                 return;
             }
             // R8.08: user UUID опционален, но если задан — должен быть UUID-форматом
+            // R8.22: короткий понятный текст вместо технического «UUID вида...»
             if (userId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(userId)) {
-                err.textContent = 'User ID должен быть UUID вида 6bf5db53-4a02-49cf-a5fb-ba9c55a6d90c.';
+                err.textContent = 'Неправильный формат User ID';
                 return;
             }
             if (!savePlaneSettings({ url: url, slug: slug, token: token, userId: userId })) {
