@@ -6892,11 +6892,16 @@
             chat.scrollTop = chat.scrollHeight;
             // Persist в displayMessages для reload-resilience.
             // R6 audit #1 fix: agent → window.__planeAgent (правильное имя глобала).
+            // R8.23: + saveSnapshot чтобы F5 показывал юзер-сообщение сразу
+            // из sessionStorage, не ждал chat_memory fetch'а.
             try {
                 if (typeof window.__planeAgent !== 'undefined' && window.__planeAgent && window.__planeAgent.sessionStore) {
                     var s = window.__planeAgent.sessionStore.state;
                     s.displayMessages = s.displayMessages || [];
                     s.displayMessages.push({ role: 'user', content: text });
+                    if (typeof window.__planeAgent.sessionStore.saveSnapshot === 'function') {
+                        window.__planeAgent.sessionStore.saveSnapshot();
+                    }
                 }
             } catch(_) {}
         }
@@ -7122,12 +7127,18 @@
             applyStaggerAnimation(div);
             chat.scrollTop = chat.scrollHeight;
             // Persist в displayMessages (только не для transient — loader'ов).
+            // R8.23: + saveSnapshot чтобы F5 показывал ассистент-сообщение сразу
+            // из sessionStorage. Без saveSnapshot после F5 chat был пустым 1-2
+            // секунды пока chat_memory fetch не вернётся.
             if (!opts.transient) {
                 try {
                     if (typeof window.__planeAgent !== 'undefined' && window.__planeAgent && window.__planeAgent.sessionStore) {
                         var s = window.__planeAgent.sessionStore.state;
                         s.displayMessages = s.displayMessages || [];
                         s.displayMessages.push({ role: 'assistant', content: '', extras: { _html: html } });
+                        if (typeof window.__planeAgent.sessionStore.saveSnapshot === 'function') {
+                            window.__planeAgent.sessionStore.saveSnapshot();
+                        }
                     }
                 } catch(_) {}
             }
