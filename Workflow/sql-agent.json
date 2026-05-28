@@ -277,7 +277,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Безопасная очистка SQL от LLM. Принимаем ТОЛЬКО SELECT (whitelist),\n// мульти-стейтменты блокируем (`;` где-либо кроме конца).\n// R7.91: универсальный extractor — раньше ловили только output[0].content[0].text,\n// если LLM в OpenAI-формате (choices[0].message.content) — «Пустой ответ от LLM».\n// Также убрана дубль-проверка LIMIT (была дважды).\nfunction extractText(raw) {\n  if (!raw || typeof raw !== 'object') return '';\n  if (raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0]) {\n    return String(raw.output[0].content[0].text || '');\n  }\n  if (raw.choices && raw.choices[0] && raw.choices[0].message) {\n    return String(raw.choices[0].message.content || '');\n  }\n  if (raw.message && typeof raw.message === 'object') {\n    return String(raw.message.content || raw.message.text || '');\n  }\n  if (raw.message && typeof raw.message === 'string') return raw.message;\n  if (raw.text) return String(raw.text);\n  if (raw.content) return String(raw.content);\n  return '';\n}\nfunction sqlEscape(s) { return String(s).replace(/'/g, \"''\"); }\ntry {\n  const raw = $input.first().json;\n  if (raw.error) {\n    const em = (raw.error && (raw.error.message || (raw.error.toString && raw.error.toString()))) || 'GigaChat недоступен';\n    return [{json: {query: \"SELECT '\" + sqlEscape(String(em).slice(0,200)) + \"' as error_message;\"}}];\n  }\n  let sql = extractText(raw);\n  if (!sql) {\n    const keys = Object.keys(raw || {}).slice(0, 5).join(', ');\n    return [{json: {query: \"SELECT 'LLM вернул пустой ответ (поля: \" + keys + \"). Попробуйте ещё раз.' as error_message;\"}}];\n  }\n  // Убираем markdown\n  sql = sql.replace(/```sql\\s*/gi, '').replace(/```\\s*/g, '').trim();\n  // Находим начало SQL\n  const match = sql.match(/\\b(SELECT|WITH|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|EXEC|CALL|COPY|VACUUM|ANALYZE)\\b/i);\n  if (match && match.index > 0) {\n    sql = sql.substring(match.index);\n  }\n  // Удаляем висячую ; в конце\n  sql = sql.replace(/;\\s*$/, '');\n  // === Защита от multi-statement injection ===\n  if (sql.includes(';')) {\n    return [{json: {query: \"SELECT 'Multi-statement SQL заблокирован. Используйте один запрос.' as error_message;\"}}];\n  }\n  // === Whitelist: только SELECT и CTE (WITH ... SELECT) ===\n  const firstWord = sql.trim().split(/\\s+/)[0].toUpperCase();\n  const ALLOWED = ['SELECT', 'WITH'];\n  if (!ALLOWED.includes(firstWord)) {\n    return [{json: {query: \"SELECT '\" + sqlEscape(firstWord) + \" заблокирован. Этот агент умеет только SELECT-запросы (read-only).' as error_message;\"}}];\n  }\n  // Доп. защита: даже внутри WITH-CTE запрещаем модифицирующие statement'ы\n  if (/\\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|COPY|VACUUM|ANALYZE)\\b/i.test(sql)) {\n    return [{json: {query: \"SELECT 'В запросе обнаружен модифицирующий statement. Только SELECT разрешён.' as error_message;\"}}];\n  }\n  // Авто-LIMIT (одной проверки достаточно)\n  if (!/\\bLIMIT\\s+\\d+/i.test(sql)) {\n    sql += ' LIMIT 50';\n  }\n  sql += ';';\n  return [{json: {query: sql}}];\n} catch(e) {\n  return [{json: {query: \"SELECT 'Не удалось сгенерировать SQL: \" + sqlEscape(String(e && e.message ? e.message : e).slice(0,150)) + \"' as error_message;\"}}];\n}"
+        "jsCode": "// Безопасная очистка SQL от LLM. Принимаем ТОЛЬКО SELECT (whitelist),\n// мульти-стейтменты блокируем (`;` где-либо кроме конца).\n// R7.91: универсальный extractor — раньше ловили только output[0].content[0].text,\n// если LLM в OpenAI-формате (choices[0].message.content) — «Пустой ответ от LLM».\n// Также убрана дубль-проверка LIMIT (была дважды).\nfunction extractText(raw) {\n  if (!raw || typeof raw !== 'object') return '';\n  if (raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0]) {\n    return String(raw.output[0].content[0].text || '');\n  }\n  if (raw.choices && raw.choices[0] && raw.choices[0].message) {\n    return String(raw.choices[0].message.content || '');\n  }\n  if (raw.message && typeof raw.message === 'object') {\n    return String(raw.message.content || raw.message.text || '');\n  }\n  if (raw.message && typeof raw.message === 'string') return raw.message;\n  if (raw.text) return String(raw.text);\n  if (raw.content) return String(raw.content);\n  return '';\n}\nfunction sqlEscape(s) { return String(s).replace(/'/g, \"''\"); }\ntry {\n  const raw = $input.first().json;\n  if (raw.error) {\n    const em = (raw.error && (raw.error.message || (raw.error.toString && raw.error.toString()))) || 'GigaChat недоступен';\n    return [{json: {query: \"SELECT '\" + sqlEscape(String(em).slice(0,200)) + \"' as error_message;\"}}];\n  }\n  let sql = extractText(raw);\n  if (!sql) {\n    const keys = Object.keys(raw || {}).slice(0, 5).join(', ');\n    return [{json: {query: \"SELECT 'LLM вернул пустой ответ (поля: \" + keys + \"). Попробуйте ещё раз.' as error_message;\"}}];\n  }\n  // Убираем markdown\n  sql = sql.replace(/```sql\\s*/gi, '').replace(/```\\s*/g, '').trim();\n  // Находим начало SQL\n  const match = sql.match(/\\b(SELECT|WITH|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|EXEC|CALL|COPY|VACUUM|ANALYZE)\\b/i);\n  if (match && match.index > 0) {\n    sql = sql.substring(match.index);\n  }\n  // Удаляем висячую ; в конце\n  sql = sql.replace(/;\\s*$/, '');\n  // === Защита от multi-statement injection ===\n  if (sql.includes(';')) {\n    return [{json: {query: \"SELECT 'Multi-statement SQL заблокирован. Используйте один запрос.' as error_message;\"}}];\n  }\n  // === Whitelist: только SELECT и CTE (WITH ... SELECT) ===\n  const firstWord = sql.trim().split(/\\s+/)[0].toUpperCase();\n  const ALLOWED = ['SELECT', 'WITH'];\n  if (!ALLOWED.includes(firstWord)) {\n    return [{json: {query: \"SELECT '\" + sqlEscape(firstWord) + \" заблокирован. Этот агент умеет только SELECT-запросы (read-only).' as error_message;\"}}];\n  }\n  // Доп. защита: даже внутри WITH-CTE запрещаем модифицирующие statement'ы\n  if (/\\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|COPY|VACUUM|ANALYZE)\\b/i.test(sql)) {\n    return [{json: {query: \"SELECT 'В запросе обнаружен модифицирующий statement. Только SELECT разрешён.' as error_message;\"}}];\n  }\n  // R8.34 (H1): UNION/INTERSECT/EXCEPT — потенциальный канал для\n  // чтения чужих таблиц через объединение selects. LLM может\n  // сгенерировать SELECT a FROM clients UNION SELECT password FROM\n  // planner_users — один statement, проходит whitelist firstWord.\n  if (/\b(UNION|INTERSECT|EXCEPT)\b/i.test(sql)) {\n    return [{json: {query: \"SELECT 'UNION/INTERSECT/EXCEPT заблокирован. Этот агент работает только с одной выборкой.' as error_message;\"}}];\n  }\n  // R8.34 (H1): table whitelist. Извлекаем все FROM/JOIN <name>,\n  // проверяем что каждая — в разрешённом списке. Без этого LLM\n  // может вытянуть данные из planner_users, agent_sessions и других\n  // служебных таблиц.\n  const ALLOWED_TABLES = new Set(['clients', 'orders', 'employees', 'tasks']);\n  const tableRefs = [];\n  const tableRegex = /\b(?:FROM|JOIN)\\s+([a-zA-Z_][a-zA-Z0-9_]*)/gi;\n  let m;\n  while ((m = tableRegex.exec(sql)) !== null) {\n    tableRefs.push(m[1].toLowerCase());\n  }\n  for (const tbl of tableRefs) {\n    if (!ALLOWED_TABLES.has(tbl)) {\n      return [{json: {query: \"SELECT 'Доступ к таблице \\\"\" + sqlEscape(tbl) + \"\\\" запрещён. Доступны: clients, orders, employees, tasks.' as error_message;\"}}];\n    }\n  }\n  // Авто-LIMIT (одной проверки достаточно)\n  if (!/\\bLIMIT\\s+\\d+/i.test(sql)) {\n    sql += ' LIMIT 50';\n  }\n  sql += ';';\n  return [{json: {query: sql}}];\n} catch(e) {\n  return [{json: {query: \"SELECT 'Не удалось сгенерировать SQL: \" + sqlEscape(String(e && e.message ? e.message : e).slice(0,150)) + \"' as error_message;\"}}];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -580,6 +580,54 @@
       ],
       "id": "sql-sso-token-if-V1",
       "name": "Token OK?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// R8.34 (H2): pre-processor between «Выполнить SQL» и «Форматирование».\n// До R8.33 деталь обработки pg-ошибок жила внутри Code-форматтера. После\n// R8.33 форматтер стал LLM-нодой — LLM не умеет читать .error поле, мог\n// сформатировать ошибочный объект как «результат». Этот нод восстанавливает\n// детерминистическую обработку ошибок ДО LLM и выставляет __sql_error,\n// чтобы downstream IF-нод обошёл LLM полностью.\nconst all = $input.all();\nconst items = all.map(i => i.json).filter(r => r && typeof r === 'object');\n\n// Postgres-ошибка через onError: continueRegularOutput на «Выполнить SQL»\nconst pgError = items.find(r => r && r.error);\nif (pgError) {\n  let em = '';\n  if (typeof pgError.error === 'string') em = pgError.error;\n  else if (pgError.error && pgError.error.message) em = pgError.error.message;\n  else em = JSON.stringify(pgError.error);\n  em = String(em).split(String.fromCharCode(10))[0].slice(0, 250);\n  if (/column .* does not exist/i.test(em))   em = 'Запрошенное поле в базе не существует. Переформулируй вопрос конкретнее.';\n  else if (/relation .* does not exist/i.test(em)) em = 'Запрошенная таблица в базе не существует. Доступны: clients, orders, employees, tasks.';\n  else if (/syntax error/i.test(em))          em = 'Сгенерированный SQL некорректен. Попробуй переформулировать вопрос.';\n  else if (/permission denied/i.test(em))     em = 'Недостаточно прав для этой операции.';\n  else em = 'Ошибка БД: ' + em;\n  return [{ json: { response: em, __sql_error: true } }];\n}\n\n// Очистка SQL могла вернуть фейковый SELECT с error_message — это её способ\n// сообщить «запрос отвергнут» (например UNION или multi-statement).\nif (items.length === 1 && items[0].error_message) {\n  return [{ json: { response: String(items[0].error_message), __sql_error: true } }];\n}\n\n// Не ошибка — просто прокидываем все строки дальше, БЕЗ __sql_error флага.\n// IF-нод увидит false и отправит данные в LLM-формат.\nreturn items.map(j => ({ json: { ...j, __sql_error: false } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3570,
+        300
+      ],
+      "id": "sql-preproc-r834-h2",
+      "name": "Проверка БД-ошибок"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "rule-sql-error",
+              "leftValue": "={{ $json.__sql_error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3650,
+        300
+      ],
+      "id": "sql-if-r834-h2",
+      "name": "Ошибка БД?"
     }
   ],
   "pinData": {},
@@ -701,7 +749,7 @@
       "main": [
         [
           {
-            "node": "Форматирование",
+            "node": "Проверка БД-ошибок",
             "type": "main",
             "index": 0
           }
@@ -819,6 +867,35 @@
         [
           {
             "node": "Ответ: ошибка валидации",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Проверка БД-ошибок": {
+      "main": [
+        [
+          {
+            "node": "Ошибка БД?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ошибка БД?": {
+      "main": [
+        [
+          {
+            "node": "Проверка ответа SQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Форматирование",
             "type": "main",
             "index": 0
           }
