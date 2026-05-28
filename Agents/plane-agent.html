@@ -2481,9 +2481,32 @@
             var stateBadge = (stateLabel && groupCls) ? ('<span class="pc-state ' + groupCls + '">' + stateLabel + '</span>') : '';
             return prioBadge + stateBadge;
         }
+        // R7.85: фиксированный порядок появления карточек в чате — по статусу.
+        // Применяется ко ВСЕМ командам (slash и LLM), потому что formatIssuesList —
+        // единая точка рендера задач в чате. Порядок: Отложено → Запланировано →
+        // В работе → Готово → Отменено. Внутри группы — стабильная сортировка
+        // (сохраняется исходный порядок из бэка, чтобы не путать юзера).
+        var CHAT_STATUS_ORDER = { backlog: 0, unstarted: 1, started: 2, completed: 3, cancelled: 4 };
+        function _chatStatusKey(i) {
+            var g = (i && i.state_detail && i.state_detail.group) || '';
+            var k = CHAT_STATUS_ORDER[g];
+            return (typeof k === 'number') ? k : 99; // неизвестный статус — в конец
+        }
+        function sortIssuesByStatusForChat(issues) {
+            if (!Array.isArray(issues) || issues.length < 2) return issues;
+            // Map к {issue, orig_idx} → стабильная сортировка по статусу с
+            // tiebreak'ом по исходному индексу (JS sort на v8 уже стабильный,
+            // но не во всех движках — делаем явно для надёжности).
+            return issues
+                .map(function (i, idx) { return { i: i, idx: idx, k: _chatStatusKey(i) }; })
+                .sort(function (a, b) { return (a.k - b.k) || (a.idx - b.idx); })
+                .map(function (x) { return x.i; });
+        }
         function formatIssuesList(issues, projectName, animate) {
             if (!issues || !issues.length) return '';
-            return issues.map(function (i, idx) {
+            // R7.85: сортируем по статусу перед рендером.
+            var sorted = sortIssuesByStatusForChat(issues);
+            return sorted.map(function (i, idx) {
                 var group = (i.state_detail && i.state_detail.group) || '';
                 var cardCls = 'plane-card' + (group === 'cancelled' ? ' is-cancelled' : '') + (group === 'completed' ? ' is-completed' : '');
                 var actions = (typeof inlineActionsHtml === 'function') ? inlineActionsHtml(Object.assign({ project: projectName }, i)) : '';
