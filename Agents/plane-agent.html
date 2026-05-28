@@ -3544,6 +3544,28 @@
                     if (extras && extras.quick_replies && QR_FORBIDDEN_ACTIONS[qrAct]) {
                         delete extras.quick_replies;
                     }
+                    // R8.21: тот же фильтр auth/plane-ошибок, что в
+                    // executeSlashDirect (R8.14/R8.16/R8.17). При live-ответе
+                    // фронт подменяет «Plane недоступен: {...}» на дружественный
+                    // текст, но WORKFLOW уже успел сохранить raw-ошибку в
+                    // chat_memory. После F5 parseHistoryMessage достаёт raw —
+                    // юзер видит сырой JSON. Применяем фильтр здесь тоже.
+                    if (m.role === 'assistant' && content) {
+                        var lowC = String(content).toLowerCase();
+                        if (lowC.indexOf('нет доступа') !== -1
+                            || lowC.indexOf('api token') !== -1
+                            || lowC.indexOf('plane недоступен') !== -1
+                            || lowC.indexOf('plane не настроен') !== -1
+                            || lowC.indexOf('err_invalid_char') !== -1
+                            || lowC.indexOf('401') !== -1
+                            || lowC.indexOf('403') !== -1
+                            || lowC.indexOf('unauthorized') !== -1) {
+                            content = 'Команда недоступна. Настройте ваш аккаунт.';
+                            // Чистим extras: никаких карточек/quick_replies/
+                            // disambiguation для этого «псевдо-сообщения».
+                            extras = {};
+                        }
+                    }
                     return {
                         role: m.role,
                         content: content,
