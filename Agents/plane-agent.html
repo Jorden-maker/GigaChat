@@ -2077,14 +2077,11 @@
                 <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off" data-next="set-user-id">
                 <button type="button" class="pw-eye" id="set-token-eye" aria-label="Показать пароль" onclick="togglePwd('set-token', this)"></button>
             </div>
-            <!-- R8.08: User UUID нужен для /me и /created.
-                 Plane v0.27.1 не имеет /users/me/ в Public API (X-Api-Key) —
-                 он только в app-API через session-cookie. Поэтому юзер сам
-                 один раз копирует UUID из Plane UI. -->
-            <label for="set-user-id">Ваш user ID в Plane <span style="color:var(--text-muted);font-weight:normal;font-size:11px">(опционально — для /me и /created)</span></label>
-            <input id="set-user-id" type="text" placeholder="" autocomplete="off" data-next="set-save-btn">
-            <div style="font-size:11px;color:var(--text-muted);margin-top:-6px;margin-bottom:6px">
-                Где взять: в Plane открой свой профиль → URL вида <code>/profile/&lt;UUID&gt;/</code> — скопируй UUID.
+            <!-- R8.10: упрощённый label «User ID» + глазок как у API-токена -->
+            <label for="set-user-id">User ID</label>
+            <div class="pw-wrap">
+                <input id="set-user-id" type="password" placeholder="" autocomplete="off" data-next="set-save-btn">
+                <button type="button" class="pw-eye" id="set-user-id-eye" aria-label="Показать User ID" onclick="togglePwd('set-user-id', this)"></button>
             </div>
             <div class="modal-err" id="set-err"></div>
             <div class="modal-buttons">
