@@ -3160,6 +3160,20 @@
         }
 
         function renderBoardIssues(issues) {
+            // R8.27: ВСЕГДА сортируем по приоритету (urgent → high → medium →
+            // low → none) перед группировкой. Раньше сортировка была только
+            // в filterIssues, которая вызывается лишь при активных фильтрах
+            // (поиск/мои/просроченные/срочные/без срока) — без фильтров карты
+            // в колонках появлялись в том порядке, в котором их вернул Plane
+            // API (по created_at). Перенесли сюда — теперь сортировка
+            // применяется на всех путях: reloadBoard, drag&drop, фильтры.
+            // Сортируем КОПИЮ — чтобы не мутировать BOARD_ALL_ISSUES.
+            var PRIO_ORDER = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
+            issues = (issues || []).slice().sort(function (a, b) {
+                var ap = PRIO_ORDER[String(a.priority || 'none').toLowerCase()];
+                var bp = PRIO_ORDER[String(b.priority || 'none').toLowerCase()];
+                return (typeof ap === 'number' ? ap : 5) - (typeof bp === 'number' ? bp : 5);
+            });
             // Группируем по state.group. Восстанавливаем state_detail из
             // localStorage cache если воркфлоу не смог enrich'нуть.
             var cachedMap = _loadStateMap(BOARD_CURRENT_PROJECT);
