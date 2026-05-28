@@ -1465,7 +1465,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE $1 <> 'plane_board' AND LENGTH(TRIM($2)) > 0;",
         "options": {
-          "queryReplacement": "={{ [$('Контекст: проекты').first().json.session_id, ($json.response || '') + ($json.data && (($json.data.issues && $json.data.issues.length) || $json.data.issue || ($json.data.projects && $json.data.projects.length) || ($json.data.cycles && $json.data.cycles.length) || ($json.data.modules && $json.data.modules.length) || ($json.data.activities && $json.data.activities.length) || ($json.data.notifications && $json.data.notifications.length) || ($json.data.members && $json.data.members.length) || ($json.data.comments && $json.data.comments.length) || $json.data.epic) ? ('\\n\\n[[EXTRAS:' + JSON.stringify($json.data).slice(0, 12000) + ']]') : '')] }}"
+          "queryReplacement": "={{ [$('Контекст: проекты').first().json.session_id, ($json.response || '') + ($json.data && (($json.data.issues && $json.data.issues.length) || $json.data.issue || ($json.data.projects && $json.data.projects.length) || ($json.data.cycles && $json.data.cycles.length) || ($json.data.modules && $json.data.modules.length) || ($json.data.activities && $json.data.activities.length) || ($json.data.notifications && $json.data.notifications.length) || ($json.data.members && $json.data.members.length) || ($json.data.comments && $json.data.comments.length) || $json.data.epic) ? ('\\n\\n[[EXTRAS:' + JSON.stringify(Object.assign({action: $json.action}, $json.data)).slice(0, 12000) + ']]') : '')] }}"
         },
         "alwaysOutputData": true
       },

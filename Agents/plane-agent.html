@@ -3488,6 +3488,11 @@
                     // _shared.js sendMsg (через userScoped:true) — сразу clearAuth
                     // + redirect, без дорисовки чужого ответа в чат.
                     var extras = (data && data.data) ? data.data : {};
+                    // R7.91: action прокидываем в extras, чтобы parseHistoryMessage
+                    // мог применить R7.90-фильтр quick_replies при reload.
+                    // На бэке INSERT assistant сохраняет в [[EXTRAS:]] только
+                    // data.data (без action) — поэтому добавляем сами.
+                    if (data && data.action && !extras.action) extras.action = data.action;
 
                     // Phase 1 #11: Sticky project — если backend сообщил про
                     // используемый проект, фиксируем для следующих сообщений.
@@ -3520,9 +3525,19 @@
                         setTimeout(function () { openConfirmDialog(data.confirm); }, 50);
                     }
 
+                    // R7.91: если response пуст, но есть error — показываем error,
+                    // не «Пустой ответ». Раньше юзер видел пустой баббл при
+                    // backend-ошибке без response-поля.
+                    var responseText = (data && data.response) || '';
+                    if (!responseText && data && data.error) {
+                        var errMsg = (typeof data.error === 'string') ? data.error
+                                   : (data.error && data.error.message) || JSON.stringify(data.error);
+                        responseText = 'Ошибка: ' + String(errMsg).slice(0, 300);
+                    }
+                    if (!responseText) responseText = 'Пустой ответ от сервера. Попробуйте ещё раз.';
                     return {
                         role: 'assistant',
-                        content: (data && data.response) || 'Пустой ответ',
+                        content: responseText,
                         extras: extras
                     };
                 },
@@ -3545,6 +3560,18 @@
                             }
                         } catch (e) {}
                         content = content.replace(marker, '');
+                    }
+                    // R7.91: после reload тоже применяем R7.90 фильтр quick_replies.
+                    // Без этого quick_replies, сохранённые до релиза R7.90 (или
+                    // прорвавшиеся через LLM-ослушание), оживали после F5.
+                    var QR_FORBIDDEN_ACTIONS = {
+                        list_issues:1, cross_project_search:1, stats:1, search_issues:1,
+                        list_projects:1, list_cycles:1, list_modules:1, list_notifications:1,
+                        list_activity:1, digest:1, get_issue:1, list_members:1, me:1
+                    };
+                    var qrAct = extras && extras.action;
+                    if (extras && extras.quick_replies && QR_FORBIDDEN_ACTIONS[qrAct]) {
+                        delete extras.quick_replies;
                     }
                     return {
                         role: m.role,
