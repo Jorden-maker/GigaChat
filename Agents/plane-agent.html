@@ -5545,7 +5545,19 @@
             // === Render rows ===
             var bodyHtml = '';
             if (!visibleIssues.length) {
-                bodyHtml = '<div class="tl-empty">В этом периоде нет задач со сроками. Перетащи задачу из чата или используй стрелки навигации.</div>';
+                var emptyMsg;
+                if (!allIssues.length) {
+                    emptyMsg = 'В проекте нет задач со сроками. Добавь срок выполнения, чтобы задачи появились на диаграмме.';
+                } else if (!filtered.length) {
+                    // Фильтр исключил всё
+                    if (TIMELINE_FILTER === 'overdue') emptyMsg = 'Просроченных задач нет — все сроки в порядке.';
+                    else if (TIMELINE_FILTER === 'completed') emptyMsg = 'Завершённых задач со сроками пока нет.';
+                    else if (TIMELINE_FILTER === 'active') emptyMsg = 'Активных задач со сроками нет.';
+                    else emptyMsg = 'Под фильтр ничего не подходит. Сбрось фильтр.';
+                } else {
+                    emptyMsg = 'В этом периоде нет задач со сроками. Используй стрелки навигации, чтобы перейти к другому периоду, или измени зум.';
+                }
+                bodyHtml = '<div class="tl-empty">' + escapeHtml(emptyMsg) + '</div>';
             } else {
                 groupKeys.forEach(function (gk) {
                     if (TIMELINE_GROUP_BY !== 'none') {
