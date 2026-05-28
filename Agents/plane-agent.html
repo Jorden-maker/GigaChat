@@ -1797,13 +1797,13 @@
                         </div>
                         <ul class="board-select-menu" id="board-project-menu" role="listbox"></ul>
                     </div>
-                    <!-- Phase 2: переключатель видов доска/календарь/таймлайн/циклы/модули -->
+                    <!-- R8.28: переключатель видов сокращён.
+                         Убраны: Диаграмма (Timeline/Gantt), Циклы (cycles),
+                         Модули (modules) — дублируют функционал Plane UI и не
+                         использовались. Оставлены: Доска, Календарь, Активность. -->
                     <div class="view-tabs" id="board-view-tabs">
                         <button class="view-tab active" data-view="kanban" onclick="switchBoardView('kanban')">Доска</button>
                         <button class="view-tab" data-view="calendar" onclick="switchBoardView('calendar')">Календарь</button>
-                        <button class="view-tab" data-view="timeline" onclick="switchBoardView('timeline')">Диаграмма</button>
-                        <button class="view-tab" data-view="cycles" onclick="switchBoardView('cycles')">Циклы</button>
-                        <button class="view-tab" data-view="modules" onclick="switchBoardView('modules')">Модули</button>
                         <button class="view-tab" data-view="activity" onclick="switchBoardView('activity')">Активность</button>
                     </div>
                     <button class="board-refresh" onclick="forceFullReload()">Обновить</button>
@@ -1852,11 +1852,12 @@
                         <div class="board-col-header">Отменено <span class="board-col-count" data-count></span></div>
                     </div>
                 </div>
-                <!-- Phase 2 views: контейнеры альтернативных представлений -->
+                <!-- R8.28: view-timeline/view-cycles/view-modules контейнеры
+                     удалены вместе с одноимёнными вкладками. JS-функции
+                     рендера (renderTimelineView/renderCyclesView/
+                     renderModulesView) пока остались как dead code —
+                     никто их не вызывает. -->
                 <div id="view-calendar" class="board-view" style="display:none"></div>
-                <div id="view-timeline" class="board-view" style="display:none"></div>
-                <div id="view-cycles" class="board-view" style="display:none"></div>
-                <div id="view-modules" class="board-view" style="display:none"></div>
                 <div id="view-activity" class="board-view" style="display:none"></div>
             </div>
             <!-- Phase 1: Sticky project pill (показывается когда set) -->
@@ -5146,35 +5147,31 @@
             return __origRenderBoardIssues.call(this, toRender);
         };
 
-        // === Phase 2: переключение видов (kanban/calendar/timeline/cycles/modules) ===
+        // === Phase 2: переключение видов (kanban/calendar/activity) ===
+        // R8.28: timeline/cycles/modules вкладки удалены.
         var BOARD_VIEW = 'kanban';
-        var BOARD_CYCLES_CACHE = [];
-        var BOARD_MODULES_CACHE = [];
         var CAL_VIEW_DATE = new Date();
         function switchBoardView(view) {
+            // R8.28: если кто-то передал устаревший view (timeline/cycles/
+            // modules) — fall back на kanban. Это страховка на случай
+            // сохранённого где-то старого BOARD_VIEW.
+            if (view === 'timeline' || view === 'cycles' || view === 'modules') {
+                view = 'kanban';
+            }
             BOARD_VIEW = view;
             document.querySelectorAll('.view-tab').forEach(function (b) {
                 b.classList.toggle('active', b.dataset.view === view);
             });
             var kan = document.getElementById('board-columns');
             var cal = document.getElementById('view-calendar');
-            var tl = document.getElementById('view-timeline');
-            var cy = document.getElementById('view-cycles');
-            var md = document.getElementById('view-modules');
             var ac = document.getElementById('view-activity');
             if (kan) kan.style.display = view === 'kanban' ? '' : 'none';
             if (cal) cal.style.display = view === 'calendar' ? '' : 'none';
-            if (tl) tl.style.display = view === 'timeline' ? '' : 'none';
-            if (cy) cy.style.display = view === 'cycles' ? '' : 'none';
-            if (md) md.style.display = view === 'modules' ? '' : 'none';
             if (ac) ac.style.display = view === 'activity' ? '' : 'none';
             // toolbar-2 (фильтры) актуальны только для канбана
             var t2 = document.querySelector('.board-toolbar-2');
             if (t2) t2.style.display = view === 'kanban' ? '' : 'none';
             if (view === 'calendar') renderCalendarView();
-            else if (view === 'timeline') renderTimelineView();
-            else if (view === 'cycles') renderCyclesView();
-            else if (view === 'modules') renderModulesView();
             else if (view === 'activity') renderActivityView();
         }
 
@@ -7540,8 +7537,8 @@
         }
 
         function rerenderCurrentBoardView() {
+            // R8.28: timeline ветка убрана вместе с одноимённой вкладкой.
             if (BOARD_VIEW === 'calendar') renderCalendarView();
-            else if (BOARD_VIEW === 'timeline') renderTimelineView();
             else if (typeof reloadBoard === 'function') reloadBoard(true);
         }
 
