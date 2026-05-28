@@ -2059,9 +2059,13 @@
             <button class="modal-close" onclick="closeSettings()" title="Закрыть (Esc)">×</button>
             <h3>Настройки</h3>
             <label for="set-url">Plane URL</label>
-            <input id="set-url" type="text" placeholder="http://host.docker.internal:8000" autocomplete="off" data-next="set-slug">
+            <!-- R7.96: placeholder убран, чтобы поле визуально было пустым
+                 до ввода (раньше серый «http://host.docker.internal:8000»
+                 выглядел как заполненное значение и юзер не понимал что
+                 это подсказка). -->
+            <input id="set-url" type="text" placeholder="" autocomplete="off" data-next="set-slug">
             <label for="set-slug">Название пространства</label>
-            <input id="set-slug" type="text" placeholder="office" autocomplete="off" data-next="set-token">
+            <input id="set-slug" type="text" placeholder="" autocomplete="off" data-next="set-token">
             <label for="set-token">API-токен</label>
             <div class="pw-wrap">
                 <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off" data-next="set-save-btn">
