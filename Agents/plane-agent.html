@@ -2074,8 +2074,17 @@
             <input id="set-slug" type="text" placeholder="" autocomplete="off" data-next="set-token">
             <label for="set-token">API-токен</label>
             <div class="pw-wrap">
-                <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off" data-next="set-save-btn">
+                <input id="set-token" type="password" placeholder="plane_api_xxxxxxxxxxxxxxxxxx" autocomplete="off" data-next="set-user-id">
                 <button type="button" class="pw-eye" id="set-token-eye" aria-label="Показать пароль" onclick="togglePwd('set-token', this)"></button>
+            </div>
+            <!-- R8.08: User UUID нужен для /me и /created.
+                 Plane v0.27.1 не имеет /users/me/ в Public API (X-Api-Key) —
+                 он только в app-API через session-cookie. Поэтому юзер сам
+                 один раз копирует UUID из Plane UI. -->
+            <label for="set-user-id">Ваш user ID в Plane <span style="color:var(--text-muted);font-weight:normal;font-size:11px">(опционально — для /me и /created)</span></label>
+            <input id="set-user-id" type="text" placeholder="" autocomplete="off" data-next="set-save-btn">
+            <div style="font-size:11px;color:var(--text-muted);margin-top:-6px;margin-bottom:6px">
+                Где взять: в Plane открой свой профиль → URL вида <code>/profile/&lt;UUID&gt;/</code> — скопируй UUID.
             </div>
             <div class="modal-err" id="set-err"></div>
             <div class="modal-buttons">
@@ -2123,9 +2132,10 @@
                 return {
                     url: localStorage.getItem(p + 'url') || '',
                     slug: localStorage.getItem(p + 'slug') || '',
-                    token: localStorage.getItem(p + 'token') || ''
+                    token: localStorage.getItem(p + 'token') || '',
+                    userId: localStorage.getItem(p + 'userId') || '' // R8.08
                 };
-            } catch (e) { return { url: '', slug: '', token: '' }; }
+            } catch (e) { return { url: '', slug: '', token: '', userId: '' }; }
         }
         function savePlaneSettings(s) {
             var p = planePrefix();
@@ -2133,6 +2143,7 @@
                 localStorage.setItem(p + 'url', s.url);
                 localStorage.setItem(p + 'slug', s.slug);
                 localStorage.setItem(p + 'token', s.token);
+                if (s.userId !== undefined) localStorage.setItem(p + 'userId', s.userId || ''); // R8.08
                 return true;
             } catch (e) { return false; }
         }
@@ -2148,6 +2159,8 @@
             document.getElementById('set-url').value = s.url;
             document.getElementById('set-slug').value = s.slug;
             document.getElementById('set-token').value = s.token;
+            var uidEl = document.getElementById('set-user-id');
+            if (uidEl) uidEl.value = s.userId || '';
             document.getElementById('set-err').textContent = '';
             modal.classList.add('open');
             setTimeout(function () { document.getElementById('set-url').focus(); }, 50);
@@ -2180,9 +2193,11 @@
             var url  = (document.getElementById('set-url').value || '').trim().replace(/\/$/, '');
             var slug = (document.getElementById('set-slug').value || '').trim();
             var token = (document.getElementById('set-token').value || '').trim();
+            var uidEl = document.getElementById('set-user-id');
+            var userId = uidEl ? (uidEl.value || '').trim().toLowerCase() : '';
             var err = document.getElementById('set-err');
             if (!url || !slug || !token) {
-                err.textContent = 'Заполните все три поля.';
+                err.textContent = 'Заполните Plane URL, название пространства и API-токен.';
                 return;
             }
             if (!/^https?:\/\//.test(url)) {
@@ -2193,7 +2208,12 @@
                 err.textContent = 'Workspace slug содержит недопустимые символы.';
                 return;
             }
-            if (!savePlaneSettings({ url: url, slug: slug, token: token })) {
+            // R8.08: user UUID опционален, но если задан — должен быть UUID-форматом
+            if (userId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(userId)) {
+                err.textContent = 'User ID должен быть UUID вида 6bf5db53-4a02-49cf-a5fb-ba9c55a6d90c.';
+                return;
+            }
+            if (!savePlaneSettings({ url: url, slug: slug, token: token, userId: userId })) {
                 err.textContent = 'Не удалось сохранить настройки в localStorage.';
                 return;
             }
@@ -2836,6 +2856,7 @@
                     message: opts.message || ('__board_' + action),
                     session_id: opts.sessionId || 'plane_board',
                     token: token, workspace_slug: s.slug, plane_url: s.url, plane_token: s.token,
+                    plane_user_id: s.userId || null, // R8.08
                     action: action, params: params
                 })
             });
@@ -3529,6 +3550,7 @@
                         workspace_slug: s.slug,
                         plane_url: s.url,
                         plane_token: s.token,
+                        plane_user_id: s.userId || null, // R8.08: для /me и /created
                         sticky_project: (STICKY_PROJECT && STICKY_PROJECT.name) || null
                     };
                 }
