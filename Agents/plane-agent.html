@@ -6917,8 +6917,22 @@
                     : 'За сегодня новых задач не создавалось.',
                 created
             );
-            // Шаг 2: закрытые за сегодня
-            var closed = digest.closed_issues || [];
+            // Шаг 2: закрытые сегодня
+            // R7.89: ТОЛЬКО completed (без cancelled) и ТОЛЬКО те, у которых
+            // completed_at реально приходится на сегодня — это точная дата
+            // момента перевода в Готово (а не просто updated_at, который
+            // пересчитывался на любой комментарий). Бэк уже делает то же,
+            // фронт-фильтр дублирует на случай старой версии workflow.
+            var todayIsoFront = new Date().toISOString().slice(0,10);
+            var closed = (digest.closed_issues || []).filter(function (i) {
+                var g = (i && i.state_detail && i.state_detail.group) || '';
+                if (g !== 'completed') return false;
+                var ca = String((i && i.completed_at) || '').slice(0,10);
+                // Если бэк ещё не прокидывает completed_at (старый workflow) —
+                // не выкидываем задачу, бэковая выборка по completed_at уже
+                // отработала. ca === '' значит «нет данных», доверяем бэку.
+                return !ca || ca === todayIsoFront;
+            });
             await showStep(
                 closed.length
                     ? 'Показываю задачи, которые были закрыты за сегодня:'
