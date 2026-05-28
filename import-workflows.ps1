@@ -396,19 +396,42 @@ Write-Host ""
 # R7 #1: post-import patch для plane-agent — подключаем Switch fallback output.
 # n8n Public API при импорте обрезает connections.main до rules.length,
 # поэтому fallback connection теряется. node-скрипт добавляет её через прямой PUT.
+#
+# R7.83: пробрасываем N8N_HOST + N8N_API_KEY в env, проверяем $LASTEXITCODE
+# и кричим если node вернул != 0. Раньше — провал был молчаливым
+# (PS не видел exit code от & node), юзер думал что всё ок,
+# а в n8n fallback не появлялся.
 $planePatchScript = Join-Path $folder "post-import-fallback.js"
+$patchOk = $false
+$patchSkipped = $false
 if (Test-Path $planePatchScript) {
     Write-Host ""
     Write-Host "==> Post-import patch: Switch fallback для plane-agent..." -ForegroundColor Cyan
-    try {
-        $nodeExe = Get-Command node -ErrorAction SilentlyContinue
-        if ($nodeExe) {
-            & node $planePatchScript
+    $nodeExe = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $nodeExe) {
+        Write-Host "  ВНИМАНИЕ: node.exe не найден в PATH." -ForegroundColor Yellow
+        Write-Host "  Fallback-connection в Switch action НЕ БУДЕТ подключена автоматически." -ForegroundColor Yellow
+        Write-Host "  Установи Node.js https://nodejs.org/ и перезапусти скрипт," -ForegroundColor Yellow
+        Write-Host "  либо подключи fallback вручную в UI n8n (от output Switch action идёт в 'Формат ответа')." -ForegroundColor Yellow
+        $patchSkipped = $true
+    } else {
+        # Прокидываем настройки через env, чтобы node-скрипт использовал ровно
+        # те же $n8n и $apiKey что и PS — иначе скрипт мог идти на другой n8n.
+        $env:N8N_HOST = $n8n
+        $env:N8N_API_KEY = $apiKey
+        & node $planePatchScript
+        $patchExit = $LASTEXITCODE
+        Remove-Item Env:N8N_HOST -ErrorAction SilentlyContinue
+        Remove-Item Env:N8N_API_KEY -ErrorAction SilentlyContinue
+        if ($patchExit -eq 0) {
+            $patchOk = $true
         } else {
-            Write-Host "  node не найден — пропуск (запусти Workflow\post-import-fallback.js вручную)" -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "  ОШИБКА: post-import-fallback.js завершился с кодом $patchExit." -ForegroundColor Red
+            Write-Host "  Fallback-connection в Switch action НЕ подключена." -ForegroundColor Red
+            Write-Host "  Открой workflow «Plane-агент. Поток» в n8n UI и подключи" -ForegroundColor Red
+            Write-Host "  последний выход узла 'Switch action' к узлу 'Формат ответа'." -ForegroundColor Red
         }
-    } catch {
-        Write-Host "  WARN: patch упал: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 }
 
@@ -420,6 +443,15 @@ if ($renamed -gt 0) {
     Write-Host "   переименовано:     $renamed   (старый workflow без префикса дополнен префиксом)" -ForegroundColor Magenta
 }
 Write-Host "   ошибок:            $failed" -ForegroundColor $(if ($failed) { 'Red' } else { 'DarkGray' })
+if (Test-Path $planePatchScript) {
+    if ($patchOk) {
+        Write-Host "   Switch fallback:   OK" -ForegroundColor Green
+    } elseif ($patchSkipped) {
+        Write-Host "   Switch fallback:   ПРОПУЩЕН (нет node.exe) — подключи вручную" -ForegroundColor Yellow
+    } else {
+        Write-Host "   Switch fallback:   FAILED — подключи вручную в UI n8n" -ForegroundColor Red
+    }
+}
 Write-Host "=============================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host " ЧТО ДАЛЬШЕ:"
@@ -427,4 +459,8 @@ Write-Host " 1. Обнови страницу n8n (F5)."
 Write-Host " 2. Для НОВЫХ workflow привяжи credentials в узлах и активируй."
 Write-Host "    Для ОБНОВЛЁННЫХ / ПЕРЕИМЕНОВАННЫХ — credentials остались,"
 Write-Host "    ничего делать не надо."
+if (-not $patchOk -and (Test-Path $planePatchScript)) {
+    Write-Host " 3. Для Plane-агента: в узле 'Switch action' соедини ПОСЛЕДНИЙ" -ForegroundColor Yellow
+    Write-Host "    (fallback) выход с узлом 'Формат ответа'." -ForegroundColor Yellow
+}
 Write-Host "=============================================================" -ForegroundColor Green
