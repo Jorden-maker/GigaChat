@@ -1800,11 +1800,9 @@
                     <button class="board-chip" id="board-chip-overdue" onclick="toggleFilter('overdue')">Просроченные</button>
                     <button class="board-chip" id="board-chip-urgent" onclick="toggleFilter('urgent')">Срочные</button>
                     <button class="board-chip" id="board-chip-no-due" onclick="toggleFilter('noDeadline')">Без срока</button>
-                    <select id="board-sort" onchange="applyBoardFilters()" style="display:none">
-                        <option value="priority">Сортировка: приоритет</option>
-                        <option value="deadline">Сортировка: срок</option>
-                        <option value="created">Сортировка: создана</option>
-                    </select>
+                    <!-- R7.94: dropdown сортировки удалён. На канбане всегда
+                         сортировка по приоритету (urgent → high → medium → low → none).
+                         См. BOARD_FILTERS.sortBy = 'priority' зашит в коде. -->
                     <button class="board-add-task" id="board-add-task-btn" onclick="openNewTaskModal()">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Добавить задачу
@@ -3572,7 +3570,8 @@
         // ===================================================================
 
         // --- State ---
-        var BOARD_FILTERS = { search: '', mine: false, overdue: false, urgent: false, noDeadline: false, sortBy: 'priority' };
+        // R7.94: sortBy убран — на канбане всегда сортировка по приоритету (зашита в filterIssues).
+        var BOARD_FILTERS = { search: '', mine: false, overdue: false, urgent: false, noDeadline: false };
         var BOARD_ALL_ISSUES = [];   // последний полный набор issues с сервера (до фильтрации)
         var BOARD_LABELS_CACHE = {}; // id → {name, color}
         var BOARD_MEMBERS_CACHE = []; // [{id, display_name, ...}]
@@ -3682,7 +3681,7 @@
             // Берём search-input в момент применения
             var search = (document.getElementById('board-search') || {}).value || '';
             BOARD_FILTERS.search = String(search).trim().toLowerCase();
-            BOARD_FILTERS.sortBy = (document.getElementById('board-sort') || {}).value || 'priority';
+            // R7.94: sortBy убран — сортировка по приоритету зашита в filterIssues.
             // NEW-10: если BOARD_ALL_ISSUES пуст, но есть выбранный проект —
             // делаем reload вместо рендера пустоты. Иначе клик «Сортировка»
             // на свеже-открытой доске стирал бы карточки.
@@ -3716,25 +3715,13 @@
                 }
                 return true;
             });
-            // Сортировка
+            // R7.94: единственная сортировка — по приоритету (urgent → high →
+            // medium → low → none). Switch с deadline/created удалён вместе
+            // с dropdown'ом сортировки.
             var PRIO_ORDER = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
             out.sort(function (a, b) {
-                switch (BOARD_FILTERS.sortBy) {
-                    case 'deadline': {
-                        var ad = a.target_date ? new Date(a.target_date).getTime() : Infinity;
-                        var bd = b.target_date ? new Date(b.target_date).getTime() : Infinity;
-                        return ad - bd;
-                    }
-                    case 'created': {
-                        var ac = a.created_at ? new Date(a.created_at).getTime() : 0;
-                        var bc = b.created_at ? new Date(b.created_at).getTime() : 0;
-                        return bc - ac;
-                    }
-                    case 'priority':
-                    default:
-                        return (PRIO_ORDER[String(a.priority || 'none').toLowerCase()] || 5)
-                             - (PRIO_ORDER[String(b.priority || 'none').toLowerCase()] || 5);
-                }
+                return (PRIO_ORDER[String(a.priority || 'none').toLowerCase()] || 5)
+                     - (PRIO_ORDER[String(b.priority || 'none').toLowerCase()] || 5);
             });
             return out;
         }
@@ -7278,9 +7265,7 @@
             loadStickyProject();
             renderStickyPill();
             ensureModalDom();
-            // Кастомизируем native sort-select в gc-dropdown стиль
-            var sortSel = document.getElementById('board-sort');
-            if (sortSel) attachCustomDropdown(sortSel);
+            // R7.94: attachCustomDropdown(sortSel) убран вместе с board-sort dropdown'ом
             bindKeyboardShortcuts();
             // R7.92: startNotifPolling удалён вместе с колокольчиком
             updateHeaderTimer();
