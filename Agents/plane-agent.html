@@ -760,6 +760,18 @@
         .chat-group-item.unread { border-left: 3px solid var(--accent); }
         .chat-group-item .cgi-title { color: var(--text-primary); margin-bottom: 2px; }
         .chat-group-item .cgi-meta { font-size: 11px; color: var(--text-muted); }
+        /* R7.72: дайджест /digest — три плитки с цифрами. */
+        .digest-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 10px; margin: 10px 0 4px;
+        }
+        .digest-cell {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 8px; padding: 14px 12px;
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+        }
+        .digest-cell .dg-num { font-size: 28px; font-weight: 600; line-height: 1; }
+        .digest-cell .dg-label { font-size: 12px; color: var(--text-secondary); text-align: center; }
         /* R7.57/R7.58: activity item — три строки + SVG-иконка слева. */
         .chat-activity-item { display: flex; align-items: flex-start; gap: 10px; }
         .chat-activity-item .cgi-icon {
@@ -2591,6 +2603,24 @@
             html += '</div>';
             return html;
         }
+        // R7.72: блок «дайджеста» для /digest — три плитки с цифрами:
+        // создано сегодня, закрыто сегодня, просрочено. Backend возвращает
+        // ex.digest = { created_today, closed_today, overdue }.
+        function formatDigestBlock(d, animate) {
+            if (!d) return '';
+            var items = [
+                { label: 'Создано сегодня', n: d.created_today || 0, color: '#16a34a' },
+                { label: 'Закрыто сегодня', n: d.closed_today || 0, color: '#8b5cf6' },
+                { label: 'Просрочено',      n: d.overdue || 0,       color: '#ef4444' }
+            ];
+            return '<div class="digest-grid">' + items.map(function (it, idx) {
+                var st = _staggerAttrs(animate, idx);
+                return '<div class="digest-cell' + st.cls + '"' + st.style + '>' +
+                    '<div class="dg-num" style="color:' + it.color + '">' + it.n + '</div>' +
+                    '<div class="dg-label">' + escapeHtml(it.label) + '</div>' +
+                '</div>';
+            }).join('') + '</div>';
+        }
         function formatMembersList(members) {
             return '<div class="chat-group-list">' + members.slice(0, 30).map(function (m) {
                 return '<div class="chat-group-item">' +
@@ -2628,6 +2658,7 @@
             if (ex.modules && ex.modules.length)            blocks += formatModulesList(ex.modules);
             if (ex.notifications && ex.notifications.length) blocks += formatNotificationsList(ex.notifications);
             if (ex.activities && ex.activities.length)      blocks += formatActivitiesList(ex.activities, animate);
+            if (ex.digest)                                  blocks += formatDigestBlock(ex.digest, animate);
             if (ex.epic)                                    blocks += formatEpicCard(ex.epic, ex.children);
             if (ex.members && ex.members.length)            blocks += formatMembersList(ex.members);
 
@@ -6295,8 +6326,9 @@
             { cmd: '/recent',   desc: 'Показать ленту активности',                                       type: 'direct', action: 'list_activity',          params: { scope: 'all' },
               emptyMsg: 'Лента активности пустая.',
               foundMsg: 'Показываю последние события:' },
-            { cmd: '/blocked',  desc: 'Задачи «В работе» без движения 3+ дней',                            type: 'text',   text: 'Покажи задачи в статусе «В работе», которые давно (больше 3 дней) не обновлялись — это потенциальные блокеры.' },
-            { cmd: '/digest',   desc: 'Дайджест: создано/закрыто/просрочено по всем проектам',            type: 'text',   text: 'Сделай мини-дайджест по всем проектам: сколько задач создано сегодня, сколько закрыто, сколько просрочено. Цифрами.' },
+            { cmd: '/digest',   desc: 'Дайджест: создано / закрыто / просрочено',                          type: 'direct', action: 'digest',                params: {},
+              emptyMsg: 'Дайджест за сегодня пустой.',
+              foundMsg: 'Дайджест за сегодня:' },
             { cmd: '/projects', desc: 'Список всех проектов',                                              type: 'direct', action: 'list_projects',          params: {},
               emptyMsg: 'У вас нет проектов.',
               foundMsg: 'Показываю список всех проектов:' },
@@ -6443,7 +6475,14 @@
                 var hasItems = (issues && issues.length > 0)
                             || (res.data && Array.isArray(res.data.activities) && res.data.activities.length > 0)
                             || (res.data && Array.isArray(res.data.notifications) && res.data.notifications.length > 0)
-                            || (res.data && Array.isArray(res.data.projects) && res.data.projects.length > 0);
+                            || (res.data && Array.isArray(res.data.projects) && res.data.projects.length > 0)
+                            // R7.72: digest = объект {created_today, closed_today, overdue}.
+                            // Считаем «есть данные» если хотя бы одно число > 0.
+                            || (res.data && res.data.digest && (
+                                (res.data.digest.created_today || 0) > 0 ||
+                                (res.data.digest.closed_today || 0) > 0 ||
+                                (res.data.digest.overdue || 0) > 0
+                            ));
                 var contentText;
                 if (!hasItems && c.emptyMsg) {
                     contentText = c.emptyMsg;
