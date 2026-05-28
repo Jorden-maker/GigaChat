@@ -2458,14 +2458,16 @@
                 '</div>';
             }).join('') + '</div>';
         }
-        function formatNotificationsList(items) {
-            return '<div class="chat-group-list">' + items.slice(0, 12).map(function (n) {
+        function formatNotificationsList(items, animate) {
+            // R7.78: stagger-волна как у карточек задач.
+            return '<div class="chat-group-list">' + items.slice(0, 12).map(function (n, idx) {
                 var actor = '';
                 if (n.triggered_by && typeof n.triggered_by === 'object') actor = n.triggered_by.display_name || n.triggered_by.email || '';
                 else if (typeof n.triggered_by === 'string') actor = n.triggered_by;
                 var title = n.title || (n.data && n.data.issue && n.data.issue.name) || 'Событие';
                 var date = n.created_at ? String(n.created_at).slice(0, 16).replace('T', ' ') : '';
-                return '<div class="chat-group-item' + (n.read_at ? '' : ' unread') + '">' +
+                var st = _staggerAttrs(animate, idx);
+                return '<div class="chat-group-item' + (n.read_at ? '' : ' unread') + st.cls + '"' + st.style + '>' +
                     '<div class="cgi-title">' + escapeHtml(title) + '</div>' +
                     '<div class="cgi-meta">' + (actor ? escapeHtml(actor) + ' · ' : '') + escapeHtml(date) + '</div>' +
                 '</div>';
@@ -2682,7 +2684,7 @@
             // Phase 2 — рендер новых action-результатов в чат
             if (ex.cycles && ex.cycles.length)              blocks += formatCyclesList(ex.cycles);
             if (ex.modules && ex.modules.length)            blocks += formatModulesList(ex.modules);
-            if (ex.notifications && ex.notifications.length) blocks += formatNotificationsList(ex.notifications);
+            if (ex.notifications && ex.notifications.length) blocks += formatNotificationsList(ex.notifications, animate);
             if (ex.activities && ex.activities.length)      blocks += formatActivitiesList(ex.activities, animate);
             if (ex.digest)                                  blocks += formatDigestBlock(ex.digest, animate);
             if (ex.epic)                                    blocks += formatEpicCard(ex.epic, ex.children);
