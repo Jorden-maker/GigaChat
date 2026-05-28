@@ -1774,7 +1774,10 @@
                 </span>
                 <button class="btn-settings" id="boardToggleBtn" onclick="toggleBoard()">Дашборд</button>
                 <button class="btn-settings" onclick="openSettings()">Настройки</button>
-                <button class="btn-export" id="btnExport" onclick="exportChat()">Экспорт</button>
+                <!-- R8.26: кнопка «Экспорт» (TXT-дамп чата) убрана из Plane-агента.
+                     В Plane сессии короткие (slash-команды + быстрые ответы),
+                     TXT-экспорт диалогов не востребован. exportChat() остаётся
+                     в _shared.js для других агентов. -->
             </div>
         </header>
         <!-- R7.92: колокольчик «Уведомления» убран. Plane v0.27 не выставляет
@@ -2845,9 +2848,7 @@
             }
             // Сайдбар уезжает влево когда доска открыта → доска на всю ширину
             document.body.classList.toggle('board-fullscreen', show);
-            // Скрыть «Экспорт» когда доска открыта (она про чат)
-            var exportBtn = document.getElementById('btnExport');
-            if (exportBtn) exportBtn.style.display = show ? 'none' : '';
+            // R8.26: btnExport удалён из header'а — show/hide логика тут не нужна.
             // Запоминаем выбор для следующей перезагрузки
             try { localStorage.setItem('plane_board_open', show ? '1' : '0'); } catch (e) {}
             if (show) {
@@ -6464,9 +6465,9 @@
         // R7.93: блок dashboard-export (toggleExportMenu/exportBoard/
         // exportAsXlsx/exportAsDocx/exportAsPdf/downloadBlob) удалён вместе
         // с кнопкой «Экспорт» на дашборде. Plane UI имеет свой export по
-        // проекту, а expirence GigaChat.buildXlsxBlob нужен только дашборду.
-        // Экспорт ЧАТА в TXT (другая кнопка, в шапке) — отдельный
-        // exportChat() из _shared.js, остаётся.
+        // проекту, а GigaChat.buildXlsxBlob нужен только дашборду.
+        // R8.26: кнопка «Экспорт чата» в верхней шапке тоже убрана —
+        // exportChat() из _shared.js остаётся для других агентов.
 
         // ============================================================
         // Phase 4: Chat — Slash-команды, Multi-step, Inline actions
