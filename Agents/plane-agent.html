@@ -6663,13 +6663,14 @@
                     // Fallback — на случай если sessionStore ещё не готов
                     addAssistantMessage(formatBotMessage(fakeMsg));
                 }
-                // R8.03: для /me после появления карточек — псевдо-стриминг
-                // сводки по статусам через 2 секунды.
-                if (c.cmd === '/me' && issues && issues.length > 0) {
-                    var typingMsMe = (String(contentText).length / 100) * 1000;
-                    var animMsMe = 1200 + issues.length * 150 + 200; // stagger-волна
-                    var pauseMsMe = 2000; // пауза перед сводкой
-                    var totalDelayMe = typingMsMe + animMsMe + pauseMsMe;
+                // R8.03/R8.04: для /all, /created, /me — после появления
+                // карточек через 2 секунды псевдо-стриминг сводки по статусам.
+                var SUMMARY_CMDS = { '/all': 1, '/created': 1, '/me': 1 };
+                if (SUMMARY_CMDS[c.cmd] && issues && issues.length > 0) {
+                    var typingMsSum = (String(contentText).length / 100) * 1000;
+                    var animMsSum = 1200 + issues.length * 150 + 200; // stagger-волна
+                    var pauseMsSum = 2000; // пауза перед сводкой
+                    var totalDelaySum = typingMsSum + animMsSum + pauseMsSum;
                     setTimeout(function () {
                         var groups = { cancelled: 0, backlog: 0, unstarted: 0, started: 0, completed: 0 };
                         issues.forEach(function (i) {
@@ -6697,7 +6698,7 @@
                         } else {
                             addAssistantMessage(formatBotMessage(summaryMsg));
                         }
-                    }, totalDelayMe);
+                    }, totalDelaySum);
                 }
             } catch (e) {
                 removeLoaderById(loadId);
