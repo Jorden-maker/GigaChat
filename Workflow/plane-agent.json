@@ -601,25 +601,16 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.action }}",
-                    "rightValue": "stats",
+                    "leftValue": "={{ $json.action === 'stats' || $json.action === 'digest' ? 'match' : 'no' }}",
+                    "rightValue": "match",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
                     },
                     "id": "rule-stats"
-                  },
-                  {
-                    "leftValue": "={{ $json.action }}",
-                    "rightValue": "digest",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    },
-                    "id": "rule-digest"
                   }
                 ],
-                "combinator": "or"
+                "combinator": "and"
               }
             },
             {
