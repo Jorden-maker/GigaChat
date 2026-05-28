@@ -6622,30 +6622,34 @@
         // === SLASH COMMANDS ===
         // Каждая команда либо отправляется как text (LLM-параsed) либо запускается прямым
         // direct-вызовом planeDirect. Direct = быстрее и точнее.
+        // R7.84: тексты запросов (desc) и ответов (foundMsg/emptyMsg) синхронизированы
+        // с финальной спецификацией. desc используется и как пункт меню, и как текст
+        // сообщения юзера в чате (БЕЗ двоеточия в конце — двоеточие убирается, оно
+        // теперь только в foundMsg перед карточками).
         var SLASH_COMMANDS = [
-            { cmd: '/today',    desc: 'Задачи с сегодняшним сроком выполнения',                        type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'today' },
+            { cmd: '/today',    desc: 'Покажи задачи с сегодняшним сроком выполнения',                    type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'today' },
               emptyMsg: 'Задачи с сегодняшним сроком выполнения отсутствуют.',
-              foundMsg: 'Задачи с сегодняшним сроком выполнения:' },
-            { cmd: '/me',       desc: 'Все мои задачи по всем проектам',                                 type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'mine' },
+              foundMsg: 'Показываю задачи с сегодняшним сроком выполнения:' },
+            { cmd: '/me',       desc: 'Покажи все мои задачи по всем проектам',                            type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'mine' },
               emptyMsg: 'У вас нет задач.',
-              foundCountSuffix: true /* «Найдено задач по всем проектам: N» */ },
-            { cmd: '/overdue',  desc: 'Задачи с истёкшим сроком выполнения',                              type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'overdue' },
+              foundMsg: 'Показываю все ваши задачи по всем проектам:' },
+            { cmd: '/overdue',  desc: 'Покажи задачи с истёкшим сроком выполнения',                        type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'overdue' },
               emptyMsg: 'Задачи с истёкшим сроком выполнения отсутствуют.',
-              foundMsg: 'Задачи с истёкшим сроком выполнения:' },
-            { cmd: '/urgent',   desc: 'Задачи с максимальным приоритетом',                                 type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'urgent' },
+              foundMsg: 'Показываю задачи с истёкшим сроком выполнения:' },
+            { cmd: '/urgent',   desc: 'Покажи задачи с максимальным приоритетом',                          type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'urgent' },
               emptyMsg: 'У вас нет задач с максимальным приоритетом.',
-              foundMsg: 'Найдено задач с максимальным приоритетом: {N}',
+              foundMsg: 'Показываю задачи с максимальным приоритетом:',
               excludeCancelled: true },
-            { cmd: '/recent',   desc: 'Показать ленту активности',                                       type: 'direct', action: 'list_activity',          params: { scope: 'all' },
-              emptyMsg: 'Лента активности пустая.',
+            { cmd: '/recent',   desc: 'Покажи последние события',                                          type: 'direct', action: 'list_activity',          params: { scope: 'all' },
+              emptyMsg: 'У вас нет никаких событий.',
               foundMsg: 'Показываю последние события:' },
             { cmd: '/digest',   desc: 'Сводка за сегодня',                                                type: 'direct', action: 'digest',                params: {},
               userMsgText: 'Покажи мне созданные задачи, закрытые задачи и задачи с истекающем сроком выполнения за сегодня' },
-            { cmd: '/projects', desc: 'Список всех проектов',                                              type: 'direct', action: 'list_projects',          params: {},
+            { cmd: '/projects', desc: 'Покажи список всех проектов',                                       type: 'direct', action: 'list_projects',          params: {},
               emptyMsg: 'У вас нет проектов.',
               foundMsg: 'Показываю список всех проектов:' },
-            { cmd: '/notif',    desc: 'Показать уведомления',                                              type: 'direct', action: 'list_notifications',     params: {},
-              emptyMsg: 'Уведомлений нет.',
+            { cmd: '/notif',    desc: 'Покажи мои уведомления',                                            type: 'direct', action: 'list_notifications',     params: {},
+              emptyMsg: 'У вас нет актуальных уведомлений.',
               foundMsg: 'Показываю последние уведомления:' },
             { cmd: '/help',     desc: 'Показать справку по командам',                                      type: 'special', handler: 'help' }
         ];
@@ -6744,14 +6748,16 @@
         }
         async function executeSlashDirect(c) {
             // R4 BUG-3 ФИКС: реально делаем direct-вызов, не отдаём LLM.
-            // R7.49: в чате показываем читаемый текст («Задачи с сегодняшним
-            // сроком выполнения:») вместо технического /today. На backend
-            // (chat_memory) тоже сохраняем это — чтобы после F5 история
-            // показывала ровно то же, что и сразу после клика по команде.
+            // R7.49: в чате показываем читаемый текст («Покажи задачи с
+            // сегодняшним сроком выполнения») вместо технического /today.
+            // На backend (chat_memory) тоже сохраняем это — чтобы после F5
+            // история показывала ровно то же, что и сразу после клика.
             // R7.73: userMsgText override для команд где desc короткий
             // (например /digest desc='Сводка за сегодня', но в чат пишем
             // длинный «Покажи мне созданные задачи, закрытые задачи и...»).
-            var displayText = (c.userMsgText || c.desc || c.cmd) + ':';
+            // R7.84: убран `+ ':'` — теперь displayText = ровно то что в desc.
+            // Двоеточие осталось только в foundMsg (перед карточками).
+            var displayText = c.userMsgText || c.desc || c.cmd;
             addUserMessageToChat(displayText);
             // R5 BUG-2: loader = transient (не пишем в displayMessages, иначе
             // спиннер замораживается после reload).
@@ -6809,15 +6815,10 @@
                 var contentText;
                 if (!hasItems && c.emptyMsg) {
                     contentText = c.emptyMsg;
-                } else if (hasItems && c.foundCountSuffix) {
-                    var n = (issues && issues.length) || 0;
-                    contentText = 'Найдено задач по всем проектам: ' + n;
                 } else if (hasItems && c.foundMsg) {
-                    // R7.50: foundMsg может содержать плейсхолдер {N} — подменяется
-                    // на количество задач. Например «Найдено задач с максимальным
-                    // приоритетом: {N}» → «Найдено задач с максимальным приоритетом: 3».
-                    var nFound = (issues && issues.length) || 0;
-                    contentText = c.foundMsg.replace('{N}', String(nFound));
+                    // R7.84: убрана foundCountSuffix-логика и {N}-плейсхолдер
+                    // (тексты теперь без счётчика, см. SLASH_COMMANDS).
+                    contentText = c.foundMsg;
                 } else {
                     contentText = res.response || (hasItems ? 'Результат:' : 'Ничего не найдено.');
                 }
