@@ -7020,10 +7020,60 @@
                     }
                     return false;
                 }
+                // R7.98: автоскролл во время stagger-волны карточек.
+                // Карточки .chat-stagger-in разворачиваются от max-height:0
+                // до полной 1.2s (см. @keyframes chatStaggerIn). scrollHeight
+                // чата растёт во время этой анимации, но smoothScrollToBottom
+                // из _shared.js вызывается ОДИН РАЗ при swap finalHtml — карточки
+                // потом «уезжают вниз» без подстройки. Это особенно заметно
+                // когда в начале сессии скроллбара ещё нет и юзер не видит
+                // нижние карточки.
+                // Решение: RAF-loop на 2.5s после добавления любой stagger-карты.
+                // Если юзер скроллит вверх руками — прерываем.
+                var staggerScrollActive = false;
+                var staggerCancelled = false;
+                function startStaggerAutoscroll() {
+                    if (staggerScrollActive) {
+                        // Уже идёт — продлеваем время старта (новая карта добавилась).
+                        chat.__staggerStartedAt = performance.now();
+                        return;
+                    }
+                    // Если юзер был не у дна (на 100px и выше) — не вмешиваемся.
+                    if (chat.scrollHeight - chat.scrollTop - chat.clientHeight > 100) return;
+                    staggerScrollActive = true;
+                    staggerCancelled = false;
+                    chat.__staggerStartedAt = performance.now();
+                    function tick() {
+                        if (staggerCancelled) { staggerScrollActive = false; return; }
+                        var elapsed = performance.now() - chat.__staggerStartedAt;
+                        if (elapsed > 2500) { staggerScrollActive = false; return; }
+                        chat.scrollTop = chat.scrollHeight;
+                        requestAnimationFrame(tick);
+                    }
+                    requestAnimationFrame(tick);
+                }
+                function cancelStagger() { staggerCancelled = true; }
+                // Wheel/touchmove от юзера — мгновенно отключаем автоскролл,
+                // чтобы можно было скроллить вверх читать пока разворачиваются.
+                chat.addEventListener('wheel', cancelStagger, { passive: true });
+                chat.addEventListener('touchmove', cancelStagger, { passive: true });
                 // R7.45: MO теперь только проставляет chat-fade-in на новые .msg.bot.
                 // Stagger карт инлайнится в HTML через _staggerAttrs() в format-функциях
                 // (только при animate=true — первый показ msg). Без MO-логики stagger
                 // нет race между paint и MO callback — карты сразу с правильным CSS.
+                // R7.98: + при появлении любой .chat-stagger-in карты запускаем
+                // авто-скролл-tracker.
+                function checkStaggerNode(n) {
+                    if (!n || n.nodeType !== 1 || !n.classList) return;
+                    if (n.classList.contains('chat-stagger-in') || isCard(n)) {
+                        startStaggerAutoscroll();
+                    }
+                    // И внутри новой ноды — карты могут быть глубже
+                    if (n.querySelector) {
+                        var inner = n.querySelector('.chat-stagger-in, .plane-card');
+                        if (inner) startStaggerAutoscroll();
+                    }
+                }
                 var mo = new MutationObserver(function (muts) {
                     muts.forEach(function (m) {
                         m.addedNodes && m.addedNodes.forEach(function (n) {
@@ -7031,6 +7081,7 @@
                             if (n.classList && n.classList.contains('msg') && n.classList.contains('bot')) {
                                 if (!n.classList.contains('chat-fade-in')) n.classList.add('chat-fade-in');
                             }
+                            checkStaggerNode(n);
                         });
                     });
                 });
