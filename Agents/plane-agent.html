@@ -1066,19 +1066,8 @@
             font-size: 12px; font-weight: 500; transition: all 0.1s; min-width: 28px; }
         .cm-desc-edit-tools button:hover { background: var(--accent-light); color: var(--accent); }
         .cm-desc-edit-tools .md-sep { width: 1px; background: var(--border); margin: 2px 0; }
-        /* === Export menu === */
-        .export-menu { position: relative; }
-        .export-menu-list { position: absolute; top: 100%; right: 0; margin-top: 4px;
-            background: var(--bg-secondary); border: 1px solid var(--border);
-            border-radius: 6px; min-width: 140px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-            display: none; z-index: 100; overflow: hidden; }
-        .export-menu.open .export-menu-list { display: block; }
-        .export-menu-list button { display: flex; align-items: center; gap: 8px;
-            width: 100%; padding: 8px 12px; background: transparent; border: none;
-            color: var(--text-primary); cursor: pointer; font-family: inherit; font-size: 12px;
-            text-align: left; transition: background 0.1s; }
-        .export-menu-list button:hover { background: var(--accent-light); color: var(--accent); }
-        .export-menu-list button svg { width: 14px; height: 14px; flex-shrink: 0; }
+        /* R7.93: .export-menu* стили удалены вместе с dashboard-export кнопкой
+           (Excel/Word/PDF). Plane UI имеет свой export по проекту. */
         /* === Slash-команды в чате === */
         .slash-menu { position: absolute; bottom: 100%; left: 0; margin-bottom: 6px;
             background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px;
@@ -1791,27 +1780,10 @@
                         <button class="view-tab" data-view="activity" onclick="switchBoardView('activity')">Активность</button>
                     </div>
                     <button class="board-refresh" onclick="forceFullReload()">Обновить</button>
-                    <div class="export-menu" id="export-menu">
-                        <button class="board-refresh" onclick="toggleExportMenu(event)" title="Экспорт проекта">
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-2px">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>Экспорт
-                        </button>
-                        <div class="export-menu-list">
-                            <button onclick="exportBoard('xlsx')">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
-                                Сохранить как Excel
-                            </button>
-                            <button onclick="exportBoard('docx')">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
-                                Сохранить как Word
-                            </button>
-                            <button onclick="exportBoard('pdf')">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                                Сохранить как PDF
-                            </button>
-                        </div>
-                    </div>
+                    <!-- R7.93: кнопка «Экспорт» (Excel/Word/PDF) дашборда убрана.
+                         Дублировала функционал Plane UI (там есть свой export
+                         по проекту). Кнопка «Экспорт чата» в верхней шапке —
+                         другая, она для дампа чата в TXT, осталась. -->
                     <span class="board-status" id="board-status"></span>
                 </div>
                 <!-- Phase 1: вторая полоса с поиском, фильтрами, сортировкой -->
@@ -6432,120 +6404,12 @@
             ta.classList.remove('is-collapsed');
         }
 
-        // === EXPORT ===
-        function toggleExportMenu(e) {
-            if (e) { e.stopPropagation(); e.preventDefault(); }
-            var m = document.getElementById('export-menu');
-            if (m) m.classList.toggle('open');
-        }
-        document.addEventListener('click', function (e) {
-            var m = document.getElementById('export-menu');
-            if (m && m.classList.contains('open') && !m.contains(e.target)) m.classList.remove('open');
-        });
-        function exportBoard(format) {
-            var m = document.getElementById('export-menu');
-            if (m) m.classList.remove('open');
-            var issues = BOARD_ALL_ISSUES || [];
-            if (!issues.length) {
-                alert('Нет задач для экспорта. Открой проект на доске.');
-                return;
-            }
-            var project = BOARD_CURRENT_PROJECT || 'project';
-            var STATE_RU = { unstarted:'Запланирована', backlog:'Отложена', started:'В работе', completed:'Готово', cancelled:'Отменена' };
-            var PRIO_RU = { urgent:'Срочный', high:'Высокий', medium:'Средний', low:'Низкий', none:'—' };
-            // R7.79: ID убран — юзер видит читаемую таблицу без технических идентификаторов.
-            var headers = ['Название', 'Статус', 'Приоритет', 'Дата начала', 'Срок', 'Создана'];
-            var rows = issues.map(function (i) {
-                var g = (i.state_detail && i.state_detail.group) || 'unstarted';
-                return [
-                    i.name || '',
-                    STATE_RU[g] || g,
-                    PRIO_RU[String(i.priority||'none').toLowerCase()] || (i.priority || ''),
-                    i.start_date || '',
-                    i.target_date || '',
-                    i.created_at ? String(i.created_at).slice(0,10) : ''
-                ];
-            });
-            var filenameBase = 'plane_' + project.replace(/[^a-zA-Z0-9а-яА-Я]/g,'_') + '_' + fmtDateISO(new Date());
-            if (format === 'xlsx') exportAsXlsx(filenameBase, headers, rows);
-            else if (format === 'docx') exportAsDocx(filenameBase, project, headers, rows);
-            else if (format === 'pdf') exportAsPdf(project, headers, rows);
-        }
-        async function exportAsXlsx(filename, headers, rows) {
-            try {
-                // R7.79: правильное имя — buildXlsxBlob (раньше buildXlsx → undefined → fallback на CSV).
-                if (GigaChat && typeof GigaChat.buildXlsxBlob === 'function') {
-                    var blob = await GigaChat.buildXlsxBlob(headers, rows, 'Plane');
-                    downloadBlob(blob, filename + '.xlsx');
-                    return;
-                }
-            } catch (e) {}
-            alert('XLSX-конструктор недоступен. Не удалось сохранить.');
-        }
-        // R7.79: Word-экспорт через HTML-as-doc. Word нативно открывает HTML
-        // с MIME application/vnd.ms-word и расширением .doc/.docx. Не требует
-        // OOXML генератора, простой и стабильный путь.
-        function exportAsDocx(filename, projectName, headers, rows) {
-            var th = headers.map(function (h) { return '<th>' + escapeHtml(h) + '</th>'; }).join('');
-            var tr = rows.map(function (r) {
-                return '<tr>' + r.map(function (c) { return '<td>' + escapeHtml(c == null ? '' : String(c)) + '</td>'; }).join('') + '</tr>';
-            }).join('');
-            var html =
-                '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
-                '<head><meta charset="UTF-8"><title>Plane — ' + escapeHtml(projectName) + '</title>' +
-                '<style>' +
-                'body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }' +
-                'h1 { font-size: 16pt; margin-bottom: 4pt; }' +
-                '.meta { color: #666; font-size: 10pt; margin-bottom: 12pt; }' +
-                'table { border-collapse: collapse; width: 100%; }' +
-                'th, td { padding: 6pt 8pt; border: 1pt solid #888; text-align: left; vertical-align: top; font-size: 10pt; }' +
-                'th { background: #eaeaea; font-weight: bold; }' +
-                '</style></head><body>' +
-                '<h1>Plane — ' + escapeHtml(projectName) + '</h1>' +
-                '<div class="meta">Экспорт: ' + new Date().toLocaleString('ru-RU') + ' · задач: ' + rows.length + '</div>' +
-                '<table><thead><tr>' + th + '</tr></thead><tbody>' + tr + '</tbody></table>' +
-                '</body></html>';
-            // ﻿ BOM нужен Word'у для правильного определения UTF-8.
-            var blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-word;charset=utf-8' });
-            downloadBlob(blob, filename + '.doc');
-        }
-        function exportAsPdf(projectName, headers, rows) {
-            // Открываем print-окно с HTML-таблицей и зовём window.print()
-            var win = window.open('', '_blank', 'width=900,height=700');
-            if (!win) { alert('Браузер заблокировал всплывающее окно. Разреши попапы для этого сайта.'); return; }
-            var th = headers.map(function (h) { return '<th>' + escapeHtml(h) + '</th>'; }).join('');
-            var tr = rows.map(function (r) {
-                return '<tr>' + r.map(function (c) { return '<td>' + escapeHtml(c == null ? '' : String(c)) + '</td>'; }).join('') + '</tr>';
-            }).join('');
-            win.document.write(
-                '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">' +
-                '<title>Plane — ' + escapeHtml(projectName) + '</title>' +
-                '<style>' +
-                'body { font-family: Segoe UI, Tahoma, sans-serif; padding: 20px; color: #1f1f1e; }' +
-                'h1 { font-size: 18px; margin-bottom: 4px; }' +
-                '.meta { color: #6b6b68; font-size: 12px; margin-bottom: 16px; }' +
-                'table { width: 100%; border-collapse: collapse; font-size: 12px; }' +
-                'th, td { padding: 6px 8px; border: 1px solid #d4d4d4; text-align: left; vertical-align: top; }' +
-                'th { background: #f3f1ec; font-weight: 600; }' +
-                'tr:nth-child(even) td { background: #fbfaf6; }' +
-                '@media print { body { padding: 0; } @page { size: A4 landscape; margin: 12mm; } }' +
-                '</style></head><body>' +
-                '<h1>Plane — ' + escapeHtml(projectName) + '</h1>' +
-                '<div class="meta">Экспорт: ' + new Date().toLocaleString('ru-RU') + ' · задач: ' + rows.length + '</div>' +
-                '<table><thead><tr>' + th + '</tr></thead><tbody>' + tr + '</tbody></table>' +
-                '<script>setTimeout(function(){ window.print(); }, 300);<\/script>' +
-                '</body></html>'
-            );
-            win.document.close();
-        }
-        function downloadBlob(blob, filename) {
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url; a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-        }
+        // R7.93: блок dashboard-export (toggleExportMenu/exportBoard/
+        // exportAsXlsx/exportAsDocx/exportAsPdf/downloadBlob) удалён вместе
+        // с кнопкой «Экспорт» на дашборде. Plane UI имеет свой export по
+        // проекту, а expirence GigaChat.buildXlsxBlob нужен только дашборду.
+        // Экспорт ЧАТА в TXT (другая кнопка, в шапке) — отдельный
+        // exportChat() из _shared.js, остаётся.
 
         // ============================================================
         // Phase 4: Chat — Slash-команды, Multi-step, Inline actions
