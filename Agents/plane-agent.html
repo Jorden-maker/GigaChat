@@ -3500,8 +3500,21 @@
                     // Phase 1 #12: Disambiguation — если backend вернул несколько кандидатов
                     // под одну issue_name, фронт отрендерит список карточек.
                     if (data && data.disambiguation) extras.disambiguation = data.disambiguation;
-                    // Phase 1 #14: Quick replies — массив строк/{label,text} от backend
-                    if (data && data.quick_replies) extras.quick_replies = data.quick_replies;
+                    // Phase 1 #14: Quick replies — массив строк/{label,text} от backend.
+                    // R7.90: страховка — quick_replies НЕ нужны для read-only actions
+                    // (list_issues, cross_project_search, stats, search_issues, list_projects,
+                    // list_cycles/_modules/_notifications/_activity, digest, get_issue,
+                    // list_members, me). Даже если LLM их прислал — игнорируем,
+                    // потому что после списка задач они только мешают.
+                    var QR_FORBIDDEN_ACTIONS = {
+                        list_issues:1, cross_project_search:1, stats:1, search_issues:1,
+                        list_projects:1, list_cycles:1, list_modules:1, list_notifications:1,
+                        list_activity:1, digest:1, get_issue:1, list_members:1, me:1
+                    };
+                    var qrAction = data && data.action;
+                    if (data && data.quick_replies && !QR_FORBIDDEN_ACTIONS[qrAction]) {
+                        extras.quick_replies = data.quick_replies;
+                    }
                     // Phase 1 #13: Подтверждение destructive — открываем confirm-flow
                     if (data && data.confirm) {
                         setTimeout(function () { openConfirmDialog(data.confirm); }, 50);
@@ -7280,7 +7293,11 @@
         // и обновляет соответствующую карточку in-place.
         function inlineActionsHtml(issue) {
             if (!issue || !issue.name) return '';
-            var group = (issue.state_detail && issue.state_detail.group) || '';
+            // R7.90: если state_detail.group отсутствует (например только что
+            // создана через LLM, и старый workflow не обогащает) — считаем backlog.
+            // Plane при POST /issues/ по умолчанию ставит задачу в backlog-state,
+            // поэтому показывать кнопку «Отложено» — корректный дефолт.
+            var group = (issue.state_detail && issue.state_detail.group) || 'backlog';
             var isCompleted = group === 'completed';
             var isCancelled = group === 'cancelled';
             var isStarted = group === 'started';
