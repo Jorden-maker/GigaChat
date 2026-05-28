@@ -6595,6 +6595,14 @@
             // Двоеточие осталось только в foundMsg (перед карточками).
             var displayText = c.userMsgText || c.desc || c.cmd;
             addUserMessageToChat(displayText);
+            // R8.14: если Plane-настройки пусты (никогда не заполняли url/slug/token) —
+            // не пытаемся идти в backend, показываем общий ответ. /help сюда не
+            // попадает (он type='special' и обрабатывается раньше).
+            var _sPre = (typeof loadPlaneSettings === 'function') ? loadPlaneSettings() : null;
+            if (!_sPre || !_sPre.url || !_sPre.slug || !_sPre.token) {
+                addAssistantMessage('Команда недоступна. Настройте ваш аккаунт.');
+                return;
+            }
             // R5 BUG-2: loader = transient (не пишем в displayMessages, иначе
             // спиннер замораживается после reload).
             var loadId = 'sl-load-' + Date.now();
@@ -6615,6 +6623,23 @@
                     message: displayText
                 });
                 removeLoaderById(loadId);
+                // R8.14: единый ответ при отсутствующем/некорректном API-токене.
+                // Срабатывает на (а) plane_setup_required=true от валидации
+                // workflow, (б) auth_required=true (401 на gigachat-токен),
+                // (в) явные признаки 401/403/нет доступа в строке res.response.
+                if (res && (res.plane_setup_required || res.auth_required)) {
+                    addAssistantMessage('Команда недоступна. Настройте ваш аккаунт.');
+                    return;
+                }
+                var _respLow = String((res && res.response) || '').toLowerCase();
+                if (_respLow.indexOf('нет доступа') !== -1
+                    || _respLow.indexOf('api token') !== -1
+                    || _respLow.indexOf('401') !== -1
+                    || _respLow.indexOf('403') !== -1
+                    || _respLow.indexOf('unauthorized') !== -1) {
+                    addAssistantMessage('Команда недоступна. Настройте ваш аккаунт.');
+                    return;
+                }
                 if (!res || (res.error && !res.data && !res.response)) {
                     addAssistantMessage('Не удалось выполнить «' + escapeHtml(c.cmd) + '»: ' + escapeHtml((res && res.response) || 'нет соединения'));
                     return;
