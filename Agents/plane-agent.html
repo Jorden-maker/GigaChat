@@ -6634,6 +6634,8 @@
                 var _respLow = String((res && res.response) || '').toLowerCase();
                 if (_respLow.indexOf('нет доступа') !== -1
                     || _respLow.indexOf('api token') !== -1
+                    || _respLow.indexOf('plane недоступен') !== -1
+                    || _respLow.indexOf('plane не настроен') !== -1
                     || _respLow.indexOf('401') !== -1
                     || _respLow.indexOf('403') !== -1
                     || _respLow.indexOf('unauthorized') !== -1) {
