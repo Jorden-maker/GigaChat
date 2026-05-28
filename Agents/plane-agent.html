@@ -1147,7 +1147,14 @@
             to {
                 opacity: 1;
                 transform: translateY(0);
-                max-height: 800px;
+                /* R8.19: max-height было 800px + animationend handler менял
+                   на 'none'. Этот jump (с 800 на actual content height) после
+                   завершения каждой карточки заставлял scrollHeight скакать,
+                   и RAF-tracker дёргал scrollTop = «карточки вибрировали».
+                   9999px — потолок, который никакая карточка задачи не
+                   превысит; animation-fill-mode:both держит этот final state,
+                   так что post-animation JS-патч не нужен. */
+                max-height: 9999px;
                 padding-block: 10px;
                 margin-block: 6px;
                 border-block-width: 1px;
@@ -7159,7 +7166,14 @@
                             staggerScrollActive = false;
                             return;
                         }
-                        chat.scrollTop = chat.scrollHeight;
+                        // R8.19: ставим scrollTop ТОЛЬКО если есть реальная
+                        // разница (>1px). Раньше каждый кадр писали один
+                        // и тот же scrollTop — браузер всё равно делал
+                        // repaint, и карточки визуально «дрожали».
+                        var distance = chat.scrollHeight - chat.scrollTop - chat.clientHeight;
+                        if (distance > 1) {
+                            chat.scrollTop = chat.scrollHeight;
+                        }
                         staggerRafId = requestAnimationFrame(tick);
                     }
                     staggerRafId = requestAnimationFrame(tick);
@@ -7215,17 +7229,13 @@
                         });
                     });
                 });
-                // R7.47: после chatStaggerIn animation убираем max-height и
-                // overflow:hidden — иначе длинный контент (>800px) останется
-                // обрезан. animation-fill-mode:both держит «to» state с
-                // max-height:800px, поэтому надо явно сбросить.
-                chat.addEventListener('animationend', function (e) {
-                    if (e.animationName !== 'chatStaggerIn') return;
-                    var el = e.target;
-                    if (!el.classList || !el.classList.contains('chat-stagger-in')) return;
-                    el.style.maxHeight = 'none';
-                    el.style.overflow = 'visible';
-                });
+                // R8.19: animationend handler удалён.
+                // Раньше он менял maxHeight: 800px → 'none' и overflow на visible —
+                // но при этом scrollHeight чата прыгал, и RAF-tracker дёргал
+                // scrollTop (карточки выглядели «дрожащими»). Теперь max-height
+                // в keyframes увеличено до 9999px — никакая карточка задачи не
+                // превысит, обрезки не будет. overflow: hidden остаётся,
+                // но при max-height: 9999px он не виден.
                 mo.observe(chat, { childList: true, subtree: true });
             }
             watch();
