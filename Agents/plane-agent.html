@@ -2552,12 +2552,18 @@
             if (v === 'deleted') return 'удалил задачу';
             if (e.comment) {
                 var c = String(e.comment).replace(/<[^>]+>/g, '').trim();
-                // Plane-auto: «updated the <field> to ...» / «added <field>»
+                var cLow = c.toLowerCase();
+                // R7.77: расширенный список Plane-auto patterns — все они
+                // ИСКУССТВЕННЫЕ записи Plane API (не реальные комментарии).
+                if (cLow === 'created the issue' || /^created\s+(the\s+)?issue/i.test(c)) return 'создал задачу';
+                if (cLow === 'deleted the issue' || /^deleted\s+(the\s+)?issue/i.test(c)) return 'удалил задачу';
+                // Plane-auto: «updated the <field> to ...»
                 var auto = c.match(/^updated the ([a-z\s]+?) to/i);
                 if (auto) {
                     var apiF = auto[1].toLowerCase().trim().replace(/\s+/g, '_');
                     return ACTION_RU[apiF] || ('изменил ' + apiF);
                 }
+                // «added X» / «removed X» — assigned label/assignee/etc.
                 if (/^added\s+/i.test(c)) {
                     var added = c.match(/^added\s+([a-z\s]+)/i);
                     if (added) {
@@ -2565,6 +2571,22 @@
                         return 'добавил ' + (ACTION_RU[aF] ? ACTION_RU[aF].replace(/^изменил /, '') : aF);
                     }
                 }
+                if (/^removed\s+/i.test(c)) {
+                    var removed = c.match(/^removed\s+([a-z\s]+)/i);
+                    if (removed) {
+                        var rF = removed[1].toLowerCase().trim().replace(/\s+/g, '_');
+                        return 'убрал ' + (ACTION_RU[rF] ? ACTION_RU[rF].replace(/^изменил /, '') : rF);
+                    }
+                }
+                // «assigned the issue» / «unassigned»
+                if (/^assigned\s+/i.test(c)) return 'назначил исполнителя';
+                if (/^unassigned\s+/i.test(c)) return 'снял исполнителя';
+                // Generic Plane-auto detection — если строка не содержит
+                // кириллицы и начинается с английского verb'а, это аудит-
+                // запись от Plane, не реальный комментарий. Fallback: «обновил задачу».
+                var isAscii = !/[А-Яа-яЁё]/.test(c);
+                var startsLikeAuto = /^(updated|created|deleted|added|removed|assigned|unassigned|changed|moved|linked|unlinked)\b/i.test(c);
+                if (isAscii && startsLikeAuto) return 'обновил задачу';
                 // Настоящий комментарий — короткое превью.
                 return 'оставил комментарий: ' + c.slice(0, 60) + (c.length > 60 ? '…' : '');
             }
