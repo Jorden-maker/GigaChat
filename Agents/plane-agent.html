@@ -6650,20 +6650,25 @@
         // с финальной спецификацией. desc используется и как пункт меню, и как текст
         // сообщения юзера в чате (БЕЗ двоеточия в конце — двоеточие убирается, оно
         // теперь только в foundMsg перед карточками).
+        // R7.87: allowedStatuses — фильтр по group задачи. Если задан, оставляем
+        // только задачи, у которых state_detail.group ∈ allowedStatuses. Применяется
+        // ПОСЛЕ ответа бэка. Если после фильтра пусто — emptyMsg.
         var SLASH_COMMANDS = [
             { cmd: '/today',    desc: 'Покажи задачи с сегодняшним сроком выполнения',                    type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'today' },
               emptyMsg: 'Задачи с сегодняшним сроком выполнения отсутствуют.',
-              foundMsg: 'Показываю задачи с сегодняшним сроком выполнения:' },
+              foundMsg: 'Показываю задачи с сегодняшним сроком выполнения:',
+              allowedStatuses: ['backlog','unstarted','started'] },
             { cmd: '/me',       desc: 'Покажи все мои задачи по всем проектам',                            type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'mine' },
               emptyMsg: 'У вас нет задач.',
               foundMsg: 'Показываю все ваши задачи по всем проектам:' },
             { cmd: '/overdue',  desc: 'Покажи задачи с истёкшим сроком выполнения',                        type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'overdue' },
               emptyMsg: 'Задачи с истёкшим сроком выполнения отсутствуют.',
-              foundMsg: 'Показываю задачи с истёкшим сроком выполнения:' },
+              foundMsg: 'Показываю задачи с истёкшим сроком выполнения:',
+              allowedStatuses: ['backlog','unstarted','started'] },
             { cmd: '/urgent',   desc: 'Покажи задачи с максимальным приоритетом',                          type: 'direct', action: 'cross_project_search', params: { query: '', filter: 'urgent' },
               emptyMsg: 'У вас нет задач с максимальным приоритетом.',
               foundMsg: 'Показываю задачи с максимальным приоритетом:',
-              excludeCancelled: true },
+              allowedStatuses: ['backlog','unstarted','started'] },
             { cmd: '/recent',   desc: 'Покажи последние события',                                          type: 'direct', action: 'list_activity',          params: { scope: 'all' },
               emptyMsg: 'У вас нет никаких событий.',
               foundMsg: 'Показываю последние события:' },
@@ -6814,14 +6819,17 @@
                     return;
                 }
                 // R7 #3,#4,#10: кастомные сообщения для каждой slash-команды.
-                // R7.50: excludeCancelled — фильтруем отменённые задачи из
-                // результатов. Используется в /urgent: backend возвращает все
-                // urgent-приоритетные включая cancelled, но для пользователя
-                // эти задачи бесполезны (отменены — не требуют внимания).
-                if (c.excludeCancelled && res.data && Array.isArray(res.data.issues)) {
+                // R7.87: allowedStatuses — единый фильтр по group задачи.
+                // Используется /today, /overdue, /urgent — нужны только активные
+                // задачи (backlog / unstarted / started). Готовые и отменённые
+                // в этих командах юзера не интересуют.
+                // (excludeCancelled был частным случаем — заменён общим фильтром.)
+                if (Array.isArray(c.allowedStatuses) && res.data && Array.isArray(res.data.issues)) {
+                    var allowSet = {};
+                    c.allowedStatuses.forEach(function (s) { allowSet[s] = 1; });
                     res.data.issues = res.data.issues.filter(function (i) {
                         var group = (i.state_detail && i.state_detail.group) || '';
-                        return group !== 'cancelled';
+                        return allowSet[group] === 1;
                     });
                 }
                 var issues = (res.data && Array.isArray(res.data.issues)) ? res.data.issues : null;
