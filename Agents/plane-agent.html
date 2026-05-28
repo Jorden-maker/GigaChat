@@ -1069,18 +1069,24 @@
         /* R7.93: .export-menu* стили удалены вместе с dashboard-export кнопкой
            (Excel/Word/PDF). Plane UI имеет свой export по проекту. */
         /* === Slash-команды в чате === */
+        /* R8.01: меню автоподстраивается под содержимое (width: max-content),
+           text не переносится (nowrap на desc), все строки одинаковой высоты
+           (min-height: 40px), + 16px right-padding как «запас». */
         .slash-menu { position: absolute; bottom: 100%; left: 0; margin-bottom: 6px;
             background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px;
-            box-shadow: 0 -4px 16px rgba(0,0,0,0.35); min-width: 280px; max-width: 380px;
+            box-shadow: 0 -4px 16px rgba(0,0,0,0.35);
+            width: max-content; min-width: 320px;
             max-height: 280px; overflow-y: auto; z-index: 200;
             scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-        .slash-menu-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+        .slash-menu-item { display: flex; align-items: center; gap: 10px;
+            padding: 8px 24px 8px 12px; min-height: 40px;
             cursor: pointer; transition: background 0.1s; border-bottom: 1px solid var(--border); }
         .slash-menu-item:last-child { border-bottom: none; }
         .slash-menu-item:hover, .slash-menu-item.active { background: var(--accent-light); }
         .slash-menu-cmd { color: var(--accent); font-family: 'Cascadia Code', Consolas, monospace;
             font-size: 12px; font-weight: 500; min-width: 80px; }
-        .slash-menu-desc { color: var(--text-secondary); font-size: 12px; flex: 1; }
+        .slash-menu-desc { color: var(--text-secondary); font-size: 12px;
+            flex: 1; white-space: nowrap; }
         .slash-menu-kbd { font-size: 10px; color: var(--text-muted); padding: 1px 6px;
             border: 1px solid var(--border); border-radius: 3px; }
         .gc-input-wrap { position: relative; flex: 1; }
