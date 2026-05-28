@@ -6663,6 +6663,42 @@
                     // Fallback — на случай если sessionStore ещё не готов
                     addAssistantMessage(formatBotMessage(fakeMsg));
                 }
+                // R8.03: для /me после появления карточек — псевдо-стриминг
+                // сводки по статусам через 2 секунды.
+                if (c.cmd === '/me' && issues && issues.length > 0) {
+                    var typingMsMe = (String(contentText).length / 100) * 1000;
+                    var animMsMe = 1200 + issues.length * 150 + 200; // stagger-волна
+                    var pauseMsMe = 2000; // пауза перед сводкой
+                    var totalDelayMe = typingMsMe + animMsMe + pauseMsMe;
+                    setTimeout(function () {
+                        var groups = { cancelled: 0, backlog: 0, unstarted: 0, started: 0, completed: 0 };
+                        issues.forEach(function (i) {
+                            var g = (i.state_detail && i.state_detail.group) || '';
+                            if (groups.hasOwnProperty(g)) groups[g]++;
+                        });
+                        var NL = String.fromCharCode(10);
+                        var summaryText =
+                            'Отмененные задачи: ' + groups.cancelled + NL +
+                            'Отложенные задачи: ' + groups.backlog + NL +
+                            'Запланированные задачи: ' + groups.unstarted + NL +
+                            'Выполняемые задачи: ' + groups.started + NL +
+                            'Выполненные задачи: ' + groups.completed + NL +
+                            'Итого задач: ' + issues.length;
+                        var summaryMsg = { role: 'assistant', content: summaryText, extras: {}, ts: Date.now() };
+                        var ssR2 = (window.__planeAgent && window.__planeAgent.sessionStore) || null;
+                        var sidR2 = ssR2 && ssR2.state && ssR2.state.activeSessionId;
+                        if (ssR2 && sidR2 && GigaChat && GigaChat.typewriteAssistant) {
+                            GigaChat.typewriteAssistant(ssR2, sidR2, summaryMsg, {
+                                cps: 100,
+                                sendBtn: document.getElementById('send'),
+                                input: document.getElementById('msg'),
+                                accentColor: '#d4a574'
+                            });
+                        } else {
+                            addAssistantMessage(formatBotMessage(summaryMsg));
+                        }
+                    }, totalDelayMe);
+                }
             } catch (e) {
                 removeLoaderById(loadId);
                 addAssistantMessage('Ошибка: ' + escapeHtml(e.message || String(e)));
