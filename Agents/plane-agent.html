@@ -6326,9 +6326,8 @@
             { cmd: '/recent',   desc: 'Показать ленту активности',                                       type: 'direct', action: 'list_activity',          params: { scope: 'all' },
               emptyMsg: 'Лента активности пустая.',
               foundMsg: 'Показываю последние события:' },
-            { cmd: '/digest',   desc: 'Дайджест: создано / закрыто / просрочено',                          type: 'direct', action: 'digest',                params: {},
-              emptyMsg: 'Дайджест за сегодня пустой.',
-              foundMsg: 'Дайджест за сегодня:' },
+            { cmd: '/digest',   desc: 'Сводка за сегодня',                                                type: 'direct', action: 'digest',                params: {},
+              userMsgText: 'Покажи мне созданные задачи, закрытые задачи и задачи с истёкшим сроком выполнения за сегодня' },
             { cmd: '/projects', desc: 'Список всех проектов',                                              type: 'direct', action: 'list_projects',          params: {},
               emptyMsg: 'У вас нет проектов.',
               foundMsg: 'Показываю список всех проектов:' },
@@ -6434,7 +6433,10 @@
             // сроком выполнения:») вместо технического /today. На backend
             // (chat_memory) тоже сохраняем это — чтобы после F5 история
             // показывала ровно то же, что и сразу после клика по команде.
-            var displayText = (c.desc || c.cmd) + ':';
+            // R7.73: userMsgText override для команд где desc короткий
+            // (например /digest desc='Сводка за сегодня', но в чат пишем
+            // длинный «Покажи мне созданные задачи, закрытые задачи и...»).
+            var displayText = (c.userMsgText || c.desc || c.cmd) + ':';
             addUserMessageToChat(displayText);
             // R5 BUG-2: loader = transient (не пишем в displayMessages, иначе
             // спиннер замораживается после reload).
@@ -6458,6 +6460,12 @@
                 removeLoaderById(loadId);
                 if (!res || (res.error && !res.data && !res.response)) {
                     addAssistantMessage('Не удалось выполнить «' + escapeHtml(c.cmd) + '»: ' + escapeHtml((res && res.response) || 'нет соединения'));
+                    return;
+                }
+                // R7.73: /digest — три последовательных псевдо-стрима
+                // с карточками между ними. Не идёт через общий путь.
+                if (c.action === 'digest' && res.data && res.data.digest) {
+                    await executeDigestSequence(res.data.digest);
                     return;
                 }
                 // R7 #3,#4,#10: кастомные сообщения для каждой slash-команды.
@@ -6523,6 +6531,60 @@
                 removeLoaderById(loadId);
                 addAssistantMessage('Ошибка: ' + escapeHtml(e.message || String(e)));
             }
+        }
+        // R7.73: /digest spec — три последовательных «шага», каждый — псевдо-стриминг
+        // текста + (если есть задачи) карточки с stagger-анимацией. Следующий шаг
+        // запускается ТОЛЬКО после того как предыдущий полностью отрисуется.
+        async function executeDigestSequence(digest) {
+            var ssRef = window.__planeAgent && window.__planeAgent.sessionStore;
+            if (!ssRef) return;
+            function showStep(textMsg, issues) {
+                return new Promise(function (resolve) {
+                    var hasItems = Array.isArray(issues) && issues.length > 0;
+                    var fakeMsg = {
+                        role: 'assistant',
+                        content: textMsg,
+                        extras: hasItems ? { issues: issues } : {},
+                        ts: Date.now()
+                    };
+                    var sidRef = ssRef.state.activeSessionId;
+                    GigaChat.typewriteAssistant(ssRef, sidRef, fakeMsg, {
+                        cps: 100,
+                        sendBtn: document.getElementById('send'),
+                        input: document.getElementById('msg'),
+                        accentColor: '#d4a574'
+                    });
+                    // Длительность: typing (cps=100) + stagger-волна карточек.
+                    // Карточки: 1.2с базовая + 150мс на карточку (stagger) + 200мс буфер.
+                    var typingMs = (String(textMsg).length / 100) * 1000;
+                    var animMs = hasItems ? (1200 + issues.length * 150 + 200) : 200;
+                    setTimeout(resolve, typingMs + animMs);
+                });
+            }
+            // Шаг 1: созданные за сегодня
+            var created = digest.created_issues || [];
+            await showStep(
+                created.length
+                    ? 'Показываю созданные задачи за сегодня:'
+                    : 'За сегодня новых задач не создавалось.',
+                created
+            );
+            // Шаг 2: закрытые за сегодня
+            var closed = digest.closed_issues || [];
+            await showStep(
+                closed.length
+                    ? 'Показываю задачи, которые были закрыты за сегодня:'
+                    : 'За сегодня нет закрытых задач.',
+                closed
+            );
+            // Шаг 3: с истёкшим сегодня сроком
+            var overdue = digest.overdue_issues || [];
+            await showStep(
+                overdue.length
+                    ? 'Показываю задачи у которых сегодня истёк срок выполнения:'
+                    : 'За сегодня не было задач, у которых истёк срок выполнения.',
+                overdue
+            );
         }
         function removeLoaderById(loadId) {
             var loader = document.getElementById(loadId);
