@@ -6529,6 +6529,18 @@
                 showSlashHelp();
                 return;
             }
+            // R7.97: если активной сессии нет — автосоздаём перед запуском
+            // slash-команды. Раньше команда стартовала без сессии: сообщение
+            // юзера и ответ появлялись в чате, но в chat_memory не писались
+            // (нет session_id), и после F5 терялись. Плюс sidebar показывал
+            // «СЕССИИ — Новая сессия» вместо активной.
+            try {
+                var ssEnsure = window.__planeAgent && window.__planeAgent.sessionStore;
+                var sidEnsure = ssEnsure && ssEnsure.state && ssEnsure.state.activeSessionId;
+                if (ssEnsure && !sidEnsure && typeof ssEnsure.createNew === 'function') {
+                    ssEnsure.createNew();
+                }
+            } catch (_) {}
             // Очищаем input и запускаем команду
             input.value = '';
             if (c.type === 'direct') {
