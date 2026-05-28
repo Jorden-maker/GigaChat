@@ -7134,6 +7134,7 @@
                 // Если юзер скроллит вверх руками — прерываем.
                 var staggerScrollActive = false;
                 var staggerCancelled = false;
+                var staggerRafId = null;
                 function startStaggerAutoscroll() {
                     if (staggerScrollActive) {
                         // Уже идёт — продлеваем время старта (новая карта добавилась).
@@ -7146,19 +7147,46 @@
                     staggerCancelled = false;
                     chat.__staggerStartedAt = performance.now();
                     function tick() {
+                        staggerRafId = null;
                         if (staggerCancelled) { staggerScrollActive = false; return; }
                         var elapsed = performance.now() - chat.__staggerStartedAt;
                         if (elapsed > 2500) { staggerScrollActive = false; return; }
+                        // R8.18: если юзер ушёл далеко вверх (>100px от низа) во
+                        // время автоскролла — тоже прекращаем. Это защита если
+                        // wheel-handler не успел сработать раньше следующего tick.
+                        if (chat.scrollHeight - chat.scrollTop - chat.clientHeight > 100) {
+                            staggerCancelled = true;
+                            staggerScrollActive = false;
+                            return;
+                        }
                         chat.scrollTop = chat.scrollHeight;
-                        requestAnimationFrame(tick);
+                        staggerRafId = requestAnimationFrame(tick);
                     }
-                    requestAnimationFrame(tick);
+                    staggerRafId = requestAnimationFrame(tick);
                 }
-                function cancelStagger() { staggerCancelled = true; }
+                function cancelStagger() {
+                    // R8.18: мгновенно отменяем RAF — иначе следующий tick
+                    // успевал переписать scrollTop поверх юзерского scroll'а,
+                    // и казалось что скролл «вверх не пускает».
+                    staggerCancelled = true;
+                    staggerScrollActive = false;
+                    if (staggerRafId !== null) {
+                        cancelAnimationFrame(staggerRafId);
+                        staggerRafId = null;
+                    }
+                }
                 // Wheel/touchmove от юзера — мгновенно отключаем автоскролл,
                 // чтобы можно было скроллить вверх читать пока разворачиваются.
                 chat.addEventListener('wheel', cancelStagger, { passive: true });
                 chat.addEventListener('touchmove', cancelStagger, { passive: true });
+                // R8.18: keydown PgUp/Up/Home — тоже отменяет автоскролл.
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'Home') {
+                        if (chat.contains(document.activeElement) || document.activeElement === document.body) {
+                            cancelStagger();
+                        }
+                    }
+                });
                 // R7.45: MO теперь только проставляет chat-fade-in на новые .msg.bot.
                 // Stagger карт инлайнится в HTML через _staggerAttrs() в format-функциях
                 // (только при animate=true — первый показ msg). Без MO-логики stagger
