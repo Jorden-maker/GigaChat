@@ -1136,9 +1136,16 @@
             to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes chatStaggerIn {
+            /* R8.25: убран transform:translateY(8px→0). Карты визуально
+               «появляются» (max-height перешёл за content-size) на ~12-й мс
+               анимации, а transform продолжал интерполироваться все 1.2с —
+               subpixel anti-aliasing на дробных значениях translateY (0.5,
+               0.3 и т.п.) давал ~1px дрожание. Это и видел юзер как
+               «вибрацию 2 секунды после появления». opacity + max-height
+               уже дают чистый эффект «развёртывания снизу-вверх», transform
+               был визуально не критичен. */
             from {
                 opacity: 0;
-                transform: translateY(8px);
                 max-height: 0;
                 padding-block: 0;
                 margin-block: 0;
@@ -1146,7 +1153,6 @@
             }
             to {
                 opacity: 1;
-                transform: translateY(0);
                 /* R8.19: max-height было 800px + animationend handler менял
                    на 'none'. Этот jump (с 800 на actual content height) после
                    завершения каждой карточки заставлял scrollHeight скакать,
@@ -1168,13 +1174,11 @@
         .chat-stagger-in {
             animation: chatStaggerIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
             overflow: hidden;
-            /* R8.20: will-change: transform держит GPU-композитный слой и
-               после окончания анимации. Иначе браузер деоптимизирует слой
-               и translateY(0) ре-растеризуется в обычный поток, что даёт
-               1-2px subpixel-сдвиг — визуально это и есть «вибрация после
-               окончания анимации». GPU-слой остаётся, сдвига нет.
-               Затраты памяти на 10-30 карт-слоёв минимальные. */
-            will-change: transform;
+            /* R8.25: will-change удалён вместе с transform из keyframes.
+               Раньше держал GPU-композитный слой для transform:translateY(0)
+               чтобы не было пост-анимационного субпиксельного сдвига. Без
+               transform смысла нет — opacity и max-height не дают такого
+               эффекта. */
         }
         /* Spinner для loader'ов */
         .msg-spinner { display: inline-block; width: 12px; height: 12px;
