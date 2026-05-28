@@ -4300,41 +4300,46 @@
             if (commSec) commSec.style.display = 'none';
         }
         async function modalCreateNew() {
-            var name = (document.getElementById('cm-name').value || '').trim();
+            var nameEl = document.getElementById('cm-name');
+            if (!nameEl) return;
+            var name = (nameEl.value || '').trim();
             if (!name) { alert('Введи название задачи'); return; }
             var desc = (document.getElementById('cm-desc').value || '').trim();
             var prio = document.getElementById('cm-prio').value;
             var start = document.getElementById('cm-start').value;
             var deadline = document.getElementById('cm-deadline').value;
             var state = document.getElementById('cm-state').value;
+            // R7.83 AUDIT: snapshot project — может быть переключён во время await
+            var proj = BOARD_CURRENT_PROJECT;
+            if (!proj) { alert('Сначала выбери проект'); return; }
             var statusEl = document.getElementById('board-status');
-            statusEl.textContent = 'Создаю...';
+            if (statusEl) statusEl.textContent = 'Создаю...';
             try {
-                var createParams = { project_name: BOARD_CURRENT_PROJECT, name: name };
+                var createParams = { project_name: proj, name: name };
                 if (desc) createParams.description = desc;
                 if (prio && prio !== 'none') createParams.priority = prio;
                 if (start) createParams.start_date = start;
                 if (deadline) createParams.target_date = deadline;
                 var res = await planeDirect('create_issue', createParams);
                 if (res && (res.error || res.action === 'error')) {
-                    statusEl.textContent = res.response || 'Ошибка создания';
+                    if (statusEl) statusEl.textContent = res.response || 'Ошибка создания';
                     return;
                 }
                 // Если выбран статус не «Запланированные» — change_status
                 if (state && state !== 'todo') {
                     await planeDirect('change_status', {
-                        project_name: BOARD_CURRENT_PROJECT,
+                        project_name: proj,
                         issue_name: name,
                         state: state
                     });
                 }
-                statusEl.textContent = 'Создано';
+                if (statusEl) statusEl.textContent = 'Создано';
                 closeCardModal();
                 reloadBoard();
             } catch (e) {
-                statusEl.textContent = 'Ошибка: ' + e.message;
+                if (statusEl) statusEl.textContent = 'Ошибка: ' + (e && e.message ? e.message : e);
             } finally {
-                setTimeout(function () { statusEl.textContent = ''; }, 3000);
+                setTimeout(function () { if (statusEl) statusEl.textContent = ''; }, 3000);
             }
         }
 
@@ -4347,8 +4352,11 @@
             // Защита от race: footer мог не успеть обновиться после быстрых
             // открытий, и старый «Сохранить» дёрнул бы modalSave вместо create.
             if (MODAL_CURRENT_ISSUE._isNew) return modalCreateNew();
+            // R7.83 AUDIT: snapshot — глобальный MODAL_CURRENT_ISSUE может быть
+            // обнулён закрытием модалки во время await. Берём локальную ссылку.
+            var issue = MODAL_CURRENT_ISSUE;
             var statusEl = document.getElementById('board-status');
-            var origName = MODAL_CURRENT_ISSUE.name;
+            var origName = issue.name;
             var newName = (document.getElementById('cm-name').value || '').trim();
             // Phase 3: описание теперь в Markdown — конвертируем в HTML перед save.
             // Workflow всё равно завернёт строку в <p>...</p>, но мы передаём
@@ -4358,17 +4366,17 @@
             var newDesc = newDescRaw; // workflow.create/update сам обернёт в <p>; markdown сохраняется как plain-text внутри HTML.
             // AUDIT R3-A: сравниваем с оригиналом (markdown-round-trip),
             // чтобы юзер мог очистить описание (раньше пустая строка молча игнорилась).
-            var origDesc = htmlToMd(MODAL_CURRENT_ISSUE.description_html || MODAL_CURRENT_ISSUE.description || '');
+            var origDesc = htmlToMd(issue.description_html || issue.description || '');
             var descChanged = newDesc !== origDesc;
             var newPrio = document.getElementById('cm-prio').value;
             var newStart = document.getElementById('cm-start') ? document.getElementById('cm-start').value : '';
             var newDeadline = document.getElementById('cm-deadline').value;
             var newState = document.getElementById('cm-state').value;
 
-            statusEl.textContent = 'Сохраняю...';
+            if (statusEl) statusEl.textContent = 'Сохраняю...';
             try {
                 // 1) Если меняется статус — отдельный change_status
-                var origGroup = (MODAL_CURRENT_ISSUE.state_detail && MODAL_CURRENT_ISSUE.state_detail.group) || 'unstarted';
+                var origGroup = (issue.state_detail && issue.state_detail.group) || 'unstarted';
                 var stateMap = { unstarted: 'todo', started: 'in_progress', completed: 'done', cancelled: 'cancelled', backlog: 'backlog' };
                 // AUDIT-M3: проверяем результат каждого подзапроса. Раньше при
                 // ошибке change_status (429, conflict) код продолжал в update_issue
@@ -4380,7 +4388,7 @@
                         state: newState
                     });
                     if (rState && (rState.error || rState.action === 'error')) {
-                        statusEl.textContent = rState.response || 'Не удалось сменить статус';
+                        if (statusEl) statusEl.textContent = rState.response || 'Не удалось сменить статус';
                         return;
                     }
                 }
@@ -4388,23 +4396,23 @@
                 var updateParams = { project_name: _mProject, issue_name: origName };
                 if (newName && newName !== origName) updateParams.name = newName;
                 if (descChanged) updateParams.description = newDesc; // R3-A: пустая строка теперь тоже пройдёт
-                if (newPrio !== String(MODAL_CURRENT_ISSUE.priority || 'none')) updateParams.priority = newPrio;
-                if (newStart && newStart !== (MODAL_CURRENT_ISSUE.start_date || '')) updateParams.start_date = newStart;
-                if (newDeadline && newDeadline !== (MODAL_CURRENT_ISSUE.target_date || '')) updateParams.target_date = newDeadline;
+                if (newPrio !== String(issue.priority || 'none')) updateParams.priority = newPrio;
+                if (newStart && newStart !== (issue.start_date || '')) updateParams.start_date = newStart;
+                if (newDeadline && newDeadline !== (issue.target_date || '')) updateParams.target_date = newDeadline;
                 if (Object.keys(updateParams).length > 2) {
                     var rUpd = await planeDirect('update_issue', updateParams);
                     if (rUpd && (rUpd.error || rUpd.action === 'error')) {
-                        statusEl.textContent = rUpd.response || 'Не удалось обновить';
+                        if (statusEl) statusEl.textContent = rUpd.response || 'Не удалось обновить';
                         return;
                     }
                 }
-                statusEl.textContent = 'Сохранено';
+                if (statusEl) statusEl.textContent = 'Сохранено';
                 closeCardModal();
                 reloadBoard();
             } catch (e) {
-                statusEl.textContent = 'Ошибка: ' + e.message;
+                if (statusEl) statusEl.textContent = 'Ошибка: ' + (e && e.message ? e.message : e);
             } finally {
-                setTimeout(function () { statusEl.textContent = ''; }, 3000);
+                setTimeout(function () { if (statusEl) statusEl.textContent = ''; }, 3000);
             }
         }
 
@@ -4412,46 +4420,52 @@
             // R7.34: getModalProject() — fallback на issue.project.
             var _mProject = getModalProject();
             if (!MODAL_CURRENT_ISSUE || !_mProject) return;
-            if (!confirm('Удалить задачу «' + (MODAL_CURRENT_ISSUE.name || '?') + '»?')) return;
+            // R7.83 AUDIT: snapshot перед confirm/await
+            var issue = MODAL_CURRENT_ISSUE;
+            if (!confirm('Удалить задачу «' + (issue.name || '?') + '»?')) return;
             var statusEl = document.getElementById('board-status');
-            statusEl.textContent = 'Удаляю...';
+            if (statusEl) statusEl.textContent = 'Удаляю...';
             try {
                 await planeDirect('delete_issue', {
                     project_name: _mProject,
-                    issue_name: MODAL_CURRENT_ISSUE.name
+                    issue_name: issue.name
                 });
-                statusEl.textContent = 'Удалено';
+                if (statusEl) statusEl.textContent = 'Удалено';
                 closeCardModal();
                 reloadBoard();
             } catch (e) {
-                statusEl.textContent = 'Ошибка: ' + e.message;
+                if (statusEl) statusEl.textContent = 'Ошибка: ' + (e && e.message ? e.message : e);
             } finally {
-                setTimeout(function () { statusEl.textContent = ''; }, 3000);
+                setTimeout(function () { if (statusEl) statusEl.textContent = ''; }, 3000);
             }
         }
 
         async function modalAddComment() {
             var input = document.getElementById('cm-new-comment');
+            if (!input) return;
             var text = (input.value || '').trim();
             if (!text || !MODAL_CURRENT_ISSUE) return;
+            // R7.83 AUDIT: snapshot — может быть обнулён закрытием во время await
+            var issue = MODAL_CURRENT_ISSUE;
+            var proj = getModalProject();
             var statusEl = document.getElementById('board-status');
-            statusEl.textContent = 'Добавляю...';
+            if (statusEl) statusEl.textContent = 'Добавляю...';
             try {
                 // R7.34: getModalProject() — задача может быть из другого
                 // проекта, чем BOARD_CURRENT_PROJECT (модалка из чата).
                 await planeDirect('add_comment', {
-                    project_name: getModalProject(),
-                    issue_name: MODAL_CURRENT_ISSUE.name,
+                    project_name: proj,
+                    issue_name: issue.name,
                     comment: text
                 });
-                input.value = '';
-                statusEl.textContent = 'Комментарий добавлен';
-                // Перезагружаем список комментариев в модалке
-                if (typeof loadCardComments === 'function') loadCardComments(MODAL_CURRENT_ISSUE);
+                if (input) input.value = '';
+                if (statusEl) statusEl.textContent = 'Комментарий добавлен';
+                // Перезагружаем список комментариев в модалке (loadCardComments всегда определена)
+                loadCardComments(issue);
             } catch (e) {
-                statusEl.textContent = 'Ошибка: ' + e.message;
+                if (statusEl) statusEl.textContent = 'Ошибка: ' + (e && e.message ? e.message : e);
             } finally {
-                setTimeout(function () { statusEl.textContent = ''; }, 3000);
+                setTimeout(function () { if (statusEl) statusEl.textContent = ''; }, 3000);
             }
         }
 
@@ -5574,17 +5588,19 @@
                         else if (group === 'cancelled') nameCls += ' cancelled';
                         // Метка внутри полосы
                         var dateLabel = fmt(s) + (s.getTime() !== e.getTime() ? '–' + fmt(e) : '');
-                        var prefix = i.identifier ? '[' + i.identifier + '] ' : '';
                         var barLabel = (width > 8 ? dateLabel : '');
+                        // ID-префикс задачи (sequence_id с #)
+                        var seqId = i.sequence_id ? ('#' + i.sequence_id) : '';
+                        var projTip = i.project_name || i._project_name || i.project || '';
                         // Tooltip
                         var ttip = (i.name || '—') + '\n' +
-                            (i.project_name ? 'Проект: ' + i.project_name + '\n' : '') +
+                            (projTip ? 'Проект: ' + projTip + '\n' : '') +
                             'Срок: ' + fmtRu(s) + (s.getTime() !== e.getTime() ? ' — ' + fmtRu(e) : '') +
                             (isOverdue ? '\nПросрочена' : '') +
                             '\nТяни за центр — сдвиг, за края — растягивание';
                         bodyHtml += '<div class="tl-row" data-issue-id="' + escapeAttr(i.id || '') + '">' +
                             '<div class="' + nameCls + '" data-issue-name="' + escapeAttr(i.name || '') + '" title="' + escapeAttr(i.name || '') + '">' +
-                                (i.identifier ? '<span class="tl-name-id">' + escapeHtml(i.identifier) + '</span> ' : '') +
+                                (seqId ? '<span class="tl-name-id">' + escapeHtml(seqId) + '</span> ' : '') +
                                 '<span class="tl-name-text">' + escapeHtml(i.name || '—') + '</span>' +
                             '</div>' +
                             '<div class="tl-track">' +
