@@ -798,8 +798,8 @@
       "notes": "Поиск во ВНЕШНЕЙ таблице (rel_db). Чтобы заработало: 1) создай в Credentials Postgres-credential с database=rel_db (имя 'Postgres rel_db'); 2) выбери его здесь; 3) в query замени __ВПИШИ_СХЕМУ__ и __ВПИШИ_ТАБЛИЦУ__. Без настройки нод тихо вернёт ошибку, поиск пойдёт только по нашей documents.",
       "credentials": {
         "postgres": {
-          "id": "OYsyciMf7Eq9W4FS",
-          "name": "Postgres"
+          "id": "",
+          "name": "Postgres rel_db"
         }
       }
     },
