@@ -15,8 +15,11 @@
 5. [Шаг 2 — поправить три переменные в скрипте](#шаг-2--поправить-три-переменные-в-скрипте)
 6. [Шаг 3 — разрешить запуск скриптов (один раз)](#шаг-3--разрешить-запуск-скриптов-один-раз)
 7. [Шаг 4 — запустить](#шаг-4--запустить)
+   - [Флаги командной строки](#флаги-командной-строки)
 8. [Что значит вывод](#что-значит-вывод)
+   - [Post-import warning «⚠️ ПРОБЛЕМЫ С CREDENTIALS»](#post-import-warning-️-проблемы-с-credentials)
 9. [Привязка credentials](#привязка-credentials)
+   - [Когда credentials протухли](#когда-credentials-протухли)
 10. [Важно про PUT и UI-правки](#важно-про-put-и-ui-правки)
 11. [Решение частых проблем](#решение-частых-проблем)
 
@@ -141,6 +144,15 @@ cd C:\Users\Lenovo\Desktop\GigaChat
 
 Время выполнения — 2–10 секунд на все workflow.
 
+### Флаги командной строки
+
+| Флаг | Что делает |
+|---|---|
+| `-Filter <substring>` | Импортирует только `.json`-файлы, в имени которых есть `<substring>`. Пример: `.\import-workflows.ps1 -Filter sql-agent` залит только `sql-agent.json`. Удобно когда поправил один workflow и не хочешь дёргать все. |
+| `-ResetCreds` | Сносит `credentials-cache.local.json` перед запуском. Заставляет скрипт резолвить credentials заново через name-matching/autoCreate. Лечит ситуацию когда в n8n вручную удалили или пересоздали credentials и кеш протух (см. ниже [Когда credentials протухли](#когда-credentials-протухли)). |
+
+Флаги можно комбинировать: `.\import-workflows.ps1 -Filter rag-agent -ResetCreds`.
+
 ---
 
 ## Что значит вывод
@@ -173,6 +185,22 @@ Processing: document-loader.json
 | **UPDATED** (жёлтый)    | Существующий workflow обновился содержимым из JSON  |
 | **RENAMED** (фиолетовый) | Старый workflow без префикса дополнен префиксом (миграция со старой версии скрипта) |
 | **FAILED** (красный)    | Ошибка — под ней жёлтым телом ответа `Server: ...`  |
+
+### Post-import warning «⚠️ ПРОБЛЕМЫ С CREDENTIALS»
+
+После итогов скрипт читает workflow обратно из n8n и проверяет, что резолвленные credential ID реально встречаются хоть в одном узле. Если нет:
+
+```
+ ⚠️  ПРОБЛЕМЫ С CREDENTIALS:
+    - Резолвленный postgres id=Abc12... НЕ найден ни в одном импортированном workflow. Возможно протух.
+
+    Скорее всего credentials-cache.local.json протух (credential
+    удалён в n8n UI вручную). Запусти заново с -ResetCreds:
+
+       .\import-workflows.ps1 -ResetCreds
+```
+
+Это значит: ID в кеше указывает на credential которого больше нет в n8n (удалили или пересоздали в UI). Лечится одной командой `-ResetCreds`. См. [Когда credentials протухли](#когда-credentials-протухли).
 
 ## Привязка credentials
 
@@ -225,6 +253,33 @@ Processing: document-loader.json
 Когда удалить:
 - Поменял n8n БД → ID устарели → удали файл, скрипт пересоздаст.
 - Случайно создались дубли credentials → разберись в UI, удали лишние, удали кеш, запусти скрипт.
+
+### Когда credentials протухли
+
+Реальный сценарий из офиса:
+
+1. Первый запуск `import-workflows.ps1` — всё ОК, credentials привязались, создался `credentials-cache.local.json`.
+2. Зашёл в n8n UI, **вручную удалил несколько workflow**. Случайно (или умышленно) зацепил один из credentials.
+3. Второй запуск `import-workflows.ps1` — скрипт молча взял ID из кеша, прописал в импортируемые workflow.
+4. В UI: ноды Postgres/openAi показаны как «**Missing credential**», dropdown «Select credential» не показывает существующие, приходится создавать новый внутри каждой ноды отдельно.
+
+**Почему так:** n8n public API не позволяет `GET /credentials/<id>` — нельзя проверить, существует ли credential по ID. Скрипт слепо верит кешу.
+
+**Решение:**
+
+```powershell
+.\import-workflows.ps1 -ResetCreds
+```
+
+Что произойдёт:
+- Сносится `credentials-cache.local.json`.
+- Скрипт делает name-matching/autoCreate заново. Для Postgres найдёт credential по имени `Postgres` (n8n при импорте сам ищет по имени, когда ID пустой). Для openAi с autoCreate создаст новый.
+- Сохраняет свежий кеш.
+- Все workflow переимпортируются с правильными ID.
+
+После — обнови страницу n8n (F5), ноды снова видят credentials.
+
+**Профилактика:** скрипт после каждого импорта сам проверяет связи (см. [Post-import warning](#post-import-warning-️-проблемы-с-credentials)). Если выдал предупреждение — запусти `-ResetCreds`.
 
 ### Активация workflow
 
