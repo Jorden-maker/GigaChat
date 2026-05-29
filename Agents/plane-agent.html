@@ -1453,23 +1453,23 @@
             cursor: pointer; font-size: 13px; color: var(--text-primary);
         }
         .cm-assignee-opt:hover { background: rgba(255,255,255,0.05); }
-        /* R8.46: кастомный чекбокс — как галочка подзадач (.sub-check):
-           16×16, рамка, в checked — белая галка на акценте. */
+        /* R8.47: кастомный чекбокс — ровный квадрат + центрированная галочка.
+           Галка рисуется фоновым SVG с background-position:center, поэтому
+           всегда строго по центру независимо от размера квадрата. */
         .cm-assignee-opt input[type="checkbox"] {
             appearance: none; -webkit-appearance: none; -moz-appearance: none;
-            width: 16px; height: 16px; margin: 0; flex-shrink: 0; box-sizing: border-box;
+            width: 18px; height: 18px; margin: 0; flex-shrink: 0; box-sizing: border-box;
             border-radius: 4px; border: 1.5px solid var(--text-muted);
-            background: var(--bg-input); cursor: pointer; position: relative;
-            transition: background .12s ease, border-color .12s ease;
+            background-color: var(--bg-input); cursor: pointer;
+            transition: background-color .12s ease, border-color .12s ease;
         }
         .cm-assignee-opt input[type="checkbox"]:hover { border-color: var(--accent); }
         .cm-assignee-opt input[type="checkbox"]:checked {
-            background: var(--accent); border-color: var(--accent);
-        }
-        .cm-assignee-opt input[type="checkbox"]:checked::after {
-            content: ''; position: absolute; left: 4px; top: 1px;
-            width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0;
-            transform: rotate(45deg);
+            background-color: var(--accent); border-color: var(--accent);
+            background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23ffffff'%20stroke-width='3.5'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpolyline%20points='20%206%209%2017%204%2012'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 12px 12px;
         }
         .cm-assignee-empty { padding: 8px 10px; color: var(--text-muted); font-size: 12px; }
         .card-modal-comments {
