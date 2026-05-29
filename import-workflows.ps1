@@ -45,7 +45,7 @@ param(
 # ---- НАСТРОЙКИ ----
 $folder = "C:\GigaChat\Workflow"                        # путь к папке с .json
 $n8n    = "http://localhost:5678"                       # URL n8n БЕЗ слеша на конце (ДЕФОЛТ, см. override ниже)
-$apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMWQzMzQ3Ny05MjdlLTQxMGEtYjNiMC0wMWNmOTY2ODgwYmYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZmY5ZGFiYTctZWZjNi00YjE3LTgxOGUtNDA2ZmYwMjQxOWMwIiwiaWF0IjoxNzc4NzU4ODgxLCJleHAiOjE3ODEzMjMyMDB9.SI7GAu_3y5neIzbam3iYnwDxkF0TMwf3fvixBvOZmls"                                            # ПУСТО в git (без секрета). Токен берётся из credentials-cache.local.json (_apiKey) ИЛИ впиши свой здесь
+$apiKey = ""                                            # ПУСТО в git (без секрета). Токен берётся из credentials-cache.local.json (_apiKey) ИЛИ впиши свой здесь
 $prefix = "[GigaChat] "                                 # префикс имени, "" чтобы отключить
 
 # ---- OVERRIDE токена/URL из локального кеша (R8.44) ----
