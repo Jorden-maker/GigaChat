@@ -3882,15 +3882,28 @@
         function filterIssues(issues) {
             if (!Array.isArray(issues)) return [];
             var today = new Date(); today.setHours(0,0,0,0);
+            // R8.50: «Только мои» — по настроенному plane_user_id (надёжно).
+            // Раньше фильтр был завязан на CURRENT_USER_ID из /users/me/, который
+            // по X-API-Key в Plane v0.27 = null → условие ложно → фильтр
+            // ПРОПУСКАЛСЯ и показывал ВСЕ задачи. Считаем личность один раз.
+            var _meId = '';
+            try { _meId = String((loadPlaneSettings() || {}).userId || ''); } catch (e) {}
+            if (!_meId && CURRENT_USER_ID) _meId = String(CURRENT_USER_ID);
             var out = issues.filter(function (i) {
                 if (BOARD_FILTERS.search) {
                     var name = String(i.name || '').toLowerCase();
                     var seq = String(i.sequence_id || '').toLowerCase();
                     if (name.indexOf(BOARD_FILTERS.search) === -1 && seq.indexOf(BOARD_FILTERS.search) === -1) return false;
                 }
-                if (BOARD_FILTERS.mine && CURRENT_USER_ID) {
-                    var ass = i.assignees || i.assignee_ids || [];
-                    if (!Array.isArray(ass) || ass.indexOf(CURRENT_USER_ID) === -1) return false;
+                if (BOARD_FILTERS.mine) {
+                    // Fail-closed: личность неизвестна (_meId пуст) → ни одна
+                    // задача не «моя» → доска пустая (а не «показать всё»).
+                    var ass = Array.isArray(i.assignees) ? i.assignees
+                            : (Array.isArray(i.assignee_ids) ? i.assignee_ids : []);
+                    var _mine = !!_meId && ass.some(function (a) {
+                        return String(a && a.id ? a.id : a) === _meId;
+                    });
+                    if (!_mine) return false;
                 }
                 if (BOARD_FILTERS.urgent && String(i.priority||'').toLowerCase() !== 'urgent') return false;
                 if (BOARD_FILTERS.noDeadline && i.target_date) return false;
