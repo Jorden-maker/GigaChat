@@ -711,7 +711,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT DISTINCT filename, COUNT(*) AS chunks, MIN(created_at) AS uploaded_at FROM documents WHERE filename IS NOT NULL AND filename <> '' GROUP BY filename ORDER BY uploaded_at DESC LIMIT 100;",
+        "query": "SELECT DISTINCT filename, COUNT(*) AS chunks, MIN(created_at) AS uploaded_at FROM documents WHERE filename IS NOT NULL AND filename <> '' GROUP BY filename ORDER BY uploaded_at DESC LIMIT 1000;",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -733,7 +733,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Форматируем список документов как человеко-читаемый ответ.\nconst rows = $input.all().map(i => i.json).filter(r => r && r.filename);\nlet response;\nif (!rows.length) {\n  response = 'В базе документов пока ничего нет. Загрузите файлы через «Загрузка документов» на дашборде.';\n} else {\n  const NL = String.fromCharCode(10);\n  const lines = rows.map((r, idx) => {\n    const n = r.chunks ? ' (' + r.chunks + ' фрагм.)' : '';\n    return (idx + 1) + '. ' + r.filename + n;\n  });\n  response = 'Загружено документов: ' + rows.length + '.' + NL + lines.join(NL);\n}\nreturn [{ json: { response } }];"
+        "jsCode": "// R8.42: объединяем список из нашей documents и внешней\n// _vectordocuments.v_general (через Merge append). Фильтруем\n// error-строки (внешний источник мог упасть), дедупим по filename,\n// показываем точный total + первые 15.\nconst all = $input.all().map(i => i.json);\nconst rows = all.filter(r => r && !r.error && r.filename && String(r.filename).trim());\nconst seen = {};\nconst uniq = [];\nfor (const r of rows) {\n  const key = String(r.filename).toLowerCase();\n  if (seen[key]) continue;\n  seen[key] = true;\n  uniq.push(r);\n}\nlet response;\nif (!uniq.length) {\n  response = 'В базе документов пока ничего нет. Загрузите файлы через «Загрузка документов» на дашборде.';\n} else {\n  const NL = String.fromCharCode(10);\n  const total = uniq.length;\n  const showLimit = 15;\n  const lines = uniq.slice(0, showLimit).map((r, idx) => {\n    const n = r.chunks ? ' (' + r.chunks + ' фрагм.)' : '';\n    return (idx + 1) + '. ' + r.filename + n;\n  });\n  response = 'Загружено документов: ' + total + '.' + NL + lines.join(NL);\n  if (total > showLimit) response += NL + '...и ещё ' + (total - showLimit) + '.';\n}\nreturn [{ json: { response } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -829,6 +829,45 @@
       ],
       "id": "rag-combine-r835",
       "name": "Объединить документы"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT file_name AS filename, COUNT(*) AS chunks, MIN(uploaded_at) AS uploaded_at FROM _vectordocuments.v_general WHERE file_name IS NOT NULL AND file_name <> '' GROUP BY file_name ORDER BY uploaded_at DESC LIMIT 1000",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2930,
+        860
+      ],
+      "id": "rag-ext-list-r842",
+      "name": "Список внешний",
+      "credentials": {
+        "postgres": {
+          "id": "",
+          "name": "Postgres rel_db"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "notes": "Список документов из внешней rel_db._vectordocuments.v_general. Тот же credential 'Postgres rel_db' что и Поиск внешний."
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3070,
+        780
+      ],
+      "id": "rag-merge-list-r842",
+      "name": "Merge списки"
     }
   ],
   "pinData": {},
@@ -898,6 +937,11 @@
             "node": "SELECT DISTINCT documents",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Список внешний",
+            "type": "main",
+            "index": 0
           }
         ],
         [
@@ -913,7 +957,7 @@
       "main": [
         [
           {
-            "node": "Формат списка документов",
+            "node": "Merge списки",
             "type": "main",
             "index": 0
           }
@@ -1175,6 +1219,28 @@
         [
           {
             "node": "Проверка документов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Список внешний": {
+      "main": [
+        [
+          {
+            "node": "Merge списки",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge списки": {
+      "main": [
+        [
+          {
+            "node": "Формат списка документов",
             "type": "main",
             "index": 0
           }
