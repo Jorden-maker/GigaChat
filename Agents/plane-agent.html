@@ -4288,6 +4288,13 @@
                     }
                 });
             }
+            // R8.49: «свой» комментарий определяем по настроенному plane_user_id
+            // (надёжно). Прежняя проверка через /users/me/ давала null (Plane v0.27
+            // Public API по X-API-Key не отдаёт /me) → права не проверялись и
+            // карандаш/крестик показывались всем — любой мог править чужое.
+            var meId = '';
+            try { meId = String((loadPlaneSettings() || {}).userId || ''); } catch (e) {}
+            if (!meId && CURRENT_USER_ID) meId = String(CURRENT_USER_ID);
             listEl.innerHTML = comments.map(function (c) {
                 var text = stripHtml(c.comment_html || c.comment_text || c.comment || '');
                 var date = c.created_at ? new Date(c.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
@@ -4316,29 +4323,25 @@
                         author = String(actorId).slice(-8);
                     }
                 }
-                // R7.22: показываем карандашик ВСЕГДА. Plane API сам проверит
-                // право на редактирование через X-API-Key и отклонит чужое
-                // (вернёт 403). Прежняя проверка через CURRENT_USER_ID была
-                // ненадёжной (planeDirect('me') не всегда возвращает корректный
-                // user_id когда вызов идёт через X-API-Key).
+                // R8.49: редактировать/удалять можно ТОЛЬКО свой комментарий.
+                // Владелец = actor комментария; сверяем с meId (plane_user_id).
+                // Fail-closed: meId не задан или actor неизвестен → кнопки скрыты
+                // (нельзя подтвердить владельца). Бэкенд дублирует проверку.
                 var commentActorId = c.actor || c.created_by || c.actor_id
                                   || (c.actor_detail && c.actor_detail.id) || '';
-                // Если бэкенд явно говорит «не твой комментарий» (CURRENT_USER_ID
-                // загружен и не совпадает с actor) — прячем. В остальных случаях — показываем.
-                var canEdit = !CURRENT_USER_ID || !commentActorId
-                           || String(commentActorId) === String(CURRENT_USER_ID);
+                var canManage = !!meId && !!commentActorId && String(commentActorId) === meId;
                 var commentId = String(c.id || '');
                 return '<div class="card-modal-comment cm-anim" style="animation-delay:0ms" data-comment-id="' + escapeAttr(commentId) + '" data-actor-id="' + escapeAttr(commentActorId) + '">' +
                     '<div class="cm-meta">' +
                         '<span>' + escapeHtml(author || '—') + '</span>' +
                         '<span class="cm-meta-right">' +
                             '<span class="cm-date">' + escapeHtml(date) + '</span>' +
-                            (canEdit ? '<button class="cm-btn cm-edit" title="Редактировать комментарий" aria-label="Редактировать">' +
+                            (canManage ? '<button class="cm-btn cm-edit" title="Редактировать комментарий" aria-label="Редактировать">' +
                                 '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
                                 '</button>' : '') +
-                            '<button class="cm-btn cm-delete" title="Удалить комментарий" aria-label="Удалить">' +
+                            (canManage ? '<button class="cm-btn cm-delete" title="Удалить комментарий" aria-label="Удалить">' +
                                 '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
-                            '</button>' +
+                                '</button>' : '') +
                         '</span>' +
                     '</div>' +
                     '<div class="cm-text">' + escapeHtml(text) + '</div>' +
