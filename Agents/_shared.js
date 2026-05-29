@@ -3851,7 +3851,8 @@
           var res = await fetchWithRetry(HISTORY_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json; charset=utf-8' },
-            body: JSON.stringify({ session_id: sid })
+            // H1 fix: шлём токен — backend проверяет его и владение сессией (IDOR)
+            body: JSON.stringify({ session_id: sid, token: authGetToken() })
           }, { timeout: 30000, retries: 0 });
           if (!res.ok) throw new Error('Сервер ответил ' + res.status);
           var data = await res.json();

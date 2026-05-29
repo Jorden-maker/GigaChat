@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst session_id = (body.session_id || '').trim();\nconst message = (body.message || '').trim();\nconst limit = Math.min(parseInt(body.limit, 10) || 200, 500);\n\n// Health-check: отдаём pong без обращения к БД\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!session_id) {\n  return [{json: {valid: 0, error: 'session_id обязательно'}}];\n}\n\n// Простая защита от SQL-инъекции: разрешаем только безопасные символы\nif (!/^[a-zA-Z0-9_-]+$/.test(session_id)) {\n  return [{json: {valid: 0, error: 'session_id содержит недопустимые символы'}}];\n}\n\nreturn [{json: {valid: 1, session_id: session_id, limit: limit}}];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst session_id = (body.session_id || '').trim();\nconst message = (body.message || '').trim(); const token = (body.token || '').trim();\nconst limit = Math.min(parseInt(body.limit, 10) || 200, 500);\n\n// Health-check: отдаём pong без обращения к БД\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\nif (!session_id) {\n  return [{json: {valid: 0, error: 'session_id обязательно'}}];\n}\n\n// Простая защита от SQL-инъекции: разрешаем только безопасные символы\nif (!/^[a-zA-Z0-9_-]+$/.test(session_id)) {\n  return [{json: {valid: 0, error: 'session_id содержит недопустимые символы'}}];\n}\n\nreturn [{json: {valid: 1, session_id: session_id, limit: limit, token: token}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -100,9 +100,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT role, content, extras, created_at FROM (SELECT role, SUBSTRING(content, 1, 50000) AS content, CASE WHEN extras IS NOT NULL AND LENGTH(extras::text) > 50000 THEN jsonb_build_object('code', LEFT(COALESCE(extras->>'code', ''), 10000), 'raw_result', LEFT(COALESCE(extras->>'raw_result', ''), 10000), '_truncated', true) ELSE extras END AS extras, created_at, id FROM chat_memory WHERE session_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2) sub ORDER BY created_at ASC, id ASC",
+        "query": "SELECT role, content, extras, created_at FROM (SELECT role, SUBSTRING(content, 1, 50000) AS content, CASE WHEN extras IS NOT NULL AND LENGTH(extras::text) > 50000 THEN jsonb_build_object('code', LEFT(COALESCE(extras->>'code', ''), 10000), 'raw_result', LEFT(COALESCE(extras->>'raw_result', ''), 10000), '_truncated', true) ELSE extras END AS extras, created_at, id FROM chat_memory WHERE session_id = $1 AND EXISTS (SELECT 1 FROM auth_sessions s WHERE s.token = $3 AND s.expires_at > NOW() AND (s.user_id = (SELECT a.user_id FROM agent_sessions a WHERE a.session_id = $1 LIMIT 1) OR NOT EXISTS (SELECT 1 FROM agent_sessions a2 WHERE a2.session_id = $1))) ORDER BY created_at DESC, id DESC LIMIT $2) sub ORDER BY created_at ASC, id ASC",
         "options": {
-          "queryReplacement": "={{ [$json.session_id, $json.limit] }}"
+          "queryReplacement": "={{ [$json.session_id, $json.limit, $json.token] }}"
         }
       },
       "type": "n8n-nodes-base.postgres",
