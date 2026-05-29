@@ -45,7 +45,7 @@ param(
 # ---- НАСТРОЙКИ ----
 $folder = "C:\GigaChat\Workflow"                        # путь к папке с .json
 $n8n    = "http://localhost:5678"                       # URL n8n БЕЗ слеша на конце (ДЕФОЛТ, см. override ниже)
-$apiKey = ""                                            # ПУСТО в git (без секрета). Токен берётся из credentials-cache.local.json (_apiKey) ИЛИ впиши свой здесь
+$apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMWQzMzQ3Ny05MjdlLTQxMGEtYjNiMC0wMWNmOTY2ODgwYmYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZmY5ZGFiYTctZWZjNi00YjE3LTgxOGUtNDA2ZmYwMjQxOWMwIiwiaWF0IjoxNzc4NzU4ODgxLCJleHAiOjE3ODEzMjMyMDB9.SI7GAu_3y5neIzbam3iYnwDxkF0TMwf3fvixBvOZmls"                                            # ПУСТО в git (без секрета). Токен берётся из credentials-cache.local.json (_apiKey) ИЛИ впиши свой здесь
 $prefix = "[GigaChat] "                                 # префикс имени, "" чтобы отключить
 
 # ---- OVERRIDE токена/URL из локального кеша (R8.44) ----
@@ -90,19 +90,22 @@ if (Test-Path $__cachePathEarly) {
 # не работал.
 $credentialMapping = @{
     openAiApi = @{
-        "GigaChatLite10b" = @{
+        # ИМЯ ОБЯЗАНО совпадать с тем, что прописано в узлах workflow — там 'GigaChat'.
+        # Раньше тут было 'GigaChatLite10b' → не совпадало с именем в узлах → LLM-узлы
+        # НЕ привязывались, а autoCreate плодил неиспользуемые дубли 'GigaChatLite10b'.
+        # ВАЖНО про autoCreate: n8n public API НЕ умеет проверить «есть ли уже credential
+        # с таким именем» (POST всегда создаёт НОВЫЙ, дубли разрешены). Поэтому при
+        # повторных -ResetCreds возможны дубли 'GigaChat' — лишние удаляй в UI.
+        # Нормальный путь: создаётся ОДИН раз, id кешируется в credentials-cache.local.json.
+        "GigaChat" = @{
             id         = ""
-            # autoCreate: если в n8n ещё нет credential с этим именем — скрипт создаст.
-            # Если уже есть — API вернёт 400 и сработает fallback на name-matching:
-            # n8n при импорте сам найдёт credential по имени.
             autoCreate = $true
             data       = @{
                 # GigaChat (локальный) не требует Authorization — apiKey любой непустой.
                 apiKey      = "no-auth"
                 url         = "http://130.100.95.104:8810/v1"
-                # n8n openAiApi credential под капотом — это HTTP-Header-Auth, который
-                # шлёт `Authorization: Bearer <apiKey>`. UI подставляет эти поля сам, но
-                # через POST API их нужно указывать явно, иначе валидация падает с 400.
+                # n8n openAiApi credential под капотом — HTTP-Header-Auth (Authorization:
+                # Bearer <apiKey>). Через POST API поля нужно указывать явно, иначе 400.
                 headerName  = "Authorization"
                 headerValue = "Bearer no-auth"
             }
