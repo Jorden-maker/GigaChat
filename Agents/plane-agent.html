@@ -634,6 +634,10 @@
             font-weight: 400; color: var(--text-muted); font-size: 11px;
         }
         .board-card {
+            /* R8.48: единая высота карточек — min-height + box-sizing, чтобы
+               карточки без срока/приоритета не были ниже остальных.
+               position:relative — для бейджа исполнителей в углу. */
+            position: relative; box-sizing: border-box; min-height: 64px;
             background: var(--bg-input); border: 1px solid var(--border);
             border-radius: 8px; padding: 8px 10px;
             cursor: grab; user-select: none;
@@ -651,6 +655,9 @@
         .board-card .bc-meta {
             display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
             font-size: 11px;
+            /* R8.48: min-height резервирует строку даже когда нет приоритета
+               и срока — тогда карточки одинаковой высоты. */
+            min-height: 18px;
             /* R7.68: дата (.bc-deadline) → правый нижний угол через
                margin-left:auto. Приоритет остаётся слева. */
             justify-content: space-between;
@@ -1273,6 +1280,17 @@
             display: flex; align-items: center; justify-content: space-between;
             margin-top: 6px; gap: 6px;
         }
+        /* R8.48: исполнители — кастомная иконка + число в правом верхнем углу. */
+        .board-card .bc-assignees {
+            position: absolute; top: 8px; right: 10px;
+            display: inline-flex; align-items: center; gap: 3px;
+            font-size: 10px; line-height: 1; color: var(--text-muted);
+            pointer-events: none;
+        }
+        .board-card .bc-assignees svg { width: 12px; height: 12px; flex-shrink: 0; }
+        .board-card .bc-as-count { font-variant-numeric: tabular-nums; }
+        /* Заголовок не залезает под бейдж, когда исполнители есть. */
+        .board-card.has-assignees .bc-title { padding-right: 30px; }
 
         /* === Phase 1: Hover preview tooltip === */
         .board-preview {
@@ -3226,14 +3244,21 @@
                     (labelIds.length > 4 ? '<span class="bc-label">+' + (labelIds.length - 4) + '</span>' : '') +
                     '</div>';
             }
-            // Phase 1 #8: счётчики (💬 N, 👤 N)
+            // R8.48: комментарии — в футере; исполнители — отдельным бейджем
+            // с кастомной иконкой в правом верхнем углу карточки.
             var counters = [];
             var commentCount = issue.comments_count || (Array.isArray(issue.comments) ? issue.comments.length : 0);
             if (commentCount > 0) counters.push('<span>💬 ' + commentCount + '</span>');
+            var countersHtml = counters.length ? '<span class="bc-counters">' + counters.join('') + '</span>' : '';
             var assigneeCount = (Array.isArray(issue.assignees) ? issue.assignees.length : 0)
                               || (Array.isArray(issue.assignee_ids) ? issue.assignee_ids.length : 0);
-            if (assigneeCount > 0) counters.push('<span>👤 ' + assigneeCount + '</span>');
-            var countersHtml = counters.length ? '<span class="bc-counters">' + counters.join('') + '</span>' : '';
+            var assigneesHtml = '';
+            if (assigneeCount > 0) {
+                card.classList.add('has-assignees');
+                assigneesHtml = '<span class="bc-assignees" title="Назначенных: ' + assigneeCount + '">' +
+                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+                    '<span class="bc-as-count">' + assigneeCount + '</span></span>';
+            }
 
             // R7.69: бейдж приоритета не показываем, если none — пустой «—»
             // в сером кружке выглядел шумно. Дата всё равно отрисуется
@@ -3242,6 +3267,7 @@
                 ? '<span class="bc-prio ' + prio + '">' + prioLabel + '</span>'
                 : '';
             card.innerHTML =
+                assigneesHtml +
                 '<div class="bc-title">' + escapeHtml(issue.name || '—') + '</div>' +
                 '<div class="bc-meta">' +
                     prioHtml +
