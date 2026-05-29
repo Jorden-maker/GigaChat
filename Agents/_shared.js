@@ -3855,7 +3855,18 @@
           }, { timeout: 30000, retries: 0 });
           if (!res.ok) throw new Error('Сервер ответил ' + res.status);
           var data = await res.json();
-          return (data.messages || []).map(parseHistoryMessage);
+          var msgs = (data.messages || []).map(parseHistoryMessage);
+          // R8.38 (#3): если loadHistory вернул пустоту, а chat сейчас показывает
+          // "Загружаю историю..." (msgs пуст И snapshot пуст) — рендерим
+          // empty-chat. Иначе застряем на loading-тексте навсегда: R7.37
+          // skip-rerender в switchTo не пере-рендерит когда msgs.length ==
+          // displayMessages.length (оба нуля), и historyLoadingHtml остаётся.
+          if (msgs.length === 0 &&
+              sessionStore.state.activeSessionId === sid &&
+              !sessionStore.state.displayMessages.length) {
+            chat.innerHTML = emptyChatHtml;
+          }
+          return msgs;
         } catch (e) {
           // КРИТИЧНО: после await sid мог стать неактивным (юзер переключил
           // сессию). Без этой проверки error-HTML перетрёт чат ДРУГОЙ сессии.
