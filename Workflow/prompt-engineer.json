@@ -362,31 +362,6 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2)",
-        "options": {
-          "queryReplacement": "={{ [$json.session_id, $json.message || ''] }}"
-        }
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        1400,
-        80
-      ],
-      "id": "pe-save-question-0001",
-      "name": "Сохранить вопрос",
-      "credentials": {
-        "postgres": {
-          "id": "OYsyciMf7Eq9W4FS",
-          "name": "Postgres"
-        }
-      },
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
         "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _user AS (INSERT INTO chat_memory (session_id, role, content) VALUES ($1, 'user', $2) RETURNING id AS uid), _ass AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $3 WHERE LENGTH(TRIM($3)) > 0 RETURNING id AS aid) SELECT _user.uid FROM _user CROSS JOIN _lock LEFT JOIN _ass ON TRUE",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $('Агрегация').first().json.message || '', $json.response || ''] }}"

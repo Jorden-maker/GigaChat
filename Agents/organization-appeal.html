@@ -422,7 +422,7 @@ main { max-width: 800px; }
                 row.innerHTML =
                     '<div class="step-icon ' + escapeAttr(s.status) + '">' + iconText + '</div>' +
                     '<div class="step-content">' +
-                    '<div class="step-name">Шаг ' + s.step + ' · ' + escapeHtml(s.name || '') + '</div>' +
+                    '<div class="step-name">Шаг ' + escapeHtml(String(s.step)) + ' · ' + escapeHtml(s.name || '') + '</div>' +
                     '<div class="step-message">' + escapeHtml(s.message || '') + '</div>' +
                     '</div>';
                 stepsList.appendChild(row);
