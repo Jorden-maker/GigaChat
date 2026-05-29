@@ -1422,6 +1422,12 @@
             margin-top: 12px; color: var(--text-muted); font-size: 11px;
             text-align: right; font-style: italic;
         }
+        /* R8.45: read-only значения «Создано» + «Назначенные» в card-modal.
+           padding-top выравнивает текст с <label> (у него тоже 7px). */
+        .card-modal-row .field-value .cm-readonly {
+            display: block; padding-top: 7px; line-height: 1.45;
+            word-break: break-word;
+        }
         .card-modal-comments {
             margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;
         }
@@ -3576,6 +3582,64 @@
                 }
             } catch (e) { /* silent fail */ }
         }
+        // R8.45: резолв UUID участника → отображаемое имя через кэш мемберов.
+        // Элемент кэша бывает {id, display_name} ИЛИ {member:{id, display_name}}.
+        function resolveBoardMemberName(id) {
+            if (!id) return '';
+            if (Array.isArray(BOARD_MEMBERS_CACHE)) {
+                var m = BOARD_MEMBERS_CACHE.find(function (x) {
+                    return (x.id === id) || (x.member && x.member.id === id);
+                });
+                if (m) {
+                    var md = m.member || m;
+                    return md.display_name || md.first_name || md.email || '';
+                }
+            }
+            return '';
+        }
+        // R8.45: заполняет read-only поля «Создано» + «Назначенные» в card-modal.
+        // created_by — UUID (или объект created_by_detail); assignees — массив UUID
+        // (либо объектов). Пока кэш мемберов не загружен — показываем «—», после
+        // фоновой загрузки вызываемся повторно и подставляем реальные имена.
+        function fillModalPeople(issue) {
+            if (!issue) return;
+            var creatorEl = document.getElementById('cm-creator');
+            var assigneesEl = document.getElementById('cm-assignees');
+            if (!creatorEl && !assigneesEl) return;
+            var cacheReady = Array.isArray(BOARD_MEMBERS_CACHE) && BOARD_MEMBERS_CACHE.length > 0;
+            if (creatorEl) {
+                var creatorName = '';
+                if (issue.created_by_detail) {
+                    creatorName = issue.created_by_detail.display_name ||
+                                  issue.created_by_detail.first_name ||
+                                  issue.created_by_detail.email || '';
+                }
+                if (!creatorName) creatorName = resolveBoardMemberName(issue.created_by);
+                if (!creatorName && issue.created_by && cacheReady) {
+                    creatorName = String(issue.created_by).slice(-8);
+                }
+                creatorEl.textContent = creatorName || '—';
+            }
+            if (assigneesEl) {
+                var assIds = Array.isArray(issue.assignees) ? issue.assignees
+                           : (Array.isArray(issue.assignee_ids) ? issue.assignee_ids : []);
+                var names = assIds.map(function (a) {
+                    if (a && typeof a === 'object') {
+                        return a.display_name || a.first_name || a.email ||
+                               (a.id ? String(a.id).slice(-8) : '');
+                    }
+                    var nm = resolveBoardMemberName(a);
+                    if (!nm && cacheReady) nm = String(a).slice(-8);
+                    return nm;
+                }).filter(Boolean);
+                if (assIds.length === 0) {
+                    assigneesEl.textContent = 'Не назначены';
+                } else {
+                    assigneesEl.textContent = names.length ? names.join(', ')
+                        : (cacheReady ? 'Не назначены' : '—');
+                }
+            }
+        }
         var CURRENT_USER_ID = null;  // id текущего юзера в Plane (для «Мои задачи»)
         var SELECTED_CARDS = new Set(); // issue ids
         var STICKY_PROJECT = null;   // {name, ts} — закреплённый проект для чата
@@ -3890,6 +3954,16 @@
                         '<option value="cancelled">Отменено</option>' +
                     '</select>' +
                 '</div></div>' +
+                // R8.45: «Создано» (автор) + «Назначенные» (исполнители) — read-only.
+                // Для новой задачи скрыты (как и блок «Создана:»), т.к. данных ещё нет.
+                (!issue._isNew ?
+                    '<div class="card-modal-row"><label>Создано</label><div class="field-value">' +
+                        '<span id="cm-creator" class="cm-readonly">—</span>' +
+                    '</div></div>' +
+                    '<div class="card-modal-row"><label>Назначенные</label><div class="field-value">' +
+                        '<span id="cm-assignees" class="cm-readonly">—</span>' +
+                    '</div></div>'
+                  : '') +
                 (issue.created_at ? '<div class="cm-created">Создана: ' +
                     escapeHtml(new Date(issue.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })) +
                     '</div>' : '') +
@@ -3902,6 +3976,12 @@
                     '</div>' +
                 '</div>';
             document.getElementById('cm-body').innerHTML = body;
+            // R8.45: заполняем «Создано» + «Назначенные». Если кэш мемберов пуст —
+            // догружаем фоном и перезаполняем (имена резолвятся из свежего кэша).
+            fillModalPeople(issue);
+            if (!issue._isNew && (!BOARD_MEMBERS_CACHE || !BOARD_MEMBERS_CACHE.length)) {
+                loadBoardMembers().then(function () { fillModalPeople(issue); });
+            }
             // Восстанавливаем дефолтный footer (мог быть подменён openNewTaskModal)
             var footer = document.querySelector('.card-modal-footer');
             if (footer && !issue._isNew) {
