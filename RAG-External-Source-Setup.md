@@ -51,23 +51,30 @@ SELECT array_length(vector::real[], 1) FROM <схема>.<таблица> LIMIT 
 4. Изменить **database** → `rel_db` (вместо `ai_agent`)
 5. Сохранить с именем **`Postgres rel_db`** (важно — именно так, чтобы было понятно)
 
-### Шаг 3. Подключить credential + вписать имя таблицы в нод
+### Шаг 3. Подключить credential
 
-В n8n открыть workflow **`[GigaChat] RAG-Агент. Поток`** → найти нод **«Поиск внешний»**:
+Имя таблицы **уже вписано** в SQL ноды (R8.41): `_vectordocuments.v_general` в базе `rel_db`. Тебе нужно только привязать credential:
 
-1. Вкладка **Credentials** → **Credential for Postgres** → **сейчас стоит `Postgres` (от ai_agent)**. Поменяй на **`Postgres rel_db`** (созданную в Шаге 2).
-2. В поле **Query** найти placeholder и заменить:
-   ```
-   FROM __ВПИШИ_СХЕМУ__.__ВПИШИ_ТАБЛИЦУ__
-   ```
-   на реальное, например:
-   ```
-   FROM knowledge.documents_chunks
-   ```
-   (твои названия из Шага 1)
+**Вариант А — через скрипт (рекомендую):**
+1. Создай credential `Postgres rel_db` (Шаг 2)
+2. Запусти `.\import-workflows.ps1 -ResetCreds`
+3. Скрипт сам подставит ID в нод «Поиск внешний». В выводе должно быть `postgres / Postgres rel_db -> id: <uuid>` (без «ID не получен») и БЕЗ блока «⚠️ ВРЕМЕННЫЕ FALLBACK CREDENTIALS».
+
+**Вариант Б — вручную в UI:**
+1. n8n → workflow `[GigaChat] RAG-Агент. Поток` → нод **«Поиск внешний»**
+2. Вкладка **Credentials** → выбрать `Postgres rel_db`
 3. Сохранить workflow
 
-> ⚠️ Если забудешь поменять credential — нод пойдёт искать таблицу `<схема>.<таблица>` в `ai_agent` (нашей БД), которой там нет → onError сработает → RAG продолжит работать только по нашей `documents`. Ничего не сломается, просто внешний поиск не подключится.
+> ⚠️ Если credential не привязан к `rel_db` — нод пойдёт искать `_vectordocuments.v_general` в `ai_agent` (где её нет) → onError → RAG продолжит работать только по нашей `documents`. Ничего не сломается, просто внешний поиск не подключится.
+
+**Финальный SQL в ноде** (для справки, менять не надо):
+```sql
+SELECT file_name AS filename, chunk_index, "text" AS chunk_text,
+       1 - ("vector" <=> $1::vector) AS similarity, 'внешний' AS source
+FROM _vectordocuments.v_general
+ORDER BY "vector" <=> $1::vector LIMIT 5
+```
+`"text"` и `"vector"` в кавычках — это имена-типы PostgreSQL, в кавычках трактуются как имена столбцов.
 
 Готово. RAG теперь ищет в обеих базах.
 

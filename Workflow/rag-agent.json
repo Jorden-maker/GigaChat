@@ -779,7 +779,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "={{ $json.search_sql ? \"SELECT file_name AS filename, chunk_index, text AS chunk_text, 1 - (vector <=> $1::vector) AS similarity, 'внешний' AS source FROM __ВПИШИ_СХЕМУ__.__ВПИШИ_ТАБЛИЦУ__ ORDER BY vector <=> $1::vector LIMIT 5\" : \"SELECT '' as chunk_text, '' as filename, 0 as similarity, 'внешний' as source\" }}",
+        "query": "={{ $json.search_sql ? \"SELECT file_name AS filename, chunk_index, \\\"text\\\" AS chunk_text, 1 - (\\\"vector\\\" <=> $1::vector) AS similarity, 'внешний' AS source FROM _vectordocuments.v_general ORDER BY \\\"vector\\\" <=> $1::vector LIMIT 5\" : \"SELECT '' as chunk_text, '' as filename, 0 as similarity, 'внешний' as source\" }}",
         "options": {
           "queryReplacement": "={{ $json.search_sql ? [$json.vector_str] : [] }}"
         }
@@ -795,7 +795,7 @@
       "onError": "continueRegularOutput",
       "alwaysOutputData": true,
       "notesInFlow": true,
-      "notes": "Поиск во ВНЕШНЕЙ таблице (rel_db). Чтобы заработало: 1) создай в Credentials Postgres-credential с database=rel_db (имя 'Postgres rel_db'); 2) выбери его здесь; 3) в query замени __ВПИШИ_СХЕМУ__ и __ВПИШИ_ТАБЛИЦУ__. Без настройки нод тихо вернёт ошибку, поиск пойдёт только по нашей documents.",
+      "notes": "Поиск во ВНЕШНЕЙ таблице rel_db._vectordocuments.v_general. Маппинг: file_name→filename, text→chunk_text, vector→embedding. Чтобы заработало: создай в Credentials Postgres-credential с database=rel_db (имя 'Postgres rel_db') и выбери его здесь. Без этого нод тихо вернёт ошибку, поиск пойдёт только по нашей documents.",
       "credentials": {
         "postgres": {
           "id": "",
