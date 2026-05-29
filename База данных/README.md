@@ -6,7 +6,7 @@
 
 | Файл | Что это |
 |---|---|
-| **[`init-db.sql`](init-db.sql)** | ⚡ **Главный файл** — одним прогоном собирает ВСЮ БД проекта (11 таблиц + 2 расширения + тестовые данные) |
+| **[`init-db.sql`](init-db.sql)** | ⚡ **Главный файл** — одним прогоном собирает ВСЮ БД проекта (13 таблиц + 2 расширения + тестовые данные) |
 | [`PostgreSQL-Guide.md`](PostgreSQL-Guide.md) | Полный гайд: установка Postgres, pgvector, доступ из LAN, частые запросы, бэкап/восстановление |
 | [`OrgAppeal-Setup.md`](OrgAppeal-Setup.md) | Детально про таблицы алгоритма «Организация обращения» + 10 тест-сценариев |
 
@@ -18,13 +18,14 @@
 
 **Расширения:** `pgcrypto`, `vector` (pgvector)
 
-**Таблицы (11):**
+**Таблицы (13):**
 | Кто использует | Таблицы |
 |---|---|
-| SQL-агент | `clients`, `orders` (+ тест-данные: 5 + 5) |
+| SQL-агент | `clients`, `orders`, `employees`, `tasks` (+ тест-данные: 30 + 30 + 30 + 30) |
 | RAG-агент | `documents` (vector(1024) + ivfflat-индекс) |
 | Чат-агенты | `chat_memory`, `chat_summaries` |
-| Планировщик | `planner_users`, `planner_sessions`, `planner_tasks` |
+| SSO (общая auth) | `planner_users`, `planner_sessions` (исторически названы `planner_*`) |
+| Cross-device sessions | `agent_sessions` |
 | Алгоритм «Организация обращения» | `appeal_employees`, `appeal_event1`, `appeal_event2` (+ тест-данные: 58 + 40 + 28) |
 
 ---
@@ -83,7 +84,7 @@ psql -U postgres -c "DROP DATABASE IF EXISTS ai_agent;"
 Если БД ещё не существует — выведет `NOTICE: database "ai_agent" does not exist, skipping`. Это норма.
 Если существует и пустая — выведет `DROP DATABASE`.
 
-> ⚠️ После DROP вся история чатов агентов, задачи планировщика, документы RAG будут безвозвратно удалены. Если в `ai_agent` есть боевые данные — сначала бэкап (`pg_dump`, см. [`PostgreSQL-Guide.md`](PostgreSQL-Guide.md)).
+> ⚠️ После DROP вся история чатов агентов и документы RAG будут безвозвратно удалены. Если в `ai_agent` есть боевые данные — сначала бэкап (`pg_dump`, см. [`PostgreSQL-Guide.md`](PostgreSQL-Guide.md)).
 
 ### Шаг 5 — на сервере: создать пустую БД
 
@@ -103,7 +104,7 @@ CREATE DATABASE
 psql -U postgres -d ai_agent -f ~/init-db.sql
 ```
 
-Это создаст все 11 таблиц + расширения + тест-данные. Будет много строк вида `CREATE EXTENSION`, `CREATE TABLE`, `CREATE INDEX`, `INSERT 0 5`, etc. Финал должен показать таблицу со списком 11 таблиц (`\dt`) и список расширений (`\dx`).
+Это создаст все 13 таблиц + расширения + тест-данные. Будет много строк вида `CREATE EXTENSION`, `CREATE TABLE`, `CREATE INDEX`, `INSERT 0 5`, etc. Финал должен показать таблицу со списком 13 таблиц (`\dt`) и список расширений (`\dx`).
 
 ### Шаг 7 — на сервере: проверить результат
 
@@ -111,12 +112,13 @@ psql -U postgres -d ai_agent -f ~/init-db.sql
 psql -U postgres -d ai_agent -c "\dt"
 ```
 
-Должны быть видны 11 таблиц:
+Должны быть видны 13 таблиц:
 
 ```
               List of relations
  Schema |       Name       | Type  |  Owner
 --------+------------------+-------+----------
+ public | agent_sessions   | table | postgres
  public | appeal_employees | table | postgres
  public | appeal_event1    | table | postgres
  public | appeal_event2    | table | postgres
@@ -124,11 +126,12 @@ psql -U postgres -d ai_agent -c "\dt"
  public | chat_summaries   | table | postgres
  public | clients          | table | postgres
  public | documents        | table | postgres
+ public | employees        | table | postgres
  public | orders           | table | postgres
  public | planner_sessions | table | postgres
- public | planner_tasks    | table | postgres
  public | planner_users    | table | postgres
-(11 rows)
+ public | tasks            | table | postgres
+(13 rows)
 ```
 
 И проверь, что тест-данные залились:
@@ -210,6 +213,7 @@ psql -U postgres -d ai_agent -f "База данных/init-db.sql"
               List of relations
  Schema |       Name       | Type
 --------+------------------+-------
+ public | agent_sessions   | table
  public | appeal_employees | table
  public | appeal_event1    | table
  public | appeal_event2    | table
@@ -217,11 +221,12 @@ psql -U postgres -d ai_agent -f "База данных/init-db.sql"
  public | chat_summaries   | table
  public | clients          | table
  public | documents        | table
+ public | employees        | table
  public | orders           | table
  public | planner_sessions | table
- public | planner_tasks    | table
  public | planner_users    | table
-(11 rows)
+ public | tasks            | table
+(13 rows)
 ```
 
 И расширения:
@@ -239,7 +244,7 @@ psql -U postgres -d ai_agent -f "База данных/init-db.sql"
 ## Дальше
 
 1. **Импортировать workflow в n8n** — см. [`../Import-Workflows-Guide.md`](../Import-Workflows-Guide.md). Postgres-credential должен указывать на ту БД, в которую мы только что накатили.
-2. **Запустить агентов** — открой [`../GigaChat-Platform.html`](../GigaChat-Platform.html). Регистрация в планировщике, тестовые запросы к SQL-агенту по `clients`/`orders`, прогон 10 кейсов алгоритма обращений из [`../Tests/OrgAppeal/`](../Tests/OrgAppeal/) — всё должно работать сразу.
+2. **Запустить агентов** — открой [`../GigaChat-Platform.html`](../GigaChat-Platform.html). Регистрация через login.html, тестовые запросы к SQL-агенту по `clients`/`orders`/`employees`/`tasks`, прогон 10 кейсов алгоритма обращений из [`../Tests/OrgAppeal/`](../Tests/OrgAppeal/) — всё должно работать сразу.
 
 ## Что если что-то сломалось
 

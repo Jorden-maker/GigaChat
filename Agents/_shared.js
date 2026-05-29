@@ -40,7 +40,7 @@
   // ============================================================
   // Архитектура: одна отдельная страница /login.html выдаёт session-token
   // (workflow planner-auth, таблица planner_sessions). Все защищённые агенты
-  // (planner, plane-agent) на bootstrap'е вызывают GigaChat.auth.requireAuth():
+  // (plane-agent) на bootstrap'е вызывают GigaChat.auth.requireAuth():
   //   - токен есть и verify прошёл → запускают свой UI
   //   - токена нет ИЛИ verify провалился → редирект на login.html?return=<url>
   //
@@ -95,7 +95,7 @@
   // отвечал «session_id содержит недопустимые символы». Теперь: берём первые
   // 12 символов base64 (различает короткие имена) + 8 hex от полного хэша
   // (различает имена с одинаковым b64-началом). Всегда ровно ≤20 символов
-  // ASCII, итоговый session_id ≤ 7 (planner) + 1 + 20 + 1 + 32 = 61 char.
+  // ASCII, итоговый session_id ≤ 6 (prompt) + 1 + 20 + 1 + 32 = 60 char.
   function authUserPrefix(name) {
     var s = String(name == null ? authGetUsername() : name);
     if (!s) return 'anon';
@@ -2336,7 +2336,7 @@
     var loadHistory = opts.loadHistory || null;
     // Backend-синхронизация sessions через /webhook/sessions-sync.
     // syncWithBackend — флаг включения, agentKey — значение поля agent в БД
-    // (одно из: chat, sql, rag, math, prompt, planner, plane). Один аккаунт
+    // (одно из: chat, sql, rag, math, prompt, plane). Один аккаунт
     // на разных ПК → все ПК видят одни сессии (LS — кеш, сервер — truth).
     var syncWithBackend = opts.syncWithBackend === true;
     var agentKey = opts.agentKey || prefix;

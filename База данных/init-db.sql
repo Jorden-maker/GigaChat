@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS chat_summaries (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
-\echo '== Планировщик: planner_users + planner_sessions + planner_tasks (v3 auth) =='
+\echo '== SSO: planner_users + planner_sessions (общая auth для всех агентов) =='
 CREATE TABLE IF NOT EXISTS planner_users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
@@ -111,32 +111,6 @@ CREATE INDEX IF NOT EXISTS idx_planner_sessions_user
     ON planner_sessions (user_id);
 CREATE INDEX IF NOT EXISTS idx_planner_sessions_expires
     ON planner_sessions (expires_at);
-
-CREATE TABLE IF NOT EXISTS planner_tasks (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES planner_users(id) ON DELETE CASCADE,
-    session_id VARCHAR(255) NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    priority VARCHAR(10) DEFAULT 'medium'
-        CHECK (priority IN ('low','medium','high')),
-    deadline DATE,
-    status VARCHAR(20) DEFAULT 'active'
-        CHECK (status IN ('active','completed')),
-    completed_at TIMESTAMP,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    parent_id INTEGER REFERENCES planner_tasks(id) ON DELETE CASCADE,
-    recurrence VARCHAR(20) CHECK (recurrence IS NULL OR recurrence IN ('daily','weekly','monthly')),
-    created_at TIMESTAMP DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_planner_tasks_user_session_status
-    ON planner_tasks (user_id, session_id, status, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_planner_tasks_user_deadline
-    ON planner_tasks (user_id, deadline) WHERE deadline IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_planner_tasks_sort
-    ON planner_tasks (user_id, session_id, sort_order);
-CREATE INDEX IF NOT EXISTS idx_planner_tasks_parent
-    ON planner_tasks (parent_id) WHERE parent_id IS NOT NULL;
 
 -- agent_sessions: общая для всех агентов. Sync через /webhook/sessions-sync,
 -- ключ (user_id, agent, session_id) — один аккаунт видит свои сессии на

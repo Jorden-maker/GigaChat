@@ -1781,7 +1781,7 @@
             <h3>Тест без LLM (прямые action-вызовы)</h3>
             <div class="modal-hint">
                 Workflow поддерживает direct-режим: если в теле есть <code>action</code>, LLM пропускается.
-                Тут — UI поверх этого режима. Нужны заполненные Plane-настройки и валидный planner-токен.
+                Тут — UI поверх этого режима. Нужны заполненные Plane-настройки и валидный auth-токен.
             </div>
 
             <div class="dt-card">
@@ -2010,7 +2010,7 @@
         var escapeHtml = GigaChat.escapeHtml;
 
         // ============ Auth: единая через GigaChat.auth (см. _shared.js) ============
-        // Plane-агент работает поверх той же auth-инфраструктуры что и Планировщик
+        // Plane-агент работает поверх общей SSO-инфраструктуры всех агентов
         // (таблица planner_sessions). Юзер один раз логинится на /login.html и
         // получает gigachat_token, который автоматически используется всеми
         // защищёнными агентами. При отсутствии/протухшем токене — редирект
@@ -2019,7 +2019,7 @@
         function getAuthUsername() { return GigaChat.auth.getUsername(); }
 
         // ============ Plane settings: workspace_slug + plane_url + plane_token ============
-        // Хранятся per-user (префикс — base64 от имени, как в Планировщике).
+        // Хранятся per-user (префикс — base64 от имени).
         // Если хоть одного нет — открываем диалог настроек.
         function sanitizeUserForPrefix(name) {
             var s = String(name || '');
@@ -2193,7 +2193,7 @@
             // Префлайт: токен и Plane-настройки должны быть
             var token = getAuthToken();
             if (!token) {
-                showDirectResult(action, { error: 'Нет planner-токена. Войди через Планировщик.' }, true);
+                showDirectResult(action, { error: 'Нет токена авторизации. Войди заново.' }, true);
                 return;
             }
             var s = loadPlaneSettings();
