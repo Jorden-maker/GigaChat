@@ -1422,11 +1422,14 @@
             margin-top: 12px; color: var(--text-muted); font-size: 11px;
             text-align: right; font-style: italic;
         }
-        /* R8.45: read-only значения «Создано» + «Назначенные» в card-modal.
-           padding-top выравнивает текст с <label> (у него тоже 7px). */
+        /* R8.46: «Создано» — read-only поле в рамке как input/select выше и ниже,
+           текст по тому же отступу (padding 6px 10px), высота как у полей. */
         .card-modal-row .field-value .cm-readonly {
-            display: block; padding-top: 7px; line-height: 1.45;
-            word-break: break-word;
+            display: block; width: 100%; box-sizing: border-box;
+            padding: 6px 10px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--bg-input);
+            color: var(--text-primary); font-size: 13px; line-height: 1.4;
+            min-height: 32px; word-break: break-word;
         }
         /* R8.45: редактируемое поле «Назначенные» — триггер + inline-список. */
         .cm-assignees-field { width: 100%; }
@@ -1450,7 +1453,24 @@
             cursor: pointer; font-size: 13px; color: var(--text-primary);
         }
         .cm-assignee-opt:hover { background: rgba(255,255,255,0.05); }
-        .cm-assignee-opt input { width: auto; margin: 0; flex-shrink: 0; cursor: pointer; }
+        /* R8.46: кастомный чекбокс — как галочка подзадач (.sub-check):
+           16×16, рамка, в checked — белая галка на акценте. */
+        .cm-assignee-opt input[type="checkbox"] {
+            appearance: none; -webkit-appearance: none; -moz-appearance: none;
+            width: 16px; height: 16px; margin: 0; flex-shrink: 0; box-sizing: border-box;
+            border-radius: 4px; border: 1.5px solid var(--text-muted);
+            background: var(--bg-input); cursor: pointer; position: relative;
+            transition: background .12s ease, border-color .12s ease;
+        }
+        .cm-assignee-opt input[type="checkbox"]:hover { border-color: var(--accent); }
+        .cm-assignee-opt input[type="checkbox"]:checked {
+            background: var(--accent); border-color: var(--accent);
+        }
+        .cm-assignee-opt input[type="checkbox"]:checked::after {
+            content: ''; position: absolute; left: 4px; top: 1px;
+            width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
         .cm-assignee-empty { padding: 8px 10px; color: var(--text-muted); font-size: 12px; }
         .card-modal-comments {
             margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;
