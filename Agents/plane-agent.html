@@ -1428,6 +1428,30 @@
             display: block; padding-top: 7px; line-height: 1.45;
             word-break: break-word;
         }
+        /* R8.45: редактируемое поле «Назначенные» — триггер + inline-список. */
+        .cm-assignees-field { width: 100%; }
+        .cm-assignees-trigger {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; padding: 6px 10px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--bg-input);
+            color: var(--text-primary); font-size: 13px; font-family: inherit;
+            cursor: pointer; text-align: left; box-sizing: border-box;
+        }
+        .cm-assignees-trigger:hover { border-color: var(--accent); }
+        .cm-assignees-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cm-as-chevron { flex-shrink: 0; transition: transform .15s; opacity: .7; }
+        .cm-assignees-field.open .cm-as-chevron { transform: rotate(180deg); }
+        .cm-assignees-menu {
+            margin-top: 6px; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg-input); max-height: 176px; overflow-y: auto;
+        }
+        .cm-assignee-opt {
+            display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+            cursor: pointer; font-size: 13px; color: var(--text-primary);
+        }
+        .cm-assignee-opt:hover { background: rgba(255,255,255,0.05); }
+        .cm-assignee-opt input { width: auto; margin: 0; flex-shrink: 0; cursor: pointer; }
+        .cm-assignee-empty { padding: 8px 10px; color: var(--text-muted); font-size: 12px; }
         .card-modal-comments {
             margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;
         }
@@ -3597,16 +3621,28 @@
             }
             return '';
         }
-        // R8.45: заполняет read-only поля «Создано» + «Назначенные» в card-modal.
-        // created_by — UUID (или объект created_by_detail); assignees — массив UUID
-        // (либо объектов). Пока кэш мемберов не загружен — показываем «—», после
-        // фоновой загрузки вызываемся повторно и подставляем реальные имена.
+        // R8.45: globals редактируемого поля «Назначенные» в card-modal.
+        var MODAL_ASSIGNEES = [];       // текущий выбор исполнителей (UUID[])
+        var MODAL_ASSIGNEES_ORIG = '';  // снимок при открытии — детект изменений
+        function _asgKey(arr) {
+            return (Array.isArray(arr) ? arr : []).map(String).sort().join(',');
+        }
+        // Нормализует issue.assignees (UUID-строки или объекты) → массив UUID-строк.
+        function _normAssignees(issue) {
+            var raw = Array.isArray(issue && issue.assignees) ? issue.assignees
+                    : (Array.isArray(issue && issue.assignee_ids) ? issue.assignee_ids : []);
+            return raw.map(function (a) {
+                if (a && typeof a === 'object') return String(a.id || '');
+                return String(a || '');
+            }).filter(Boolean);
+        }
+        // R8.45: «Создано» (read-only автор) + «Назначенные» (редактируемый пикер).
+        // created_by — UUID (или объект created_by_detail). Пока кэш мемберов пуст —
+        // показываем «—», после фоновой загрузки вызываемся повторно.
         function fillModalPeople(issue) {
             if (!issue) return;
-            var creatorEl = document.getElementById('cm-creator');
-            var assigneesEl = document.getElementById('cm-assignees');
-            if (!creatorEl && !assigneesEl) return;
             var cacheReady = Array.isArray(BOARD_MEMBERS_CACHE) && BOARD_MEMBERS_CACHE.length > 0;
+            var creatorEl = document.getElementById('cm-creator');
             if (creatorEl) {
                 var creatorName = '';
                 if (issue.created_by_detail) {
@@ -3620,24 +3656,69 @@
                 }
                 creatorEl.textContent = creatorName || '—';
             }
-            if (assigneesEl) {
-                var assIds = Array.isArray(issue.assignees) ? issue.assignees
-                           : (Array.isArray(issue.assignee_ids) ? issue.assignee_ids : []);
-                var names = assIds.map(function (a) {
-                    if (a && typeof a === 'object') {
-                        return a.display_name || a.first_name || a.email ||
-                               (a.id ? String(a.id).slice(-8) : '');
-                    }
-                    var nm = resolveBoardMemberName(a);
-                    if (!nm && cacheReady) nm = String(a).slice(-8);
-                    return nm;
-                }).filter(Boolean);
-                if (assIds.length === 0) {
-                    assigneesEl.textContent = 'Не назначены';
-                } else {
-                    assigneesEl.textContent = names.length ? names.join(', ')
-                        : (cacheReady ? 'Не назначены' : '—');
+            buildAssigneesPicker();
+        }
+        // R8.45: строит список участников (чекбоксы) в поле «Назначенные».
+        // Источник — BOARD_MEMBERS_CACHE; отмеченные = MODAL_ASSIGNEES.
+        function buildAssigneesPicker() {
+            var menu = document.getElementById('cm-assignees-menu');
+            if (!menu) return;
+            var members = Array.isArray(BOARD_MEMBERS_CACHE) ? BOARD_MEMBERS_CACHE : [];
+            var norm = members.map(function (m) {
+                var md = m.member || m;
+                var id = (md && md.id) || m.id;
+                var name = (md && (md.display_name || md.first_name || md.email)) ||
+                           (id ? String(id).slice(-8) : '');
+                return { id: id ? String(id) : '', name: name };
+            }).filter(function (x) { return x.id; });
+            if (!norm.length) {
+                menu.innerHTML = '<div class="cm-assignee-empty">Список участников загружается…</div>';
+            } else {
+                var sel = {};
+                (MODAL_ASSIGNEES || []).forEach(function (id) { sel[String(id)] = 1; });
+                menu.innerHTML = norm.map(function (x) {
+                    return '<label class="cm-assignee-opt">' +
+                        '<input type="checkbox" value="' + escapeAttr(x.id) + '"' +
+                            (sel[x.id] ? ' checked' : '') +
+                            ' onchange="onAssigneeToggle(this)">' +
+                        '<span>' + escapeHtml(x.name) + '</span>' +
+                    '</label>';
+                }).join('');
+            }
+            updateAssigneesLabel();
+        }
+        function onAssigneeToggle(cb) {
+            var sel = {};
+            (MODAL_ASSIGNEES || []).forEach(function (id) { sel[String(id)] = 1; });
+            if (cb.checked) sel[String(cb.value)] = 1; else delete sel[String(cb.value)];
+            MODAL_ASSIGNEES = Object.keys(sel);
+            updateAssigneesLabel();
+        }
+        function updateAssigneesLabel() {
+            var label = document.getElementById('cm-assignees-label');
+            if (!label) return;
+            var ids = MODAL_ASSIGNEES || [];
+            if (!ids.length) { label.textContent = 'Не назначены'; return; }
+            var names = ids.map(function (id) {
+                return resolveBoardMemberName(id) || String(id).slice(-8);
+            });
+            label.textContent = names.join(', ');
+        }
+        // Открыть/закрыть список. Если кэш участников пуст — догружаем + перерисовываем.
+        function toggleAssigneesMenu() {
+            var field = document.getElementById('cm-assignees-field');
+            var menu = document.getElementById('cm-assignees-menu');
+            if (!field || !menu) return;
+            var isOpen = menu.style.display !== 'none';
+            if (isOpen) {
+                menu.style.display = 'none';
+                field.classList.remove('open');
+            } else {
+                if (!BOARD_MEMBERS_CACHE || !BOARD_MEMBERS_CACHE.length) {
+                    loadBoardMembers().then(buildAssigneesPicker);
                 }
+                menu.style.display = '';
+                field.classList.add('open');
             }
         }
         var CURRENT_USER_ID = null;  // id текущего юзера в Plane (для «Мои задачи»)
@@ -3961,7 +4042,13 @@
                         '<span id="cm-creator" class="cm-readonly">—</span>' +
                     '</div></div>' +
                     '<div class="card-modal-row"><label>Назначенные</label><div class="field-value">' +
-                        '<span id="cm-assignees" class="cm-readonly">—</span>' +
+                        '<div class="cm-assignees-field" id="cm-assignees-field">' +
+                            '<button type="button" class="cm-assignees-trigger" id="cm-assignees-trigger" onclick="toggleAssigneesMenu()">' +
+                                '<span id="cm-assignees-label">Не назначены</span>' +
+                                '<svg class="cm-as-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+                            '</button>' +
+                            '<div class="cm-assignees-menu" id="cm-assignees-menu" style="display:none"></div>' +
+                        '</div>' +
                     '</div></div>'
                   : '') +
                 (issue.created_at ? '<div class="cm-created">Создана: ' +
@@ -3976,9 +4063,13 @@
                     '</div>' +
                 '</div>';
             document.getElementById('cm-body').innerHTML = body;
-            // R8.45: заполняем «Создано» + «Назначенные». Если кэш мемберов пуст —
-            // догружаем фоном и перезаполняем (имена резолвятся из свежего кэша).
+            // R8.45: «Создано» (автор) + «Назначенные» (редактируемый пикер).
+            // Снимок исполнителей для детекта изменений при сохранении.
+            MODAL_ASSIGNEES = _normAssignees(issue);
+            MODAL_ASSIGNEES_ORIG = _asgKey(MODAL_ASSIGNEES);
             fillModalPeople(issue);
+            // Если кэш участников пуст — догружаем фоном и перезаполняем
+            // (имена автора/исполнителей резолвятся из свежего кэша).
             if (!issue._isNew && (!BOARD_MEMBERS_CACHE || !BOARD_MEMBERS_CACHE.length)) {
                 loadBoardMembers().then(function () { fillModalPeople(issue); });
             }
@@ -4453,6 +4544,11 @@
                 if (newPrio !== String(issue.priority || 'none')) updateParams.priority = newPrio;
                 if (newStart && newStart !== (issue.start_date || '')) updateParams.start_date = newStart;
                 if (newDeadline && newDeadline !== (issue.target_date || '')) updateParams.target_date = newDeadline;
+                // R8.45: исполнители изменились — отправляем массив UUID
+                // (возможно пустой = снять всех; бэкенд это поддерживает).
+                if (_asgKey(MODAL_ASSIGNEES) !== MODAL_ASSIGNEES_ORIG) {
+                    updateParams.assignees = (MODAL_ASSIGNEES || []).slice();
+                }
                 if (Object.keys(updateParams).length > _updBaseKeys) {
                     var rUpd = await planeDirect('update_issue', updateParams);
                     if (rUpd && (rUpd.error || rUpd.action === 'error')) {
