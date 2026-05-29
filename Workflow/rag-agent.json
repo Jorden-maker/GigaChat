@@ -314,7 +314,7 @@
       "typeVersion": 2.5,
       "position": [
         3490,
-        300
+        200
       ],
       "id": "rag-search-0001",
       "name": "Поиск в документах",
@@ -334,8 +334,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3770,
-        300
+        4090,
+        340
       ],
       "id": "rag-check-docs-0001",
       "name": "Проверка документов"
@@ -376,8 +376,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        4050,
-        300
+        4370,
+        340
       ],
       "id": "rag-docs-switch-0001",
       "name": "Есть документы?"
@@ -408,7 +408,7 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.1,
       "position": [
-        4330,
+        4650,
         80
       ],
       "id": "rag-gen-doc-0001",
@@ -428,7 +428,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4610,
+        4930,
         80
       ],
       "id": "rag-check-doc-0001",
@@ -460,7 +460,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        5170,
+        5490,
         80
       ],
       "id": "rag-resp-doc-0001",
@@ -492,7 +492,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        4610,
+        4930,
         520
       ],
       "id": "rag-resp-fallback-0001",
@@ -597,7 +597,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4890,
+        5210,
         80
       ],
       "id": "rag-save-resp-doc-0001",
@@ -622,7 +622,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4330,
+        4650,
         520
       ],
       "id": "rag-save-resp-nodocs-0001",
@@ -718,7 +718,7 @@
       "typeVersion": 2.5,
       "position": [
         2930,
-        420
+        700
       ],
       "id": "rag-list-docs-sql-V1",
       "name": "SELECT DISTINCT documents",
@@ -739,7 +739,7 @@
       "typeVersion": 2,
       "position": [
         3210,
-        420
+        700
       ],
       "id": "rag-list-docs-fmt-V1",
       "name": "Формат списка документов"
@@ -771,7 +771,7 @@
       "typeVersion": 1.5,
       "position": [
         3490,
-        420
+        700
       ],
       "id": "rag-resp-list-docs-V1",
       "name": "Ответ: список документов"
@@ -811,8 +811,8 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        3710,
-        380
+        3690,
+        340
       ],
       "id": "rag-merge-r835",
       "name": "Merge внешний+наш"
@@ -824,8 +824,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3850,
-        380
+        3890,
+        340
       ],
       "id": "rag-combine-r835",
       "name": "Объединить документы"
