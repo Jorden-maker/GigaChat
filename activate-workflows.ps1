@@ -40,18 +40,21 @@ $apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMWQzMzQ3Ny05MjdlLTQx
 $prefix = "[GigaChat] "                                 # только workflow с этим префиксом
 # -------------------
 
-# Если $apiKey пустой — пробуем взять из кеша (тот же файл что у import-workflows)
-if ([string]::IsNullOrWhiteSpace($apiKey)) {
-    $credCachePath = Join-Path $PSScriptRoot "credentials-cache.local.json"
-    if (Test-Path $credCachePath) {
-        try {
-            $cache = Get-Content $credCachePath -Raw -Encoding UTF8 | ConvertFrom-Json
-            if ($cache._apiKey) {
-                $apiKey = $cache._apiKey
-                Write-Host "API-ключ взят из credentials-cache.local.json" -ForegroundColor DarkGray
-            }
-        } catch {}
-    }
+# ---- OVERRIDE токена/URL из локального кеша (R8.44) ----
+# Идентично import-workflows.ps1. Проблема: $apiKey/$n8n захардкожены под
+# ДОМАШНЮЮ среду. При git pull в офисе они затирают офисные значения → скрипт
+# бьётся в чужой n8n / с протухшим токеном. Решение: офис кладёт свои
+# _apiKey/_n8nHost в credentials-cache.local.json (он в .gitignore, pull его
+# не трогает), и они ПЕРЕБИВАЮТ хардкод. Дома файла нет/без этих полей →
+# берётся хардкод. ВАЖНО: override, а НЕ «заполнить если пусто» — иначе в
+# офисе сработает захардкоженный домашний токен и активация упадёт с 401.
+$__cachePathEarly = Join-Path $PSScriptRoot "credentials-cache.local.json"
+if (Test-Path $__cachePathEarly) {
+    try {
+        $__c = Get-Content $__cachePathEarly -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($__c._apiKey)  { $apiKey = $__c._apiKey;  Write-Host "API-ключ взят из credentials-cache.local.json (_apiKey)" -ForegroundColor DarkGray }
+        if ($__c._n8nHost) { $n8n    = $__c._n8nHost; Write-Host "n8n URL взят из credentials-cache.local.json (_n8nHost): $n8n" -ForegroundColor DarkGray }
+    } catch {}
 }
 
 if ([string]::IsNullOrWhiteSpace($apiKey)) {

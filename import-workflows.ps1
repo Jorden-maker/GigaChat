@@ -44,9 +44,24 @@ param(
 
 # ---- НАСТРОЙКИ ----
 $folder = "C:\Users\Lenovo\Desktop\GigaChat\Workflow"   # путь к папке с .json
-$n8n    = "http://localhost:5678"                       # URL n8n БЕЗ слеша на конце
-$apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMWQzMzQ3Ny05MjdlLTQxMGEtYjNiMC0wMWNmOTY2ODgwYmYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZmY5ZGFiYTctZWZjNi00YjE3LTgxOGUtNDA2ZmYwMjQxOWMwIiwiaWF0IjoxNzc4NzU4ODgxLCJleHAiOjE3ODEzMjMyMDB9.SI7GAu_3y5neIzbam3iYnwDxkF0TMwf3fvixBvOZmls"                                            # вставь сюда API-ключ из n8n
+$n8n    = "http://localhost:5678"                       # URL n8n БЕЗ слеша на конце (ДЕФОЛТ, см. override ниже)
+$apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmMWQzMzQ3Ny05MjdlLTQxMGEtYjNiMC0wMWNmOTY2ODgwYmYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZmY5ZGFiYTctZWZjNi00YjE3LTgxOGUtNDA2ZmYwMjQxOWMwIiwiaWF0IjoxNzc4NzU4ODgxLCJleHAiOjE3ODEzMjMyMDB9.SI7GAu_3y5neIzbam3iYnwDxkF0TMwf3fvixBvOZmls"   # ДЕФОЛТ (домашний). Офис — через кеш, см. ниже
 $prefix = "[GigaChat] "                                 # префикс имени, "" чтобы отключить
+
+# ---- OVERRIDE токена/URL из локального кеша (R8.44) ----
+# Проблема: $apiKey/$n8n захардкожены под ДОМАШНЮЮ среду. При git pull в
+# офисе они затирают офисные значения → скрипт бьётся в чужой n8n / с
+# протухшим токеном. Решение: офис кладёт свои _apiKey/_n8nHost в
+# credentials-cache.local.json (он в .gitignore, pull его не трогает),
+# и они ПЕРЕБИВАЮТ хардкод. Дома файла нет/без этих полей → берётся хардкод.
+$__cachePathEarly = Join-Path $PSScriptRoot "credentials-cache.local.json"
+if (Test-Path $__cachePathEarly) {
+    try {
+        $__c = Get-Content $__cachePathEarly -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($__c._apiKey)  { $apiKey = $__c._apiKey;  Write-Host "API-ключ взят из credentials-cache.local.json (_apiKey)" -ForegroundColor DarkGray }
+        if ($__c._n8nHost) { $n8n    = $__c._n8nHost; Write-Host "n8n URL взят из credentials-cache.local.json (_n8nHost): $n8n" -ForegroundColor DarkGray }
+    } catch {}
+}
 
 # ---- CREDENTIAL MAPPING ----
 # В .json-файлах workflow прописаны ID credentials с РАЗРАБОТЧЕСКОЙ машины.
@@ -161,12 +176,27 @@ $credCachePath = Join-Path $PSScriptRoot "credentials-cache.local.json"
 # заново и сохраняет свежий кеш. Это идемпотентно — следующие запуски
 # без -ResetCreds работают как обычно.
 if ($ResetCreds) {
-    Write-Host "==> Флаг -ResetCreds: сношу credentials-cache.local.json" -ForegroundColor Yellow
+    Write-Host "==> Флаг -ResetCreds: чищу credential-ID из кеша" -ForegroundColor Yellow
     if (Test-Path $credCachePath) {
-        Remove-Item $credCachePath -Force
-        Write-Host "    Удалён. Резолвлю credentials с нуля." -ForegroundColor Yellow
+        # R8.44: НЕ удаляем файл целиком — сохраняем мета-ключи (_apiKey,
+        # _n8nHost), иначе офис потерял бы свой токен/URL при -ResetCreds.
+        # Перезаписываем файл оставив только _*-ключи (credential-ID уходят).
+        $kept = [ordered]@{}
+        try {
+            $existing = Get-Content $credCachePath -Raw -Encoding UTF8 | ConvertFrom-Json
+            foreach ($p in $existing.PSObject.Properties) {
+                if ($p.Name -like '_*') { $kept[$p.Name] = $p.Value }
+            }
+        } catch {}
+        if ($kept.Count -gt 0) {
+            $kept | ConvertTo-Json -Depth 5 | Set-Content $credCachePath -Encoding UTF8
+            Write-Host "    Credential-ID удалены, мета-ключи (_apiKey/_n8nHost) сохранены." -ForegroundColor Yellow
+        } else {
+            Remove-Item $credCachePath -Force
+            Write-Host "    Удалён (мета-ключей не было). Резолвлю с нуля." -ForegroundColor Yellow
+        }
     } else {
-        Write-Host "    Кеша и не было — ничего удалять." -ForegroundColor DarkYellow
+        Write-Host "    Кеша и не было — ничего чистить." -ForegroundColor DarkYellow
     }
 }
 
@@ -181,6 +211,8 @@ function Get-CredentialCache {
         foreach ($p in $obj.PSObject.Properties) {
             $typeName = $p.Name
             $v = $p.Value
+            # R8.44: мета-ключи (_apiKey, _n8nHost) — не credential-типы, пропускаем.
+            if ($typeName -like '_*') { continue }
             # Старый формат: {id, name} — мигрируем в {name: id}
             if ($null -ne $v -and $v.PSObject.Properties['id'] -and $v.PSObject.Properties['name']) {
                 $h[$typeName] = @{ "$($v.name)" = $v.id }
@@ -203,6 +235,17 @@ function Get-CredentialCache {
 function Save-CredentialCache($cache) {
     try {
         $clean = [ordered]@{}
+        # R8.44: сохраняем мета-ключи (_apiKey, _n8nHost) из существующего
+        # файла — Get-CredentialCache их пропускает, поэтому в $cache их нет,
+        # и без этого Save их бы стёр (офис потерял бы свой токен/URL).
+        if (Test-Path $credCachePath) {
+            try {
+                $existing = Get-Content $credCachePath -Raw -Encoding UTF8 | ConvertFrom-Json
+                foreach ($p in $existing.PSObject.Properties) {
+                    if ($p.Name -like '_*') { $clean[$p.Name] = $p.Value }
+                }
+            } catch {}
+        }
         foreach ($type in $cache.Keys) {
             $inner = [ordered]@{}
             foreach ($name in $cache[$type].Keys) {
