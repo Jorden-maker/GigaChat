@@ -25,7 +25,22 @@
 # Использование:
 #   1. Поправь переменные в блоке "НАСТРОЙКИ" ниже под свою среду.
 #   2. Из PowerShell:  .\import-workflows.ps1
+#                     .\import-workflows.ps1 -Filter sql-agent   # только sql-agent.json
+#                     .\import-workflows.ps1 -ResetCreds         # см. ниже
+#
+# ФЛАГ -ResetCreds:
+#   Снести credentials-cache.local.json ПЕРЕД импортом. Полезно когда:
+#   - После удаления workflow вручную credentials в нодах помечены как
+#     «битые» (не подтягиваются, не выбираются из dropdown в UI).
+#   - Кеш протух: ID в кеше указывает на удалённый credential, скрипт
+#     слепо берёт ID из кеша, n8n импортирует workflow с битой ссылкой.
+#   После -ResetCreds: скрипт делает name-matching/autoCreate заново
+#   и сохраняет свежий кеш. Безопасно — кеш в .gitignore, не аффектит коллег.
 # =============================================================================
+param(
+    [string]$Filter,
+    [switch]$ResetCreds
+)
 
 # ---- НАСТРОЙКИ ----
 $folder = "C:\Users\Lenovo\Desktop\GigaChat\Workflow"   # путь к папке с .json
@@ -100,6 +115,18 @@ if ($jsonFiles.Count -eq 0) {
     exit 1
 }
 
+# Применение -Filter <substring>: оставляем только .json у которых имя
+# содержит указанную подстроку. Пример: -Filter sql-agent → только sql-agent.json.
+if (-not [string]::IsNullOrWhiteSpace($Filter)) {
+    $before = $jsonFiles.Count
+    $jsonFiles = $jsonFiles | Where-Object { $_.Name -like "*$Filter*" }
+    Write-Host ("Фильтр '-Filter {0}': {1} из {2} файлов." -f $Filter, $jsonFiles.Count, $before) -ForegroundColor Cyan
+    if ($jsonFiles.Count -eq 0) {
+        Write-Host "Ни один .json не совпал с фильтром. Выхожу." -ForegroundColor Yellow
+        exit 0
+    }
+}
+
 $headers = @{ "X-N8N-API-KEY" = $apiKey }
 
 # ============================================================================
@@ -108,6 +135,24 @@ $headers = @{ "X-N8N-API-KEY" = $apiKey }
 
 # Файл с уже резолвленными ID — лежит рядом со скриптом и в .gitignore.
 $credCachePath = Join-Path $PSScriptRoot "credentials-cache.local.json"
+
+# Применение -ResetCreds: сносим кеш перед началом. n8n public API не даёт
+# проверить «жив ли credential по ID», поэтому при удалении credentials
+# вручную в UI кеш протухает молча. Скрипт продолжает использовать мёртвый
+# ID → workflow импортируются с битыми ссылками, в UI «Missing credential»
+# и dropdown не предлагает существующие.
+# Через -ResetCreds кеш чистится, скрипт делает name-matching/autoCreate
+# заново и сохраняет свежий кеш. Это идемпотентно — следующие запуски
+# без -ResetCreds работают как обычно.
+if ($ResetCreds) {
+    Write-Host "==> Флаг -ResetCreds: сношу credentials-cache.local.json" -ForegroundColor Yellow
+    if (Test-Path $credCachePath) {
+        Remove-Item $credCachePath -Force
+        Write-Host "    Удалён. Резолвлю credentials с нуля." -ForegroundColor Yellow
+    } else {
+        Write-Host "    Кеша и не было — ничего удалять." -ForegroundColor DarkYellow
+    }
+}
 
 function Get-CredentialCache {
     if (-not (Test-Path $credCachePath)) { return @{} }
@@ -514,6 +559,51 @@ try {
     Write-Host "  последний выход узла 'Switch action' к узлу 'Формат ответа'." -ForegroundColor Red
 }
 
+# ============================================================================
+# Post-import VERIFY: проверяем что credentials в реальных импортированных
+# workflow совпадают с резолвленными. Если нет — значит кеш протух (credential
+# с таким ID не существует в n8n) и подсказываем -ResetCreds.
+# n8n public API не даёт `GET /credentials/<id>` (405), поэтому проверяем
+# косвенно: тянем workflow обратно через GET и считаем сколько разных ID
+# используется. Если ID в workflow совпадают с резолвленными — OK.
+# Если в workflow прописаны ID которых не было в нашем mapping — это ID
+# который остался ОТ ПРЕДЫДУЩЕЙ привязки в n8n (credentials сохранились
+# при обновлении). Это норма. Бьём тревогу только когда нашему резолв-ID
+# нет ни в одном импортированном workflow — значит ID мёртв или мы его
+# криво подсунули.
+$credIssues = @()
+try {
+    # ВАЖНО: prefix содержит "[GigaChat] " — квадратные скобки в PowerShell -like
+    # это spec-символы (символьный класс). Нельзя использовать -like "*$prefix*".
+    # Делаем .Contains() — буквальное сравнение.
+    $checkWfs = (Invoke-RestMethod -Uri "$n8n/api/v1/workflows?limit=250" -Headers $headers).data |
+                Where-Object { (-not $_.isArchived) -and ($_.name.Contains($prefix)) }
+    $idsInUse = @{}
+    foreach ($wf in $checkWfs) {
+        $full = Invoke-RestMethod -Uri "$n8n/api/v1/workflows/$($wf.id)" -Headers $headers
+        foreach ($node in $full.nodes) {
+            if (-not $node.credentials) { continue }
+            foreach ($prop in $node.credentials.PSObject.Properties) {
+                $key = "$($prop.Name)|$($prop.Value.id)"
+                if (-not $idsInUse.ContainsKey($key)) { $idsInUse[$key] = 0 }
+                $idsInUse[$key]++
+            }
+        }
+    }
+    # Сверка: каждый резолвленный credential должен встречаться хотя бы в одном workflow
+    foreach ($type in $resolvedCreds.Keys) {
+        $rid = $resolvedCreds[$type].id
+        if (-not $rid) { continue }
+        $key = "$type|$rid"
+        if (-not $idsInUse.ContainsKey($key)) {
+            $credIssues += "Резолвленный $type id=$rid (name=$($resolvedCreds[$type].name)) НЕ найден ни в одном импортированном workflow. Возможно протух."
+        }
+    }
+} catch {
+    # Не критично, просто пропустим verify
+    $credIssues += "Не удалось верифицировать credentials: $($_.Exception.Message)"
+}
+
 Write-Host "=============================================================" -ForegroundColor Green
 Write-Host " ИТОГ:" -ForegroundColor Green
 Write-Host "   создано:           $created" -ForegroundColor Green
@@ -537,5 +627,20 @@ Write-Host "    ничего делать не надо."
 if (-not $patchOk) {
     Write-Host " 3. Для Plane-агента: в узле 'Switch action' соедини ПОСЛЕДНИЙ" -ForegroundColor Yellow
     Write-Host "    (fallback) выход с узлом 'Формат ответа'." -ForegroundColor Yellow
+}
+if ($credIssues.Count -gt 0) {
+    Write-Host ""
+    Write-Host " ⚠️  ПРОБЛЕМЫ С CREDENTIALS:" -ForegroundColor Red
+    foreach ($issue in $credIssues) {
+        Write-Host "    - $issue" -ForegroundColor Red
+    }
+    Write-Host ""
+    Write-Host "    Скорее всего credentials-cache.local.json протух (credential" -ForegroundColor Yellow
+    Write-Host "    удалён в n8n UI вручную). Запусти заново с -ResetCreds:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "       .\import-workflows.ps1 -ResetCreds" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "    Это снесёт кеш, скрипт сделает name-matching/autoCreate" -ForegroundColor Yellow
+    Write-Host "    заново и сохранит свежие ID." -ForegroundColor Yellow
 }
 Write-Host "=============================================================" -ForegroundColor Green
