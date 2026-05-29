@@ -39,7 +39,7 @@
   // AUTH — единая аутентификация для всех агентов платформы
   // ============================================================
   // Архитектура: одна отдельная страница /login.html выдаёт session-token
-  // (workflow planner-auth, таблица planner_sessions). Все защищённые агенты
+  // (workflow planner-auth, таблица auth_sessions). Все защищённые агенты
   // (plane-agent) на bootstrap'е вызывают GigaChat.auth.requireAuth():
   //   - токен есть и verify прошёл → запускают свой UI
   //   - токена нет ИЛИ verify провалился → редирект на login.html?return=<url>
@@ -3755,7 +3755,7 @@
     var interceptBotData = opts.interceptBotData || null;
     // extraBody({sessionId, message}) — функция, возвращающая объект с дополнительными
     // полями для тела POST-запроса в webhook. Plane-агент использует это, чтобы
-    // прокинуть token (planner_sessions), workspace_slug, plane_url, plane_token.
+    // прокинуть token (auth_sessions), workspace_slug, plane_url, plane_token.
     // Если опция не задана — тело отправляется без доп. полей (как раньше).
     var userExtraBody = opts.extraBody || function () { return {}; };
 

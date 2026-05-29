@@ -87,8 +87,8 @@ CREATE TABLE IF NOT EXISTS chat_summaries (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
-\echo '== SSO: planner_users + planner_sessions (общая auth для всех агентов) =='
-CREATE TABLE IF NOT EXISTS planner_users (
+\echo '== SSO: auth_users + auth_sessions (общая auth для всех агентов) =='
+CREATE TABLE IF NOT EXISTS auth_users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -96,21 +96,21 @@ CREATE TABLE IF NOT EXISTS planner_users (
     last_login_at TIMESTAMP,
     password_changed_at TIMESTAMP DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_planner_users_username_lower
-    ON planner_users (LOWER(username));
+CREATE INDEX IF NOT EXISTS idx_auth_users_username_lower
+    ON auth_users (LOWER(username));
 
-CREATE TABLE IF NOT EXISTS planner_sessions (
+CREATE TABLE IF NOT EXISTS auth_sessions (
     token VARCHAR(64) PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES planner_users(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT NOW(),
     last_used_at TIMESTAMP DEFAULT NOW(),
     expires_at TIMESTAMP NOT NULL,
     remember BOOLEAN DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_planner_sessions_user
-    ON planner_sessions (user_id);
-CREATE INDEX IF NOT EXISTS idx_planner_sessions_expires
-    ON planner_sessions (expires_at);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_user
+    ON auth_sessions (user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires
+    ON auth_sessions (expires_at);
 
 -- agent_sessions: общая для всех агентов. Sync через /webhook/sessions-sync,
 -- ключ (user_id, agent, session_id) — один аккаунт видит свои сессии на
@@ -119,7 +119,7 @@ CREATE INDEX IF NOT EXISTS idx_planner_sessions_expires
 \echo '== agent_sessions: единый стор сессий всех агентов =='
 CREATE TABLE IF NOT EXISTS agent_sessions (
     session_id  VARCHAR(255) NOT NULL,
-    user_id     INTEGER NOT NULL REFERENCES planner_users(id) ON DELETE CASCADE,
+    user_id     INTEGER NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
     agent       VARCHAR(32)  NOT NULL,
     name        TEXT         NOT NULL,
     sort_order  INTEGER      NOT NULL DEFAULT 0,

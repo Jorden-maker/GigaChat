@@ -24,7 +24,7 @@
 | SQL-агент | `clients`, `orders`, `employees`, `tasks` (+ тест-данные: 30 + 30 + 30 + 30) |
 | RAG-агент | `documents` (vector(1024) + ivfflat-индекс) |
 | Чат-агенты | `chat_memory`, `chat_summaries` |
-| SSO (общая auth) | `planner_users`, `planner_sessions` (исторически названы `planner_*`) |
+| SSO (общая auth) | `auth_users`, `auth_sessions` |
 | Cross-device sessions | `agent_sessions` |
 | Алгоритм «Организация обращения» | `appeal_employees`, `appeal_event1`, `appeal_event2` (+ тест-данные: 58 + 40 + 28) |
 
@@ -122,14 +122,14 @@ psql -U postgres -d ai_agent -c "\dt"
  public | appeal_employees | table | postgres
  public | appeal_event1    | table | postgres
  public | appeal_event2    | table | postgres
+ public | auth_sessions    | table | postgres
+ public | auth_users       | table | postgres
  public | chat_memory      | table | postgres
  public | chat_summaries   | table | postgres
  public | clients          | table | postgres
  public | documents        | table | postgres
  public | employees        | table | postgres
  public | orders           | table | postgres
- public | planner_sessions | table | postgres
- public | planner_users    | table | postgres
  public | tasks            | table | postgres
 (13 rows)
 ```
@@ -217,14 +217,14 @@ psql -U postgres -d ai_agent -f "База данных/init-db.sql"
  public | appeal_employees | table
  public | appeal_event1    | table
  public | appeal_event2    | table
+ public | auth_sessions    | table
+ public | auth_users       | table
  public | chat_memory      | table
  public | chat_summaries   | table
  public | clients          | table
  public | documents        | table
  public | employees        | table
  public | orders           | table
- public | planner_sessions | table
- public | planner_users    | table
  public | tasks            | table
 (13 rows)
 ```

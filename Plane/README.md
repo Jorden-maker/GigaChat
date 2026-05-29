@@ -25,7 +25,7 @@
        │                       Workflow plane-agent.json        
        │                          │                             
        │                          ├── Postgres: verify token    
-       │                          │   (planner_sessions)        
+       │                          │   (auth_sessions)        
        │                          │                             
        │                          ├── GigaChat LLM (опц., NL)   
        │                          │                             

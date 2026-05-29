@@ -230,7 +230,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO planner_users (username, password_hash) VALUES ($1, crypt($2, gen_salt('bf', 12))) RETURNING id, username, created_at::text",
+        "query": "INSERT INTO auth_users (username, password_hash) VALUES ($1, crypt($2, gen_salt('bf', 12))) RETURNING id, username, created_at::text",
         "options": {
           "queryReplacement": "={{ [$json.username, $json.password] }}"
         },
@@ -269,7 +269,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, username FROM planner_users WHERE LOWER(username) = LOWER($1) AND password_hash = crypt($2, password_hash)",
+        "query": "SELECT id, username FROM auth_users WHERE LOWER(username) = LOWER($1) AND password_hash = crypt($2, password_hash)",
         "options": {
           "queryReplacement": "={{ [$json.username, $json.password] }}"
         },
@@ -341,7 +341,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO planner_sessions (token, user_id, expires_at, remember) VALUES (encode(gen_random_bytes(32), 'hex'), $1, to_timestamp($2 / 1000.0), $3) RETURNING token, user_id, expires_at::text;\nUPDATE planner_users SET last_login_at = NOW() WHERE id = $1;",
+        "query": "INSERT INTO auth_sessions (token, user_id, expires_at, remember) VALUES (encode(gen_random_bytes(32), 'hex'), $1, to_timestamp($2 / 1000.0), $3) RETURNING token, user_id, expires_at::text;\nUPDATE auth_users SET last_login_at = NOW() WHERE id = $1;",
         "options": {
           "queryReplacement": "={{ [$json.user_id, $json.expires_at_ms, $json.remember] }}"
         },
@@ -393,7 +393,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "DELETE FROM planner_sessions WHERE token = $1 RETURNING token",
+        "query": "DELETE FROM auth_sessions WHERE token = $1 RETURNING token",
         "options": {
           "queryReplacement": "={{ [$json.token] }}"
         },
@@ -432,7 +432,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH upd AS (\n  UPDATE planner_sessions SET last_used_at = NOW()\n  WHERE token = $1 AND expires_at > NOW()\n  RETURNING user_id\n)\nSELECT u.id AS user_id, u.username\nFROM upd JOIN planner_users u ON u.id = upd.user_id;",
+        "query": "WITH upd AS (\n  UPDATE auth_sessions SET last_used_at = NOW()\n  WHERE token = $1 AND expires_at > NOW()\n  RETURNING user_id\n)\nSELECT u.id AS user_id, u.username\nFROM upd JOIN auth_users u ON u.id = upd.user_id;",
         "options": {
           "queryReplacement": "={{ [$json.token] }}"
         },
@@ -471,7 +471,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE planner_users SET password_hash = crypt($3, gen_salt('bf', 12)), password_changed_at = NOW() WHERE id = (SELECT user_id FROM planner_sessions WHERE token = $1 AND expires_at > NOW()) AND password_hash = crypt($2, password_hash) RETURNING id, username",
+        "query": "UPDATE auth_users SET password_hash = crypt($3, gen_salt('bf', 12)), password_changed_at = NOW() WHERE id = (SELECT user_id FROM auth_sessions WHERE token = $1 AND expires_at > NOW()) AND password_hash = crypt($2, password_hash) RETURNING id, username",
         "options": {
           "queryReplacement": "={{ [$json.token, $json.old_password, $json.new_password] }}"
         },
