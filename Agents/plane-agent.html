@@ -4484,30 +4484,50 @@
                 if (rect.bottom > window.innerHeight) cm.style.top = (window.innerHeight - rect.height - 10) + 'px';
             }, 0);
         }
+        // R8.39 (#4): передаём issue_id (UUID) первичным ключом + issue_name
+        // как fallback. Бэкенд (resolve issue_id и resolve: extended) если
+        // увидит issue_id — использует его напрямую, не ищет по имени.
+        // Раньше передавали только issue_name → backend делал `.find()` по
+        // совпадению имени, при дубликатах удаляло/двигало первую попавшуюся,
+        // не ту что юзер кликнул правой кнопкой.
+        function _issueRefParams(issue) {
+            var p = {};
+            if (issue.id) p.issue_id = issue.id;            // UUID — уникален
+            if (issue.name) p.issue_name = issue.name;      // fallback и для текста ошибок
+            return p;
+        }
         // MED-3 fix: типизированные обёртки, принимают issue (closure-safe)
         async function ctxMenuStatusFor(issue, state) {
             if (!issue || !BOARD_CURRENT_PROJECT) return;
-            await planeDirect('change_status', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name, state: state });
+            await planeDirect('change_status', Object.assign({
+                project_name: BOARD_CURRENT_PROJECT, state: state
+            }, _issueRefParams(issue)));
             reloadBoard();
         }
         async function ctxMenuDeleteFor(issue) {
             if (!issue) return;
             if (!confirm('Удалить задачу «' + issue.name + '»?')) return;
-            await planeDirect('delete_issue', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name });
+            await planeDirect('delete_issue', Object.assign({
+                project_name: BOARD_CURRENT_PROJECT
+            }, _issueRefParams(issue)));
             reloadBoard();
         }
         async function ctxMenuCommentFor(issue) {
             if (!issue) return;
             customPrompt('Комментарий для «' + issue.name + '»:', { type: 'text', placeholder: 'Текст комментария...' }).then(async function (text) {
                 if (!text) return;
-                await planeDirect('add_comment', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name, comment: text });
+                await planeDirect('add_comment', Object.assign({
+                    project_name: BOARD_CURRENT_PROJECT, comment: text
+                }, _issueRefParams(issue)));
             });
         }
         async function ctxMenuDeadlineFor(issue) {
             if (!issue) return;
             customPrompt('Срок выполнения для «' + issue.name + '»:', { type: 'date' }).then(async function (date) {
                 if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-                await planeDirect('set_deadline', { project_name: BOARD_CURRENT_PROJECT, issue_name: issue.name, target_date: date });
+                await planeDirect('set_deadline', Object.assign({
+                    project_name: BOARD_CURRENT_PROJECT, target_date: date
+                }, _issueRefParams(issue)));
                 reloadBoard();
             });
         }
