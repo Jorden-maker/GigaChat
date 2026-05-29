@@ -6044,7 +6044,7 @@
             // попадает (он type='special' и обрабатывается раньше).
             var _sPre = (typeof loadPlaneSettings === 'function') ? loadPlaneSettings() : null;
             if (!_sPre || !_sPre.url || !_sPre.slug || !_sPre.token) {
-                addAssistantMessage('Команда недоступна. Настройте ваш аккаунт.');
+                addAssistantStreamed('Команда недоступна. Настройте ваш аккаунт.');
                 return;
             }
             // R5 BUG-2: loader = transient (не пишем в displayMessages, иначе
@@ -6072,7 +6072,7 @@
                 // workflow, (б) auth_required=true (401 на gigachat-токен),
                 // (в) явные признаки 401/403/нет доступа в строке res.response.
                 if (res && (res.plane_setup_required || res.auth_required)) {
-                    addAssistantMessage('Команда недоступна. Настройте ваш аккаунт.');
+                    addAssistantStreamed('Команда недоступна. Настройте ваш аккаунт.');
                     return;
                 }
                 var _respLow = String((res && res.response) || '').toLowerCase();
@@ -6083,7 +6083,7 @@
                     || _respLow.indexOf('401') !== -1
                     || _respLow.indexOf('403') !== -1
                     || _respLow.indexOf('unauthorized') !== -1) {
-                    addAssistantMessage('Команда недоступна. Настройте ваш аккаунт.');
+                    addAssistantStreamed('Команда недоступна. Настройте ваш аккаунт.');
                     return;
                 }
                 if (!res || (res.error && !res.data && !res.response)) {
@@ -6549,6 +6549,36 @@
                     }
                 } catch(_) {}
             }
+        }
+        // R8.36: helper для коротких текстовых сообщений с псевдо-стримингом.
+        // До этого «Команда недоступна. Настройте ваш аккаунт.» инжектилась
+        // мгновенно через addAssistantMessage, без typewriter-эффекта. Все
+        // остальные ответы Plane-агента идут через typewriteAssistant с cps=100
+        // (см. executeSlashDirect ниже) — стиль был неоднороден. Этот helper
+        // обёртка над тем же typewriteAssistant для коротких текстов.
+        // Fallback на addAssistantMessage если sessionStore ещё не готов.
+        function addAssistantStreamed(text) {
+            try {
+                var ssRef = (window.__planeAgent && window.__planeAgent.sessionStore) || null;
+                var sidRef = ssRef && ssRef.state && ssRef.state.activeSessionId;
+                if (ssRef && sidRef && GigaChat && GigaChat.typewriteAssistant) {
+                    var fakeMsg = {
+                        role: 'assistant',
+                        content: text,
+                        extras: {},
+                        ts: Date.now()
+                    };
+                    GigaChat.typewriteAssistant(ssRef, sidRef, fakeMsg, {
+                        cps: 100,
+                        sendBtn: document.getElementById('send'),
+                        input: document.getElementById('msg'),
+                        accentColor: '#d4a574'
+                    });
+                    return;
+                }
+            } catch(_) {}
+            // Fallback: без stream'а, мгновенно. sessionStore не готов.
+            addAssistantMessage(escapeHtml(text));
         }
         // R5 #3: плавное появление дочерних элементов с задержкой
         function applyStaggerAnimation(container) {
