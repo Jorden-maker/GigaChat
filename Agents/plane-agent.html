@@ -3270,6 +3270,7 @@
                     var draggedCard = document.querySelector(
                       '#board-columns .board-card[data-issue-name="' + CSS.escape(issueName) + '"]'
                     );
+                    var draggedId = draggedCard ? draggedCard.dataset.issueId : '';  // C2: PATCH по issue_id
                     var originalParent = draggedCard ? draggedCard.parentNode : null;
                     if (draggedCard && originalParent !== col) {
                         // Убираем «Нет задач» placeholder если он есть от старого
@@ -3293,6 +3294,7 @@
                         .then(function () {
                             return planeDirect('change_status', {
                                 project_name: BOARD_CURRENT_PROJECT,
+                                issue_id: draggedId,
                                 issue_name: issueName,
                                 state: STATE_MAP[targetState] || targetState
                             });
@@ -3326,7 +3328,7 @@
                         // на «Сортировка») перерисует доску из BOARD_ALL_ISSUES и
                         // карточка «телепортируется» обратно в исходную колонку.
                         var moved = BOARD_ALL_ISSUES.find(function (it) {
-                            return (it.name || '') === issueName;
+                            return (draggedId && it.id === draggedId) || (it.name || '') === issueName;
                         });
                         if (moved) {
                             if (!moved.state_detail) moved.state_detail = {};
@@ -3743,6 +3745,7 @@
                                         // Перенесём в нужную колонку
                                         await planeDirect('change_status', {
                                             project_name: BOARD_CURRENT_PROJECT,
+                                            issue_id: (res && res.data && res.data.issue && res.data.issue.id) || undefined,
                                             issue_name: name,
                                             state: targetState
                                         });
@@ -4007,10 +4010,9 @@
                 return;
             }
             try {
-                var res = await planeDirect('list_comments', {
-                    project_name: projectName,
-                    issue_name: issue.name
-                });
+                var res = await planeDirect('list_comments', Object.assign({
+                    project_name: projectName
+                }, _issueRefParams(issue)));
                 if (!res || res.action === 'error' || res.error) {
                     retryOrStay();
                     return;
@@ -4136,7 +4138,7 @@
                 if (!confirm('Удалить комментарий?')) return;
                 btn.disabled = true;
                 var res = await planeDirect('delete_comment', {
-                    project_name: projectName, issue_name: issueName, comment_id: commentId
+                    project_name: projectName, issue_id: (MODAL_CURRENT_ISSUE && MODAL_CURRENT_ISSUE.id), issue_name: issueName, comment_id: commentId
                 });
                 if (res && !res.error && res.data && res.data.deleted) {
                     // Плавно «свернуть» элемент и удалить из DOM
@@ -4205,7 +4207,7 @@
                     saveBtn.disabled = true;
                     saveBtn.textContent = 'Сохраняю...';
                     var res = await planeDirect('update_comment', {
-                        project_name: projectName, issue_name: issueName,
+                        project_name: projectName, issue_id: (MODAL_CURRENT_ISSUE && MODAL_CURRENT_ISSUE.id), issue_name: issueName,
                         comment_id: commentId, comment: newText
                     });
                     if (res && !res.error && res.data && res.data.updated) {
@@ -4290,6 +4292,7 @@
                 if (state && state !== 'todo') {
                     await planeDirect('change_status', {
                         project_name: proj,
+                        issue_id: (res && res.data && res.data.issue && res.data.issue.id) || undefined,
                         issue_name: name,
                         state: state
                     });
@@ -4343,24 +4346,25 @@
                 // ошибке change_status (429, conflict) код продолжал в update_issue
                 // и показывал «Сохранено» — юзер не понимал что статус не сменился.
                 if (stateMap[origGroup] !== newState) {
-                    var rState = await planeDirect('change_status', {
+                    var rState = await planeDirect('change_status', Object.assign({
                         project_name: _mProject,
-                        issue_name: origName,
                         state: newState
-                    });
+                    }, _issueRefParams(issue)));
                     if (rState && (rState.error || rState.action === 'error')) {
                         if (statusEl) statusEl.textContent = rState.response || 'Не удалось сменить статус';
                         return;
                     }
                 }
                 // 2) Update name/description/priority/deadline
-                var updateParams = { project_name: _mProject, issue_name: origName };
+                // C2 fix: issue_id первичным ключом (origName === issue.name).
+                var updateParams = Object.assign({ project_name: _mProject }, _issueRefParams(issue));
+                var _updBaseKeys = Object.keys(updateParams).length; // 2 (с issue_id) или 1 (только имя) + project_name
                 if (newName && newName !== origName) updateParams.name = newName;
                 if (descChanged) updateParams.description = newDesc; // R3-A: пустая строка теперь тоже пройдёт
                 if (newPrio !== String(issue.priority || 'none')) updateParams.priority = newPrio;
                 if (newStart && newStart !== (issue.start_date || '')) updateParams.start_date = newStart;
                 if (newDeadline && newDeadline !== (issue.target_date || '')) updateParams.target_date = newDeadline;
-                if (Object.keys(updateParams).length > 2) {
+                if (Object.keys(updateParams).length > _updBaseKeys) {
                     var rUpd = await planeDirect('update_issue', updateParams);
                     if (rUpd && (rUpd.error || rUpd.action === 'error')) {
                         if (statusEl) statusEl.textContent = rUpd.response || 'Не удалось обновить';
@@ -4387,10 +4391,9 @@
             var statusEl = document.getElementById('board-status');
             if (statusEl) statusEl.textContent = 'Удаляю...';
             try {
-                await planeDirect('delete_issue', {
-                    project_name: _mProject,
-                    issue_name: issue.name
-                });
+                await planeDirect('delete_issue', Object.assign({
+                    project_name: _mProject
+                }, _issueRefParams(issue)));
                 if (statusEl) statusEl.textContent = 'Удалено';
                 closeCardModal();
                 reloadBoard();
@@ -4414,11 +4417,10 @@
             try {
                 // R7.34: getModalProject() — задача может быть из другого
                 // проекта, чем BOARD_CURRENT_PROJECT (модалка из чата).
-                await planeDirect('add_comment', {
+                await planeDirect('add_comment', Object.assign({
                     project_name: proj,
-                    issue_name: issue.name,
                     comment: text
-                });
+                }, _issueRefParams(issue)));
                 if (input) input.value = '';
                 if (statusEl) statusEl.textContent = 'Комментарий добавлен';
                 // Перезагружаем список комментариев в модалке (loadCardComments всегда определена)
@@ -4602,12 +4604,13 @@
         async function bulkAction(action) {
             if (SELECTED_CARDS.size === 0) return;
             var ids = Array.from(SELECTED_CARDS);
-            // По id находим issue.name в BOARD_ALL_ISSUES
-            var names = ids.map(function (id) {
+            // C2: по id находим issue (id первичен над именем — защита от дублей имён)
+            var refs = ids.map(function (id) {
                 var issue = BOARD_ALL_ISSUES.find(function (i) { return (i.id || i.name) === id; });
-                return issue ? issue.name : null;
+                return issue ? { id: issue.id, name: issue.name } : null;
             }).filter(Boolean);
-            if (!names.length) return;
+            if (!refs.length) return;
+            var names = refs.map(function (r) { return r.name; });
             var msg = action === 'delete'
                 ? 'Удалить ' + names.length + ' задач безвозвратно?'
                 : 'Перенести ' + names.length + ' задач в «' +
@@ -4618,11 +4621,14 @@
             statusEl.textContent = 'Обрабатываю ' + names.length + ' задач...';
             try {
                 // Через bulk action в workflow
-                var actions = names.map(function (n) {
+                var actions = refs.map(function (r) {
+                    var ref = {};
+                    if (r.id) ref.issue_id = r.id;
+                    if (r.name) ref.issue_name = r.name;
                     if (action === 'delete') {
-                        return { action: 'delete_issue', params: { project_name: BOARD_CURRENT_PROJECT, issue_name: n } };
+                        return { action: 'delete_issue', params: Object.assign({ project_name: BOARD_CURRENT_PROJECT }, ref) };
                     }
-                    return { action: 'change_status', params: { project_name: BOARD_CURRENT_PROJECT, issue_name: n, state: action } };
+                    return { action: 'change_status', params: Object.assign({ project_name: BOARD_CURRENT_PROJECT, state: action }, ref) };
                 });
                 await planeDirect('bulk', { actions: actions });
                 statusEl.textContent = 'Готово';
@@ -5163,7 +5169,7 @@
                     // Игнорируем клик после перетаскивания
                     if (el.__justDragged) { el.__justDragged = false; return; }
                     var name = el.dataset.issueName;
-                    var iss = (BOARD_ALL_ISSUES || []).find(function (x) { return x.name === name; });
+                    var iss = (BOARD_ALL_ISSUES || []).find(function (x) { return x.id === el.dataset.issueId || x.name === name; });
                     if (iss) openCardModal(iss);
                 });
                 // DnD: начало
@@ -5523,6 +5529,7 @@
                         var isDone = el.classList.contains('done');
                         await planeDirect('change_status', {
                             project_name: BOARD_CURRENT_PROJECT,
+                            issue_id: sub.id,
                             issue_name: sub.name,
                             state: isDone ? 'todo' : 'done'
                         });
@@ -5588,6 +5595,7 @@
             try {
                 var res = await planeDirect('list_subscribers', {
                     project_name: BOARD_CURRENT_PROJECT,
+                    issue_id: issue.id,
                     issue_name: issue.name
                 });
                 if (!res || res.error) {
@@ -5623,6 +5631,7 @@
             try {
                 var res = await planeDirect(action, {
                     project_name: BOARD_CURRENT_PROJECT,
+                    issue_id: MODAL_CURRENT_ISSUE.id,
                     issue_name: MODAL_CURRENT_ISSUE.name
                 });
                 if (res && (res.error || res.action === 'error')) {
@@ -6867,18 +6876,18 @@
                     if (issue) openCardModal(Object.assign({}, issue, { project: project }));
                     else {
                         // Подгружаем детали
-                        var r = await planeDirect('get_issue', { project_name: project, issue_name: issueName });
+                        var r = await planeDirect('get_issue', { project_name: project, issue_id: issueId, issue_name: issueName });
                         if (r && r.data && r.data.issue) openCardModal(Object.assign({}, r.data.issue, { project: project }));
                     }
                 } else if (act === 'delete') {
                     if (!confirm('Удалить задачу «' + issueName + '»?')) return;
-                    await planeDirect('delete_issue', { project_name: project, issue_name: issueName });
+                    await planeDirect('delete_issue', { project_name: project, issue_id: issueId, issue_name: issueName });
                     if (card) { card.style.transition = 'opacity 0.3s'; card.style.opacity = '0.3'; }
                     addAssistantMessage('Удалена задача «' + escapeHtml(issueName) + '».');
                     if (typeof reloadBoard === 'function') reloadBoard(true);
                 } else if (act === 'done' || act === 'in_progress' || act === 'reopen') {
                     var state = act === 'done' ? 'done' : (act === 'reopen' ? 'todo' : 'in_progress');
-                    await planeDirect('change_status', { project_name: project, issue_name: issueName, state: state });
+                    await planeDirect('change_status', { project_name: project, issue_id: issueId, issue_name: issueName, state: state });
                     var labelMap = { done: 'Готово', in_progress: 'В работу', reopen: 'В очередь' };
                     addAssistantMessage('Перевёл «' + escapeHtml(issueName) + '» в статус «' + labelMap[act] + '».');
                     if (typeof reloadBoard === 'function') reloadBoard(true);
@@ -6953,6 +6962,7 @@
             try {
                 var params = Object.assign({
                     project_name: BOARD_CURRENT_PROJECT,
+                    issue_id: issue.id,
                     issue_name: issue.name
                 }, fields);
                 var res = await planeDirect('update_issue', params);
