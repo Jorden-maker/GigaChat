@@ -1789,7 +1789,8 @@
                             <svg viewBox="0 0 24 24" aria-hidden="true" width="10" height="10" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                     </div>
-                    <button class="board-chip" id="board-chip-mine" onclick="toggleMineFilter()">Только мои</button>
+                    <button class="board-chip" id="board-chip-mine" onclick="toggleMineFilter()">Назначены мне</button>
+                    <button class="board-chip" id="board-chip-created" onclick="toggleCreatedFilter()">Мои задачи</button>
                     <button class="board-chip" id="board-chip-overdue" onclick="toggleFilter('overdue')">Просроченные</button>
                     <button class="board-chip" id="board-chip-urgent" onclick="toggleFilter('urgent')">Срочные</button>
                     <button class="board-chip" id="board-chip-no-due" onclick="toggleFilter('noDeadline')">Без срока</button>
@@ -3642,7 +3643,7 @@
 
         // --- State ---
         // R7.94: sortBy убран — на канбане всегда сортировка по приоритету (зашита в filterIssues).
-        var BOARD_FILTERS = { search: '', mine: false, overdue: false, urgent: false, noDeadline: false };
+        var BOARD_FILTERS = { search: '', mine: false, created: false, overdue: false, urgent: false, noDeadline: false };
         var BOARD_ALL_ISSUES = [];   // последний полный набор issues с сервера (до фильтрации)
         var BOARD_LABELS_CACHE = {}; // id → {name, color}
         var BOARD_MEMBERS_CACHE = []; // [{id, display_name, ...}]
@@ -3841,6 +3842,13 @@
             document.getElementById('board-chip-mine').classList.toggle('active', BOARD_FILTERS.mine);
             applyBoardFilters();
         }
+        // R8.51: «Мои задачи» — фильтр по СОЗДАТЕЛЮ (created_by == plane_user_id),
+        // в отличие от «Назначены мне» (по assignees).
+        function toggleCreatedFilter() {
+            BOARD_FILTERS.created = !BOARD_FILTERS.created;
+            document.getElementById('board-chip-created').classList.toggle('active', BOARD_FILTERS.created);
+            applyBoardFilters();
+        }
         function toggleFilter(name) {
             BOARD_FILTERS[name] = !BOARD_FILTERS[name];
             var chip = document.getElementById('board-chip-' + (
@@ -3904,6 +3912,15 @@
                         return String(a && a.id ? a.id : a) === _meId;
                     });
                     if (!_mine) return false;
+                }
+                if (BOARD_FILTERS.created) {
+                    // «Мои задачи» — создатель == текущий юзер. created_by бывает
+                    // строкой-UUID, объектом {id} или полем created_by_id.
+                    var _cr = '';
+                    if (typeof i.created_by === 'string') _cr = i.created_by;
+                    else if (i.created_by && i.created_by.id) _cr = String(i.created_by.id);
+                    else if (i.created_by_id) _cr = String(i.created_by_id);
+                    if (!_meId || _cr !== _meId) return false;
                 }
                 if (BOARD_FILTERS.urgent && String(i.priority||'').toLowerCase() !== 'urgent') return false;
                 if (BOARD_FILTERS.noDeadline && i.target_date) return false;
@@ -5313,7 +5330,7 @@
                 pruneSelection();
             }
             // Применяем активные фильтры (если они есть — иначе вернёт всё)
-            var hasFilters = BOARD_FILTERS.search || BOARD_FILTERS.mine || BOARD_FILTERS.overdue || BOARD_FILTERS.urgent || BOARD_FILTERS.noDeadline;
+            var hasFilters = BOARD_FILTERS.search || BOARD_FILTERS.mine || BOARD_FILTERS.created || BOARD_FILTERS.overdue || BOARD_FILTERS.urgent || BOARD_FILTERS.noDeadline;
             var toRender = hasFilters ? filterIssues(BOARD_ALL_ISSUES) : issues;
             return __origRenderBoardIssues.call(this, toRender);
         };
