@@ -6203,7 +6203,7 @@
                 if (SUMMARY_CMDS[c.cmd] && issues && issues.length > 0) {
                     var typingMsSum = (String(contentText).length / 100) * 1000;
                     var animMsSum = 1200 + issues.length * 150 + 200; // stagger-волна
-                    var pauseMsSum = 1000; // R8.05: пауза перед сводкой 1 сек
+                    var pauseMsSum = 0; // R8.05→0: пауза перед сводкой убрана (по запросу) — сводка сразу после карточек
                     var totalDelaySum = typingMsSum + animMsSum + pauseMsSum;
                     setTimeout(function () {
                         var groups = { cancelled: 0, backlog: 0, unstarted: 0, started: 0, completed: 0 };
