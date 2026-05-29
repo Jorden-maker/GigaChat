@@ -37,10 +37,6 @@ ocr-server/_tmp_venv/
 # Pyodide-бандл для math-agent — лежит в репозитории, чтобы ZIP-загрузка
 # с GitHub содержала всё необходимое для офисного офлайн-развёртывания.
 
-# Локальный кеш ID credentials для import-workflows.ps1.
-# Содержит ID credentials с конкретной машины — на других машинах ID другие.
-credentials-cache.local.json
-
 # Plane — клонирован локально для разработки Plane-агента, не наш код.
 # Lowercase `plane/` — это локальный клон upstream-репозитория (97 МБ),
 # в репо не нужен. Заглавная `Plane/` — наша документация-хаб с README +
