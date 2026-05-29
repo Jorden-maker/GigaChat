@@ -2782,6 +2782,15 @@
             var open = sel.classList.toggle('open');
             var trig = sel.querySelector('.board-select-trigger');
             if (trig) trig.parentNode.setAttribute('aria-expanded', open ? 'true' : 'false');
+            // FIX: при открытии меню не должно быть пустым. Если проектов нет
+            // (нет/невалидный Plane-токен → list_projects вернул пусто или упал),
+            // показываем «Нет проектов» — иначе дропдаун выглядит как «не открылся».
+            if (open) {
+                var m = document.getElementById('board-project-menu');
+                if (m && !m.querySelector('li[data-value]')) {
+                    m.innerHTML = '<li class="empty">Нет проектов</li>';
+                }
+            }
         }
         // Click outside → закрыть
         document.addEventListener('click', function (e) {
@@ -2840,7 +2849,7 @@
                         statusEl.textContent = 'Загружаю проекты... (попытка ' + (ai + 1) + ')';
                         await new Promise(function (r) { setTimeout(r, attempts[ai]); });
                     }
-                    pd = await planeDirect('list_projects', {});
+                    try { pd = await planeDirect('list_projects', {}); } catch (e) { pd = null; }
                     if (pd && pd.data && Array.isArray(pd.data.projects) && pd.data.projects.length) {
                         break;
                     }
