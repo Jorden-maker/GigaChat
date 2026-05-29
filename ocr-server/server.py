@@ -58,6 +58,7 @@ PORT = int(os.environ.get('OCR_PORT', '8055'))
 LANGS = os.environ.get('OCR_LANGS', 'ru,en').split(',')
 PDF_MIN_TEXT = int(os.environ.get('OCR_PDF_MIN_TEXT', '50'))
 PDF_MAX_PAGES = int(os.environ.get('OCR_PDF_MAX_PAGES', '50'))
+MAX_UPLOAD_MB = int(os.environ.get('OCR_MAX_UPLOAD_MB', '50'))
 EASYOCR_DIR = os.environ.get('OCR_EASYOCR_DIR', '').strip() or None
 DEVICE = os.environ.get('OCR_DEVICE', '').strip().lower()
 
@@ -92,9 +93,9 @@ def get_easyocr():
     global _easyocr_reader, _easyocr_init_error
     if _easyocr_reader is not None:
         return _easyocr_reader
-    if _easyocr_init_error is not None:
-        # Не пытаемся повторно — если упало один раз, упадёт снова.
-        raise RuntimeError(_easyocr_init_error)
+    # L6: НЕ блокируем повторные попытки навсегда — разовый сбой (например,
+    # модели ещё не успели скопироваться) не должен требовать рестарта сервиса.
+    # Пробуем инициализацию заново при каждом вызове, пока reader не готов.
     try:
         import easyocr
         use_gpu = _detect_device() == 'cuda'
@@ -106,6 +107,7 @@ def get_easyocr():
             download_enabled=False,  # КРИТИЧНО: офлайн. Если моделей нет — упадёт явно.
             verbose=False,
         )
+        _easyocr_init_error = None  # L6: сбрасываем прошлую ошибку после успеха
         log.info('EasyOCR ready.')
         return _easyocr_reader
     except Exception as e:
@@ -238,7 +240,19 @@ async def extract(file: UploadFile = File(...)):
     """
     if not file.filename:
         raise HTTPException(400, 'Файл без имени')
-    data = await file.read()
+    # M1: читаем с лимитом размера — защита от OOM при прямом POST в обход n8n
+    # (сервер слушает 0.0.0.0 в LAN). Чанковое чтение: не тянем весь файл в
+    # память целиком, если он превышает лимит.
+    max_bytes = MAX_UPLOAD_MB * 1024 * 1024
+    buf = bytearray()
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        buf.extend(chunk)
+        if len(buf) > max_bytes:
+            raise HTTPException(413, f'Файл больше {MAX_UPLOAD_MB} МБ — отклонён.')
+    data = bytes(buf)
     if not data:
         raise HTTPException(400, 'Пустой файл')
 

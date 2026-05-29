@@ -348,11 +348,11 @@
 
                 var elapsed2 = Math.floor((Date.now() - startTime) / 1000);
                 var sourceMap = { ocr: 'OCR', text: 'Текстовый файл', table: 'Таблица' };
-                var sourceLabel2 = sourceMap[data.source] || data.source || '—';
+                var sourceLabel2 = sourceMap[data.source] || escapeHtml(String(data.source || '—'));
                 var lengthLabel2 = data.response.length.toLocaleString('ru-RU') + ' символов';
                 var tableMeta = '';
                 if (data.source === 'table' && data.rowCount) {
-                    tableMeta = ' · ' + data.rowCount + ' строк · ' + (data.colCount || '?') + ' колонок';
+                    tableMeta = ' · ' + escapeHtml(String(data.rowCount)) + ' строк · ' + escapeHtml(String(data.colCount || '?')) + ' колонок';
                 }
                 resultMeta.innerHTML = '<b>' + escapeHtml(selectedFile.name) + '</b> · ' + sourceLabel2 + ' · ' + lengthLabel2 + tableMeta + ' · ' + elapsed2 + ' сек';
                 resultBox.style.display = 'block';
