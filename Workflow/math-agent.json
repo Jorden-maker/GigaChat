@@ -216,7 +216,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000,
+          "timeout": 60000,
           "temperature": 0
         }
       },
@@ -301,7 +301,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000,
+          "timeout": 60000,
           "temperature": 0
         }
       },
@@ -595,7 +595,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000,
+          "timeout": 60000,
           "temperature": 0
         }
       },
@@ -718,7 +718,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000,
+          "timeout": 60000,
           "temperature": 0
         }
       },

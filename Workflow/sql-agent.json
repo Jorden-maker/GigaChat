@@ -172,7 +172,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -256,7 +256,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -331,7 +331,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",

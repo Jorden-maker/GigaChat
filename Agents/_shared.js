@@ -3,7 +3,7 @@
 (function (global) {
   var cfg = global.GIGACHAT_CONFIG || { N8N_BASE: 'http://localhost:5678' };
 
-  var FETCH_TIMEOUT_MS = 120000;
+  var FETCH_TIMEOUT_MS = 60000;
   var MAX_RETRIES = 2;
   var RETRY_DELAY_MS = 3000;
   var PING_TIMEOUT_MS = 5000;

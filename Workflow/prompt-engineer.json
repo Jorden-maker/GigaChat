@@ -140,7 +140,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "id": "pe-general",
@@ -224,7 +224,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000,
+          "timeout": 60000,
           "temperature": 0.3
         }
       },

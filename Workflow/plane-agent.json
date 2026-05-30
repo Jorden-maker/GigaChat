@@ -246,7 +246,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000,
+          "timeout": 60000,
           "temperature": 0
         }
       },

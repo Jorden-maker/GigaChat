@@ -194,7 +194,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -275,7 +275,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ input: $('Валидация').first().json.message, type: 'query' }) }}",
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -402,7 +402,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000
+          "timeout": 60000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
