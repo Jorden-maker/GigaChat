@@ -1055,7 +1055,7 @@
       // по умолчанию). На случай переполнения по ширине — padding-right
       // у #chat достаточный.
       + '.msg.user,.msg.bot{position:relative}'
-      + '.gc-msg-copy{position:absolute;left:0;top:calc(100% + 6px);display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;background:transparent;border:none;border-radius:4px;color:var(--accent);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}'
+      + '.gc-msg-copy{position:absolute;left:0;top:calc(100% + 2px);display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;background:transparent;border:none;border-radius:4px;color:var(--accent);cursor:pointer;opacity:0;transition:opacity .15s,background .15s}'
       + '.msg:hover .gc-msg-copy,.msg:focus-within .gc-msg-copy,.gc-msg-copy:focus{opacity:1}'
       + '.gc-msg-copy:hover{background:var(--bg-user)}'
       // На bot-msg иконка и hover-фон в нейтральных тонах: цвет = текст ответа,
@@ -1063,11 +1063,11 @@
       // как продолжение user-msg по цвету).
       + '.msg.bot .gc-msg-copy{color:var(--text-primary)}'
       + '.msg.bot .gc-msg-copy:hover{background:var(--bg-hover)}'
-      + '.gc-msg-copy svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
+      + '.gc-msg-copy svg{width:10px;height:10px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
       + '.gc-msg-copy.copied{opacity:1}'
       // Время «N сек/мин назад» правее copy-btn. Показывается тоже только
       // на hover (как и copy). Цвет = text-muted, мелкий шрифт.
-      + '.gc-msg-time{position:absolute;left:30px;top:calc(100% + 6px);line-height:22px;font-size:11px;color:var(--text-muted);opacity:0;transition:opacity .15s;white-space:nowrap;pointer-events:none}'
+      + '.gc-msg-time{position:absolute;left:26px;top:calc(100% + 2px);line-height:20px;font-size:11px;color:var(--text-muted);opacity:0;transition:opacity .15s;white-space:nowrap;pointer-events:none}'
       + '.msg:hover .gc-msg-time{opacity:1}'
       + '';
     var style = document.createElement('style');
@@ -1095,10 +1095,10 @@
   function formatTimeSince(ts) {
     if (!ts) return '';
     var diff = Math.floor((Date.now() - ts) / 1000);
-    if (diff < 60) return diff + ' сек';
-    if (diff < 3600) return Math.floor(diff / 60) + ' мин';
-    if (diff < 86400) return Math.floor(diff / 3600) + ' ч';
-    return Math.floor(diff / 86400) + ' дн';
+    if (diff < 60) return diff + ' сек назад';
+    if (diff < 3600) return Math.floor(diff / 60) + ' мин назад';
+    if (diff < 86400) return Math.floor(diff / 3600) + ' ч назад';
+    return Math.floor(diff / 86400) + ' дн назад';
   }
 
   function attachCopyButtons(rootOrEl) {

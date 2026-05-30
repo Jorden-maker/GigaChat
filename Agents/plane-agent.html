@@ -6617,7 +6617,8 @@
             if (empty) empty.remove();
             var d = document.createElement('div');
             d.className = 'msg user';
-            d.setAttribute('data-ts', String(Date.now()));
+            var _uts = Date.now();
+            d.setAttribute('data-ts', String(_uts));
             d.textContent = text;
             chat.appendChild(d);
             // R7.9: копи-иконка + таймер сразу (без F5)
@@ -6631,7 +6632,7 @@
                 if (typeof window.__planeAgent !== 'undefined' && window.__planeAgent && window.__planeAgent.sessionStore) {
                     var s = window.__planeAgent.sessionStore.state;
                     s.displayMessages = s.displayMessages || [];
-                    s.displayMessages.push({ role: 'user', content: text });
+                    s.displayMessages.push({ role: 'user', content: text, ts: _uts });
                     if (typeof window.__planeAgent.sessionStore.saveSnapshot === 'function') {
                         window.__planeAgent.sessionStore.saveSnapshot();
                     }
