@@ -1068,7 +1068,7 @@
       // белой при возможных hover-стилях). Stop-квадрат рисуется тем же
       // currentColor через fill (отдельное правило ниже).
       + '.gc-send-icon svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}'
-      + '.gc-send-icon svg rect{fill:currentColor;stroke:none}'
+      + '.gc-send-icon svg rect{fill:none;stroke:currentColor}'
       // Внешний контейнер всего ряда: [wrap с textarea+send] + [скрепка].
       // align-items:flex-end — скрепка пришпилена к нижнему краю поля
       // (на одном уровне с кнопкой отправки), чтобы при растягивании
@@ -1405,7 +1405,7 @@
 
   // Иконка «стоп» — квадратик. Показывается на месте стрелки отправки во
   // время LLM-запроса; клик отменяет запрос.
-  var STOP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/></svg>';
+  var STOP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="none" stroke="currentColor"/></svg>';
 
   // Реестр активных AbortController'ов по session_id. Нужен чтобы при
   // переключении сессий sync'ать состояние кнопки отправки: если в
