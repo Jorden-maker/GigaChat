@@ -285,7 +285,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 60000
+          "timeout": 120000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -362,7 +362,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 60000,
+          "timeout": 120000,
           "temperature": 0.7,
           "maxTokens": 800
         }
@@ -385,7 +385,7 @@
     },
     {
       "parameters": {
-        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос. Попробуйте ещё раз.' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки ответа.' } }];\n}"
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'GigaChat не отвечает. Проверьте подключение.' } }];\n  }\n  const text = raw.output[0].content[0].text;\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки ответа.' } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

@@ -3462,10 +3462,9 @@
                 historyLoadingHtml: '<div class="empty-chat">Загружаю историю...</div>',
                 formatBotHtml: formatBotMessage,
                 parseBotMessage: function (data) {
-                    // Если workflow требует настройки — открываем модалку (один раз на сессию).
-                    if (data && data.plane_setup_required) {
-                        setTimeout(openSettings, 100);
-                    }
+                    // R8.59: НЕ открываем модалку настроек автоматически по
+                    // plane_setup_required — раньше она выскакивала сразу после
+                    // «Команда недоступна» и мешала. Юзер сам жмёт «Настройки».
                     // A11: auth_required теперь обрабатывается централизованно в
                     // _shared.js sendMsg (через userScoped:true) — сразу clearAuth
                     // + redirect, без дорисовки чужого ответа в чат.

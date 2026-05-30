@@ -194,7 +194,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 60000
+          "timeout": 120000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -215,7 +215,7 @@
     },
     {
       "parameters": {
-        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'Не удалось обработать запрос. Попробуйте ещё раз.' } }];\n  }\n  const text = raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text;\n  if (!text) {\n    return [{ json: { response: 'Пустой ответ от LLM. Попробуйте ещё раз.' } }];\n  }\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки.' } }];\n}"
+        "jsCode": "try {\n  const raw = $input.first().json;\n  if (raw.error) {\n    return [{ json: { response: 'GigaChat не отвечает. Проверьте подключение.' } }];\n  }\n  const text = raw && raw.output && raw.output[0] && raw.output[0].content && raw.output[0].content[0] && raw.output[0].content[0].text;\n  if (!text) {\n    return [{ json: { response: 'Пустой ответ от LLM. Попробуйте ещё раз.' } }];\n  }\n  return [{ json: { response: text.trim() } }];\n} catch(e) {\n  return [{ json: { response: 'Ошибка обработки.' } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -275,7 +275,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ input: $('Валидация').first().json.message, type: 'query' }) }}",
         "options": {
-          "timeout": 60000
+          "timeout": 120000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -402,7 +402,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 60000
+          "timeout": 120000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -564,7 +564,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('Не удалось обработать запрос. Попробуйте ещё раз.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat недоступен. Попробуйте позже.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к документам. Попробуйте переформулировать.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('GigaChat не отвечает. Проверьте подключение.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat не отвечает. Проверьте подключение.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к документам. Попробуйте переформулировать.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
         }
@@ -589,7 +589,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('Не удалось обработать запрос. Попробуйте ещё раз.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat недоступен. Попробуйте позже.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к документам. Попробуйте переформулировать.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('GigaChat не отвечает. Проверьте подключение.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat не отвечает. Проверьте подключение.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к документам. Попробуйте переформулировать.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
         }
@@ -614,7 +614,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('Не удалось обработать запрос. Попробуйте ещё раз.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat недоступен. Попробуйте позже.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к документам. Попробуйте переформулировать.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
+        "query": "WITH _lock AS (SELECT pg_advisory_xact_lock(hashtext($1)) AS l), _save AS (INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('GigaChat не отвечает. Проверьте подключение.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat не отвечает. Проверьте подключение.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к документам. Попробуйте переформулировать.') RETURNING id) SELECT _save.id FROM _save CROSS JOIN _lock",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $('Проверка документов').first().json.fallback_message || ''] }}"
         }

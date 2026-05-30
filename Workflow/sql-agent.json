@@ -172,7 +172,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 60000
+          "timeout": 120000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -256,7 +256,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 60000
+          "timeout": 120000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -331,7 +331,7 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 60000
+          "timeout": 120000
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -462,7 +462,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('Не удалось обработать запрос. Попробуйте ещё раз.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat недоступен. Попробуйте позже.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к базе данных. Попробуйте переформулировать.','Ошибка обработки ответа.') RETURNING id;",
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('GigaChat не отвечает. Проверьте подключение.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat не отвечает. Проверьте подключение.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к базе данных. Попробуйте переформулировать.','Ошибка обработки ответа.') RETURNING id;",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
         }
@@ -487,7 +487,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('Не удалось обработать запрос. Попробуйте ещё раз.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat недоступен. Попробуйте позже.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к базе данных. Попробуйте переформулировать.','Ошибка обработки ответа.') RETURNING id;",
+        "query": "INSERT INTO chat_memory (session_id, role, content) SELECT $1, 'assistant', $2 WHERE LENGTH(TRIM($2)) > 0 AND $2 NOT IN ('GigaChat не отвечает. Проверьте подключение.','Ошибка обработки.','Ошибка генерации ответа.','GigaChat не отвечает. Проверьте подключение.','Пустой ответ от LLM. Попробуйте ещё раз.','Не удалось обработать запрос к базе данных. Попробуйте переформулировать.','Ошибка обработки ответа.') RETURNING id;",
         "options": {
           "queryReplacement": "={{ [$('Агрегация').first().json.session_id, $json.response || ''] }}"
         }
