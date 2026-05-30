@@ -667,14 +667,52 @@
     }
   }
 
+  // R8.57: единый футер сайдбара с именем аккаунта (для ВСЕХ агентов).
+  // Правило: если имя длиннее 12 символов (с пробелами) — показываем
+  // только ПЕРВОЕ слово целиком; иначе — имя как есть.
+  function formatAccountName(name) {
+    name = String(name == null ? '' : name).trim();
+    if (!name) return '';
+    if (name.length > 12) {
+      var first = name.split(/\s+/)[0];
+      return first || name;
+    }
+    return name;
+  }
+  // Гарантирует .sidebar-footer (линия-разделитель) с .sidebar-account слева.
+  // У Plane футер уже есть (+ кнопка «Команды» справа) — туда добавляем имя
+  // слева. У остальных агентов футера нет — создаём.
+  function ensureSidebarAccount() {
+    var sidebar = document.querySelector('.sidebar');
+    if (!sidebar) return;
+    var footer = sidebar.querySelector('.sidebar-footer');
+    if (!footer) {
+      footer = document.createElement('div');
+      footer.className = 'sidebar-footer';
+      sidebar.appendChild(footer);
+    }
+    var acc = footer.querySelector('.sidebar-account');
+    if (!acc) {
+      acc = document.createElement('span');
+      acc.className = 'sidebar-account';
+      footer.insertBefore(acc, footer.firstChild);
+    }
+    var full = '';
+    try { full = authGetUsername() || ''; } catch (e) {}
+    acc.textContent = formatAccountName(full);
+    if (full) acc.title = full;
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       syncHljsTheme();
       initThemeToggle();
+      ensureSidebarAccount();
     });
   } else {
     syncHljsTheme();
     initThemeToggle();
+    ensureSidebarAccount();
   }
 
   // ============================================================
@@ -3577,6 +3615,10 @@
       '.session-item:hover .edit{opacity:.8}' +
       '.session-item .edit svg,.session-item .close svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}' +
       '.session-item .name-edit{flex:1;min-width:0;background:var(--bg-input,var(--bg-tertiary));border:1px solid var(--accent);color:var(--text-primary);font-size:13px;padding:4px 6px;border-radius:4px;outline:none;font-family:inherit}' +
+      // R8.57: единый футер сайдбара (линия-разделитель + имя аккаунта слева).
+      // Одинаковый отступ (padding 8px 10px) у всех агентов.
+      '.sidebar-footer{border-top:1px solid var(--border);padding:8px 10px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px}' +
+      '.sidebar-account{font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}' +
       // Main column
       '.main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}' +
       // Header bar (в prompt-engineer .header — div с тем же набором правил)
