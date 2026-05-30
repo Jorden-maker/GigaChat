@@ -1462,6 +1462,10 @@
         .cm-assignees-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cm-as-chevron { flex-shrink: 0; transition: transform .15s; opacity: .7; }
         .cm-assignees-field.open .cm-as-chevron { transform: rotate(180deg); }
+        /* R8.52: read-only «Назначенные» (не создатель задачи) — без стрелки и кликов. */
+        .cm-assignees-field.readonly .cm-as-chevron { display: none; }
+        .cm-assignees-field.readonly .cm-assignees-trigger { cursor: default; }
+        .cm-assignees-field.readonly .cm-assignees-trigger:hover { border-color: var(--border); }
         .cm-assignees-menu {
             margin-top: 6px; border: 1px solid var(--border); border-radius: 6px;
             background: var(--bg-input); max-height: 176px; overflow-y: auto;
@@ -3688,6 +3692,15 @@
                 return String(a || '');
             }).filter(Boolean);
         }
+        // R8.52: назначать/менять исполнителей может ТОЛЬКО создатель задачи.
+        var MODAL_CAN_ASSIGN = false;
+        function _creatorIdOf(issue) {
+            if (!issue) return '';
+            if (typeof issue.created_by === 'string') return issue.created_by;
+            if (issue.created_by && issue.created_by.id) return String(issue.created_by.id);
+            if (issue.created_by_id) return String(issue.created_by_id);
+            return '';
+        }
         // R8.45: «Создано» (read-only автор) + «Назначенные» (редактируемый пикер).
         // created_by — UUID (или объект created_by_detail). Пока кэш мемберов пуст —
         // показываем «—», после фоновой загрузки вызываемся повторно.
@@ -3708,7 +3721,15 @@
                 }
                 creatorEl.textContent = creatorName || '—';
             }
-            buildAssigneesPicker();
+            // R8.52: пикер редактируем только у создателя задачи; иначе —
+            // read-only показ имён (без стрелки и чекбоксов).
+            var _afield = document.getElementById('cm-assignees-field');
+            if (_afield) _afield.classList.toggle('readonly', !MODAL_CAN_ASSIGN);
+            if (MODAL_CAN_ASSIGN) {
+                buildAssigneesPicker();
+            } else {
+                updateAssigneesLabel();
+            }
         }
         // R8.45: строит список участников (чекбоксы) в поле «Назначенные».
         // Источник — BOARD_MEMBERS_CACHE; отмеченные = MODAL_ASSIGNEES.
@@ -3758,6 +3779,7 @@
         }
         // Открыть/закрыть список. Если кэш участников пуст — догружаем + перерисовываем.
         function toggleAssigneesMenu() {
+            if (!MODAL_CAN_ASSIGN) return; // R8.52: назначать может только создатель
             var field = document.getElementById('cm-assignees-field');
             var menu = document.getElementById('cm-assignees-menu');
             if (!field || !menu) return;
@@ -4148,6 +4170,10 @@
             // Снимок исполнителей для детекта изменений при сохранении.
             MODAL_ASSIGNEES = _normAssignees(issue);
             MODAL_ASSIGNEES_ORIG = _asgKey(MODAL_ASSIGNEES);
+            // R8.52: менять исполнителей может только создатель задачи.
+            var _meAssign = '';
+            try { _meAssign = String((loadPlaneSettings() || {}).userId || ''); } catch (e) {}
+            MODAL_CAN_ASSIGN = !!_meAssign && _creatorIdOf(issue) === _meAssign;
             fillModalPeople(issue);
             // Если кэш участников пуст — догружаем фоном и перезаполняем
             // (имена автора/исполнителей резолвятся из свежего кэша).
@@ -4630,7 +4656,7 @@
                 if (newDeadline && newDeadline !== (issue.target_date || '')) updateParams.target_date = newDeadline;
                 // R8.45: исполнители изменились — отправляем массив UUID
                 // (возможно пустой = снять всех; бэкенд это поддерживает).
-                if (_asgKey(MODAL_ASSIGNEES) !== MODAL_ASSIGNEES_ORIG) {
+                if (MODAL_CAN_ASSIGN && _asgKey(MODAL_ASSIGNEES) !== MODAL_ASSIGNEES_ORIG) {
                     updateParams.assignees = (MODAL_ASSIGNEES || []).slice();
                 }
                 if (Object.keys(updateParams).length > _updBaseKeys) {
