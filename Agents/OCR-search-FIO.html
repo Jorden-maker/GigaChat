@@ -210,10 +210,13 @@ main { max-width: 800px; }
         } catch(e) {
             clearInterval(timerInterval); loading.classList.remove('show');
             result.className = 'error';
-            result.textContent = 'Ошибка: ' + e.message;
+            // На таймаут показываем чистое «GigaChat не отвечает…» без «Ошибка:».
+            result.textContent = (e && e.isTimeout) ? e.message : ('Ошибка: ' + e.message);
             result.style.display = 'block';
-            document.getElementById('statusDot').className = 'dot offline';
-            document.getElementById('statusText').textContent = 'Офлайн';
+            // Не ставим «Офлайн» вслепую: провал чаще всего — таймаут LLM, а
+            // workflow жив. Пингуем (patient) и показываем реальный статус —
+            // жёлтая «Проверка…» вместо мигания Офлайн↔Онлайн.
+            GigaChat.checkServerStatus(WEBHOOK_URL, document.getElementById('statusDot'), document.getElementById('statusText'), { patient: true });
         }
         isProcessing = false;
         resetBtnDiv.classList.add('show');

@@ -515,10 +515,12 @@ main { max-width: 800px; }
             loading.classList.remove('show');
             // Юзер нажал «сбросить» во время inflight — не показываем ошибку.
             if (e.name !== 'AbortError') {
-                errorBox.textContent = 'Ошибка: ' + e.message;
+                // На таймаут показываем чистое «GigaChat не отвечает…» без «Ошибка:».
+                errorBox.textContent = (e && e.isTimeout) ? e.message : ('Ошибка: ' + e.message);
                 errorBox.classList.add('show');
-                document.getElementById('statusDot').className = 'dot offline';
-                document.getElementById('statusText').textContent = 'Офлайн';
+                // Не ставим «Офлайн» вслепую: пингуем (patient) и показываем
+                // реальный статус — жёлтая «Проверка…» вместо мигания.
+                GigaChat.checkServerStatus(WEBHOOK_URL, document.getElementById('statusDot'), document.getElementById('statusText'), { patient: true });
             }
         }
         currentAbortController = null;
