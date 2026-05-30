@@ -1449,7 +1449,7 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "executionTimeout": 150
+    "executionTimeout": 70
   },
   "versionId": "math-agent-v3-pyodide",
   "meta": {
