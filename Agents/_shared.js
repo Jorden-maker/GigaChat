@@ -1012,6 +1012,11 @@
       // padding-right у textarea — место под иконку.
       + '.gc-input-wrap{position:relative;flex:1;display:flex;align-items:stretch;min-width:0}'
       + '.gc-input-wrap > textarea{flex:1;width:100%;padding-right:48px !important}'
+      // R8.56: единая рамка поля ввода для ВСЕХ агентов. До фокуса — #3d3d3b,
+      // на фокусе — #343433 и тоньше. !important перебивает per-agent #msg /
+      // #msg:focus (там был var(--border) / var(--accent)).
+      + '.gc-input-wrap > textarea{border:1px solid #3d3d3b !important}'
+      + '.gc-input-wrap > textarea:focus{border-color:#343433 !important;border-width:.5px !important}'
       // Кнопка-отправка как иконка внутри поля: квадратная, акцентный фон, ↵.
       + '.gc-send-icon{position:absolute;right:11px;bottom:6px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--text-secondary);border:none;border-radius:8px;cursor:pointer;padding:0;transition:color .15s,background .15s,opacity .15s;z-index:2}'
       + '.gc-send-icon:hover:not(:disabled){color:var(--accent);background:var(--bg-hover)}'
