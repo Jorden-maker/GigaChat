@@ -1320,7 +1320,7 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "executionTimeout": 180
+    "executionTimeout": 70
   },
   "versionId": "org-appeal-v2",
   "meta": {
