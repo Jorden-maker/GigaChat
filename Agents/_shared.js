@@ -419,33 +419,49 @@
         .catch(function (e) { clearTimeout(tid); throw e; });
     }
 
-    // Один retry через 2 сек на случай сетевой моргнулки. Без него одна
-    // потерянная пакета → "Офлайн" на весь 30-секундный интервал между
-    // следующими ping'ами → юзер думает, что workflow упал.
-    // НО: на AbortError (таймаут 5 сек) не retry'им — сервер реально
-    // мёртв или сильно перегружен, retry просто добавит +2 сек к "Офлайн".
-    // На res.ok===false (404) тоже не retry'им — workflow отключен,
-    // повтор ничего не изменит.
-    return pingOnce()
-      .catch(function (err) {
-        if (err && err.name === 'AbortError') throw err;
-        return new Promise(function (r) { setTimeout(r, 2000); }).then(pingOnce);
-      })
-      .then(function (ok) {
-        if (ok) {
-          if (dotEl) dotEl.className = dotClass + ' online';
-          if (textEl) textEl.textContent = labels.online;
-          return true;
+    // Сколько раз пробуем пинг прежде чем показать «Офлайн», и пауза между
+    // попытками. Пока идут попытки — точка остаётся жёлтой «Проверка...»,
+    // без мигания красным.
+    //
+    // patient:true — для повторной проверки СРАЗУ после провала запроса.
+    // Сервер часто жив, но на секунду перегружен (висящее серверное
+    // выполнение ещё доедает медленный LLM-вызов), поэтому не мигаем
+    // «Офлайн» с первой неудачи, а держим «Проверка...» и плавно пробуем
+    // ещё — как обычный фоновый пинг, без скачка Офлайн↔Онлайн.
+    //
+    // patient:false (обычный фоновый health-check) — сдаёмся быстрее, чтобы
+    // реальную недоступность ловить без задержки: на сетевую моргнулку один
+    // retry, на таймаут/404 — сразу «Офлайн».
+    var maxAttempts = opts.patient ? 4 : 2;
+    var retryDelay = opts.retryDelayMs || 2000;
+
+    function attempt(n) {
+      // res.ok===false (например 404 — workflow отключён) приходит как
+      // resolve(false), а НЕ throw: повтор не поможет, сразу отдаём неудачу.
+      return pingOnce().then(function (ok) { return ok; }).catch(function (err) {
+        var isTimeout = err && err.name === 'AbortError';
+        // В обычном режиме на таймаут не retry'им (сервер мёртв/висит).
+        // В patient-режиме retry'им и на таймаут — именно случай «жив, но
+        // секунду перегружен» мы и сглаживаем.
+        var canRetry = (n + 1 < maxAttempts) && (opts.patient || !isTimeout);
+        if (canRetry) {
+          return new Promise(function (r) { setTimeout(r, retryDelay); })
+            .then(function () { return attempt(n + 1); });
         }
-        if (dotEl) dotEl.className = dotClass + ' offline';
-        if (textEl) textEl.textContent = labels.offline;
-        return false;
-      })
-      .catch(function () {
-        if (dotEl) dotEl.className = dotClass + ' offline';
-        if (textEl) textEl.textContent = labels.offline;
         return false;
       });
+    }
+
+    return attempt(0).then(function (ok) {
+      if (ok) {
+        if (dotEl) dotEl.className = dotClass + ' online';
+        if (textEl) textEl.textContent = labels.online;
+        return true;
+      }
+      if (dotEl) dotEl.className = dotClass + ' offline';
+      if (textEl) textEl.textContent = labels.offline;
+      return false;
+    });
   }
 
   // Запускает периодический health-check со встроенным lifecycle-управлением.
@@ -4215,11 +4231,15 @@
           // ВАЖНО: не ставим «Офлайн» вслепую. Провал запроса чаще всего —
           // таймаут LLM (GigaChat тормозит), а сам workflow жив. Поэтому
           // пингуем webhook (быстрый pong, без LLM) и показываем РЕАЛЬНЫЙ
-          // статус: workflow отвечает → «Онлайн» сразу, не дожидаясь
-          // 30-секундного цикла health-check. «Офлайн» останется только
-          // если workflow действительно недостижим.
+          // статус: workflow отвечает → «Онлайн», не дожидаясь 30-секундного
+          // цикла health-check.
+          //
+          // patient:true — держим жёлтую «Проверка...» и терпеливо пробуем
+          // пинг (сервер мог на секунду перегрузиться доедая зависший
+          // LLM-вызов), без резкого мигания «Офлайн»↔«Онлайн». «Офлайн»
+          // покажем только если workflow реально не отвечает после повторов.
           if (sessionStore.state.activeSessionId === sendSessionId) {
-            checkServerStatus(WEBHOOK_URL, statusDot, statusText, { dotClass: statusDotClass });
+            checkServerStatus(WEBHOOK_URL, statusDot, statusText, { dotClass: statusDotClass, patient: true });
           }
         }
       } finally {
