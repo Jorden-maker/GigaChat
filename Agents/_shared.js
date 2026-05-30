@@ -1017,7 +1017,7 @@
       // #4a4a48 + мягкий едва заметный «неон» (box-shadow в акцентном тоне).
       // !important перебивает per-agent #msg / #msg:focus.
       + '.gc-input-wrap > textarea{border:1px solid #3d3d3b !important;transition:border-color .2s,box-shadow .2s !important}'
-      + '.gc-input-wrap > textarea:focus{border-color:#4a4a48 !important;box-shadow:0 0 8px rgba(212,165,116,.07) !important}'
+      + '.gc-input-wrap > textarea:focus{border-color:#4a4a48 !important;box-shadow:0 0 4px rgba(212,165,116,.07) !important}'
       // Кнопка-отправка как иконка внутри поля: квадратная, акцентный фон, ↵.
       + '.gc-send-icon{position:absolute;right:11px;bottom:6px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--text-secondary);border:none;border-radius:8px;cursor:pointer;padding:0;transition:color .15s,background .15s,opacity .15s;z-index:2}'
       + '.gc-send-icon:hover:not(:disabled){color:var(--accent);background:var(--bg-hover)}'
