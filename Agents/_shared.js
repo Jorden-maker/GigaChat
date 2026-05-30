@@ -4207,13 +4207,19 @@
           var errMsg = { role: 'assistant', content: (e && e.isTimeout) ? e.message : ('Ошибка: ' + e.message), ts: Date.now() };
           enrichBotMsg(errMsg);
           sessionStore.pushToSession(sendSessionId, errMsg);
-          // Статус-индикатор переключаем в Offline ТОЛЬКО если юзер всё ещё
-          // в этой сессии — иначе он сидит в другой сессии и видит «Офлайн»
+          // Статус-индикатор обновляем ТОЛЬКО если юзер всё ещё в этой
+          // сессии — иначе он сидит в другой сессии и видит мигание статуса
           // из-за провала чужого запроса. Сама ошибка в чате той сессии
           // останется (увидит при возврате).
+          //
+          // ВАЖНО: не ставим «Офлайн» вслепую. Провал запроса чаще всего —
+          // таймаут LLM (GigaChat тормозит), а сам workflow жив. Поэтому
+          // пингуем webhook (быстрый pong, без LLM) и показываем РЕАЛЬНЫЙ
+          // статус: workflow отвечает → «Онлайн» сразу, не дожидаясь
+          // 30-секундного цикла health-check. «Офлайн» останется только
+          // если workflow действительно недостижим.
           if (sessionStore.state.activeSessionId === sendSessionId) {
-            statusDot.className = statusDotClass + ' offline';
-            statusText.textContent = 'Офлайн';
+            checkServerStatus(WEBHOOK_URL, statusDot, statusText, { dotClass: statusDotClass });
           }
         }
       } finally {
