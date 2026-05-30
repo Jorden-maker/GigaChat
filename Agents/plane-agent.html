@@ -6400,7 +6400,9 @@
                     return;
                 }
                 var _respLow = String((res && res.response) || '').toLowerCase();
-                if (_respLow.indexOf('нет доступа') !== -1
+                if (_respLow.indexOf('настройте ваш аккаунт') !== -1
+                    || _respLow.indexOf('команда недоступна') !== -1
+                    || _respLow.indexOf('нет доступа') !== -1
                     || _respLow.indexOf('api token') !== -1
                     || _respLow.indexOf('plane недоступен') !== -1
                     || _respLow.indexOf('plane не настроен') !== -1
