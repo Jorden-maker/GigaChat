@@ -344,7 +344,8 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 120000
+          "timeout": 120000,
+          "maxRetries": 0
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -1318,7 +1319,8 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "executionTimeout": 180
   },
   "versionId": "org-appeal-v2",
   "meta": {

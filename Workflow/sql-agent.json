@@ -172,7 +172,8 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 60000
+          "timeout": 60000,
+          "maxRetries": 0
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -256,7 +257,8 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 60000
+          "timeout": 60000,
+          "maxRetries": 0
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -331,7 +333,8 @@
         },
         "builtInTools": {},
         "options": {
-          "timeout": 60000
+          "timeout": 60000,
+          "maxRetries": 0
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -905,7 +908,8 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "executionTimeout": 150
   },
   "versionId": "sql-agent-v1",
   "meta": {

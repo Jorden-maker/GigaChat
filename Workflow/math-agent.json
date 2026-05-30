@@ -217,7 +217,8 @@
         "builtInTools": {},
         "options": {
           "timeout": 60000,
-          "temperature": 0
+          "temperature": 0,
+          "maxRetries": 0
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -302,7 +303,8 @@
         "builtInTools": {},
         "options": {
           "timeout": 60000,
-          "temperature": 0
+          "temperature": 0,
+          "maxRetries": 0
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -596,7 +598,8 @@
         "builtInTools": {},
         "options": {
           "timeout": 60000,
-          "temperature": 0
+          "temperature": 0,
+          "maxRetries": 0
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -719,7 +722,8 @@
         "builtInTools": {},
         "options": {
           "timeout": 60000,
-          "temperature": 0
+          "temperature": 0,
+          "maxRetries": 0
         }
       },
       "type": "@n8n/n8n-nodes-langchain.openAi",
@@ -1444,7 +1448,8 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "executionTimeout": 150
   },
   "versionId": "math-agent-v3-pyodide",
   "meta": {
