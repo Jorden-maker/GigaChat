@@ -340,7 +340,11 @@
         }
         // Таймаут — сразу выходим, не плодим параллельные запросы.
         if (e.name === 'AbortError') {
-          throw new Error('Сервер не ответил за ' + (timeout / 1000) + ' сек.');
+          // R8.60: таймаут запроса к агенту = LLM (GigaChat) не ответил.
+          // Помечаем флагом, чтобы sendMsg показал чистое сообщение без «Ошибка:».
+          var _te = new Error('GigaChat не отвечает. Проверьте подключение.');
+          _te.isTimeout = true;
+          throw _te;
         }
         // Сетевая ошибка — пробуем ещё. Sleep между ретраями ДОЛЖЕН быть
         // прерываемым: иначе юзер нажал «отмена» в момент backoff —
@@ -4200,7 +4204,7 @@
       } catch (e) {
         sessionStore.clearInflight(sendSessionId);
         if (!sendCtrl.aborted()) {
-          var errMsg = { role: 'assistant', content: 'Ошибка: ' + e.message, ts: Date.now() };
+          var errMsg = { role: 'assistant', content: (e && e.isTimeout) ? e.message : ('Ошибка: ' + e.message), ts: Date.now() };
           enrichBotMsg(errMsg);
           sessionStore.pushToSession(sendSessionId, errMsg);
           // Статус-индикатор переключаем в Offline ТОЛЬКО если юзер всё ещё
