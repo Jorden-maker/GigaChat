@@ -3331,6 +3331,14 @@
     // юзер у дна. Если был — скроллим. Если нет (скроллил вверх) — не
     // трогаем. Возврат к низу автоматически возобновляет sticky-режим.
     var chatEl = lastBot.closest('#chat') || document.getElementById('chat');
+    // R8.70: кольцо-загрузчик внизу чата — крутим во время псевдо-стриминга,
+    // замораживаем (снимаем .spinning) когда показ завершён/остановлен.
+    function setRingSpin(on) {
+      if (!chatEl) return;
+      var ring = chatEl.querySelector('.gc-chat-ring');
+      if (!ring) return;
+      if (on) ring.classList.add('spinning'); else ring.classList.remove('spinning');
+    }
     function isAtBottom() {
       if (!chatEl) return false;
       // 100px порог — устойчивее к разговорам с таблицами/кодом: пока юзер не
@@ -3388,10 +3396,12 @@
       sendBtn.setAttribute('aria-label', 'Остановить печать');
       sendBtn.innerHTML = STOP_ICON_SVG;
     }
+    setRingSpin(true); // R8.70: кольцо крутится во время показа ответа
     var stopped = false;
     var textDone = false;     // текст допечатан, идёт появление extras (карточек)
     var extrasWait = null;    // { el, onEnd, timer } — ожидание конца stagger-анимации
     function restoreSendButton() {
+      setRingSpin(false); // R8.70: кольцо замирает (показ завершён/остановлен)
       if (!sendBtn) return;
       sendBtn.classList.remove('streaming');
       if (origSendLabel) sendBtn.setAttribute('aria-label', origSendLabel);
@@ -3786,6 +3796,12 @@
       '.loading .dots span{display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--text-secondary);animation:gcBlink 1.4s infinite}' +
       '.loading .dots span:nth-child(2){animation-delay:.2s}' +
       '.loading .dots span:nth-child(3){animation-delay:.4s}' +
+      // R8.70: кольцо-загрузчик (вместо 3 точек). Крутится при загрузке/стриминге,
+      // замирает (статичный полумесяц) внизу чата после ответа.
+      '.gc-chat-ring{display:inline-block;width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;box-sizing:border-box;flex-shrink:0}' +
+      '.gc-chat-ring.spinning{animation:gcRingSpin .8s linear infinite}' +
+      '@keyframes gcRingSpin{to{transform:rotate(360deg)}}' +
+      '.gc-chat-ring-wrap.idle{display:flex;align-items:center;padding:8px 0}' +
       // @keyframes gcBlink — в injectStatusDotCss (выше) чтобы tool-страницы тоже имели.
       // Inflight-loader (после user-msg во время LLM-запроса): сдвигаем под
       // слот copy-кнопки (которая absolute at top:100%+6, height 22) — иначе
@@ -4153,10 +4169,15 @@
       }
       var inflight = sessionStore.getInflight(activeSessionId);
       if (inflight) {
+        // R8.70: кольцо-загрузчик (вместо 3 точек) — крутится во время LLM-запроса.
         var elapsed = Math.floor((Date.now() - inflight.startedAt) / 1000);
-        html += '<div class="loading gc-inflight-loader" data-started-at="' + inflight.startedAt + '">' +
-          '<span class="dots"><span></span><span></span><span></span></span>' +
+        html += '<div class="loading gc-inflight-loader gc-chat-ring-wrap" data-started-at="' + inflight.startedAt + '">' +
+          '<span class="gc-chat-ring spinning"></span>' +
           '<span class="timer">' + elapsed + ' сек</span></div>';
+      } else if (displayMessages.length > 0) {
+        // R8.70: после ответа кольцо не исчезает — спускается вниз и замирает
+        // (статичный полумесяц). typewriter крутит его во время псевдо-стриминга.
+        html += '<div class="gc-chat-ring-wrap idle"><span class="gc-chat-ring"></span></div>';
       }
       var wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 100;
       // Сохраняем scrollTop ДО innerHTML — иначе при replace innerHTML браузер
