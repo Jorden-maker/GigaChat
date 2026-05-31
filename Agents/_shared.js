@@ -2739,8 +2739,21 @@
     function _doClearInflight(sid) {
       try { localStorage.removeItem(KEY_INFLIGHT + sid); } catch (e) {}
       stopInflightTicker();
+      // R8.74 (#2 фикс): НЕ удаляем кольцо-загрузчик, а замораживаем в «покой»
+      // (золотое кольцо без таймера). Раньше .remove() оставлял чат вовсе без
+      // кольца до следующего renderChat — и при стопе во время загрузки (abort)
+      // кольцо исчезало, появляясь лишь при перезагрузке. В нормальном потоке
+      // следующий pushToSession-рендер всё равно перерисует кольцо корректно.
       var loaders = document.querySelectorAll('.gc-inflight-loader');
-      for (var i = 0; i < loaders.length; i++) loaders[i].remove();
+      for (var i = 0; i < loaders.length; i++) {
+        var el = loaders[i];
+        el.className = 'gc-chat-ring-wrap idle';
+        el.removeAttribute('data-started-at');
+        var ring = el.querySelector('.gc-chat-ring');
+        if (ring) ring.classList.remove('spinning');
+        var t = el.querySelector('.timer');
+        if (t && t.parentNode) t.parentNode.removeChild(t);
+      }
     }
     function getInflight(sid) {
       if (!sid) return null;
@@ -3465,7 +3478,13 @@
       };
       lastCard.addEventListener('animationend', onEnd);
       // Fallback: вкладка свёрнута / animationend не пришёл → restore по потолку.
-      var timer = setTimeout(function () { cancelExtrasWait(); restoreSendButton(); }, 2500);
+      // R8.74 (#1 фикс): потолок должен покрывать появление ВСЕХ карт. Stagger:
+      // задержка последней карты = (N-1)*150мс + анимация ~600мс. Фиксированные
+      // 2500мс срабатывали раньше animationend на длинных списках (>13 карт) →
+      // restoreSendButton слал gc-show-end и гасил автоскролл-погоню ДО конца
+      // появления карт (карты ехали, а вид замирал вверху).
+      var fallbackMs = Math.max(2500, (anims.length - 1) * 150 + 600 + 900);
+      var timer = setTimeout(function () { cancelExtrasWait(); restoreSendButton(); }, fallbackMs);
       extrasWait = { el: lastCard, onEnd: onEnd, timer: timer };
     }
     // R8.66: при СТОПе обрезаем ХРАНИМОЕ сообщение до показанного — иначе
@@ -3938,6 +3957,14 @@
     }
     function restoreScroll(sid) {
       if (!chat) return;
+      // R8.74 (#3 фикс): гасим текущую smoothScrollChat-анимацию. Иначе её rAF,
+      // запущенный пре-onSwitch рендером по wasAtBottom, продолжает крутиться
+      // ПОСЛЕ restoreScroll и перебивает восстановленную позицию → чат прыгает
+      // в самый низ при возврате в сессию (на F5 такого пре-рендера нет — потому
+      // там и работало). cancelAnimationFrame отдаёт приоритет восстановлению.
+      if (typeof chatScrollRafId !== 'undefined' && chatScrollRafId) {
+        cancelAnimationFrame(chatScrollRafId); chatScrollRafId = null;
+      }
       __progScrollTs = Date.now();
       var saved = loadScrollFor(sid);
       if (saved == null) { chat.scrollTop = chat.scrollHeight; return; } // нет сохранённой → к низу
@@ -3956,6 +3983,13 @@
           if (sessionStore && sessionStore.state) saveScrollFor(sessionStore.state.activeSessionId);
         }, 150);
       }, { passive: true });
+      // R8.74 (#2 фикс): колесо/тач — гарантированный сигнал РУЧНОГО скролла
+      // (никогда не программный, в отличие от scroll-события). Сразу снимаем окно
+      // восстановления, чтобы оно не возвращало к сохранённой позиции, когда юзер
+      // листает вверх после перезагрузки/возврата. Эвристики __progScrollTs мало.
+      var __dropRestoreWindow = function () { __restorePendingUntil = 0; };
+      chat.addEventListener('wheel', __dropRestoreWindow, { passive: true });
+      chat.addEventListener('touchmove', __dropRestoreWindow, { passive: true });
     }
     function __saveScrollOnLeave() {
       if (sessionStore && sessionStore.state) saveScrollFor(sessionStore.state.activeSessionId);
@@ -4337,6 +4371,11 @@
       enrichUserMsg(userMsg);
       sessionStore.pushToSession(sendSessionId, userMsg);
       sessionStore.setInflight(sendSessionId, hasFiles ? getInflightLabel('extract') : getInflightLabel('send'));
+      // R8.74 (#1 фикс): отправка прокручивает чат к низу — показать своё
+      // сообщение и весь последующий ответ. Без этого вид может быть не у дна
+      // (восстановленная позиция в начале сессии) → автоскролл-погоня (Plane
+      // stagger / typewriter) не цепляется: её guard требует distance<100 от дна.
+      if (sendSessionId === sessionStore.state.activeSessionId && chat) chat.scrollTop = chat.scrollHeight;
       // R8.72: время старта показа (= время отправки). Таймер у кольца идёт
       // непрерывно от начала загрузки до полного конца показа (прокидываем в botMsg).
       var __showStartedAt = (sessionStore.getInflight(sendSessionId) || {}).startedAt || Date.now();
