@@ -6978,8 +6978,8 @@
                     function tick() {
                         staggerRafId = null;
                         if (staggerCancelled) { staggerScrollActive = false; return; }
-                        var elapsed = performance.now() - chat.__staggerStartedAt;
-                        if (elapsed > chat.__staggerExpectedMs) {
+                        // Жёсткий потолок по времени — backstop от зацикливания.
+                        if (performance.now() - chat.__staggerStartedAt > chat.__staggerExpectedMs) {
                             staggerScrollActive = false;
                             return;
                         }
@@ -6992,19 +6992,24 @@
                             staggerScrollActive = false;
                             return;
                         }
-                        // R8.64: плавная ПОГОНЯ за низом вместо snap'а
-                        // (scrollTop = scrollHeight). Snap прыгал к низу на каждое
-                        // ступенчатое изменение высоты — а при stagger карты растут
-                        // вразнобой, высота меняется ступеньками → контент рывками
-                        // уезжал вверх = вибрация. Погоня (доля расстояния за кадр,
-                        // без перелёта) сглаживает ступеньки → скролл плавно едет
-                        // за растущими картами, без дёрганья.
-                        var target = chat.scrollHeight - chat.clientHeight;
-                        var distance = target - chat.scrollTop;
-                        if (distance > 0) {
+                        var grew = chat.scrollHeight !== chat.__staggerLastSh;
+                        chat.__staggerLastSh = chat.scrollHeight;
+                        var distance = (chat.scrollHeight - chat.clientHeight) - chat.scrollTop;
+                        if (distance > 1) {
+                            // R8.64: плавная ПОГОНЯ за низом вместо snap'а — сглаживает
+                            // ступеньки роста карт (stagger) → нет вибрации, без перелёта.
                             chat.scrollTop += Math.min(distance, Math.max(1, distance * 0.22));
-                            chat.__staggerLastSh = chat.scrollHeight;
                             chat.__staggerExpectedTop = chat.scrollTop;
+                        }
+                        // R8.65: «осело» = у дна И высота больше не растёт. Через ~8
+                        // кадров спокойствия ОТПУСКАЕМ скролл, не дожидаясь конца
+                        // фикс-таймера — иначе погоня держала scrollTop прилипшим к
+                        // низу, и юзер не мог листать вверх после появления (рег. R8.64).
+                        if (distance <= 1 && !grew) {
+                            chat.__staggerSettled = (chat.__staggerSettled || 0) + 1;
+                            if (chat.__staggerSettled > 8) { staggerScrollActive = false; return; }
+                        } else {
+                            chat.__staggerSettled = 0;
                         }
                         staggerRafId = requestAnimationFrame(tick);
                     }
