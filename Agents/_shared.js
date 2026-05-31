@@ -3798,10 +3798,12 @@
       '.loading .dots span:nth-child(3){animation-delay:.4s}' +
       // R8.70: кольцо-загрузчик (вместо 3 точек). Крутится при загрузке/стриминге,
       // замирает (статичный полумесяц) внизу чата после ответа.
-      '.gc-chat-ring{display:inline-block;width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;box-sizing:border-box;flex-shrink:0}' +
-      '.gc-chat-ring.spinning{animation:gcRingSpin .8s linear infinite}' +
+      // Покой (без .spinning) — сплошное золотое кольцо. Во время вращения —
+      // полумесяц (серое кольцо + золотая дуга сверху), чтобы вращение читалось.
+      '.gc-chat-ring{display:inline-block;width:15px;height:15px;border:2px solid var(--accent);border-radius:50%;box-sizing:border-box;flex-shrink:0}' +
+      '.gc-chat-ring.spinning{border-color:var(--border);border-top-color:var(--accent);animation:gcRingSpin .8s linear infinite}' +
       '@keyframes gcRingSpin{to{transform:rotate(360deg)}}' +
-      '.gc-chat-ring-wrap.idle{display:flex;align-items:center;margin-top:34px;padding-bottom:14px}' +
+      '.gc-chat-ring-wrap.idle{display:flex;align-items:center;margin-top:34px;padding-bottom:4px}' +
       // @keyframes gcBlink — в injectStatusDotCss (выше) чтобы tool-страницы тоже имели.
       // Inflight-loader (после user-msg во время LLM-запроса): сдвигаем под
       // слот copy-кнопки (которая absolute at top:100%+6, height 22) — иначе
@@ -3898,8 +3900,21 @@
         return isNaN(n) ? null : n;
       } catch (e) { return null; }
     }
+    // R8.71: «окно восстановления». После boot/switch история чата прилетает
+    // АСИНХРОННО (loadHistory) и вызывает повторный renderChat. Раньше он по
+    // wasAtBottom (посчитанному на пустом/кэш-контенте) скроллил в самый низ,
+    // затирая восстановленную позицию. Теперь пока окно активно — каждый рендер
+    // форсит сохранённую позицию. Снимается скроллом юзера или по таймауту.
+    var __restorePendingUntil = 0;
+    var __restorePendingSid = null;
+    var __progScrollTs = 0; // отметка программного скролла (restore) — listener не примет его за действие юзера
+    function lockScrollRestore(sid) {
+      __restorePendingSid = sid;
+      __restorePendingUntil = Date.now() + 2500;
+    }
     function restoreScroll(sid) {
       if (!chat) return;
+      __progScrollTs = Date.now();
       var saved = loadScrollFor(sid);
       if (saved == null) { chat.scrollTop = chat.scrollHeight; return; } // нет сохранённой → к низу
       var maxTop = Math.max(0, chat.scrollHeight - chat.clientHeight);
@@ -3908,6 +3923,10 @@
     var __scrollSaveTid = null;
     if (chat) {
       chat.addEventListener('scroll', function () {
+        // R8.71: программный скролл (наш restoreScroll) не считаем действием юзера
+        // — иначе восстановление само бы снимало своё «окно» и сохраняло мусор.
+        if (Date.now() - __progScrollTs < 150) return;
+        __restorePendingUntil = 0; // юзер проскроллил вручную → снимаем окно восстановления
         if (__scrollSaveTid) clearTimeout(__scrollSaveTid);
         __scrollSaveTid = setTimeout(function () {
           if (sessionStore && sessionStore.state) saveScrollFor(sessionStore.state.activeSessionId);
@@ -4084,6 +4103,8 @@
         // R8.68: восстанавливаем позицию скролла этой сессии. switchTo уже
         // отрендерил сообщения (renderMessages до onSwitch) → ставим scrollTop
         // последним, синхронно (в том же кадре, без видимого мигания).
+        // R8.71: + окно восстановления, чтобы async-загрузка истории не сбросила вниз.
+        lockScrollRestore(sid);
         restoreScroll(sid);
       },
       loadHistory: async function (sid) {
@@ -4195,6 +4216,13 @@
         // R8.68: первый рендер (boot/F5) — восстанавливаем сохранённую позицию
         // активной сессии (вместо безусловного скролла к низу). Нет сохранённой
         // → к низу. Instant, до первого кадра → без видимого прыжка.
+        // R8.71: + окно восстановления — история прилетает асинхронно вторым
+        // рендером, держим позицию пока окно активно (или юзер не проскроллит).
+        lockScrollRestore(activeSessionId);
+        restoreScroll(activeSessionId);
+      } else if (__restorePendingSid === activeSessionId && Date.now() < __restorePendingUntil) {
+        // R8.71: окно восстановления активно — форсим сохранённую позицию, не
+        // даём async-рендеру истории/подсветки сбросить скролл в самый низ.
         restoreScroll(activeSessionId);
       } else if (wasAtBottom) {
         // Плавный scroll к низу — раньше при таблице/вложениях скачок.
@@ -4257,6 +4285,7 @@
       if (!text && !hasFiles) return;
       if (sessionStore.getInflight(activeSessionId)) return;
       var sendSessionId = activeSessionId;
+      __restorePendingUntil = 0; // R8.71: отправка снимает окно восстановления (новое сообщение уходит вниз)
       // R8.66: новый запрос отменяет отложенные показы прошлого ответа
       // (сводку/дайджест, ждущие в setTimeout) — они сверят эпоху и не покажутся.
       __streamGen++;
