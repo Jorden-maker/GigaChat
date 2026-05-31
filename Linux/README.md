@@ -206,6 +206,8 @@ nano /opt/gigachat/Linux/gigachat.service
 # 2) Создай юзера-сервиса (если ещё нет):
 sudo useradd --system --shell /usr/sbin/nologin --home /opt/gigachat gigachat
 sudo chown -R gigachat:gigachat /opt/gigachat
+# Вернуть бит исполнения (мог потеряться при Windows→флэшка→scp):
+sudo chmod +x /opt/gigachat/Linux/caddy /opt/gigachat/Linux/GigaChat-Start.sh
 
 # 3) Установи unit-файл:
 sudo cp /opt/gigachat/Linux/gigachat.service /etc/systemd/system/
@@ -240,10 +242,15 @@ sudo journalctl -u gigachat -n 30   # последние 30 строк лого�
    ```powershell
    cd C:\Users\Lenovo\Desktop
    scp -r GigaChat user@SERVER_IP:/tmp/giga-upload/
-   ssh user@SERVER_IP "sudo rsync -a --delete /tmp/giga-upload/GigaChat/ /opt/gigachat/ && sudo chown -R gigachat:gigachat /opt/gigachat && rm -rf /tmp/giga-upload && sudo systemctl restart gigachat"
+   ssh user@SERVER_IP "sudo rsync -a --delete /tmp/giga-upload/GigaChat/ /opt/gigachat/ && sudo chown -R gigachat:gigachat /opt/gigachat && sudo chmod +x /opt/gigachat/Linux/caddy /opt/gigachat/Linux/GigaChat-Start.sh && rm -rf /tmp/giga-upload && sudo systemctl restart gigachat"
    ```
    (всё в одну строку через `&&`, можно разбить на отдельные ssh-команды
    если так понятнее.)
+
+   **Зачем `chmod +x` каждый раз:** при переносе Windows→флэшка→scp бит
+   исполнения на `Linux/caddy` теряется (FAT/NTFS не хранят Unix-права), и
+   тогда `systemctl restart` падает с `203/EXEC` (бинарник не исполняемый).
+   Эта команда возвращает +x перед рестартом, поэтому обновление не ломает сервис.
 
 `rsync -a --delete` — удалит из `/opt/gigachat` файлы которых нет в
 обновлении (например, я удалил `INTEGRATION.md` и `Agents/django-example/` —

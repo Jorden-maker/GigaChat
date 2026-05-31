@@ -5,6 +5,11 @@
 #   bash: ./GigaChat-Start.sh: /usr/bin/env\r: bad interpreter
 *.sh text eol=lf
 
+# systemd-unit тоже строго LF. На Windows-клонe (autocrlf=true) CRLF в
+# unit-файле может оставить хвостовой \r в значениях директив (ExecStart с
+# «\r» → systemd ищет несуществующий путь). LF-нормализация это исключает.
+*.service text eol=lf
+
 # Caddy ELF-бинарник — явно binary, чтобы git ни при каких настройках
 # autocrlf не пытался конвертировать байты. Без этого на Windows-клиенте
 # с дефолтным autocrlf=true один из байтов вида 0x0D (\r) внутри machine

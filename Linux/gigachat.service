@@ -30,6 +30,11 @@ User=gigachat
 Group=gigachat
 WorkingDirectory=/opt/gigachat
 ExecStart=/opt/gigachat/Linux/caddy run --config /opt/gigachat/Caddyfile
+# Graceful reload без обрыва соединений: `sudo systemctl reload gigachat`
+# после правки Caddyfile. Caddy подхватывает новый конфиг через admin API
+# (localhost:2019). Без этой строки `systemctl reload` падал бы с ошибкой
+# «unit is not configured to reload» (README раздел «proxy n8n» советует reload).
+ExecReload=/opt/gigachat/Linux/caddy reload --config /opt/gigachat/Caddyfile
 Restart=on-failure
 RestartSec=5s
 # Логи Caddy и так идут в stderr — systemd подхватит в journal.
