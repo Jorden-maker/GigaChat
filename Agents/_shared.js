@@ -3339,6 +3339,24 @@
       if (!ring) return;
       if (on) ring.classList.add('spinning'); else ring.classList.remove('spinning');
     }
+    // R8.72: таймер «N сек» справа от кольца — непрерывно от старта загрузки
+    // (msg.showStartedAt = время отправки) до полного конца показа. Тикер
+    // самовосстанавливающийся: если рендер стёр span — создаст заново.
+    var __showTimerTid = null;
+    function __tickShowTimer() {
+      var wrap = chatEl ? chatEl.querySelector('.gc-chat-ring-wrap') : null;
+      if (!wrap) return;
+      var t = wrap.querySelector('.timer');
+      if (!t) { t = document.createElement('span'); t.className = 'timer'; wrap.appendChild(t); }
+      var base = msg.showStartedAt || msg.ts || Date.now();
+      t.textContent = Math.floor((Date.now() - base) / 1000) + ' сек';
+    }
+    function startShowTimer() { __tickShowTimer(); if (!__showTimerTid) __showTimerTid = setInterval(__tickShowTimer, 1000); }
+    function stopShowTimer() {
+      if (__showTimerTid) { clearInterval(__showTimerTid); __showTimerTid = null; }
+      var wrap = chatEl ? chatEl.querySelector('.gc-chat-ring-wrap') : null;
+      if (wrap) { var t = wrap.querySelector('.timer'); if (t && t.parentNode) t.parentNode.removeChild(t); }
+    }
     function isAtBottom() {
       if (!chatEl) return false;
       // 100px порог — устойчивее к разговорам с таблицами/кодом: пока юзер не
@@ -3397,10 +3415,12 @@
       sendBtn.innerHTML = STOP_ICON_SVG;
     }
     setRingSpin(true); // R8.70: кольцо крутится во время показа ответа
+    startShowTimer();  // R8.72: таймер справа от кольца — идёт до конца показа
     var stopped = false;
     var textDone = false;     // текст допечатан, идёт появление extras (карточек)
     var extrasWait = null;    // { el, onEnd, timer } — ожидание конца stagger-анимации
     function restoreSendButton() {
+      stopShowTimer();    // R8.72: таймер показа стоп + убрать (кольцо замирает золотым)
       setRingSpin(false); // R8.70: кольцо замирает (показ завершён/остановлен)
       if (!sendBtn) return;
       sendBtn.classList.remove('streaming');
@@ -3803,7 +3823,8 @@
       '.gc-chat-ring{display:inline-block;width:15px;height:15px;border:2px solid var(--accent);border-radius:50%;box-sizing:border-box;flex-shrink:0}' +
       '.gc-chat-ring.spinning{border-color:var(--border);border-top-color:var(--accent);animation:gcRingSpin .8s linear infinite}' +
       '@keyframes gcRingSpin{to{transform:rotate(360deg)}}' +
-      '.gc-chat-ring-wrap.idle{display:flex;align-items:center;margin-top:34px;padding-bottom:4px}' +
+      '.gc-chat-ring-wrap.idle{display:flex;align-items:center;gap:10px;margin-top:34px;padding-bottom:4px}' +
+      '.gc-chat-ring-wrap .timer{color:var(--text-secondary);font-size:13px;font-style:italic}' +
       // @keyframes gcBlink — в injectStatusDotCss (выше) чтобы tool-страницы тоже имели.
       // Inflight-loader (после user-msg во время LLM-запроса): сдвигаем под
       // слот copy-кнопки (которая absolute at top:100%+6, height 22) — иначе
@@ -4313,6 +4334,9 @@
       enrichUserMsg(userMsg);
       sessionStore.pushToSession(sendSessionId, userMsg);
       sessionStore.setInflight(sendSessionId, hasFiles ? getInflightLabel('extract') : getInflightLabel('send'));
+      // R8.72: время старта показа (= время отправки). Таймер у кольца идёт
+      // непрерывно от начала загрузки до полного конца показа (прокидываем в botMsg).
+      var __showStartedAt = (sessionStore.getInflight(sendSessionId) || {}).startedAt || Date.now();
 
       var messageForAgent = text;
       function abortAndRestore() {
@@ -4425,6 +4449,7 @@
         }
         var botMsg = parseBotMessage(data);
         if (!botMsg.ts) botMsg.ts = Date.now();
+        botMsg.showStartedAt = __showStartedAt; // R8.72: непрерывный таймер показа
         enrichBotMsg(botMsg);
         if (useTypewriter) {
           typewriteAssistant(sessionStore, sendSessionId, botMsg, {
