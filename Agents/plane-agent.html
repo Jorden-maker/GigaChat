@@ -6486,7 +6486,12 @@
                     var animMsSum = 600 + issues.length * 150 + 200; // R8.64: 600мс анимация + N×150 stagger + 200 буфер
                     var pauseMsSum = 0; // R8.05→0: пауза перед сводкой убрана (по запросу) — сводка сразу после карточек
                     var totalDelaySum = typingMsSum + animMsSum + pauseMsSum;
+                    // R8.66: эпоха на момент планирования сводки. Если юзер нажал
+                    // стоп или отправил новый запрос — эпоха сменится и сводка НЕ
+                    // покажется (иначе всплыла бы «спустя время» поверх).
+                    var __sumGen = (GigaChat && GigaChat.streamGen) ? GigaChat.streamGen() : 0;
                     setTimeout(function () {
+                        if (GigaChat && GigaChat.streamGen && GigaChat.streamGen() !== __sumGen) return;
                         var groups = { cancelled: 0, backlog: 0, unstarted: 0, started: 0, completed: 0 };
                         issues.forEach(function (i) {
                             var g = (i.state_detail && i.state_detail.group) || '';
@@ -6526,8 +6531,12 @@
         async function executeDigestSequence(digest) {
             var ssRef = window.__planeAgent && window.__planeAgent.sessionStore;
             if (!ssRef) return;
+            // R8.66: эпоха на старте дайджеста. Стоп / новый запрос её меняют →
+            // оставшиеся шаги (showStep) не рендерятся.
+            var __digGen = (GigaChat && GigaChat.streamGen) ? GigaChat.streamGen() : 0;
             function showStep(textMsg, issues) {
                 return new Promise(function (resolve) {
+                    if (GigaChat && GigaChat.streamGen && GigaChat.streamGen() !== __digGen) { resolve(); return; }
                     var hasItems = Array.isArray(issues) && issues.length > 0;
                     var fakeMsg = {
                         role: 'assistant',

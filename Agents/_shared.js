@@ -7,6 +7,12 @@
   var MAX_RETRIES = 2;
   var RETRY_DELAY_MS = 3000;
   var PING_TIMEOUT_MS = 5000;
+  // R8.66: «эпоха» псевдо-стриминга. Инкрементится при СТОПе и при НОВОМ
+  // запросе. Отложенные показы (сводка/дайджест Plane, любые setTimeout-
+  // продолжения) capture'ят эпоху на момент планирования и сверяют её перед
+  // показом — если изменилась, значит юзер остановил/отправил новое → НЕ
+  // показываем (иначе непоявившееся всплывало бы «спустя время»).
+  var __streamGen = 0;
 
   // Единый whitelist форматов для скрепки. Раньше каждый HTML определял
   // свой accept-список, а canExtractInBrowser/OCR — отдельный набор. Расходились
@@ -3429,6 +3435,42 @@
       var timer = setTimeout(function () { cancelExtrasWait(); restoreSendButton(); }, 2500);
       extrasWait = { el: lastCard, onEnd: onEnd, timer: timer };
     }
+    // R8.66: при СТОПе обрезаем ХРАНИМОЕ сообщение до показанного — иначе
+    // непоказанное (недопечатанный текст, непоявившиеся карточки) всплывёт
+    // при ре-рендере или дальнейших запросах. msg хранится по ссылке →
+    // мутируем content/extras + saveSnapshot() (это и персистит в localStorage).
+    function truncateStored(content, keptCards) {
+      try {
+        if (typeof content === 'string') msg.content = content;
+        if (msg && msg.extras && typeof msg.extras === 'object') {
+          if (keptCards <= 0) {
+            msg.extras = {};
+          } else if (Array.isArray(msg.extras.issues)) {
+            msg.extras.issues = msg.extras.issues.slice(0, keptCards);
+          }
+        }
+        msg._stopped = true;
+        if (sessionStore && typeof sessionStore.saveSnapshot === 'function') sessionStore.saveSnapshot();
+      } catch (e) {}
+    }
+    // R8.66: стоп во время появления карточек — те, что уже НАЧАЛИ появляться,
+    // фиксируем в финале; не успевшие — убираем из DOM. Возвращает число
+    // оставленных (= префикс по idx, т.к. stagger монотонен: появляются по
+    // порядку, поэтому видимые — это первые N карточек).
+    function freezeCardsKeepAppeared() {
+      if (!lastBot || !lastBot.isConnected) return 0;
+      var cards = lastBot.querySelectorAll('.chat-stagger-in');
+      var kept = 0;
+      for (var k = 0; k < cards.length; k++) {
+        if (cards[k].offsetHeight > 4) {
+          cards[k].style.animation = 'none'; // довести до финала
+          kept++;
+        } else if (cards[k].parentNode) {
+          cards[k].parentNode.removeChild(cards[k]); // не успела появиться — убрать
+        }
+      }
+      return kept;
+    }
 
     var i = 0;
     var lastRendered = -1;
@@ -3505,18 +3547,27 @@
         }
         restoreSendButton();
       },
-      // stop — юзер нажал стоп-кнопку — оставляет обрезанный текст
+      // stop — юзер нажал стоп-кнопку. Показ замораживается, а всё что не
+      // успело показаться — ОТБРАСЫВАЕТСЯ навсегда (не всплывёт при ре-рендере
+      // / дальнейших запросах / спустя время).
       stop: function () {
+        // Отменяем отложенные показы (сводка/дайджест Plane), завязанные на
+        // текущую эпоху.
+        __streamGen++;
         if (textDone) {
-          // Текст уже допечатан, идёт появление карточек — мгновенно доводим
-          // их до финала и возвращаем кнопку отправки.
+          // Идёт появление карточек: появившиеся фиксируем в финале, не успевшие
+          // убираем; хранимое обрезаем до оставшихся.
           cancelExtrasWait();
-          finishExtrasAnims();
+          var kept = freezeCardsKeepAppeared();
+          truncateStored(plainText, kept);
           restoreSendButton();
           return;
         }
+        // Идёт печать текста: показанный префикс остаётся, остальное (и
+        // карточки, которые ещё не появлялись) — отбрасываем.
         stopped = true;
         cleanupScrollListeners();
+        truncateStored(plainText.substring(0, i), 0);
       },
       isRunning: function () { return !stopped && (i < plainText.length || !!extrasWait); }
     };
@@ -3867,7 +3918,9 @@
       return formatMarkdown(msg.content || '');
     };
     var parseBotMessage = opts.parseBotMessage || function (data) {
-      return { role: 'assistant', content: data.response || data.output || 'Пустой ответ от сервера' };
+      // R8.66: cps прокидывается из ответа (data.cps) — напр. RAG для списка
+      // документов из БД без LLM ставит 250. undefined → дефолт 200.
+      return { role: 'assistant', content: data.response || data.output || 'Пустой ответ от сервера', cps: data.cps };
     };
     var parseHistoryMessage = opts.parseHistoryMessage || function (m) {
       var r = { role: m.role, content: m.content };
@@ -4129,6 +4182,9 @@
       if (!text && !hasFiles) return;
       if (sessionStore.getInflight(activeSessionId)) return;
       var sendSessionId = activeSessionId;
+      // R8.66: новый запрос отменяет отложенные показы прошлого ответа
+      // (сводку/дайджест, ждущие в setTimeout) — они сверят эпоху и не покажутся.
+      __streamGen++;
       var sendUrl = resolveSendUrl();
       var fileNamesSnapshot = hasFiles
         ? attachment.getFiles().map(function (f) { return f.name; })
@@ -4261,7 +4317,9 @@
         enrichBotMsg(botMsg);
         if (useTypewriter) {
           typewriteAssistant(sessionStore, sendSessionId, botMsg, {
-            cps: 200,
+            // R8.66: per-message cps (botMsg.cps) — напр. RAG для списка
+            // документов из БД без LLM ставит 250; иначе дефолт 200.
+            cps: botMsg.cps || 200,
             sendBtn: sendBtn,
             input: input,
             // Прокидываем агентский accent чтобы streaming заголовки
@@ -4519,6 +4577,10 @@
     injectToolCss: injectToolCss,
     injectStatusDotCss: injectStatusDotCss,
     typewriteAssistant: typewriteAssistant,
+    // R8.66: текущая эпоха псевдо-стриминга. Отложенные показы (сводка/дайджест)
+    // capture'ят её при планировании и сверяют перед показом — если изменилась
+    // (юзер нажал стоп / отправил новое), показ отменяется.
+    streamGen: function () { return __streamGen; },
     tsvBlocksToMarkdownTables: tsvBlocksToMarkdownTables,
     applyHighlight: applyHighlight,
     syncHljsTheme: syncHljsTheme,

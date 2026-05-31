@@ -735,7 +735,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// v_general хранит ЧАНКИ; «Список внешний» группирует их по document_id (GROUP BY).\n// Наша documents — чанки, уже сгруппированные по filename в SQL.\n// Поэтому НЕ дедупим по filename здесь: дедуп схлопнул бы внешние\n// документы с пустыми/одинаковыми именами. Просто фильтруем\n// error-строки; каждая входная строка = ОДИН документ (чанки уже сгруппированы в SQL).\nconst all = $input.all().map(i => i.json);\nconst rows = all.filter(r => r && !r.error && r.filename && String(r.filename).trim());\nlet response;\nif (!rows.length) {\n  response = 'В базе документов пока ничего нет. Загрузите файлы через «Загрузка документов» на дашборде.';\n} else {\n  const NL = String.fromCharCode(10);\n  const total = rows.length;\n  const showLimit = 15;\n  const lines = rows.slice(0, showLimit).map((r, idx) => {\n    const n = (r.chunks && r.chunks > 1) ? (' (' + r.chunks + ' фрагм.)') : '';\n    return (idx + 1) + '. ' + r.filename + n;\n  });\n  response = 'Загружено документов: ' + total + '.' + NL + lines.join(NL);\n  if (total > showLimit) response += NL + '...и ещё ' + (total - showLimit) + '.';\n}\nreturn [{ json: { response } }];\n"
+        "jsCode": "// v_general хранит ЧАНКИ; «Список внешний» группирует их по document_id (GROUP BY).\n// Наша documents — чанки, уже сгруппированные по filename в SQL.\n// Поэтому НЕ дедупим по filename здесь: дедуп схлопнул бы внешние\n// документы с пустыми/одинаковыми именами. Просто фильтруем\n// error-строки; каждая входная строка = ОДИН документ (чанки уже сгруппированы в SQL).\nconst all = $input.all().map(i => i.json);\nconst rows = all.filter(r => r && !r.error && r.filename && String(r.filename).trim());\nlet response;\nif (!rows.length) {\n  response = 'В базе документов пока ничего нет. Загрузите файлы через «Загрузка документов» на дашборде.';\n} else {\n  const NL = String.fromCharCode(10);\n  const total = rows.length;\n  const showLimit = 10000;\n  const lines = rows.slice(0, showLimit).map((r, idx) => {\n    const n = (r.chunks && r.chunks > 1) ? (' (' + r.chunks + ' фрагм.)') : '';\n    return (idx + 1) + '. ' + r.filename + n;\n  });\n  response = 'Загружено документов: ' + total + '.' + NL + lines.join(NL);\n  if (total > showLimit) response += NL + '...и ещё ' + (total - showLimit) + '.';\n}\nreturn [{ json: { response, cps: 250 } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -749,7 +749,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ response: $json.response }) }}",
+        "responseBody": "={{ JSON.stringify({ response: $json.response, cps: $json.cps }) }}",
         "options": {
           "responseHeaders": {
             "entries": [
