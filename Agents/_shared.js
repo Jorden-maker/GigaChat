@@ -3973,6 +3973,9 @@
     // его для маршрутизации в выбранный агент). Если не передан — статический.
     var resolveSendUrl = opts.resolveSendUrl || function () { return WEBHOOK_URL; };
     var inflightLabel = opts.inflightLabel || 'Обработка';
+    // R8.80: предикат (message)->bool. true => НЕ показываем кольцо-загрузчик с
+    // таймером (для мгновенных ответов без LLM, напр. RAG — список документов из БД).
+    var skipInflightFor = opts.skipInflightFor || null;
     // exportBotLabel(msg): динамический лейбл бота в [тэге] экспорта.
     // Router возвращает AGENT_LABELS[msg.agent] (каждое сообщение — свой агент).
     var exportBotLabel = opts.exportBotLabel || function () { return exportAgentName; };
@@ -4335,7 +4338,13 @@
       }
       enrichUserMsg(userMsg);
       sessionStore.pushToSession(sendSessionId, userMsg);
-      sessionStore.setInflight(sendSessionId, hasFiles ? getInflightLabel('extract') : getInflightLabel('send'));
+      // R8.80: мгновенные ответы без LLM (RAG — список документов из БД) не нуждаются
+      // в кольце-загрузчике с таймером. skipInflightFor распознаёт их по тексту (тот
+      // же набор, что классификатор workflow). Файлы — всегда с кольцом (извлечение
+      // текста занимает время). Параллельную отправку всё равно блокирует sendController.
+      if (hasFiles || !(skipInflightFor && skipInflightFor(text))) {
+        sessionStore.setInflight(sendSessionId, hasFiles ? getInflightLabel('extract') : getInflightLabel('send'));
+      }
       // R8.74 (#1 фикс): отправка прокручивает чат к низу — показать своё
       // сообщение и весь последующий ответ. Без этого вид может быть не у дна
       // (восстановленная позиция в начале сессии) → автоскролл-погоня (Plane
