@@ -4056,10 +4056,13 @@
           }
         }
         var processing = !!sessionStore.getInflight(sid);
-        input.disabled = processing;
+        // R8.69: поле ввода и закрепка активны ВСЕГДА (даже при inflight в этой
+        // сессии). Отправку при inflight блокирует логика sendMsg, а кнопку
+        // делает стоп/отмена syncSendButton ниже.
+        input.disabled = false;
         sendBtn.disabled = false;
         syncSendButton(sendBtn, sid, processing);
-        if (attachment) attachment.setDisabled(processing);
+        if (attachment) attachment.setDisabled(false);
         if (!processing) input.focus();
         onSwitchExtra(sid, draft);
         // R8.68: восстанавливаем позицию скролла этой сессии. switchTo уже
@@ -4240,8 +4243,13 @@
       var fileNamesSnapshot = hasFiles
         ? attachment.getFiles().map(function (f) { return f.name; })
         : [];
-      input.disabled = true; sendBtn.disabled = true;
-      if (attachment) attachment.setDisabled(true);
+      // R8.69: поле ввода и закрепку НЕ гасим — они активны весь процесс
+      // (загрузка LLM + псевдо-стриминг), юзер может печатать следующий запрос
+      // и прикреплять файл. Отправку блокирует не disabled, а логика sendMsg
+      // (inflight/streaming → Enter no-op, кнопка = стоп/отмена). sendBtn ниже
+      // станет стоп-кнопкой (makeCancellableSend); этот disabled — лишь на
+      // коротком синхронном промежутке до неё.
+      sendBtn.disabled = true;
       // R7.40: после очистки сразу прячем скроллбар (контент пустой).
       input.value = ''; input.style.height = 'auto'; input.style.overflowY = 'hidden';
       sessionStore.clearDraft(sendSessionId);
@@ -4271,7 +4279,9 @@
         }
         input.disabled = false; sendBtn.disabled = false;
         if (attachment) attachment.setDisabled(false);
-        input.value = text;
+        // R8.69: возвращаем отправленный текст в поле, ТОЛЬКО если юзер не успел
+        // набрать новое во время запроса (поле теперь активно весь процесс).
+        if (!input.value) input.value = text;
         input.focus();
         renderChat();
       }
