@@ -7172,21 +7172,33 @@
             // Найдём issue (если есть в кэше) — для модалки полезно
             var issue = (BOARD_ALL_ISSUES || []).find(function (x) { return x.id === issueId || x.name === issueName; });
             if (!project && issue && issue.project) project = issue.project;
-            if (!project) { addAssistantMessage('Не могу определить проект для «' + escapeHtml(issueName) + '». Открой доску и выбери проект, или закрепи.'); return; }
+            // R8.78: для 'open' (Изменить) project НЕ обязателен — модалка должна
+            // открываться ВСЕГДА. В офисе из чата (доска не загружена, задачи нет в
+            // кэше, карточка без project) кнопка молча не срабатывала. Недостающее
+            // подтянем ниже. delete/status без project на бэкенде не сработают.
+            if (act !== 'open' && !project) { addAssistantMessage('Не могу определить проект для «' + escapeHtml(issueName) + '». Открой доску и выбери проект, или закрепи.'); return; }
             // Подсветка процесса
             wrap.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
             try {
                 if (act === 'open') {
                     // R7.36: явно прикрепляем project к issue — модалка использует
                     // MODAL_CURRENT_ISSUE.project для list_comments / save / delete.
-                    // Без этого list_comments идёт с пустым project_name и backend
-                    // молча возвращает [] → «Комментариев пока нет.» вместо реальных.
-                    if (issue) openCardModal(Object.assign({}, issue, { project: project }));
-                    else {
-                        // Подгружаем детали
-                        var r = await planeDirect('get_issue', { project_name: project, issue_id: issueId, issue_name: issueName });
-                        if (r && r.data && r.data.issue) openCardModal(Object.assign({}, r.data.issue, { project: project }));
+                    // R8.78: модалка должна открыться ДАЖЕ если project/детали не
+                    // нашлись — иначе кнопка «Изменить» в офисе иногда не срабатывала.
+                    var modalIssue = null;
+                    if (issue) {
+                        modalIssue = Object.assign({}, issue, { project: project || issue.project || '' });
+                    } else {
+                        // Нет в кэше — пробуем детали (бэкенд может найти по id/name).
+                        // Ошибку глотаем, чтобы всё равно открыть модалку по карточке.
+                        try {
+                            var r = await planeDirect('get_issue', { project_name: project || '', issue_id: issueId, issue_name: issueName });
+                            if (r && r.data && r.data.issue) modalIssue = Object.assign({}, r.data.issue, { project: project || r.data.issue.project || '' });
+                        } catch (_) {}
                     }
+                    // Последний рубеж: открыть по данным самой карточки (имя/id/project).
+                    if (!modalIssue) modalIssue = { name: issueName, id: issueId, project: project || '' };
+                    openCardModal(modalIssue);
                 } else if (act === 'delete') {
                     if (!confirm('Удалить задачу «' + issueName + '»?')) return;
                     await planeDirect('delete_issue', { project_name: project, issue_id: issueId, issue_name: issueName });
