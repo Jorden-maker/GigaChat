@@ -659,14 +659,14 @@
     global.addEventListener('resize', positionThemeToggle);
   }
 
-  // Выравнивает toggle по вертикали под центр кнопки «Экспорт» (чат-агенты)
-  // или под центр заголовка h1 в header'е (tool-страницы). Если на странице
-  // нет ни одного якоря (например, дашборд) — оставляет дефолтный top из CSS.
+  // Выравнивает toggle по вертикали под центр заголовка h1 в header'е. Если
+  // на странице нет якоря (например, дашборд) — оставляет дефолтный top из CSS.
+  // R8.67: кнопка «Экспорт» убрана из всех агентов (была первым якорем) —
+  // теперь выравниваем по h1, который на том же уровне header'а.
   function positionThemeToggle() {
     var btn = document.getElementById('gc-theme-toggle');
     if (!btn) return;
-    var anchor = document.querySelector('.btn-export')
-              || document.querySelector('header h1, .main > .header h1');
+    var anchor = document.querySelector('header h1, .main > .header h1');
     if (!anchor) return;
     var rect = anchor.getBoundingClientRect();
     if (rect.height === 0) return;
