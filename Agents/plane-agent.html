@@ -6965,8 +6965,11 @@
                         return;
                     }
                     // Если юзер был не у дна (на 100px и выше) — не вмешиваемся.
-                    if (chat.scrollHeight - chat.scrollTop - chat.clientHeight > 100) return;
+                    var __sgDist = chat.scrollHeight - chat.scrollTop - chat.clientHeight;
+                    console.log('[STAG] guard dist=' + __sgDist + ' sh=' + chat.scrollHeight + ' st=' + chat.scrollTop + ' ch=' + chat.clientHeight + ' cards=' + chat.querySelectorAll('.chat-stagger-in').length + ' -> ' + (__sgDist > 100 ? 'SKIP(не у дна)' : 'pass'));
+                    if (__sgDist > 100) return;
                     staggerScrollActive = true;
+                    console.log('[STAG] ENGAGED expMs=' + _computeStaggerDuration());
                     staggerCancelled = false;
                     // R8.24: считаем точную длительность анимации по числу карт
                     // (вместо stable-frames-эвристики, которая в R8.20 ошибочно
@@ -6989,6 +6992,7 @@
                         if (staggerCancelled) { staggerScrollActive = false; return; }
                         // Жёсткий потолок по времени — backstop от зацикливания.
                         if (performance.now() - chat.__staggerStartedAt > chat.__staggerExpectedMs) {
+                            console.log('[STAG] time-cap exit ran=' + Math.round(performance.now() - chat.__staggerStartedAt) + 'ms st=' + chat.scrollTop + ' sh=' + chat.scrollHeight);
                             staggerScrollActive = false;
                             return;
                         }
@@ -6997,6 +7001,7 @@
                         // напрямую, это страховка от scroll-bar drag'а.)
                         if (chat.__staggerExpectedTop !== -1
                             && chat.scrollTop < chat.__staggerExpectedTop - 5) {
+                            console.log('[STAG] CANCEL scroll-up: st=' + chat.scrollTop + ' < expTop=' + chat.__staggerExpectedTop + '-5');
                             staggerCancelled = true;
                             staggerScrollActive = false;
                             return;
@@ -7016,7 +7021,7 @@
                         // низу, и юзер не мог листать вверх после появления (рег. R8.64).
                         if (distance <= 1 && !grew) {
                             chat.__staggerSettled = (chat.__staggerSettled || 0) + 1;
-                            if (chat.__staggerSettled > 8) { staggerScrollActive = false; return; }
+                            if (chat.__staggerSettled > 8) { console.log('[STAG] settle exit st=' + chat.scrollTop + ' sh=' + chat.scrollHeight); staggerScrollActive = false; return; }
                         } else {
                             chat.__staggerSettled = 0;
                         }
@@ -7025,6 +7030,7 @@
                     staggerRafId = requestAnimationFrame(tick);
                 }
                 function cancelStagger() {
+                    if (staggerScrollActive) console.log('[STAG] cancelStagger (wheel/touch/key)');
                     // R8.18: мгновенно отменяем RAF — иначе следующий tick
                     // успевал переписать scrollTop поверх юзерского scroll'а,
                     // и казалось что скролл «вверх не пускает».
@@ -7056,12 +7062,13 @@
                 function checkStaggerNode(n) {
                     if (!n || n.nodeType !== 1 || !n.classList) return;
                     if (n.classList.contains('chat-stagger-in') || isCard(n)) {
+                        console.log('[STAG] MO trigger (direct card)');
                         startStaggerAutoscroll();
                     }
                     // И внутри новой ноды — карты могут быть глубже
                     if (n.querySelector) {
                         var inner = n.querySelector('.chat-stagger-in, .plane-card');
-                        if (inner) startStaggerAutoscroll();
+                        if (inner) { console.log('[STAG] MO trigger (nested card)'); startStaggerAutoscroll(); }
                     }
                 }
                 var mo = new MutationObserver(function (muts) {
