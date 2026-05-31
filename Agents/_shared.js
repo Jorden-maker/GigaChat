@@ -3997,6 +3997,10 @@
     var exportAgentName = opts.exportAgentName || 'GigaChat';
     var emptyChatHtml = opts.emptyChatHtml ||
       '<div class="empty-chat"><span>Создайте новую сессию для начала работы</span></div>';
+    // R8.77: пустое состояние АКТИВНОЙ (созданной) сессии — иначе показывали
+    // «Создайте новую сессию», хотя сессия уже создана и выбрана.
+    var emptySessionHtml = opts.emptySessionHtml ||
+      '<div class="empty-chat"><span>Напишите сообщение, чтобы начать</span></div>';
     var historyErrorHtml = opts.historyErrorHtml ||
       '<div class="empty-chat"><span>Не удалось загрузить историю.</span></div>';
     var historyLoadingHtml = opts.historyLoadingHtml ||
@@ -4140,14 +4144,15 @@
           var data = await res.json();
           var msgs = (data.messages || []).map(parseHistoryMessage);
           // R8.38 (#3): если loadHistory вернул пустоту, а chat сейчас показывает
-          // "Загружаю историю..." (msgs пуст И snapshot пуст) — рендерим
-          // empty-chat. Иначе застряем на loading-тексте навсегда: R7.37
+          // "Загружаю историю..." (msgs пуст И snapshot пуст) — рендерим пустое
+          // состояние. Иначе застряем на loading-тексте навсегда: R7.37
           // skip-rerender в switchTo не пере-рендерит когда msgs.length ==
           // displayMessages.length (оба нуля), и historyLoadingHtml остаётся.
+          // R8.77: emptySessionHtml (сессия активна, но пуста), НЕ emptyChatHtml.
           if (msgs.length === 0 &&
               sessionStore.state.activeSessionId === sid &&
               !sessionStore.state.displayMessages.length) {
-            chat.innerHTML = emptyChatHtml;
+            chat.innerHTML = emptySessionHtml;
           }
           return msgs;
         } catch (e) {
@@ -4169,6 +4174,12 @@
       var displayMessages = sessionStore.state.displayMessages;
       if (!activeSessionId || !sessions.find(function (s) { return s.id === activeSessionId; })) {
         chat.innerHTML = emptyChatHtml;
+        return;
+      }
+      // R8.77: активная сессия без сообщений и без inflight — это НЕ «нет сессии».
+      // Показываем приглашение начать диалог, а не «Создайте новую сессию».
+      if (displayMessages.length === 0 && !sessionStore.getInflight(activeSessionId)) {
+        chat.innerHTML = emptySessionHtml;
         return;
       }
       var html = '';
