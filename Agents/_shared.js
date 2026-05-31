@@ -3860,6 +3860,49 @@
     var chat = opts.chatEl || document.getElementById('chat');
     var input = opts.inputEl || document.getElementById('msg');
     var sendBtn = opts.sendBtn || document.getElementById('send');
+    // R8.68: запоминаем позицию скролла чата per-session — чтобы при возврате в
+    // сессию И при перезагрузке страницы чат оставался ровно там, где юзер был.
+    // Хранится в localStorage (переживает F5), ключ по session id (уникален на
+    // агента). Сохраняем: дебаунсом при скролле + при уходе из сессии
+    // (onBeforeSwitch) + перед выгрузкой страницы (pagehide/beforeunload).
+    // Восстанавливаем: в onSwitch (после рендера, синхронно — без мигания) и на
+    // первом рендере (boot/F5). scrollTop абсолютный — юзер остаётся на тех же
+    // сообщениях (а не «прилипает» к низу).
+    function __scrollKey(sid) { return 'gcScroll:' + sid; }
+    function saveScrollFor(sid) {
+      if (!sid || !chat) return;
+      try { localStorage.setItem(__scrollKey(sid), String(Math.round(chat.scrollTop))); } catch (e) {}
+    }
+    function loadScrollFor(sid) {
+      if (!sid) return null;
+      try {
+        var v = localStorage.getItem(__scrollKey(sid));
+        if (v == null) return null;
+        var n = parseInt(v, 10);
+        return isNaN(n) ? null : n;
+      } catch (e) { return null; }
+    }
+    function restoreScroll(sid) {
+      if (!chat) return;
+      var saved = loadScrollFor(sid);
+      if (saved == null) { chat.scrollTop = chat.scrollHeight; return; } // нет сохранённой → к низу
+      var maxTop = Math.max(0, chat.scrollHeight - chat.clientHeight);
+      chat.scrollTop = Math.min(saved, maxTop); // clamp — контент мог измениться
+    }
+    var __scrollSaveTid = null;
+    if (chat) {
+      chat.addEventListener('scroll', function () {
+        if (__scrollSaveTid) clearTimeout(__scrollSaveTid);
+        __scrollSaveTid = setTimeout(function () {
+          if (sessionStore && sessionStore.state) saveScrollFor(sessionStore.state.activeSessionId);
+        }, 150);
+      }, { passive: true });
+    }
+    function __saveScrollOnLeave() {
+      if (sessionStore && sessionStore.state) saveScrollFor(sessionStore.state.activeSessionId);
+    }
+    global.addEventListener('pagehide', __saveScrollOnLeave);
+    global.addEventListener('beforeunload', __saveScrollOnLeave);
     var sessionListEl = opts.sessionListEl || document.getElementById('sessionList');
     var statusDot = opts.statusDot || document.getElementById('statusDot');
     var statusText = opts.statusText || document.getElementById('statusText');
@@ -3984,6 +4027,8 @@
       // Отмена живого typewriter'а ДО смены activeSessionId — sendBtn здесь
       // в scope, в отличие от switchTo (которая в createSessionStore).
       onBeforeSwitch: function (newId, oldId) {
+        // R8.68: сохраняем позицию скролла покидаемой сессии (chat ещё показывает её).
+        saveScrollFor(oldId);
         if (sendBtn && sendBtn._typewriterController &&
             typeof sendBtn._typewriterController.isRunning === 'function' &&
             sendBtn._typewriterController.isRunning()) {
@@ -4017,6 +4062,10 @@
         if (attachment) attachment.setDisabled(processing);
         if (!processing) input.focus();
         onSwitchExtra(sid, draft);
+        // R8.68: восстанавливаем позицию скролла этой сессии. switchTo уже
+        // отрендерил сообщения (renderMessages до onSwitch) → ставим scrollTop
+        // последним, синхронно (в том же кадре, без видимого мигания).
+        restoreScroll(sid);
       },
       loadHistory: async function (sid) {
         // Loading HTML — пишем только если `sid` сейчас активен (на момент
@@ -4119,8 +4168,10 @@
       chat.innerHTML = html;
       attachCopyButtons(chat);
       if (isFirstRender) {
-        // Instant — без анимации, до того как браузер успел нарисовать первый кадр.
-        chat.scrollTop = chat.scrollHeight;
+        // R8.68: первый рендер (boot/F5) — восстанавливаем сохранённую позицию
+        // активной сессии (вместо безусловного скролла к низу). Нет сохранённой
+        // → к низу. Instant, до первого кадра → без видимого прыжка.
+        restoreScroll(activeSessionId);
       } else if (wasAtBottom) {
         // Плавный scroll к низу — раньше при таблице/вложениях скачок.
         smoothScrollChat(chat);
