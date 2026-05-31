@@ -3801,7 +3801,7 @@
       '.gc-chat-ring{display:inline-block;width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;box-sizing:border-box;flex-shrink:0}' +
       '.gc-chat-ring.spinning{animation:gcRingSpin .8s linear infinite}' +
       '@keyframes gcRingSpin{to{transform:rotate(360deg)}}' +
-      '.gc-chat-ring-wrap.idle{display:flex;align-items:center;padding:8px 0}' +
+      '.gc-chat-ring-wrap.idle{display:flex;align-items:center;margin-top:34px;padding-bottom:14px}' +
       // @keyframes gcBlink — в injectStatusDotCss (выше) чтобы tool-страницы тоже имели.
       // Inflight-loader (после user-msg во время LLM-запроса): сдвигаем под
       // слот copy-кнопки (которая absolute at top:100%+6, height 22) — иначе
