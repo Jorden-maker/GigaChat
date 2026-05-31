@@ -3458,11 +3458,11 @@
         clearInterval(intervalId);
         cleanupScrollListeners();
         // Финальный swap: переключаемся на finalHtml с extras + highlight.
-        // R8.63: карты появляются свёрнутыми (max-height:0) → swap не меняет
+        // R8.64: карты появляются свёрнутыми (max-height:0) → swap не меняет
         // высоту, isAtBottom() после него корректен. Дальше карты
-        // разворачиваются, их плавно догоняет автоскролл (без вибрации — stagger
-        // убран, рост в унисон; без «скролла в пустоту» — карты не занимают
-        // полный размер заранее).
+        // разворачиваются ПО ОЧЕРЕДИ (stagger), их плавно догоняет автоскролл
+        // (startStaggerAutoscroll в plane-agent — погоня, не snap → без
+        // вибрации; max-height-рост → без «скролла в пустоту»).
         lastBot.innerHTML = finalHtml;
         applyHighlight(lastBot);
         attachCopyButtons(lastBot);
