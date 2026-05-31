@@ -3383,6 +3383,8 @@
       sendBtn.innerHTML = STOP_ICON_SVG;
     }
     var stopped = false;
+    var textDone = false;     // текст допечатан, идёт появление extras (карточек)
+    var extrasWait = null;    // { el, onEnd, timer } — ожидание конца stagger-анимации
     function restoreSendButton() {
       if (!sendBtn) return;
       sendBtn.classList.remove('streaming');
@@ -3391,6 +3393,41 @@
       // Возвращаем фокус в input — после восстановления кнопки юзер сразу
       // может набирать следующее сообщение без лишнего клика.
       focusInputIfPossible();
+    }
+    // R8.62: extras (карточки задач Plane) появляются ПОСЛЕ текста со stagger-
+    // анимацией ~1с. Пока они едут — держим стоп-кнопку (класс streaming не
+    // снимаем), чтобы нельзя было отправить новый запрос поверх появляющихся
+    // карточек. Enter и так заблокирован (sendMsg видит streaming → return),
+    // стоп остаётся кликабельным (клик довершает карточки и возвращает send).
+    function cancelExtrasWait() {
+      if (!extrasWait) return;
+      if (extrasWait.timer) clearTimeout(extrasWait.timer);
+      if (extrasWait.el && extrasWait.onEnd) extrasWait.el.removeEventListener('animationend', extrasWait.onEnd);
+      extrasWait = null;
+    }
+    function finishExtrasAnims() {
+      // Мгновенно доводим карточки до финала (юзер нажал стоп во время появления).
+      if (lastBot && lastBot.isConnected) {
+        var els = lastBot.querySelectorAll('.chat-stagger-in');
+        for (var k = 0; k < els.length; k++) els[k].style.animation = 'none';
+      }
+    }
+    function waitExtrasThenRestore() {
+      var anims = lastBot ? lastBot.querySelectorAll('.chat-stagger-in') : [];
+      if (!anims.length) { restoreSendButton(); return; }
+      // Последняя карточка в DOM имеет наибольший animation-delay (stagger по
+      // idx) → финиширует последней. Ждём её animationend, затем restore.
+      var lastCard = anims[anims.length - 1];
+      var onEnd = function (e) {
+        // Игнорируем animationend, всплывший от детей карточки — ждём именно
+        // завершение входа самой последней карты.
+        if (e && e.target !== lastCard) return;
+        cancelExtrasWait(); restoreSendButton();
+      };
+      lastCard.addEventListener('animationend', onEnd);
+      // Fallback: вкладка свёрнута / animationend не пришёл → restore по потолку.
+      var timer = setTimeout(function () { cancelExtrasWait(); restoreSendButton(); }, 2500);
+      extrasWait = { el: lastCard, onEnd: onEnd, timer: timer };
     }
 
     var i = 0;
@@ -3420,12 +3457,22 @@
       if (i >= plainText.length) {
         clearInterval(intervalId);
         cleanupScrollListeners();
+        // R8.62: фиксируем «был ли юзер у дна» ДО swap. Раньше карточки росли
+        // от max-height:0 → swap не менял высоту, isAtBottom() после была
+        // валидна. Теперь карточки появляются сразу в полный размер (анимация
+        // opacity+transform, layout стабилен) → scrollHeight скачет на swap'е →
+        // isAtBottom() ПОСЛЕ swap уже false и карточки бы не подскроллились.
+        var wasBottomAtSwap = isAtBottom();
         // Финальный swap: переключаемся на finalHtml с extras + highlight.
         lastBot.innerHTML = finalHtml;
         applyHighlight(lastBot);
         attachCopyButtons(lastBot);
-        if (chatEl && isAtBottom() && !userScrolledUp) smoothScrollToBottom(chatEl);
-        restoreSendButton();
+        if (chatEl && wasBottomAtSwap && !userScrolledUp) smoothScrollToBottom(chatEl);
+        // Текст допечатан, но карточки ещё «появляются» (~1с). Держим стоп-
+        // кнопку до конца их stagger-анимации — нельзя слать новый запрос
+        // поверх. Если extras без анимации — restore сразу (внутри функции).
+        textDone = true;
+        waitExtrasThenRestore();
         return;
       }
       var wasAtBottom = isAtBottom();
@@ -3452,6 +3499,7 @@
       cancel: function () {
         clearInterval(intervalId);
         cleanupScrollListeners();
+        cancelExtrasWait();
         if (lastBot && lastBot.isConnected) {
           lastBot.innerHTML = finalHtml;
           applyHighlight(lastBot);
@@ -3460,10 +3508,18 @@
       },
       // stop — юзер нажал стоп-кнопку — оставляет обрезанный текст
       stop: function () {
+        if (textDone) {
+          // Текст уже допечатан, идёт появление карточек — мгновенно доводим
+          // их до финала и возвращаем кнопку отправки.
+          cancelExtrasWait();
+          finishExtrasAnims();
+          restoreSendButton();
+          return;
+        }
         stopped = true;
         cleanupScrollListeners();
       },
-      isRunning: function () { return !stopped && i < plainText.length; }
+      isRunning: function () { return !stopped && (i < plainText.length || !!extrasWait); }
     };
 
     // Сохраняем controller на sendBtn чтобы фабрика sendMsg могла его дёрнуть
@@ -4343,6 +4399,18 @@
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
         e.preventDefault();
         sendMsg({ viaButton: false });
+      }
+    });
+    // R8.62: стоп-квадрат (во время печати + появления карточек) активируется
+    // ТОЛЬКО мышью. Если кнопка попала в фокус (юзер таб'нул на неё) — Enter и
+    // Space не должны нативно «кликнуть» её и оборвать ответ («на этот квадрат
+    // нельзя нажать Enter ни в каком случае»). Гасим нативную клавиатурную
+    // активацию кнопки в streaming-состоянии. Обычная кнопка-стрелка (send) —
+    // без изменений: там Enter с кнопки и не нужен (отправка идёт с поля ввода).
+    sendBtn.addEventListener('keydown', function (e) {
+      if (sendBtn.classList.contains('streaming') &&
+          (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar')) {
+        e.preventDefault();
       }
     });
     input.addEventListener('input', function () {

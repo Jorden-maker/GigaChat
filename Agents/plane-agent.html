@@ -1036,49 +1036,24 @@
             to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes chatStaggerIn {
-            /* R8.25: убран transform:translateY(8px→0). Карты визуально
-               «появляются» (max-height перешёл за content-size) на ~12-й мс
-               анимации, а transform продолжал интерполироваться все 1.2с —
-               subpixel anti-aliasing на дробных значениях translateY (0.5,
-               0.3 и т.п.) давал ~1px дрожание. Это и видел юзер как
-               «вибрацию 2 секунды после появления». opacity + max-height
-               уже дают чистый эффект «развёртывания снизу-вверх», transform
-               был визуально не критичен. */
-            from {
-                opacity: 0;
-                max-height: 0;
-                padding-block: 0;
-                margin-block: 0;
-                border-block-width: 0;
-            }
-            to {
-                opacity: 1;
-                /* R8.19: max-height было 800px + animationend handler менял
-                   на 'none'. Этот jump (с 800 на actual content height) после
-                   завершения каждой карточки заставлял scrollHeight скакать,
-                   и RAF-tracker дёргал scrollTop = «карточки вибрировали».
-                   9999px — потолок, который никакая карточка задачи не
-                   превысит; animation-fill-mode:both держит этот final state,
-                   так что post-animation JS-патч не нужен. */
-                max-height: 9999px;
-                padding-block: 10px;
-                margin-block: 6px;
-                border-block-width: 1px;
-            }
+            /* R8.62: вибрация 1-2с ПОСЛЕ появления карточек. Корень — старый
+               keyframe гнал LAYOUT-свойства (max-height/padding/margin/border)
+               все 1.2с: scrollHeight чата непрерывно менялся → RAF-автоскролл
+               за ним гонялся → дрожание (× stagger по карточкам = ~2с). Прошлые
+               R8.25/R8.19 чинили transform и max-height-jump, но саму layout-
+               анимацию оставили — поэтому вибрация осталась.
+               Теперь анимируем ТОЛЬКО GPU-композитные opacity + transform.
+               Layout не трогаем → карточка занимает финальную высоту сразу →
+               scrollHeight стабилен → автоскролл срабатывает ОДИН раз, без
+               дёрганья. Короткие 0.34с убирают и subpixel-шиммер transform
+               (из-за него R8.25 его выпилил, но тогда transform тянулся 1.2с). */
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
         .chat-fade-in { animation: chatFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
-        /* R7.47: карта «разворачивается» снизу вверх (max-height + paddings
-           растут от 0), а не просто появляется opacity. Это меняет
-           scrollHeight чата — smoothScrollChat следит за ним и
-           автоматически скроллит вниз, как при псевдо-стриминге. */
         .chat-stagger-in {
-            animation: chatStaggerIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-            overflow: hidden;
-            /* R8.25: will-change удалён вместе с transform из keyframes.
-               Раньше держал GPU-композитный слой для transform:translateY(0)
-               чтобы не было пост-анимационного субпиксельного сдвига. Без
-               transform смысла нет — opacity и max-height не дают такого
-               эффекта. */
+            animation: chatStaggerIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+            will-change: opacity, transform;
         }
         /* Spinner для loader'ов */
         .msg-spinner { display: inline-block; width: 12px; height: 12px;
@@ -6489,7 +6464,7 @@
                 var SUMMARY_CMDS = { '/all': 1, '/created': 1, '/me': 1 };
                 if (SUMMARY_CMDS[c.cmd] && issues && issues.length > 0) {
                     var typingMsSum = (String(contentText).length / 100) * 1000;
-                    var animMsSum = 1200 + issues.length * 150 + 200; // stagger-волна
+                    var animMsSum = 340 + issues.length * 150 + 200; // stagger-волна (340мс = новая длит. анимации, R8.62)
                     var pauseMsSum = 0; // R8.05→0: пауза перед сводкой убрана (по запросу) — сводка сразу после карточек
                     var totalDelaySum = typingMsSum + animMsSum + pauseMsSum;
                     setTimeout(function () {
@@ -6551,7 +6526,7 @@
                     // Длительность: typing (cps=100) + stagger-волна карточек.
                     // Карточки: 1.2с базовая + 150мс на карточку (stagger) + 200мс буфер.
                     var typingMs = (String(textMsg).length / 100) * 1000;
-                    var animMs = hasItems ? (1200 + issues.length * 150 + 200) : 200;
+                    var animMs = hasItems ? (340 + issues.length * 150 + 200) : 200;
                     setTimeout(resolve, typingMs + animMs);
                 });
             }
@@ -6947,11 +6922,11 @@
                 var staggerCancelled = false;
                 var staggerRafId = null;
                 function _computeStaggerDuration() {
-                    // R8.24: длительность = 1200мс (длина одной анимации) +
-                    // (N-1)*150мс (stagger-delay'и) + 200мс буфер. Считаем по
-                    // фактическому количеству .chat-stagger-in карт сейчас в DOM.
+                    // R8.62: длительность = 340мс (новая длина одной анимации,
+                    // было 1200) + (N-1)*150мс (stagger-delay'и) + 200мс буфер.
+                    // Считаем по фактическому числу .chat-stagger-in карт в DOM.
                     var nCards = chat.querySelectorAll('.chat-stagger-in').length;
-                    return 1200 + Math.max(0, nCards - 1) * 150 + 200;
+                    return 340 + Math.max(0, nCards - 1) * 150 + 200;
                 }
                 function startStaggerAutoscroll() {
                     if (staggerScrollActive) {
