@@ -3457,20 +3457,19 @@
       if (i >= plainText.length) {
         clearInterval(intervalId);
         cleanupScrollListeners();
-        // R8.62: фиксируем «был ли юзер у дна» ДО swap. Раньше карточки росли
-        // от max-height:0 → swap не менял высоту, isAtBottom() после была
-        // валидна. Теперь карточки появляются сразу в полный размер (анимация
-        // opacity+transform, layout стабилен) → scrollHeight скачет на swap'е →
-        // isAtBottom() ПОСЛЕ swap уже false и карточки бы не подскроллились.
-        var wasBottomAtSwap = isAtBottom();
         // Финальный swap: переключаемся на finalHtml с extras + highlight.
+        // R8.63: карты появляются свёрнутыми (max-height:0) → swap не меняет
+        // высоту, isAtBottom() после него корректен. Дальше карты
+        // разворачиваются, их плавно догоняет автоскролл (без вибрации — stagger
+        // убран, рост в унисон; без «скролла в пустоту» — карты не занимают
+        // полный размер заранее).
         lastBot.innerHTML = finalHtml;
         applyHighlight(lastBot);
         attachCopyButtons(lastBot);
-        if (chatEl && wasBottomAtSwap && !userScrolledUp) smoothScrollToBottom(chatEl);
-        // Текст допечатан, но карточки ещё «появляются» (~1с). Держим стоп-
-        // кнопку до конца их stagger-анимации — нельзя слать новый запрос
-        // поверх. Если extras без анимации — restore сразу (внутри функции).
+        if (chatEl && isAtBottom() && !userScrolledUp) smoothScrollToBottom(chatEl);
+        // Текст допечатан, но карточки ещё «появляются» (~0.6с). Держим стоп-
+        // кнопку до конца их анимации — нельзя слать новый запрос поверх.
+        // Если extras без анимации — restore сразу (внутри функции).
         textDone = true;
         waitExtrasThenRestore();
         return;
