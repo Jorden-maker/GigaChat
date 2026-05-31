@@ -6965,11 +6965,8 @@
                         return;
                     }
                     // Если юзер был не у дна (на 100px и выше) — не вмешиваемся.
-                    var __sgDist = chat.scrollHeight - chat.scrollTop - chat.clientHeight;
-                    console.log('[STAG] guard dist=' + __sgDist + ' sh=' + chat.scrollHeight + ' st=' + chat.scrollTop + ' ch=' + chat.clientHeight + ' cards=' + chat.querySelectorAll('.chat-stagger-in').length + ' -> ' + (__sgDist > 100 ? 'SKIP(не у дна)' : 'pass'));
-                    if (__sgDist > 100) return;
+                    if (chat.scrollHeight - chat.scrollTop - chat.clientHeight > 100) return;
                     staggerScrollActive = true;
-                    console.log('[STAG] ENGAGED expMs=' + _computeStaggerDuration());
                     staggerCancelled = false;
                     // R8.24: считаем точную длительность анимации по числу карт
                     // (вместо stable-frames-эвристики, которая в R8.20 ошибочно
@@ -6987,12 +6984,12 @@
                     chat.__staggerExpectedMs = _computeStaggerDuration();
                     chat.__staggerLastSh = chat.scrollHeight;
                     chat.__staggerExpectedTop = -1; // -1 = ещё не писали
+                    chat.__staggerHasGrown = false;  // R8.79: карты ещё не росли ни разу
                     function tick() {
                         staggerRafId = null;
                         if (staggerCancelled) { staggerScrollActive = false; return; }
                         // Жёсткий потолок по времени — backstop от зацикливания.
                         if (performance.now() - chat.__staggerStartedAt > chat.__staggerExpectedMs) {
-                            console.log('[STAG] time-cap exit ran=' + Math.round(performance.now() - chat.__staggerStartedAt) + 'ms st=' + chat.scrollTop + ' sh=' + chat.scrollHeight);
                             staggerScrollActive = false;
                             return;
                         }
@@ -7001,13 +6998,13 @@
                         // напрямую, это страховка от scroll-bar drag'а.)
                         if (chat.__staggerExpectedTop !== -1
                             && chat.scrollTop < chat.__staggerExpectedTop - 5) {
-                            console.log('[STAG] CANCEL scroll-up: st=' + chat.scrollTop + ' < expTop=' + chat.__staggerExpectedTop + '-5');
                             staggerCancelled = true;
                             staggerScrollActive = false;
                             return;
                         }
                         var grew = chat.scrollHeight !== chat.__staggerLastSh;
                         chat.__staggerLastSh = chat.scrollHeight;
+                        if (grew) chat.__staggerHasGrown = true; // R8.79: карты начали расти
                         var distance = (chat.scrollHeight - chat.clientHeight) - chat.scrollTop;
                         if (distance > 1) {
                             // R8.64: плавная ПОГОНЯ за низом вместо snap'а — сглаживает
@@ -7019,9 +7016,13 @@
                         // кадров спокойствия ОТПУСКАЕМ скролл, не дожидаясь конца
                         // фикс-таймера — иначе погоня держала scrollTop прилипшим к
                         // низу, и юзер не мог листать вверх после появления (рег. R8.64).
-                        if (distance <= 1 && !grew) {
+                        // R8.79: + __staggerHasGrown — НЕ оседаем, пока карты ни разу не
+                        // выросли. На старте сессии они свёрнуты (max-height:0): distance=0
+                        // && !grew мгновенно давало settle ДО роста, погоня выходила, и
+                        // когда карты вырастали — вид оставался вверху (баг автоскролла).
+                        if (distance <= 1 && !grew && chat.__staggerHasGrown) {
                             chat.__staggerSettled = (chat.__staggerSettled || 0) + 1;
-                            if (chat.__staggerSettled > 8) { console.log('[STAG] settle exit st=' + chat.scrollTop + ' sh=' + chat.scrollHeight); staggerScrollActive = false; return; }
+                            if (chat.__staggerSettled > 8) { staggerScrollActive = false; return; }
                         } else {
                             chat.__staggerSettled = 0;
                         }
@@ -7030,7 +7031,6 @@
                     staggerRafId = requestAnimationFrame(tick);
                 }
                 function cancelStagger() {
-                    if (staggerScrollActive) console.log('[STAG] cancelStagger (wheel/touch/key)');
                     // R8.18: мгновенно отменяем RAF — иначе следующий tick
                     // успевал переписать scrollTop поверх юзерского scroll'а,
                     // и казалось что скролл «вверх не пускает».
@@ -7062,13 +7062,12 @@
                 function checkStaggerNode(n) {
                     if (!n || n.nodeType !== 1 || !n.classList) return;
                     if (n.classList.contains('chat-stagger-in') || isCard(n)) {
-                        console.log('[STAG] MO trigger (direct card)');
                         startStaggerAutoscroll();
                     }
                     // И внутри новой ноды — карты могут быть глубже
                     if (n.querySelector) {
                         var inner = n.querySelector('.chat-stagger-in, .plane-card');
-                        if (inner) { console.log('[STAG] MO trigger (nested card)'); startStaggerAutoscroll(); }
+                        if (inner) startStaggerAutoscroll();
                     }
                 }
                 var mo = new MutationObserver(function (muts) {
