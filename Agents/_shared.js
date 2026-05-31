@@ -2739,21 +2739,10 @@
     function _doClearInflight(sid) {
       try { localStorage.removeItem(KEY_INFLIGHT + sid); } catch (e) {}
       stopInflightTicker();
-      // R8.74 (#2 фикс): НЕ удаляем кольцо-загрузчик, а замораживаем в «покой»
-      // (золотое кольцо без таймера). Раньше .remove() оставлял чат вовсе без
-      // кольца до следующего renderChat — и при стопе во время загрузки (abort)
-      // кольцо исчезало, появляясь лишь при перезагрузке. В нормальном потоке
-      // следующий pushToSession-рендер всё равно перерисует кольцо корректно.
+      // Кольцо-загрузчик (gc-inflight-loader) живёт только во время загрузки —
+      // при завершении/отмене запроса убираем его из DOM (после показа кольца нет).
       var loaders = document.querySelectorAll('.gc-inflight-loader');
-      for (var i = 0; i < loaders.length; i++) {
-        var el = loaders[i];
-        el.className = 'gc-chat-ring-wrap idle';
-        el.removeAttribute('data-started-at');
-        var ring = el.querySelector('.gc-chat-ring');
-        if (ring) ring.classList.remove('spinning');
-        var t = el.querySelector('.timer');
-        if (t && t.parentNode) t.parentNode.removeChild(t);
-      }
+      for (var i = 0; i < loaders.length; i++) loaders[i].remove();
     }
     function getInflight(sid) {
       if (!sid) return null;
@@ -3344,32 +3333,6 @@
     // юзер у дна. Если был — скроллим. Если нет (скроллил вверх) — не
     // трогаем. Возврат к низу автоматически возобновляет sticky-режим.
     var chatEl = lastBot.closest('#chat') || document.getElementById('chat');
-    // R8.70: кольцо-загрузчик внизу чата — крутим во время псевдо-стриминга,
-    // замораживаем (снимаем .spinning) когда показ завершён/остановлен.
-    function setRingSpin(on) {
-      if (!chatEl) return;
-      var ring = chatEl.querySelector('.gc-chat-ring');
-      if (!ring) return;
-      if (on) ring.classList.add('spinning'); else ring.classList.remove('spinning');
-    }
-    // R8.72: таймер «N сек» справа от кольца — непрерывно от старта загрузки
-    // (msg.showStartedAt = время отправки) до полного конца показа. Тикер
-    // самовосстанавливающийся: если рендер стёр span — создаст заново.
-    var __showTimerTid = null;
-    function __tickShowTimer() {
-      var wrap = chatEl ? chatEl.querySelector('.gc-chat-ring-wrap') : null;
-      if (!wrap) return;
-      var t = wrap.querySelector('.timer');
-      if (!t) { t = document.createElement('span'); t.className = 'timer'; wrap.appendChild(t); }
-      var base = msg.showStartedAt || msg.ts || Date.now();
-      t.textContent = Math.floor((Date.now() - base) / 1000) + ' сек';
-    }
-    function startShowTimer() { __tickShowTimer(); if (!__showTimerTid) __showTimerTid = setInterval(__tickShowTimer, 1000); }
-    function stopShowTimer() {
-      if (__showTimerTid) { clearInterval(__showTimerTid); __showTimerTid = null; }
-      var wrap = chatEl ? chatEl.querySelector('.gc-chat-ring-wrap') : null;
-      if (wrap) { var t = wrap.querySelector('.timer'); if (t && t.parentNode) t.parentNode.removeChild(t); }
-    }
     function isAtBottom() {
       if (!chatEl) return false;
       // 100px порог — устойчивее к разговорам с таблицами/кодом: пока юзер не
@@ -3427,17 +3390,10 @@
       sendBtn.setAttribute('aria-label', 'Остановить печать');
       sendBtn.innerHTML = STOP_ICON_SVG;
     }
-    setRingSpin(true); // R8.70: кольцо крутится во время показа ответа
-    startShowTimer();  // R8.72: таймер справа от кольца — идёт до конца показа
     var stopped = false;
     var textDone = false;     // текст допечатан, идёт появление extras (карточек)
     var extrasWait = null;    // { el, onEnd, timer } — ожидание конца stagger-анимации
     function restoreSendButton() {
-      stopShowTimer();    // R8.72: таймер показа стоп + убрать (кольцо замирает золотым)
-      setRingSpin(false); // R8.70: кольцо замирает (показ завершён/остановлен)
-      // R8.73: сигнал «показ полностью завершён» → Plane гасит свой stagger-
-      // автоскролл, иначе он «догоняет» дно и после показа не даёт листать вверх.
-      if (chatEl) { try { chatEl.dispatchEvent(new CustomEvent('gc-show-end')); } catch (e) {} }
       if (!sendBtn) return;
       sendBtn.classList.remove('streaming');
       if (origSendLabel) sendBtn.setAttribute('aria-label', origSendLabel);
@@ -3845,7 +3801,6 @@
       '.gc-chat-ring{display:inline-block;width:15px;height:15px;border:2px solid var(--accent);border-radius:50%;box-sizing:border-box;flex-shrink:0}' +
       '.gc-chat-ring.spinning{border-color:var(--border);border-top-color:var(--accent);animation:gcRingSpin .8s linear infinite}' +
       '@keyframes gcRingSpin{to{transform:rotate(360deg)}}' +
-      '.gc-chat-ring-wrap.idle{display:flex;align-items:center;gap:10px;margin-top:34px;padding-bottom:4px;margin-bottom:-24px}' +
       '.gc-chat-ring-wrap .timer{color:var(--text-secondary);font-size:13px;font-style:italic}' +
       // @keyframes gcBlink — в injectStatusDotCss (выше) чтобы tool-страницы тоже имели.
       // Inflight-loader (после user-msg во время LLM-запроса): сдвигаем под
@@ -4253,11 +4208,10 @@
         html += '<div class="loading gc-inflight-loader gc-chat-ring-wrap" data-started-at="' + inflight.startedAt + '">' +
           '<span class="gc-chat-ring spinning"></span>' +
           '<span class="timer">' + elapsed + ' сек</span></div>';
-      } else if (displayMessages.length > 0) {
-        // R8.70: после ответа кольцо не исчезает — спускается вниз и замирает
-        // (статичный полумесяц). typewriter крутит его во время псевдо-стриминга.
-        html += '<div class="gc-chat-ring-wrap idle"><span class="gc-chat-ring"></span></div>';
       }
+      // R8.75: кольцо — ТОЛЬКО во время загрузки ответа (inflight). После ответа
+      // и во время показа кольца нет (по просьбе юзера: постоянное кольцо налезало
+      // на текст и мешало автоскролл-погоне карточек Plane).
       var wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 100;
       // Сохраняем scrollTop ДО innerHTML — иначе при replace innerHTML браузер
       // сбрасывает scrollTop в 0, и юзер видит «прыжок в самый верх + рывок
@@ -4376,9 +4330,6 @@
       // (восстановленная позиция в начале сессии) → автоскролл-погоня (Plane
       // stagger / typewriter) не цепляется: её guard требует distance<100 от дна.
       if (sendSessionId === sessionStore.state.activeSessionId && chat) chat.scrollTop = chat.scrollHeight;
-      // R8.72: время старта показа (= время отправки). Таймер у кольца идёт
-      // непрерывно от начала загрузки до полного конца показа (прокидываем в botMsg).
-      var __showStartedAt = (sessionStore.getInflight(sendSessionId) || {}).startedAt || Date.now();
 
       var messageForAgent = text;
       function abortAndRestore() {
@@ -4491,7 +4442,6 @@
         }
         var botMsg = parseBotMessage(data);
         if (!botMsg.ts) botMsg.ts = Date.now();
-        botMsg.showStartedAt = __showStartedAt; // R8.72: непрерывный таймер показа
         enrichBotMsg(botMsg);
         if (useTypewriter) {
           typewriteAssistant(sessionStore, sendSessionId, botMsg, {

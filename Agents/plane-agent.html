@@ -7039,9 +7039,6 @@
                 // чтобы можно было скроллить вверх читать пока разворачиваются.
                 chat.addEventListener('wheel', cancelStagger, { passive: true });
                 chat.addEventListener('touchmove', cancelStagger, { passive: true });
-                // R8.73: typewriter сигналит «показ полностью завершён» → гасим
-                // автоскролл, чтобы после показа можно было листать вверх (не залипало).
-                chat.addEventListener('gc-show-end', cancelStagger);
                 // R8.18: keydown PgUp/Up/Home — тоже отменяет автоскролл.
                 document.addEventListener('keydown', function (e) {
                     if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'Home') {
