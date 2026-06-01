@@ -543,6 +543,13 @@
       return '<a href="#" class="gc-doclink" data-doc-src="' + src + '" data-doc-id="' + id + '">' + nm + '</a>';
     });
 
+    // R8.83: заголовок контента документа [[DOCHEAD|name]] → кастомная иконка-файл
+    // (SVG в цвет акцента) + имя жирным. Узел «Формат контента» выдаёт его вместо
+    // эмодзи 📄. Идёт ПОСЛЕ escape (& < >), имя ($1) уже экранировано выше.
+    html = html.replace(/\[\[DOCHEAD\|([\s\S]*?)\]\]/g, function (m, nm) {
+      return '<span class="gc-dochead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg><span class="gc-dochead-name">' + nm + '</span></span>';
+    });
+
     // 1) Защищаем блоки кода плейсхолдерами, чтобы \n внутри них не превращались в <br>.
     var codeBlocks = [];
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function (m, l, c) {
@@ -3268,7 +3275,13 @@
       }
       if (!hasSeparator) lines = lines.slice(0, tableStart);
     }
-    return lines.join('\n');
+    var out = lines.join('\n');
+    // 3. R8.83: незакрытый маркер документа [[DOC|...]] / [[DOCHEAD|...]] в самом
+    //    конце прячем целиком, пока не придёт закрывающая `]]`. Иначе при печати
+    //    списка на доли секунды мелькает сырой `[[DOC|external|%D0...`. Триггерим
+    //    только по `[[DOC` — обычный текст с `[[` не трогаем.
+    out = out.replace(/\[\[DOC(?:(?!\]\]).)*$/, '');
+    return out;
   }
 
   // typewriteAssistant — псевдо-стриминг ответа с поддержкой:
@@ -4027,7 +4040,9 @@
     var parseBotMessage = opts.parseBotMessage || function (data) {
       // R8.66: cps прокидывается из ответа (data.cps) — напр. RAG для списка
       // документов из БД без LLM ставит 250. undefined → дефолт 200.
-      return { role: 'assistant', content: data.response || data.output || 'Пустой ответ от сервера', cps: data.cps };
+      // R8.83: instant — мгновенный рендер без typewriter (RAG-список документов:
+      // справочная выдача, псевдо-стриминг только тормозит и мелькает маркер).
+      return { role: 'assistant', content: data.response || data.output || 'Пустой ответ от сервера', cps: data.cps, instant: data.instant === true };
     };
     var parseHistoryMessage = opts.parseHistoryMessage || function (m) {
       var r = { role: m.role, content: m.content };
@@ -4472,7 +4487,10 @@
         var botMsg = parseBotMessage(data);
         if (!botMsg.ts) botMsg.ts = Date.now();
         enrichBotMsg(botMsg);
-        if (useTypewriter) {
+        // R8.83: instant-сообщения (RAG-список документов) рендерим сразу через
+        // renderChat (else-ветка) — без typewriter. Один проход formatMarkdown:
+        // мгновенно даже на 500+ документах, без мелькания сырого [[DOC|...]].
+        if (useTypewriter && !botMsg.instant) {
           typewriteAssistant(sessionStore, sendSessionId, botMsg, {
             // R8.66: per-message cps (botMsg.cps) — напр. RAG для списка
             // документов из БД без LLM ставит 250; иначе дефолт 200.

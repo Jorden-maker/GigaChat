@@ -60,9 +60,15 @@
         #msg:disabled { opacity: 0.4; }
         #msg::placeholder { color: var(--text-muted); }
         /* .empty-chat — базовое правило в _shared.js (injectAgentCss). */
-        /* R8.82: кликабельные имена документов в списке (клик → контент). */
+        /* R8.82: кликабельные имена документов в списке (клик → контент).
+           R8.83: номер «N. » печатается ВНЕ ссылки (белый), ссылка — только имя. */
         #chat a.gc-doclink { color: var(--accent); cursor: pointer; text-decoration: none; border-bottom: 1px dashed var(--accent); }
         #chat a.gc-doclink:hover { color: var(--accent-hover); border-bottom-color: var(--accent-hover); background: var(--bg-user); }
+        /* R8.83: заголовок контента документа — кастомная иконка-файл + имя
+           (вместо эмодзи 📄). Маркер [[DOCHEAD|name]] → span в formatMarkdown. */
+        #chat .gc-dochead { display: inline-flex; align-items: center; gap: 9px; vertical-align: text-bottom; }
+        #chat .gc-dochead svg { width: 19px; height: 19px; flex-shrink: 0; color: var(--accent); }
+        #chat .gc-dochead-name { font-weight: 600; color: var(--text-primary); }
     </style>
     <script src="_config.js"></script>
     <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark">
