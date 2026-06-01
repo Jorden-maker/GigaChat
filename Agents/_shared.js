@@ -3276,11 +3276,13 @@
       if (!hasSeparator) lines = lines.slice(0, tableStart);
     }
     var out = lines.join('\n');
-    // 3. R8.83: незакрытый маркер документа [[DOC|...]] / [[DOCHEAD|...]] в самом
-    //    конце прячем целиком, пока не придёт закрывающая `]]`. Иначе при печати
-    //    списка на доли секунды мелькает сырой `[[DOC|external|%D0...`. Триггерим
-    //    только по `[[DOC` — обычный текст с `[[` не трогаем.
-    out = out.replace(/\[\[DOC(?:(?!\]\]).)*$/, '');
+    // 3. R8.83/84: незакрытый маркер документа [[DOC|...]] / [[DOCHEAD|...]] в
+    //    самом конце прячем, пока не придёт закрывающая `]]`. Иначе мелькает сырой
+    //    хвост. Skip в typewriter (R8.84) перепрыгивает целый маркер, но `i` может
+    //    встать в 1–4-символьном окне до полного `[[DOC` — поэтому прячем ЛЮБОЙ
+    //    префикс маркера: `[[`, `[[D`, `[[DO`, `[[DOC`, `[[DOC|…`. Обычный `[[X`
+    //    (X≠D) НЕ трогаем — D-ветка не совпадёт, останется как есть.
+    out = out.replace(/\[\[(?:D(?:O(?:C(?:(?!\]\]).)*)?)?)?$/, '');
     return out;
   }
 
@@ -3548,6 +3550,16 @@
       }
       var wasAtBottom = isAtBottom();
       i = Math.min(i + charsPerTick, plainText.length);
+      // R8.84: скрытые маркеры [[DOC|…]] / [[DOCHEAD|…]] не тратят тики печати.
+      // Если i попал ВНУТРЬ незакрытого маркера — перепрыгиваем за `]]` целиком.
+      // Длинный encoded id/путь иначе создаёт «паузы» при псевдо-стриминге RAG-
+      // списка (имя бесплатно, печатается только видимый текст: номер + переносы).
+      // У других агентов маркеров нет → lastIndexOf вернёт -1, ветка инертна.
+      var mOpen = plainText.lastIndexOf('[[DOC', i);
+      if (mOpen !== -1) {
+        var mClose = plainText.indexOf(']]', mOpen);
+        if (mClose !== -1 && i > mOpen && i < mClose + 2) i = mClose + 2;
+      }
       if (i === lastRendered) return;
       lastRendered = i;
       var prefix = plainText.substring(0, i);
@@ -4039,10 +4051,8 @@
     };
     var parseBotMessage = opts.parseBotMessage || function (data) {
       // R8.66: cps прокидывается из ответа (data.cps) — напр. RAG для списка
-      // документов из БД без LLM ставит 250. undefined → дефолт 200.
-      // R8.83: instant — мгновенный рендер без typewriter (RAG-список документов:
-      // справочная выдача, псевдо-стриминг только тормозит и мелькает маркер).
-      return { role: 'assistant', content: data.response || data.output || 'Пустой ответ от сервера', cps: data.cps, instant: data.instant === true };
+      // документов из БД без LLM ставит 300. undefined → дефолт 200.
+      return { role: 'assistant', content: data.response || data.output || 'Пустой ответ от сервера', cps: data.cps };
     };
     var parseHistoryMessage = opts.parseHistoryMessage || function (m) {
       var r = { role: m.role, content: m.content };
@@ -4487,10 +4497,7 @@
         var botMsg = parseBotMessage(data);
         if (!botMsg.ts) botMsg.ts = Date.now();
         enrichBotMsg(botMsg);
-        // R8.83: instant-сообщения (RAG-список документов) рендерим сразу через
-        // renderChat (else-ветка) — без typewriter. Один проход formatMarkdown:
-        // мгновенно даже на 500+ документах, без мелькания сырого [[DOC|...]].
-        if (useTypewriter && !botMsg.instant) {
+        if (useTypewriter) {
           typewriteAssistant(sessionStore, sendSessionId, botMsg, {
             // R8.66: per-message cps (botMsg.cps) — напр. RAG для списка
             // документов из БД без LLM ставит 250; иначе дефолт 200.
