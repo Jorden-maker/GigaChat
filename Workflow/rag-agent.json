@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\n// __AUTH_PATCH_V1__\n// === SSO Phase 3: token presence check ===\n// Без токена → auth_required, фронт redirect на /login.html\nconst __token = String((body && body.token) || '').trim();\nif (!__token || !/^[a-f0-9]{64}$/.test(__token)) {\n  return [{json: {valid: 0, error: 'auth_required', auth_required: true}}];\n}\n\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\n// Защита от SQL-инъекций через session_id\nif (!/^[a-zA-Z0-9_-]{3,64}$/.test(session_id)) {\n  return [{json: {valid: 0, error: 'session_id содержит недопустимые символы'}}];\n}\n\nif (message.length > 100000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 100000 символов)'}}];\n}\n\nreturn [{json: {valid: 1, message: message, session_id: session_id, token: __token}}];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst message = (body.message || '').trim();\nconst session_id = (body.session_id || 'rag-default').trim();\n\n// Health-check: отдаём pong без вызова LLM\nif (message === 'ping') {\n  return [{json: {valid: 0, error: 'pong'}}];\n}\n\n// __AUTH_PATCH_V1__\n// === SSO Phase 3: token presence check ===\n// Без токена → auth_required, фронт redirect на /login.html\nconst __token = String((body && body.token) || '').trim();\nif (!__token || !/^[a-f0-9]{64}$/.test(__token)) {\n  return [{json: {valid: 0, error: 'auth_required', auth_required: true}}];\n}\n\n\nif (!message || message.length < 2) {\n  return [{json: {valid: 0, error: 'Введите сообщение'}}];\n}\n\n// Защита от SQL-инъекций через session_id\nif (!/^[a-zA-Z0-9_-]{3,64}$/.test(session_id)) {\n  return [{json: {valid: 0, error: 'session_id содержит недопустимые символы'}}];\n}\n\nif (message.length > 100000) {\n  return [{json: {valid: 0, error: 'Слишком длинный запрос (максимум 100000 символов)'}}];\n}\n\nconst __docGet = String((body && body.doc_get) || '').trim();\nreturn [{json: {valid: 1, message: message, session_id: session_id, token: __token, doc_get: __docGet}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -99,7 +99,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const message = $('Агрегация').first().json.message;\nconst historyContext = $('Агрегация').first().json.historyContext || '';\nconst session_id = $('Агрегация').first().json.session_id || 'rag-default';\nconst lower = message.toLowerCase();\n\n// NEW-3: явное обнаружение «покажи / какие документы есть» — для таких\n// запросов embedding-поиск не работает (вопрос не содержит контента ни\n// одного конкретного документа). Используем SELECT DISTINCT filename.\nconst listIndicators = [\n  'какие документ', 'какие файл', 'список документ', 'список файл',\n  'покажи документ', 'покажи файл', 'покажи все документ', 'покажи все файл',\n  'что загружен', 'что есть в баз', 'что есть в документ', 'документы в базе', 'файлы в базе',\n  'перечисли документ', 'перечисли файл',\n  'имена документ', 'имена файл', 'названия документ', 'названия файл',\n  'все документ', 'все файл',\n  'сколько документ', 'сколько файл',\n  'количество документ', 'количество файл', 'кол-во документ', 'кол-во файл', 'число документ', 'число файл',\n  'все мои документ', 'все мои файл', 'покажи мои документ', 'мои документ', 'мои файл', 'есть документ', 'есть файл', 'что у меня в баз', 'что в баз', 'покажи всё', 'покажи все'\n];\nfor (const ind of listIndicators) {\n  if (lower.includes(ind)) {\n    return [{ json: { message, mode: 'list_documents', historyContext, session_id } }];\n  }\n}\n\n// R5 BUG-3 (RAG hallucinates docs in tables): просьба «представь документы\n// в виде таблицы» / «список документов в таблицу» / «таблица документов» —\n// это запрос про БД, не про содержание. Маршрутизируем в list_documents.\nconst tablePatterns = [\n  /в\\s+виде\\s+таблиц/,\n  /таблиц[ауеыйо]*\\s+(документ|файл|загруж)/,\n  /(документ|файл|загруж)\\w*\\s+\\w*\\s*(в\\s+таблиц|таблицей|списком)/,\n  /представ\\w*\\s+(документ|файл|базу)/,\n  /выведи\\s+(документ|файл|список)/,\n  /оформи\\s+(документ|файл)\\w*\\s+(в\\s+таблиц|таблицей)/\n];\nfor (const re of tablePatterns) {\n  if (re.test(lower)) {\n    return [{ json: { message, mode: 'list_documents', historyContext, session_id } }];\n  }\n}\n\nconst docKeywords = [\n  'документ', 'договор', 'акт', 'контракт', 'соглашени',\n  'коммерческ', 'предложени', 'кп ', 'доверенност',\n  'записк', 'протокол', 'приказ', 'заявлени',\n  'шаблон', 'бланк', 'образец', 'форм',\n  'найди в документ', 'что написано', 'что сказано',\n  'о чём документ', 'о чем документ', 'содержание документ',\n  'загруженн', 'файл', 'текст документ',\n  'пункт', 'параграф', 'раздел', 'глав',\n  'срок', 'оплат', 'условия', 'реквизит',\n  'составь', 'подготовь', 'создай документ', 'напиши документ',\n  'база знаний', 'база документ', 'найди информаци',\n  'процитируй', 'цитат', 'выдержк',\n  'регламент', 'инструкци', 'положени', 'устав',\n  'накладн', 'счёт', 'счет-фактур', 'акт выполненн'\n];\n\nlet isDoc = false;\n\nfor (const kw of docKeywords) {\n  if (lower.includes(kw)) { isDoc = true; break; }\n}\n\n// Дополнительная проверка: вопрос о содержимом\nif (!isDoc && message.length > 15) {\n  const contentIndicators = ['что написано', 'что сказано', 'о чём', 'о чем', 'найди в', 'процитируй'];\n  const contentEntities = ['документ', 'файл', 'договор', 'акт', 'контракт'];\n  const hasQuestion = contentIndicators.some(q => lower.includes(q));\n  const hasEntity = contentEntities.some(e => lower.includes(e));\n  if (hasQuestion && hasEntity) isDoc = true;\n}\n\nif (!isDoc) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'document', historyContext, session_id } }];"
+        "jsCode": "const message = $('Агрегация').first().json.message;\nconst historyContext = $('Агрегация').first().json.historyContext || '';\nconst session_id = $('Агрегация').first().json.session_id || 'rag-default';\nconst lower = message.toLowerCase();\n\n// R8.82: клик по имени документа (фронт шлёт doc_get='source|id') — показать\n// ПОЛНЫЙ контент из БД, без LLM и без обычной классификации.\nconst __docGet = String(($('Агрегация').first().json.doc_get) || '').trim();\nif (__docGet) {\n  const __bar = __docGet.indexOf('|');\n  const __src = __bar >= 0 ? __docGet.slice(0, __bar) : 'internal';\n  const __did = __bar >= 0 ? __docGet.slice(__bar + 1) : __docGet;\n  return [{ json: { message, mode: 'get_document', doc_source: __src, doc_id: __did, historyContext, session_id } }];\n}\n\n// NEW-3: явное обнаружение «покажи / какие документы есть» — для таких\n// запросов embedding-поиск не работает (вопрос не содержит контента ни\n// одного конкретного документа). Используем SELECT DISTINCT filename.\nconst listIndicators = [\n  'какие документ', 'какие файл', 'список документ', 'список файл',\n  'покажи документ', 'покажи файл', 'покажи все документ', 'покажи все файл',\n  'что загружен', 'что есть в баз', 'что есть в документ', 'документы в базе', 'файлы в базе',\n  'перечисли документ', 'перечисли файл',\n  'имена документ', 'имена файл', 'названия документ', 'названия файл',\n  'все документ', 'все файл',\n  'сколько документ', 'сколько файл',\n  'количество документ', 'количество файл', 'кол-во документ', 'кол-во файл', 'число документ', 'число файл',\n  'все мои документ', 'все мои файл', 'покажи мои документ', 'мои документ', 'мои файл', 'есть документ', 'есть файл', 'что у меня в баз', 'что в баз', 'покажи всё', 'покажи все'\n];\nfor (const ind of listIndicators) {\n  if (lower.includes(ind)) {\n    return [{ json: { message, mode: 'list_documents', historyContext, session_id } }];\n  }\n}\n\n// R5 BUG-3 (RAG hallucinates docs in tables): просьба «представь документы\n// в виде таблицы» / «список документов в таблицу» / «таблица документов» —\n// это запрос про БД, не про содержание. Маршрутизируем в list_documents.\nconst tablePatterns = [\n  /в\\s+виде\\s+таблиц/,\n  /таблиц[ауеыйо]*\\s+(документ|файл|загруж)/,\n  /(документ|файл|загруж)\\w*\\s+\\w*\\s*(в\\s+таблиц|таблицей|списком)/,\n  /представ\\w*\\s+(документ|файл|базу)/,\n  /выведи\\s+(документ|файл|список)/,\n  /оформи\\s+(документ|файл)\\w*\\s+(в\\s+таблиц|таблицей)/\n];\nfor (const re of tablePatterns) {\n  if (re.test(lower)) {\n    return [{ json: { message, mode: 'list_documents', historyContext, session_id } }];\n  }\n}\n\nconst docKeywords = [\n  'документ', 'договор', 'акт', 'контракт', 'соглашени',\n  'коммерческ', 'предложени', 'кп ', 'доверенност',\n  'записк', 'протокол', 'приказ', 'заявлени',\n  'шаблон', 'бланк', 'образец', 'форм',\n  'найди в документ', 'что написано', 'что сказано',\n  'о чём документ', 'о чем документ', 'содержание документ',\n  'загруженн', 'файл', 'текст документ',\n  'пункт', 'параграф', 'раздел', 'глав',\n  'срок', 'оплат', 'условия', 'реквизит',\n  'составь', 'подготовь', 'создай документ', 'напиши документ',\n  'база знаний', 'база документ', 'найди информаци',\n  'процитируй', 'цитат', 'выдержк',\n  'регламент', 'инструкци', 'положени', 'устав',\n  'накладн', 'счёт', 'счет-фактур', 'акт выполненн'\n];\n\nlet isDoc = false;\n\nfor (const kw of docKeywords) {\n  if (lower.includes(kw)) { isDoc = true; break; }\n}\n\n// Дополнительная проверка: вопрос о содержимом\nif (!isDoc && message.length > 15) {\n  const contentIndicators = ['что написано', 'что сказано', 'о чём', 'о чем', 'найди в', 'процитируй'];\n  const contentEntities = ['документ', 'файл', 'договор', 'акт', 'контракт'];\n  const hasQuestion = contentIndicators.some(q => lower.includes(q));\n  const hasEntity = contentEntities.some(e => lower.includes(e));\n  if (hasQuestion && hasEntity) isDoc = true;\n}\n\nif (!isDoc) {\n  return [{ json: { message, mode: 'general', historyContext, session_id } }];\n}\n\nreturn [{ json: { message, mode: 'document', historyContext, session_id } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -153,6 +153,28 @@
                       "operation": "equals"
                     },
                     "id": "rule-list-docs"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mode }}",
+                    "rightValue": "get_document",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "rule-get-document"
                   }
                 ],
                 "combinator": "and"
@@ -527,7 +549,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const historyRows = $input.all().reverse();\nlet historyContext = '';\nif (historyRows.length > 0) {\n  const lines = historyRows.map(item => {\n    const role = item.json.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (item.json.content || '');\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\nconst v = $('Валидация').first().json;\nreturn [{json: {message: v.message, session_id: v.session_id, historyContext: historyContext}}];"
+        "jsCode": "const historyRows = $input.all().reverse();\nlet historyContext = '';\nif (historyRows.length > 0) {\n  const lines = historyRows.map(item => {\n    const role = item.json.role === 'user' ? 'Пользователь' : 'Ассистент';\n    return role + ': ' + (item.json.content || '');\n  });\n  historyContext = 'История диалога:\\n' + lines.join('\\n') + '\\n\\n';\n}\nconst v = $('Валидация').first().json;\nreturn [{json: {message: v.message, session_id: v.session_id, historyContext: historyContext, doc_get: (v.doc_get || '')}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -713,7 +735,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT DISTINCT filename, COUNT(*) AS chunks, MIN(created_at) AS uploaded_at FROM documents WHERE filename IS NOT NULL AND filename <> '' GROUP BY filename ORDER BY uploaded_at DESC LIMIT 1000;",
+        "query": "SELECT DISTINCT filename, COUNT(*) AS chunks, MIN(created_at) AS uploaded_at, 'internal' AS source, filename AS doc_id FROM documents WHERE filename IS NOT NULL AND filename <> '' GROUP BY filename ORDER BY uploaded_at DESC LIMIT 1000;",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -735,7 +757,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// v_general хранит ЧАНКИ; «Список внешний» группирует их по document_id (GROUP BY).\n// Наша documents — чанки, уже сгруппированные по filename в SQL.\n// Поэтому НЕ дедупим по filename здесь: дедуп схлопнул бы внешние\n// документы с пустыми/одинаковыми именами. Просто фильтруем\n// error-строки; каждая входная строка = ОДИН документ (чанки уже сгруппированы в SQL).\nconst all = $input.all().map(i => i.json);\nconst rows = all.filter(r => r && !r.error && r.filename && String(r.filename).trim());\n\n// R8.81: чистим кривые имена из БД (особенно офисная rel_db). В file_name лежат\n// полные пути: /app/site/uploads/.../docx/Пояснительная.docx или\n// D:\\project\\...\\docx\\Шаблон_ответа_13.docx. Берём только имя файла (после\n// последнего / или обратного слэша) и меняем '_' на пробел (там '_' вместо пробела).\nfunction cleanName(raw) {\n  var s = String(raw).trim();\n  var cut = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\\\'));\n  if (cut >= 0) s = s.slice(cut + 1);\n  s = s.split('_').join(' ');\n  while (s.indexOf('  ') !== -1) s = s.split('  ').join(' ');\n  return s.trim() || String(raw).trim();\n}\nlet response;\nif (!rows.length) {\n  response = 'В базе документов пока ничего нет. Загрузите файлы через «Загрузка документов» на дашборде.';\n} else {\n  const NL = String.fromCharCode(10);\n  const total = rows.length;\n  const showLimit = 10000;\n  const lines = rows.slice(0, showLimit).map((r, idx) => {\n    const n = (r.chunks && r.chunks > 1) ? (' (' + r.chunks + ' фрагм.)') : '';\n    return (idx + 1) + '. ' + cleanName(r.filename) + n;\n  });\n  response = 'Загружено документов: ' + total + '.' + NL + lines.join(NL);\n  if (total > showLimit) response += NL + '...и ещё ' + (total - showLimit) + '.';\n}\nreturn [{ json: { response, cps: 250 } }];\n"
+        "jsCode": "// v_general хранит ЧАНКИ; «Список внешний» группирует их по document_id (GROUP BY).\n// Наша documents — чанки, уже сгруппированные по filename в SQL.\n// Поэтому НЕ дедупим по filename здесь: дедуп схлопнул бы внешние\n// документы с пустыми/одинаковыми именами. Просто фильтруем\n// error-строки; каждая входная строка = ОДИН документ (чанки уже сгруппированы в SQL).\nconst all = $input.all().map(i => i.json);\nconst rows = all.filter(r => r && !r.error && r.filename && String(r.filename).trim());\n\n// R8.81: чистим кривые имена из БД (особенно офисная rel_db). В file_name лежат\n// полные пути: /app/site/uploads/.../docx/Пояснительная.docx или\n// D:\\project\\...\\docx\\Шаблон_ответа_13.docx. Берём только имя файла (после\n// последнего / или обратного слэша) и меняем '_' на пробел (там '_' вместо пробела).\nfunction cleanName(raw) {\n  var s = String(raw).trim();\n  var cut = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\\\'));\n  if (cut >= 0) s = s.slice(cut + 1);\n  s = s.split('_').join(' ');\n  while (s.indexOf('  ') !== -1) s = s.split('  ').join(' ');\n  return s.trim() || String(raw).trim();\n}\nlet response;\nif (!rows.length) {\n  response = 'В базе документов пока ничего нет. Загрузите файлы через «Загрузка документов» на дашборде.';\n} else {\n  const NL = String.fromCharCode(10);\n  const total = rows.length;\n  const showLimit = 10000;\n  const lines = rows.slice(0, showLimit).map((r, idx) => {\n    const n = (r.chunks && r.chunks > 1) ? (' (' + r.chunks + ' фрагм.)') : '';\n    const __disp = (idx + 1) + '. ' + cleanName(r.filename) + n;\n    const __src = r.source || 'internal';\n    const __did = (r.doc_id != null) ? String(r.doc_id) : '';\n    return __did ? ('[[DOC|' + __src + '|' + encodeURIComponent(__did) + '|' + __disp + ']]') : __disp;\n  });\n  response = 'Загружено документов: ' + total + '.' + NL + lines.join(NL);\n  if (total > showLimit) response += NL + '...и ещё ' + (total - showLimit) + '.';\n}\nreturn [{ json: { response, cps: 250 } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -835,7 +857,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT COALESCE(NULLIF(MAX(file_name), ''), 'Документ #' || document_id::text) AS filename, COUNT(*) AS chunks, MIN(uploaded_at) AS uploaded_at FROM _vectordocuments.v_general GROUP BY document_id ORDER BY MIN(uploaded_at) DESC NULLS LAST LIMIT 1000",
+        "query": "SELECT COALESCE(NULLIF(MAX(file_name), ''), 'Документ #' || document_id::text) AS filename, COUNT(*) AS chunks, MIN(uploaded_at) AS uploaded_at, 'external' AS source, document_id::text AS doc_id FROM _vectordocuments.v_general GROUP BY document_id ORDER BY MIN(uploaded_at) DESC NULLS LAST LIMIT 1000",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
@@ -870,6 +892,145 @@
       ],
       "id": "rag-merge-list-r842",
       "name": "Merge списки"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.doc_source }}",
+                    "rightValue": "external",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cond-src-ext"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        },
+        "looseTypeValidation": true
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        3210,
+        1080
+      ],
+      "id": "rag-doc-src-sw-V1",
+      "name": "Источник контента?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT string_agg(\"text\", chr(10) || chr(10) ORDER BY chunk_index) AS content, COUNT(*) AS chunks, COALESCE(NULLIF(MAX(file_name), ''), '') AS filename FROM _vectordocuments.v_general WHERE document_id::text = $1",
+        "options": {
+          "queryReplacement": "={{ [$json.doc_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3490,
+        1000
+      ],
+      "id": "rag-doc-content-ext-V1",
+      "name": "Контент: внешний",
+      "credentials": {
+        "postgres": {
+          "id": "",
+          "name": "Postgres rel_db"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "notes": "Список документов из внешней rel_db._vectordocuments.v_general. Тот же credential 'Postgres rel_db' что и Поиск внешний."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT string_agg(chunk_text, chr(10) || chr(10) ORDER BY chunk_index) AS content, COUNT(*) AS chunks, $1 AS filename FROM documents WHERE filename = $1",
+        "options": {
+          "queryReplacement": "={{ [$json.doc_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3490,
+        1160
+      ],
+      "id": "rag-doc-content-int-V1",
+      "name": "Контент: наш",
+      "credentials": {
+        "postgres": {
+          "id": "OYsyciMf7Eq9W4FS",
+          "name": "Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "function cleanName(raw){var s=String(raw||'').trim();var c=Math.max(s.lastIndexOf('/'),s.lastIndexOf('\\\\'));if(c>=0)s=s.slice(c+1);return s.split('_').join(' ').replace(/\\s+/g,' ').trim();}\nconst row = ($input.first() && $input.first().json) || {};\nconst content = String(row.content || '').trim();\nlet response;\nif (!content) {\n  response = 'Не удалось загрузить содержимое документа — возможно, текст не был проиндексирован.';\n} else {\n  const fn = cleanName(row.filename) || 'Документ';\n  const CAP = 60000;\n  let body = content, note = '';\n  if (body.length > CAP) { body = body.slice(0, CAP); note = '\\n\\n…(показано ' + CAP + ' символов из ' + content.length + ')'; }\n  response = '📄 ' + fn + ':\\n\\n' + body + note;\n}\nreturn [{ json: { response, cps: 400 } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3770,
+        1080
+      ],
+      "id": "rag-doc-content-fmt-V1",
+      "name": "Формат контента"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ response: $json.response, cps: $json.cps }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, GET, OPTIONS"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        4050,
+        1080
+      ],
+      "id": "rag-doc-content-resp-V1",
+      "name": "Ответ: контент"
     }
   ],
   "pinData": {},
@@ -942,6 +1103,13 @@
           },
           {
             "node": "Список внешний",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Источник контента?",
             "type": "main",
             "index": 0
           }
@@ -1243,6 +1411,57 @@
         [
           {
             "node": "Формат списка документов",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Источник контента?": {
+      "main": [
+        [
+          {
+            "node": "Контент: внешний",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Контент: наш",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Контент: внешний": {
+      "main": [
+        [
+          {
+            "node": "Формат контента",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Контент: наш": {
+      "main": [
+        [
+          {
+            "node": "Формат контента",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Формат контента": {
+      "main": [
+        [
+          {
+            "node": "Ответ: контент",
             "type": "main",
             "index": 0
           }

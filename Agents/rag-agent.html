@@ -60,6 +60,9 @@
         #msg:disabled { opacity: 0.4; }
         #msg::placeholder { color: var(--text-muted); }
         /* .empty-chat — базовое правило в _shared.js (injectAgentCss). */
+        /* R8.82: кликабельные имена документов в списке (клик → контент). */
+        #chat a.gc-doclink { color: var(--accent); cursor: pointer; text-decoration: none; border-bottom: 1px dashed var(--accent); }
+        #chat a.gc-doclink:hover { color: var(--accent-hover); border-bottom-color: var(--accent-hover); background: var(--bg-user); }
     </style>
     <script src="_config.js"></script>
     <link rel="stylesheet" href="lib/hljs-dark.min.css" id="hljs-theme-dark">
@@ -104,6 +107,10 @@
             GigaChat.createChatAgent({
                 userScoped: true,
                 webhookPath: 'rag',
+                // R8.82: клик по имени документа кладёт сюда doc_get='source|id';
+                // workflow по нему отдаёт ПОЛНЫЙ контент документа. Токен добавляется
+                // автоматически (userScoped). Чистим сразу после использования.
+                extraBody: function () { var dg = window.__ragDocGet; window.__ragDocGet = null; return dg ? { doc_get: dg } : {}; },
                 historyPath: 'history',
                 prefix: 'rag',
                 idPrefix: 'rag_',
@@ -115,6 +122,7 @@
                 // Паттерны синхронизированы с узлом «Классификатор» (rag-agent.json).
                 // Если фронт не распознал (drift) — максимум мелькнёт кольцо, не критично.
                 skipInflightFor: function (msg) {
+                    if (window.__ragDocGet) return true; // R8.82: открытие документа — тоже мгновенно, без кольца
                     var lower = (msg || '').toLowerCase();
                     var listIndicators = ['какие документ','какие файл','список документ','список файл','покажи документ','покажи файл','покажи все документ','покажи все файл','что загружен','что есть в баз','что есть в документ','документы в базе','файлы в базе','перечисли документ','перечисли файл','имена документ','имена файл','названия документ','названия файл','все документ','все файл','сколько документ','сколько файл','количество документ','количество файл','кол-во документ','кол-во файл','число документ','число файл','все мои документ','все мои файл','покажи мои документ','мои документ','мои файл','есть документ','есть файл','что у меня в баз','что в баз','покажи всё','покажи все'];
                     for (var i = 0; i < listIndicators.length; i++) { if (lower.indexOf(listIndicators[i]) !== -1) return true; }
@@ -125,6 +133,24 @@
                 emptyChatHtml: '<div class="empty-chat">Создайте новую сессию для начала работы</div>',
                 historyErrorHtml: '<div class="empty-chat">Не удалось загрузить историю.</div>',
                 historyLoadingHtml: '<div class="empty-chat">Загружаю историю...</div>'
+            });
+            // R8.82: клик по имени документа в списке → плавный скролл вниз +
+            // печатается полный контент. Имя — <a class="gc-doclink" data-doc-src
+            // data-doc-id> (правило в formatMarkdown). Клик кладёт doc_get для
+            // extraBody и вызывает sendMsg (он сам скроллит к низу и стримит ответ).
+            document.addEventListener('click', function (e) {
+                var a = e.target.closest && e.target.closest('a.gc-doclink');
+                if (!a) return;
+                e.preventDefault();
+                var source = a.getAttribute('data-doc-src') || 'internal';
+                var docId = '';
+                try { docId = decodeURIComponent(a.getAttribute('data-doc-id') || ''); } catch (_) { docId = a.getAttribute('data-doc-id') || ''; }
+                if (!docId) return;
+                var name = (a.textContent || '').replace(/^\s*\d+\.\s*/, '').replace(/\s*\(\d+\s*фрагм\.\)\s*$/, '').trim();
+                window.__ragDocGet = source + '|' + docId;
+                var inp = document.getElementById('msg');
+                if (inp) inp.value = 'Содержание: «' + (name || 'документ') + '»';
+                if (typeof sendMsg === 'function') sendMsg();
             });
         }});
     </script>

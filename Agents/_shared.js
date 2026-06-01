@@ -534,6 +534,15 @@
       ? accentColor : '#7c3aed';
     var html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+    // R8.82: кликабельные имена документов (RAG-список). Узел «Формат списка
+    // документов» выдаёт [[DOC|source|encodedId|displayName]] → ссылка с data-*.
+    // Идёт ПОСЛЕ escape (& < >), поэтому выдаваемый <a> — сырой HTML (не
+    // экранируется); displayName ($3) уже экранирован выше. У других агентов
+    // этот маркер не встречается, правило для них инертно.
+    html = html.replace(/\[\[DOC\|([^|]*)\|([^|]*)\|([\s\S]*?)\]\]/g, function (m, src, id, nm) {
+      return '<a href="#" class="gc-doclink" data-doc-src="' + src + '" data-doc-id="' + id + '">' + nm + '</a>';
+    });
+
     // 1) Защищаем блоки кода плейсхолдерами, чтобы \n внутри них не превращались в <br>.
     var codeBlocks = [];
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function (m, l, c) {
